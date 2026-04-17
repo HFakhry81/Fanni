@@ -1,0 +1,20 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "0JyGk6uGyGeu0_RWhzzd-"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "fanni app icon"
+
+[[generated]]
+id = "qx7lmtT6AeBqp-izaiDui"
+uri = "file://artifacts/mobile/assets/images/splash.png"
+type = "image"
+title = "fanni splash background"
+
+[[generated]]
+id = "Sy90HVJn4NfwIuV2tcf9i"
+uri = "file://artifacts/mobile/assets/images/categories_bg.png"
+type = "image"
+title = "fanni categories banner"
