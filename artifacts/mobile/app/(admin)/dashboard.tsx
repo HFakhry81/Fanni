@@ -1,25 +1,20 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Platform,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
+import AppHeader from "@/components/AppHeader";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function AdminDashboardScreen() {
+  const router = useRouter();
   const colors = useColors();
-  const { t, isRTL, setLanguage, language } = useApp();
+  const { t, isRTL } = useApp();
   const { allOrders } = useOrders();
   const insets = useSafeAreaInsets();
-
-  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const completed = allOrders.filter((o) => o.status === "completed");
@@ -27,58 +22,53 @@ export default function AdminDashboardScreen() {
   const active = allOrders.filter((o) => ["accepted", "inProgress"].includes(o.status));
   const totalRevenue = completed.reduce((sum, o) => sum + (o.invoice?.total ?? 0), 0);
 
-  const stats = [
-    { icon: "dollar-sign", label: t("admin.totalRevenue"), value: `${totalRevenue.toFixed(0)} ${t("common.egp")}`, color: "#38A169" },
-    { icon: "activity", label: t("admin.activeOrders"), value: active.length.toString(), color: "#0077CC" },
-    { icon: "tool", label: t("admin.registeredTechs"), value: "12", color: "#F5A623" },
-    { icon: "users", label: t("admin.totalClients"), value: "48", color: "#6C5CE7" },
+  const kpis = [
+    { icon: "dollar-sign", label: t("admin.totalRevenue"), value: `${totalRevenue.toFixed(0)}`, unit: t("common.egp"), color: colors.primary,   bg: colors.accent },
+    { icon: "activity",    label: t("admin.activeOrders"), value: active.length.toString(),     unit: "",                color: colors.secondary, bg: colors.accentBlue },
+    { icon: "tool",        label: t("admin.registeredTechs"), value: "12",                      unit: "",                color: "#7C5CBF",        bg: "#EDE9FE" },
+    { icon: "users",       label: t("admin.totalClients"),    value: "48",                      unit: "",                color: "#22A36B",        bg: "#D4EDDA" },
   ];
 
   const recentOrders = [...allOrders].reverse().slice(0, 5);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.dark, paddingTop: topPad + 8 }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-            {isRTL ? "لوحة المسئول" : "Admin Panel"}
-          </Text>
-          <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 20, textAlign: isRTL ? "right" : "left" }}>
-            {t("admin.dashboard")}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.langBtn, { borderColor: "rgba(255,255,255,0.3)" }]}
-          onPress={() => setLanguage(language === "ar" ? "en" : "ar")}
-        >
-          <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-            {language === "ar" ? "EN" : "عر"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader
+        title={t("admin.dashboard")}
+        subtitle={isRTL ? "لوحة تحكم المسئول" : "Admin Control Panel"}
+        showHome
+        showLogout
+        showLangToggle
+      />
 
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
-      >
-        {/* Stats grid */}
-        <View style={styles.statsGrid}>
-          {stats.map((stat) => (
-            <View
-              key={stat.label}
-              style={[
-                styles.statCard,
-                { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border },
-              ]}
-            >
-              <View style={[styles.statIcon, { backgroundColor: stat.color + "22", borderRadius: 10 }]}>
-                <Feather name={stat.icon as any} size={22} color={stat.color} />
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+        {/* KPI grid */}
+        <View style={styles.kpiGrid}>
+          {kpis.map((kpi) => (
+            <View key={kpi.label} style={[styles.kpiCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
+              <View style={[styles.kpiIcon, { backgroundColor: kpi.bg, borderRadius: 12 }]}>
+                <Feather name={kpi.icon as any} size={22} color={kpi.color} />
               </View>
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 10 }}>
-                {stat.value}
+              <Text style={{ color: kpi.color, fontFamily: "Inter_700Bold", fontSize: 22, marginTop: 10 }}>
+                {kpi.value}<Text style={{ fontSize: 13, fontFamily: "Inter_500Medium" }}> {kpi.unit}</Text>
               </Text>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "center", marginTop: 4 }}>
-                {stat.label}
+                {kpi.label}
               </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Status summary strip */}
+        <View style={[styles.statusStrip, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          {[
+            { label: isRTL ? "في الانتظار" : "Pending",   count: pending.length,   color: colors.primary },
+            { label: isRTL ? "نشطة" : "Active",            count: active.length,    color: colors.secondary },
+            { label: isRTL ? "مكتملة" : "Completed",       count: completed.length, color: colors.success },
+          ].map((s, i) => (
+            <View key={s.label} style={[styles.stripItem, { borderRightWidth: i < 2 ? 1 : 0, borderRightColor: colors.border }]}>
+              <Text style={{ color: s.color, fontFamily: "Inter_700Bold", fontSize: 22 }}>{s.count}</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>{s.label}</Text>
             </View>
           ))}
         </View>
@@ -87,40 +77,22 @@ export default function AdminDashboardScreen() {
         <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
           {isRTL ? "آخر الطلبات" : "Recent Orders"}
         </Text>
-
         {recentOrders.map((order) => (
-          <View
+          <TouchableOpacity
             key={order.id}
-            style={[
-              styles.orderRow,
-              { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" },
-            ]}
+            style={[styles.orderRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={() => router.push({ pathname: "/order-details", params: { orderId: order.id } })}
+            activeOpacity={0.85}
           >
-            <View
-              style={[
-                styles.orderDot,
-                {
-                  backgroundColor:
-                    order.status === "completed" ? colors.success :
-                    order.status === "pending" ? colors.primary :
-                    "#0077CC",
-                },
-              ]}
-            />
+            <View style={[styles.orderDot, { backgroundColor: order.status === "completed" ? colors.success : order.status === "pending" ? colors.primary : colors.secondary }]} />
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                {order.orderNumber}
-              </Text>
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
-                {order.clientName} — {t(`cat.${order.category}`)}
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>{order.orderNumber}</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>
+                {order.clientName} · {t(`cat.${order.category}`)}
               </Text>
             </View>
-            <View style={[styles.statusDot, { backgroundColor: order.status === "completed" ? "#E6F9F0" : order.status === "pending" ? "#FFF3DC" : "#E6F4FF", borderRadius: 8 }]}>
-              <Text style={{ color: order.status === "completed" ? colors.success : order.status === "pending" ? colors.primary : "#0077CC", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
-                {t(`order.status.${order.status}`)}
-              </Text>
-            </View>
-          </View>
+            <StatusBadge status={order.status} />
+          </TouchableOpacity>
         ))}
 
         {/* Quick actions */}
@@ -129,23 +101,24 @@ export default function AdminDashboardScreen() {
         </Text>
         <View style={[styles.actionsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {[
-            { icon: "users", label: t("admin.users") },
-            { icon: "list", label: t("admin.orders") },
-            { icon: "bar-chart-2", label: t("admin.stats") },
-            { icon: "shield", label: t("admin.permissions") },
+            { icon: "users",      label: t("admin.users"),       color: colors.secondary, route: "/(admin)/users" },
+            { icon: "list",       label: t("admin.orders"),      color: colors.primary,   route: "/(admin)/orders" },
+            { icon: "bar-chart-2",label: t("admin.stats"),       color: "#7C5CBF",        route: "/(admin)/stats" },
+            { icon: "shield",     label: t("admin.permissions"), color: "#22A36B",        route: "/(admin)/permissions" },
           ].map((item) => (
-            <View
+            <TouchableOpacity
               key={item.label}
-              style={[
-                styles.actionCard,
-                { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border },
-              ]}
+              style={[styles.actionCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.85}
             >
-              <Feather name={item.icon as any} size={24} color={colors.primary} />
+              <View style={[styles.actionIcon, { backgroundColor: item.color + "18", borderRadius: 12 }]}>
+                <Feather name={item.icon as any} size={22} color={item.color} />
+              </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 11, marginTop: 8, textAlign: "center" }} numberOfLines={2}>
                 {item.label}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
@@ -155,16 +128,16 @@ export default function AdminDashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
-  langBtn: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1.5 },
   content: { paddingHorizontal: 16, paddingTop: 16 },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 24 },
-  statCard: { width: "47%", padding: 16, borderWidth: 1.5, alignItems: "center" },
-  statIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center" },
-  sectionTitle: { fontSize: 18, marginBottom: 14 },
+  kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
+  kpiCard: { width: "47%", padding: 16, borderWidth: 1.5, alignItems: "center" },
+  kpiIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  statusStrip: { padding: 16, borderWidth: 1.5, marginBottom: 24 },
+  stripItem: { flex: 1, alignItems: "center", paddingVertical: 4 },
+  sectionTitle: { fontSize: 17, marginBottom: 12 },
   orderRow: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center" },
   orderDot: { width: 10, height: 10, borderRadius: 5 },
-  statusDot: { paddingVertical: 4, paddingHorizontal: 10 },
-  actionsRow: { gap: 12 },
+  actionsRow: { gap: 10, marginBottom: 8 },
   actionCard: { flex: 1, paddingVertical: 16, alignItems: "center", borderWidth: 1.5 },
+  actionIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
 });

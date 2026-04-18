@@ -1,14 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Platform,
-  Modal,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -17,6 +8,7 @@ import { useApp } from "@/context/AppContext";
 import { useOrders, Order } from "@/context/OrderContext";
 import StatusBadge from "@/components/StatusBadge";
 import FanniButton from "@/components/FanniButton";
+import AppHeader from "@/components/AppHeader";
 
 export default function TechMapScreen() {
   const router = useRouter();
@@ -28,16 +20,7 @@ export default function TechMapScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
-  const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
-
-  // Pending orders in tech's specialty area
   const pendingOrders = allOrders.filter((o) => o.status === "pending");
-
-  const handleOrderTap = (order: Order) => {
-    setSelectedOrder(order);
-    setModalVisible(true);
-  };
 
   const handleAccept = async () => {
     if (!selectedOrder) return;
@@ -63,67 +46,64 @@ export default function TechMapScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.dark, paddingTop: topPad + 8 }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-            {isRTL ? "منطقة الخدمة" : "Service Area"}
-          </Text>
-          <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 18, textAlign: isRTL ? "right" : "left" }}>
-            {user?.name}
-          </Text>
-        </View>
-        <View style={[styles.onlineBadge, { backgroundColor: colors.success }]}>
-          <View style={[styles.onlineDot, { backgroundColor: "#FFF" }]} />
-          <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-            {isRTL ? "متاح" : "Online"}
-          </Text>
-        </View>
-      </View>
+      <AppHeader
+        title={user?.name ?? t("app.name")}
+        subtitle={isRTL ? "منطقة الخدمة" : "Service Area"}
+        showLangToggle
+        rightElement={
+          <View style={[styles.onlineBadge, { backgroundColor: "#22A36B" }]}>
+            <View style={styles.onlineDot} />
+            <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+              {isRTL ? "متاح" : "Online"}
+            </Text>
+          </View>
+        }
+      />
 
       {/* Map placeholder */}
-      <View style={[styles.mapPlaceholder, { backgroundColor: "#E8F4FD" }]}>
-        <Feather name="map" size={48} color={colors.primary} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15, marginTop: 12, textAlign: "center" }}>
-          {isRTL ? "خريطة منطقة الخدمة" : "Service Area Map"}
-        </Text>
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 4, textAlign: "center" }}>
-          {isRTL ? "الطلبات المتاحة في منطقتك" : "Available orders in your area"}
-        </Text>
-        {/* Map pins for pending orders */}
+      <View style={[styles.mapPlaceholder, { backgroundColor: colors.accentBlue }]}>
+        {/* Grid overlay to simulate map */}
+        <View style={styles.mapGrid}>
+          {[0, 1, 2].map((row) =>
+            [0, 1, 2, 3].map((col) => (
+              <View key={`${row}-${col}`} style={[styles.mapCell, { borderColor: colors.secondary + "30" }]} />
+            ))
+          )}
+        </View>
+        <View style={styles.mapCenter}>
+          <Feather name="navigation" size={36} color={colors.secondary} />
+          <Text style={{ color: colors.darkMid, fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 8, textAlign: "center" }}>
+            {isRTL ? "خريطة منطقة الخدمة" : "Service Area Map"}
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 3, textAlign: "center" }}>
+            {isRTL ? `${pendingOrders.length} طلبات متاحة قريبة منك` : `${pendingOrders.length} orders available nearby`}
+          </Text>
+        </View>
+        {/* Map pins */}
         {pendingOrders.slice(0, 3).map((order, i) => (
           <TouchableOpacity
             key={order.id}
-            style={[
-              styles.mapPin,
-              {
-                backgroundColor: colors.primary,
-                top: 40 + i * 60,
-                left: 60 + i * 80,
-              },
-            ]}
-            onPress={() => handleOrderTap(order)}
+            style={[styles.mapPin, { backgroundColor: colors.primary, top: 30 + i * 55, left: 50 + i * 80 }]}
+            onPress={() => { setSelectedOrder(order); setModalVisible(true); }}
           >
-            <Feather name="map-pin" size={16} color="#FFF" />
+            <Feather name="map-pin" size={14} color="#FFF" />
+            <View style={[styles.pinBadge, { backgroundColor: colors.dark }]}>
+              <Text style={{ color: "#FFF", fontSize: 9, fontFamily: "Inter_700Bold" }}>{i + 1}</Text>
+            </View>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Pending orders list */}
+      {/* Orders list */}
       <View style={[styles.ordersSection, { backgroundColor: colors.background }]}>
-        <Text
-          style={{
-            color: colors.foreground,
-            fontFamily: "Inter_700Bold",
-            fontSize: 16,
-            paddingHorizontal: 16,
-            paddingTop: 16,
-            marginBottom: 8,
-            textAlign: isRTL ? "right" : "left",
-          }}
-        >
-          {isRTL ? `الطلبات المتاحة (${pendingOrders.length})` : `Available Orders (${pendingOrders.length})`}
-        </Text>
+        <View style={[styles.listHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "الطلبات المتاحة" : "Available Orders"}
+          </Text>
+          <View style={[styles.countChip, { backgroundColor: colors.primary + "20" }]}>
+            <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{pendingOrders.length}</Text>
+          </View>
+        </View>
         <FlatList
           data={pendingOrders}
           keyExtractor={(item) => item.id}
@@ -132,7 +112,9 @@ export default function TechMapScreen() {
           contentContainerStyle={styles.horizontalList}
           ListEmptyComponent={
             <View style={styles.emptyHoriz}>
-              <Feather name="inbox" size={32} color={colors.border} />
+              <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 30 }]}>
+                <Feather name="inbox" size={28} color={colors.mutedForeground} />
+              </View>
               <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 8, fontFamily: "Inter_400Regular" }}>
                 {t("common.noData")}
               </Text>
@@ -140,48 +122,48 @@ export default function TechMapScreen() {
           }
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[
-                styles.pendingCard,
-                {
-                  backgroundColor: colors.card,
-                  borderRadius: colors.radius,
-                  borderColor: colors.border,
-                },
-              ]}
-              onPress={() => handleOrderTap(item)}
+              style={[styles.pendingCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+              onPress={() => { setSelectedOrder(item); setModalVisible(true); }}
               activeOpacity={0.85}
             >
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
-                {item.orderNumber}
-              </Text>
-              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-                {t(`cat.${item.category}`)}
-              </Text>
-              <View style={[styles.cardRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-                <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginLeft: 4 }} numberOfLines={1}>
-                  {item.street}
+              <View style={[styles.cardAccent, { backgroundColor: colors.primary }]} />
+              <View style={styles.cardContent}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginBottom: 2, textAlign: isRTL ? "right" : "left" }}>
+                  {item.orderNumber}
                 </Text>
-              </View>
-              <View style={[styles.cardRow, { flexDirection: isRTL ? "row-reverse" : "row", marginBottom: 10 }]}>
-                <Feather name="calendar" size={12} color={colors.mutedForeground} />
-                <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginLeft: 4 }}>
-                  {item.visitDate}
-                </Text>
-              </View>
-              <View style={[styles.orderBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                <TouchableOpacity
-                  style={[styles.acceptBtn, { backgroundColor: colors.primary, borderRadius: colors.radius / 2, flex: 1 }]}
-                  onPress={() => { setSelectedOrder(item); handleAccept(); }}
-                >
-                  <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{t("tech.accept")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.rejectBtn, { borderColor: colors.border, borderRadius: colors.radius / 2, flex: 1 }]}
-                  onPress={() => {}}
-                >
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{t("tech.reject")}</Text>
-                </TouchableOpacity>
+                <View style={[styles.catChip, { backgroundColor: colors.accent, borderRadius: 8 }]}>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                    {t(`cat.${item.category}`)}
+                  </Text>
+                </View>
+                <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Feather name="map-pin" size={11} color={colors.secondary} />
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 3, flex: 1 }} numberOfLines={1}>
+                    {item.street}
+                  </Text>
+                </View>
+                <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Feather name="calendar" size={11} color={colors.secondary} />
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 3 }}>
+                    {item.visitDate}
+                  </Text>
+                </View>
+                <View style={[styles.orderBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <TouchableOpacity
+                    style={[styles.acceptBtn, { backgroundColor: colors.primary, borderRadius: 8, flex: 1 }]}
+                    onPress={() => { setSelectedOrder(item); handleAccept(); }}
+                  >
+                    <Feather name="check" size={12} color="#FFF" />
+                    <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 11, marginLeft: 4 }}>{t("tech.accept")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.rejectBtn, { borderColor: colors.border, borderRadius: 8, flex: 1 }]}
+                    onPress={() => {}}
+                  >
+                    <Feather name="x" size={12} color={colors.mutedForeground} />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 4 }}>{t("tech.reject")}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </TouchableOpacity>
           )}
@@ -191,23 +173,28 @@ export default function TechMapScreen() {
       {/* Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
-            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
-              {t("tech.newOrder")}
-            </Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderRadius: 24 }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            <View style={[styles.modalTitle, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <View style={[styles.modalIcon, { backgroundColor: colors.accent, borderRadius: 12 }]}>
+                <Feather name="bell" size={18} color={colors.primary} />
+              </View>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+                {t("tech.newOrder")}
+              </Text>
+            </View>
             {selectedOrder && (
               <>
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
-                  {selectedOrder.orderNumber}
-                </Text>
-                <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 14, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
-                  {t(`cat.${selectedOrder.category}`)} — {selectedOrder.subCategory}
-                </Text>
+                <View style={[styles.modalOrderNum, { backgroundColor: colors.muted, borderRadius: 10 }]}>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>{selectedOrder.orderNumber}</Text>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 2 }}>
+                    {t(`cat.${selectedOrder.category}`)} — {selectedOrder.subCategory}
+                  </Text>
+                </View>
                 {[
-                  [t("order.problemDesc"), selectedOrder.problemDescription],
-                  [t("order.visitDate"), selectedOrder.visitDate + " " + selectedOrder.visitTime],
+                  [t("order.problemDesc"),     selectedOrder.problemDescription],
+                  [t("order.visitDate"),        `${selectedOrder.visitDate} ${selectedOrder.visitTime}`],
                   [isRTL ? "العنوان" : "Address", `${selectedOrder.street}, ${t("order.floor")} ${selectedOrder.floor}`],
-                  [t("order.deviceType"), selectedOrder.deviceType || "—"],
                 ].map(([label, value]) => (
                   <View key={label} style={[styles.modalRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 }}>{label}</Text>
@@ -215,18 +202,8 @@ export default function TechMapScreen() {
                   </View>
                 ))}
                 <View style={[styles.modalBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                  <FanniButton
-                    title={t("tech.reject")}
-                    onPress={handleReject}
-                    variant="outline"
-                    style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
-                  />
-                  <FanniButton
-                    title={t("tech.accept")}
-                    onPress={handleAccept}
-                    loading={loading}
-                    style={{ flex: 1 }}
-                  />
+                  <FanniButton title={t("tech.reject")} onPress={handleReject} variant="outline" style={{ flex: 1 }} />
+                  <FanniButton title={t("tech.accept")} onPress={handleAccept} loading={loading} style={{ flex: 1 }} />
                 </View>
               </>
             )}
@@ -239,59 +216,34 @@ export default function TechMapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  onlineBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    gap: 6,
-  },
-  onlineDot: { width: 8, height: 8, borderRadius: 4 },
-  mapPlaceholder: {
-    height: 200,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  mapPin: {
-    position: "absolute",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
-  },
+  onlineBadge: { flexDirection: "row", alignItems: "center", paddingVertical: 5, paddingHorizontal: 10, borderRadius: 14, gap: 5 },
+  onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FFF" },
+  mapPlaceholder: { height: 195, position: "relative", overflow: "hidden" },
+  mapGrid: { ...StyleSheet.absoluteFillObject, flexDirection: "row", flexWrap: "wrap" },
+  mapCell: { width: "25%", height: "33%", borderWidth: 0.5 },
+  mapCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  mapPin: { position: "absolute", width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 }, elevation: 5 },
+  pinBadge: { position: "absolute", top: -4, right: -4, width: 14, height: 14, borderRadius: 7, alignItems: "center", justifyContent: "center" },
   ordersSection: { flex: 1 },
-  horizontalList: { paddingHorizontal: 16, paddingBottom: Platform.OS === "web" ? 100 : 90 },
-  pendingCard: {
-    width: 220,
-    marginRight: 12,
-    padding: 14,
-    borderWidth: 1.5,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  cardRow: { alignItems: "center", marginBottom: 4, gap: 4 },
-  orderBtns: { gap: 8 },
-  acceptBtn: { paddingVertical: 8, alignItems: "center" },
-  rejectBtn: { paddingVertical: 8, alignItems: "center", borderWidth: 1.5, backgroundColor: "transparent" },
+  listHeader: { paddingHorizontal: 16, paddingTop: 14, marginBottom: 10, alignItems: "center", gap: 8 },
+  countChip: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 12 },
+  horizontalList: { paddingHorizontal: 16, paddingBottom: Platform.OS === "web" ? 100 : 90, gap: 10 },
+  pendingCard: { width: 210, borderWidth: 1.5, flexDirection: "row", overflow: "hidden" },
+  cardAccent: { width: 4 },
+  cardContent: { flex: 1, padding: 12 },
+  catChip: { alignSelf: "flex-start", paddingVertical: 3, paddingHorizontal: 8, marginBottom: 8 },
+  infoRow: { alignItems: "center", marginBottom: 5 },
+  orderBtns: { gap: 6, marginTop: 8 },
+  acceptBtn: { paddingVertical: 7, alignItems: "center", flexDirection: "row", justifyContent: "center" },
+  rejectBtn: { paddingVertical: 7, alignItems: "center", borderWidth: 1.5, backgroundColor: "transparent", flexDirection: "row", justifyContent: "center" },
   emptyHoriz: { alignItems: "center", justifyContent: "center", paddingHorizontal: 40, paddingVertical: 20 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  modalContent: { padding: 24, margin: 16, marginBottom: 24 },
+  emptyIcon: { width: 60, height: 60, alignItems: "center", justifyContent: "center" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  modalContent: { padding: 24, margin: 12, marginBottom: 20 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 20 },
+  modalTitle: { alignItems: "center", marginBottom: 16 },
+  modalIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
+  modalOrderNum: { padding: 14, marginBottom: 12 },
   modalRow: { paddingVertical: 10, borderBottomWidth: 1 },
-  modalBtns: { marginTop: 20, gap: 8 },
+  modalBtns: { marginTop: 20, gap: 10 },
 });

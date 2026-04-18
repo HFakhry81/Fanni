@@ -17,6 +17,7 @@ import StatusBadge from "@/components/StatusBadge";
 import StarRating from "@/components/StarRating";
 import FanniButton from "@/components/FanniButton";
 import FanniInput from "@/components/FanniInput";
+import AppHeader from "@/components/AppHeader";
 
 export default function OrderDetailsScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -66,14 +67,11 @@ export default function OrderDetailsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.dark, paddingTop: topPad + 12 }]}>
-        <TouchableOpacity style={[styles.backBtn, { [isRTL ? "right" : "left"]: 16 }]} onPress={() => router.back()}>
-          <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={22} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: "#FFF", fontFamily: "Inter_700Bold" }]}>
-          {order.orderNumber}
-        </Text>
-      </View>
+      <AppHeader
+        title={order.orderNumber}
+        showBack
+        onBack={() => router.back()}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -275,14 +273,6 @@ export default function OrderDetailsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    position: "relative",
-  },
-  backBtn: { position: "absolute", bottom: 20, padding: 4 },
-  headerTitle: { fontSize: 17 },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
   section: {
