@@ -5,7 +5,7 @@ outputs = []
 id = "0JyGk6uGyGeu0_RWhzzd-"
 uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
-title = "fanni app icon"
+title = "fanni-app-icon"
 
 [[generated]]
 id = "qx7lmtT6AeBqp-izaiDui"
@@ -18,3 +18,9 @@ id = "Sy90HVJn4NfwIuV2tcf9i"
 uri = "file://artifacts/mobile/assets/images/categories_bg.png"
 type = "image"
 title = "fanni categories banner"
+
+[[generated]]
+id = "XCeC5XBQ_l7mAAmMFU6az"
+uri = "file://artifacts/mobile/assets/images/splash-icon.png"
+type = "image"
+title = "fanni-splash"

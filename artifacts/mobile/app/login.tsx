@@ -17,9 +17,9 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 
 const MOCK_USERS = [
-  { mobile: "01012345678", password: "123456", type: "client" as const, name: "أحمد محمد", email: "ahmed@email.com", address: "القاهرة، مصر", id: "client1" },
-  { mobile: "01098765432", password: "123456", type: "technician" as const, name: "محمد علي", email: "tech@email.com", address: "الجيزة، مصر", id: "tech1", profession: "كهرباء", specialty: "تكييف", experience: 5 },
-  { mobile: "admin", password: "admin", type: "admin" as const, name: "مسئول النظام", email: "admin@fanni.com", address: "", id: "admin1" },
+  { mobile: "123", password: "123", type: "client" as const, name: "أحمد محمد", email: "ahmed@email.com", address: "القاهرة، مصر", id: "client1" },
+  { mobile: "111", password: "1", type: "technician" as const, name: "محمد علي", email: "tech@email.com", address: "الجيزة، مصر", id: "tech1", profession: "كهرباء", specialty: "تكييف", experience: 5 },
+  { mobile: "111", password: "10", type: "admin" as const, name: "مسئول النظام", email: "admin@fanni.com", address: "", id: "admin1" },
 ];
 
 export default function LoginScreen() {
@@ -145,17 +145,12 @@ export default function LoginScreen() {
           )}
 
           <FanniInput
-            label={type === "admin" ? "Username" : t("login.mobile")}
-            placeholder={
-              type === "admin"
-                ? "admin"
-                : isRTL
-                ? "01XXXXXXXXX"
-                : "01XXXXXXXXX"
-            }
+            label={isRTL ? "اسم المستخدم" : "Username"}
+            placeholder={isRTL ? "أدخل اسم المستخدم" : "Enter username"}
             value={mobile}
             onChangeText={setMobile}
-            keyboardType="phone-pad"
+            keyboardType="default"
+            autoCapitalize="none"
             error={errors.mobile}
             required
           />
@@ -224,21 +219,21 @@ export default function LoginScreen() {
         {type === "client" && (
           <View style={styles.hint}>
             <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-              {isRTL ? "للتجربة: موبايل 01012345678 | كلمة مرور 123456" : "Demo: mobile 01012345678 | password 123456"}
+              {isRTL ? "للتجربة: اسم المستخدم 123 | كلمة المرور 123" : "Demo: username 123 | password 123"}
             </Text>
           </View>
         )}
         {type === "technician" && (
           <View style={styles.hint}>
             <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-              {isRTL ? "للتجربة: موبايل 01098765432 | كلمة مرور 123456" : "Demo: mobile 01098765432 | password 123456"}
+              {isRTL ? "للتجربة: اسم المستخدم 111 | كلمة المرور 1" : "Demo: username 111 | password 1"}
             </Text>
           </View>
         )}
         {type === "admin" && (
           <View style={styles.hint}>
             <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-              {isRTL ? "للتجربة: admin | admin" : "Demo: admin | admin"}
+              {isRTL ? "للتجربة: اسم المستخدم 111 | كلمة المرور 10" : "Demo: username 111 | password 10"}
             </Text>
           </View>
         )}

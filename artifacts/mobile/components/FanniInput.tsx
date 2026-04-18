@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
-  TextStyle,
   TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -25,6 +24,7 @@ interface FanniInputProps {
   style?: ViewStyle;
   disabled?: boolean;
   required?: boolean;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 }
 
 export default function FanniInput({
@@ -40,6 +40,7 @@ export default function FanniInput({
   style,
   disabled = false,
   required = false,
+  autoCapitalize = "sentences",
 }: FanniInputProps) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -98,6 +99,7 @@ export default function FanniInput({
           multiline={multiline}
           numberOfLines={numberOfLines}
           editable={!disabled}
+          autoCapitalize={autoCapitalize}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />

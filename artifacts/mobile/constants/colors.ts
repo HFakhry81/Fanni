@@ -3,20 +3,20 @@ const colors = {
     text: "#1A1A1A",
     tint: "#F5A623",
 
-    background: "#F8F9FA",
-    foreground: "#1A1A1A",
+    background: "#F0F4F8",
+    foreground: "#0D1B2A",
 
     card: "#FFFFFF",
-    cardForeground: "#1A1A1A",
+    cardForeground: "#0D1B2A",
 
     primary: "#F5A623",
     primaryForeground: "#FFFFFF",
 
-    secondary: "#3D3D3D",
+    secondary: "#1E3A5F",
     secondaryForeground: "#FFFFFF",
 
-    muted: "#F0F0F0",
-    mutedForeground: "#8A8A8A",
+    muted: "#E8EEF5",
+    mutedForeground: "#6B7D8E",
 
     accent: "#FFF3DC",
     accentForeground: "#F5A623",
@@ -24,18 +24,26 @@ const colors = {
     destructive: "#E53E3E",
     destructiveForeground: "#FFFFFF",
 
-    border: "#E8E8E8",
-    input: "#E8E8E8",
+    border: "#D0DAE6",
+    input: "#D0DAE6",
 
-    success: "#38A169",
+    success: "#22A36B",
     successForeground: "#FFFFFF",
 
-    dark: "#2D2D2D",
+    // Navy palette – replaces all dark/charcoal backgrounds
+    dark: "#0D1B2A",
+    darkMid: "#1E3A5F",
+    darkLight: "#2D5A8E",
     darkForeground: "#FFFFFF",
 
     tabBar: "#FFFFFF",
-    headerBg: "#2D2D2D",
+    headerBg: "#0D1B2A",
     headerText: "#FFFFFF",
+
+    navyDeep: "#071320",
+    navyMid: "#1E3A5F",
+    navyLight: "#2D5A8E",
+    navyGhost: "#E8EEF5",
   },
 
   radius: 12,
