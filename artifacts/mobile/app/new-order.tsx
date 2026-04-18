@@ -1,12 +1,7 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Platform,
-  Alert,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +11,9 @@ import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
+import LocationPicker from "@/components/LocationPicker";
+import AppHeader from "@/components/AppHeader";
+import { DEFAULT_GOVERNORATE, EGYPT_LOCATIONS, getAreas, getNeighborhoods } from "@/constants/egyptLocations";
 
 type OrderStep = 1 | 2 | 3;
 
@@ -30,11 +28,14 @@ export default function NewOrderScreen() {
   const [step, setStep] = useState<OrderStep>(1);
   const [loading, setLoading] = useState(false);
 
-  // Step 1 - Problem description
+  // ── Step 1 ──────────────────────────────────────────────────────────────────
   const [problemDesc, setProblemDesc] = useState("");
   const [deviceType, setDeviceType] = useState("");
 
-  // Step 2 - Location & schedule
+  // ── Step 2 – Location ───────────────────────────────────────────────────────
+  const [governorateId, setGovernorateId] = useState(DEFAULT_GOVERNORATE);
+  const [areaId, setAreaId] = useState("");
+  const [neighborhoodId, setNeighborhoodId] = useState("");
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");
   const [floor, setFloor] = useState("");
@@ -43,27 +44,14 @@ export default function NewOrderScreen() {
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
 
-  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
-  const stepLabels = [
-    t("order.describe"),
-    t("order.schedule"),
-    t("order.confirm"),
-  ];
+  const stepLabels = [t("order.describe"), t("order.schedule"), t("order.confirm")];
 
-  const handleNext = () => {
-    if (step < 3) {
-      setStep((step + 1) as OrderStep);
-    }
-  };
-
+  const handleNext = () => { if (step < 3) setStep((step + 1) as OrderStep); };
   const handleBack = () => {
-    if (step > 1) {
-      setStep((step - 1) as OrderStep);
-    } else {
-      router.back();
-    }
+    if (step > 1) setStep((step - 1) as OrderStep);
+    else router.back();
   };
 
   const handleSubmit = async () => {
@@ -71,6 +59,18 @@ export default function NewOrderScreen() {
     await new Promise((r) => setTimeout(r, 1200));
     const orderId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
     const orderNumber = `ORD-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000) + 1000}`;
+
+    const gov = EGYPT_LOCATIONS.find((g) => g.id === governorateId);
+    const area = getAreas(governorateId).find((a) => a.id === areaId);
+    const nbh  = getNeighborhoods(governorateId, areaId).find((n) => n.id === neighborhoodId);
+
+    const fullAddress = [
+      gov  ? (isRTL ? gov.ar  : gov.en)  : "",
+      area ? (isRTL ? area.ar : area.en) : "",
+      nbh  ? (isRTL ? nbh.ar  : nbh.en)  : "",
+      street,
+    ].filter(Boolean).join(isRTL ? "، " : ", ");
+
     await addOrder({
       id: orderId,
       orderNumber,
@@ -82,13 +82,9 @@ export default function NewOrderScreen() {
       problemDescription: problemDesc,
       deviceType,
       photos: [],
-      street,
-      building,
-      floor,
-      apartment,
-      landmark,
-      visitDate,
-      visitTime,
+      street: fullAddress,
+      building, floor, apartment, landmark,
+      visitDate, visitTime,
       status: "pending",
       createdAt: new Date().toISOString(),
     });
@@ -96,65 +92,37 @@ export default function NewOrderScreen() {
     router.replace("/(client)/orders");
   };
 
+  // ── Step 1: Describe ────────────────────────────────────────────────────────
   const renderStep1 = () => (
     <View>
-      <View
-        style={[
-          styles.categoryBadge,
-          { backgroundColor: colors.accent, borderRadius: colors.radius },
-        ]}
-      >
-        <Text
-          style={{
-            color: colors.primary,
-            fontFamily: "Inter_600SemiBold",
-            fontSize: 13,
-          }}
-        >
+      <View style={[styles.categoryBadge, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Feather name="tag" size={14} color={colors.primary} />
+        <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
           {t(`cat.${category}`)} — {subCategory}
         </Text>
       </View>
 
       <FanniInput
         label={t("order.problemDesc")}
-        value={problemDesc}
-        onChangeText={setProblemDesc}
-        multiline
-        numberOfLines={4}
+        value={problemDesc} onChangeText={setProblemDesc}
+        multiline numberOfLines={4}
         placeholder={isRTL ? "اشرح المشكلة بالتفصيل..." : "Describe the problem in detail..."}
         required
       />
       <FanniInput
         label={t("order.deviceType")}
-        value={deviceType}
-        onChangeText={setDeviceType}
+        value={deviceType} onChangeText={setDeviceType}
         placeholder={isRTL ? "مثال: مكيف سبليت 1.5 حصان" : "e.g. Split AC 1.5HP"}
       />
 
-      <Text
-        style={[
-          styles.uploadLabel,
-          {
-            color: colors.foreground,
-            fontFamily: "Inter_500Medium",
-            textAlign: isRTL ? "right" : "left",
-          },
-        ]}
-      >
+      <Text style={[styles.uploadLabel, { color: colors.foreground, fontFamily: "Inter_500Medium", textAlign: isRTL ? "right" : "left" }]}>
         {t("order.photos")}
       </Text>
       <View style={[styles.photosRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {[0, 1, 2, 3].map((i) => (
           <TouchableOpacity
             key={i}
-            style={[
-              styles.photoBox,
-              {
-                borderColor: colors.border,
-                borderRadius: colors.radius,
-                backgroundColor: colors.muted,
-              },
-            ]}
+            style={[styles.photoBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}
           >
             <Feather name="plus" size={22} color={colors.mutedForeground} />
           </TouchableOpacity>
@@ -163,109 +131,140 @@ export default function NewOrderScreen() {
     </View>
   );
 
+  // ── Step 2: Address / Schedule ──────────────────────────────────────────────
   const renderStep2 = () => (
     <View>
-      <FanniInput label={t("order.street")} value={street} onChangeText={setStreet} required placeholder={isRTL ? "اسم الشارع" : "Street name"} />
-      <View style={[styles.row, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <FanniInput label={t("order.building")} value={building} onChangeText={setBuilding} keyboardType="numeric" style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }} placeholder="15" />
-        <FanniInput label={t("order.floor")} value={floor} onChangeText={setFloor} keyboardType="numeric" style={{ flex: 1 }} placeholder="3" />
-      </View>
-      <View style={[styles.row, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <FanniInput label={t("order.apt")} value={apartment} onChangeText={setApartment} keyboardType="numeric" style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }} placeholder="12" />
-        <FanniInput label={t("order.landmark")} value={landmark} onChangeText={setLandmark} style={{ flex: 1 }} placeholder={isRTL ? "علامة مميزة" : "Landmark"} />
+      {/* Egypt badge */}
+      <View style={[styles.egyptBadge, { backgroundColor: colors.accent, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Text style={{ fontSize: 18 }}>🇪🇬</Text>
+        <View style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, flex: 1 }}>
+          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+            {isRTL ? "عنوان الزيارة" : "Visit Address"}
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+            {isRTL ? "الإسكندرية ومحافظات مصر" : "Alexandria & all Egypt governorates"}
+          </Text>
+        </View>
       </View>
 
-      <View
-        style={[
-          styles.mapPlaceholder,
-          { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted },
-        ]}
-      >
-        <Feather name="map-pin" size={28} color={colors.primary} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 8 }}>
-          {t("common.getLocation")}
+      <LocationPicker
+        governorateId={governorateId}
+        areaId={areaId}
+        neighborhoodId={neighborhoodId}
+        onGovernorateChange={setGovernorateId}
+        onAreaChange={setAreaId}
+        onNeighborhoodChange={setNeighborhoodId}
+        street={street}
+        onStreetChange={setStreet}
+        building={building}
+        onBuildingChange={setBuilding}
+        floor={floor}
+        onFloorChange={setFloor}
+        apartment={apartment}
+        onApartmentChange={setApartment}
+        showDetails
+      />
+
+      <FanniInput
+        label={isRTL ? "علامة مميزة" : "Landmark"}
+        value={landmark} onChangeText={setLandmark}
+        placeholder={isRTL ? "مثال: بجانب مسجد..." : "e.g. Near the mosque..."}
+      />
+
+      {/* Schedule */}
+      <View style={[styles.scheduleHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.scheduleIcon, { backgroundColor: colors.accentBlue }]}>
+          <Feather name="calendar" size={16} color={colors.secondary} />
+        </View>
+        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+          {isRTL ? "موعد الزيارة" : "Visit Schedule"}
         </Text>
       </View>
 
       <View style={[styles.row, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <FanniInput label={t("order.visitDate")} value={visitDate} onChangeText={setVisitDate} placeholder="2024-01-25" style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }} />
-        <FanniInput label={t("order.visitTime")} value={visitTime} onChangeText={setVisitTime} placeholder="10:00" style={{ flex: 1 }} />
+        <FanniInput
+          label={t("order.visitDate")} value={visitDate} onChangeText={setVisitDate}
+          placeholder="2025-01-25"
+          style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
+        />
+        <FanniInput
+          label={t("order.visitTime")} value={visitTime} onChangeText={setVisitTime}
+          placeholder="10:00 ص"
+          style={{ flex: 1 }}
+        />
       </View>
     </View>
   );
 
-  const renderStep3 = () => (
-    <View>
-      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, marginBottom: 20, textAlign: isRTL ? "right" : "left" }}>
-        {t("order.confirm")}
-      </Text>
+  // ── Step 3: Confirm ─────────────────────────────────────────────────────────
+  const renderStep3 = () => {
+    const gov  = EGYPT_LOCATIONS.find((g) => g.id === governorateId);
+    const area = getAreas(governorateId).find((a) => a.id === areaId);
+    const nbh  = getNeighborhoods(governorateId, areaId).find((n) => n.id === neighborhoodId);
 
-      {[
-        { label: isRTL ? "نوع الخدمة" : "Service", value: `${t(`cat.${category}`)} — ${subCategory}` },
-        { label: t("order.problemDesc"), value: problemDesc || "—" },
-        { label: t("order.deviceType"), value: deviceType || "—" },
-        { label: t("order.street"), value: street || "—" },
-        { label: t("order.visitDate"), value: visitDate || "—" },
-        { label: t("order.visitTime"), value: visitTime || "—" },
-      ].map((item) => (
-        <View
-          key={item.label}
-          style={[
-            styles.confirmRow,
-            {
-              borderBottomColor: colors.border,
-              flexDirection: isRTL ? "row-reverse" : "row",
-            },
-          ]}
-        >
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1 }}>
-            {item.label}
-          </Text>
-          <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, flex: 2, textAlign: isRTL ? "left" : "right" }}>
-            {item.value}
+    const rows = [
+      { label: isRTL ? "نوع الخدمة" : "Service",     value: `${t(`cat.${category}`)} — ${subCategory}` },
+      { label: t("order.problemDesc"),                 value: problemDesc || "—" },
+      { label: t("order.deviceType"),                  value: deviceType || "—" },
+      { label: isRTL ? "المحافظة" : "Governorate",    value: gov  ? (isRTL ? gov.ar  : gov.en)  : "—" },
+      { label: isRTL ? "المنطقة" : "Area",            value: area ? (isRTL ? area.ar : area.en) : "—" },
+      { label: isRTL ? "الحي" : "Neighborhood",       value: nbh  ? (isRTL ? nbh.ar  : nbh.en)  : "—" },
+      { label: isRTL ? "الشارع" : "Street",           value: street || "—" },
+      { label: t("order.visitDate"),                   value: visitDate || "—" },
+      { label: t("order.visitTime"),                   value: visitTime || "—" },
+    ];
+
+    return (
+      <View>
+        <View style={[styles.confirmHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <View style={[styles.confirmIcon, { backgroundColor: colors.accent }]}>
+            <Feather name="check-circle" size={22} color={colors.primary} />
+          </View>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+            {t("order.confirm")}
           </Text>
         </View>
-      ))}
-    </View>
-  );
+
+        {rows.map((item) => (
+          <View
+            key={item.label}
+            style={[styles.confirmRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          >
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1 }}>
+              {item.label}
+            </Text>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, flex: 2, textAlign: isRTL ? "left" : "right" }}>
+              {item.value}
+            </Text>
+          </View>
+        ))}
+
+        <View style={[styles.totalRow, { backgroundColor: colors.accent, borderColor: colors.primary, borderRadius: colors.radius }]}>
+          <Feather name="dollar-sign" size={18} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: 8 }}>
+            {isRTL ? "سيتم تحديد السعر بعد الكشف" : "Price will be set after inspection"}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.dark, paddingTop: topPad + 12 }]}>
-        <TouchableOpacity style={[styles.backBtn, { [isRTL ? "right" : "left"]: 16 }]} onPress={handleBack}>
-          <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={22} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: "#FFF", fontFamily: "Inter_700Bold" }]}>
-          {t("order.new")}
-        </Text>
-      </View>
+      <AppHeader title={t("order.new")} showBack onBack={handleBack} />
 
       {/* Step indicator */}
       <View style={[styles.stepsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {stepLabels.map((label, idx) => (
           <View key={idx} style={[styles.stepItem, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <View
-              style={[
-                styles.stepDot,
-                { backgroundColor: idx + 1 <= step ? colors.primary : colors.border },
-              ]}
-            >
-              {idx + 1 < step ? (
-                <Feather name="check" size={12} color="#FFF" />
-              ) : (
-                <Text style={{ color: idx + 1 <= step ? "#FFF" : colors.mutedForeground, fontSize: 11, fontFamily: "Inter_600SemiBold" }}>
-                  {idx + 1}
-                </Text>
-              )}
+            <View style={[styles.stepDot, { backgroundColor: idx + 1 <= step ? colors.primary : colors.border }]}>
+              {idx + 1 < step
+                ? <Feather name="check" size={12} color="#FFF" />
+                : <Text style={{ color: idx + 1 <= step ? "#FFF" : colors.mutedForeground, fontSize: 11, fontFamily: "Inter_600SemiBold" }}>{idx + 1}</Text>
+              }
             </View>
             <Text
-              style={{
-                color: idx + 1 <= step ? colors.primary : colors.mutedForeground,
-                fontSize: 11,
-                fontFamily: "Inter_500Medium",
-                marginLeft: isRTL ? 0 : 4,
-                marginRight: isRTL ? 4 : 0,
-              }}
+              style={{ color: idx + 1 <= step ? colors.primary : colors.mutedForeground, fontSize: 11, fontFamily: "Inter_500Medium", marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}
               numberOfLines={1}
             >
               {label}
@@ -291,26 +290,15 @@ export default function NewOrderScreen() {
         <View style={[styles.navBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {step > 1 && (
             <FanniButton
-              title={t("common.back")}
-              onPress={handleBack}
+              title={t("common.back")} onPress={handleBack}
               variant="outline"
               style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
             />
           )}
-          {step < 3 ? (
-            <FanniButton
-              title={t("common.next")}
-              onPress={handleNext}
-              style={{ flex: 1 }}
-            />
-          ) : (
-            <FanniButton
-              title={t("common.sendOrder")}
-              onPress={handleSubmit}
-              loading={loading}
-              style={{ flex: 1 }}
-            />
-          )}
+          {step < 3
+            ? <FanniButton title={t("common.next")} onPress={handleNext} style={{ flex: 1 }} />
+            : <FanniButton title={t("common.sendOrder")} onPress={handleSubmit} loading={loading} style={{ flex: 1 }} />
+          }
         </View>
       </ScrollView>
     </View>
@@ -319,72 +307,24 @@ export default function NewOrderScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    position: "relative",
-  },
-  backBtn: { position: "absolute", bottom: 20, padding: 4 },
-  headerTitle: { fontSize: 18 },
-  stepsRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  stepItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  stepDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepConnector: {
-    flex: 1,
-    height: 2,
-    marginHorizontal: 4,
-  },
+  stepsRow: { paddingHorizontal: 16, paddingVertical: 12, alignItems: "center", justifyContent: "space-between" },
+  stepItem: { flex: 1, alignItems: "center" },
+  stepDot: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  stepConnector: { flex: 1, height: 2, marginHorizontal: 4 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 8 },
-  card: {
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 16,
-  },
-  categoryBadge: { padding: 10, marginBottom: 16, alignSelf: "flex-start" },
+  card: { padding: 20, shadowColor: "#0D1B2A", shadowOpacity: 0.08, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8, elevation: 3, marginBottom: 16 },
+  categoryBadge: { padding: 10, marginBottom: 16, alignSelf: "flex-start", alignItems: "center" },
   uploadLabel: { fontSize: 14, marginBottom: 10 },
   photosRow: { gap: 10, marginBottom: 12 },
-  photoBox: {
-    width: 72,
-    height: 72,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-  },
+  photoBox: { width: 72, height: 72, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderStyle: "dashed" },
   row: { gap: 0 },
-  mapPlaceholder: {
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    height: 100,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  confirmRow: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    alignItems: "flex-start",
-    gap: 8,
-  },
+  egyptBadge: { padding: 12, borderWidth: 1.5, borderRadius: 12, alignItems: "center", marginBottom: 16 },
+  scheduleHeader: { alignItems: "center", marginTop: 8, marginBottom: 4 },
+  scheduleIcon: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  confirmHeader: { alignItems: "center", marginBottom: 20 },
+  confirmIcon: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  confirmRow: { paddingVertical: 10, borderBottomWidth: 1, alignItems: "center", flexDirection: "row" },
+  totalRow: { padding: 14, borderWidth: 1.5, marginTop: 16, flexDirection: "row", alignItems: "center" },
   navBtns: { gap: 8, marginBottom: 8 },
 });

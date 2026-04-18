@@ -46,11 +46,25 @@ Bilingual (Arabic RTL + English LTR) home maintenance service app built with Exp
 - Technician: `01098765432` / `123456`
 - Admin: `admin` / `admin`
 
+### Geography — Egypt Focus
+- Default region: **Alexandria** (lat 31.2001, lng 29.9187)
+- `constants/egyptLocations.ts` — 27 Egyptian governorates with areas + neighborhoods
+  - Alexandria: 5 districts (شرق، المنتزه، وسط، الجمرك، غرب) with ~65 neighborhoods (Fleming, Smouha, Sidi Bishr, Montaza, etc.)
+  - Cairo: 4 districts with 20+ neighborhoods
+  - All other 25 governorates with key areas
+- `components/LocationPicker.tsx` — cascading dropdown (Governorate → Area → Neighborhood) with:
+  - Searchable modal bottom sheets
+  - Arabic + English labels
+  - Resets child selections when parent changes
+  - "Pin on map" placeholder linked to Alexandria coords
+- Integrated into: `register.tsx` (step 3 for technicians) and `new-order.tsx` (step 2 address)
+- Map screen (`(tech)/map.tsx`) shows Alexandria with Mediterranean sea band, district tags, city coordinates
+
 ### Architecture
 - **Frontend-only** (no backend calls) — uses AsyncStorage for persistence
 - `context/AppContext.tsx` — i18n (130+ keys), user state, RTL
 - `context/OrderContext.tsx` — orders + invoices with seed data
-- `constants/colors.ts` — design tokens
+- `constants/colors.ts` — design tokens (Navy #0D1B2A, Golden #F5A623, Sky Blue #4DADD9)
 - `hooks/useColors.ts` — color scheme hook
 
 ### Key Screens

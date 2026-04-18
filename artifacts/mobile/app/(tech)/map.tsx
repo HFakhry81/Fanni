@@ -60,30 +60,56 @@ export default function TechMapScreen() {
         }
       />
 
-      {/* Map placeholder */}
+      {/* Map placeholder – Egypt / Alexandria focused */}
       <View style={[styles.mapPlaceholder, { backgroundColor: colors.accentBlue }]}>
-        {/* Grid overlay to simulate map */}
+        {/* Street grid overlay simulating a city map */}
         <View style={styles.mapGrid}>
-          {[0, 1, 2].map((row) =>
-            [0, 1, 2, 3].map((col) => (
-              <View key={`${row}-${col}`} style={[styles.mapCell, { borderColor: colors.secondary + "30" }]} />
+          {[0, 1, 2, 3].map((row) =>
+            [0, 1, 2, 3, 4].map((col) => (
+              <View key={`${row}-${col}`} style={[styles.mapCell, { borderColor: colors.secondary + "25" }]} />
             ))
           )}
         </View>
-        <View style={styles.mapCenter}>
-          <Feather name="navigation" size={36} color={colors.secondary} />
-          <Text style={{ color: colors.darkMid, fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 8, textAlign: "center" }}>
-            {isRTL ? "خريطة منطقة الخدمة" : "Service Area Map"}
-          </Text>
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 3, textAlign: "center" }}>
-            {isRTL ? `${pendingOrders.length} طلبات متاحة قريبة منك` : `${pendingOrders.length} orders available nearby`}
+
+        {/* "Sea" band at the top to simulate Mediterranean */}
+        <View style={[styles.seaBand, { backgroundColor: colors.secondary + "40" }]}>
+          <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1 }}>
+            {isRTL ? "البحر الأبيض المتوسط" : "MEDITERRANEAN SEA"}
           </Text>
         </View>
-        {/* Map pins */}
-        {pendingOrders.slice(0, 3).map((order, i) => (
+
+        {/* Alexandria label */}
+        <View style={styles.cityLabel}>
+          <View style={[styles.cityDot, { backgroundColor: colors.primary }]} />
+          <Text style={{ color: colors.dark, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+            {isRTL ? "الإسكندرية" : "Alexandria"}
+          </Text>
+          <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 10, marginTop: 1 }}>
+            31.2001° N, 29.9187° E
+          </Text>
+        </View>
+
+        {/* District labels */}
+        {[
+          { label: isRTL ? "سيدي بشر" : "Sidi Bishr", top: 90, left: "60%" },
+          { label: isRTL ? "المنتزه" : "Montaza",    top: 60,  left: "72%" },
+          { label: isRTL ? "فلمنج"   : "Fleming",    top: 100, left: "40%" },
+          { label: isRTL ? "الجمرك"  : "Gomrok",     top: 85,  left: "15%" },
+        ].map((d) => (
+          <View key={d.label} style={[styles.districtTag, { top: d.top, left: d.left as any, backgroundColor: colors.card + "DD" }]}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 9 }}>{d.label}</Text>
+          </View>
+        ))}
+
+        {/* Order pins */}
+        {pendingOrders.slice(0, 4).map((order, i) => (
           <TouchableOpacity
             key={order.id}
-            style={[styles.mapPin, { backgroundColor: colors.primary, top: 30 + i * 55, left: 50 + i * 80 }]}
+            style={[styles.mapPin, {
+              backgroundColor: colors.primary,
+              top: 55 + (i % 2) * 60,
+              left: 40 + i * 65,
+            }]}
             onPress={() => { setSelectedOrder(order); setModalVisible(true); }}
           >
             <Feather name="map-pin" size={14} color="#FFF" />
@@ -92,6 +118,18 @@ export default function TechMapScreen() {
             </View>
           </TouchableOpacity>
         ))}
+
+        {/* My location dot */}
+        <View style={[styles.myLocation, { borderColor: colors.primary, backgroundColor: "#FFF" }]}>
+          <View style={[styles.myLocationInner, { backgroundColor: colors.primary }]} />
+        </View>
+
+        {/* Order count badge */}
+        <View style={[styles.mapBadge, { backgroundColor: colors.primary }]}>
+          <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 11 }}>
+            {pendingOrders.length} {isRTL ? "طلبات" : "orders"}
+          </Text>
+        </View>
       </View>
 
       {/* Orders list */}
@@ -218,12 +256,18 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   onlineBadge: { flexDirection: "row", alignItems: "center", paddingVertical: 5, paddingHorizontal: 10, borderRadius: 14, gap: 5 },
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FFF" },
-  mapPlaceholder: { height: 195, position: "relative", overflow: "hidden" },
+  mapPlaceholder: { height: 210, position: "relative", overflow: "hidden" },
   mapGrid: { ...StyleSheet.absoluteFillObject, flexDirection: "row", flexWrap: "wrap" },
-  mapCell: { width: "25%", height: "33%", borderWidth: 0.5 },
-  mapCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  mapCell: { width: "20%", height: "25%", borderWidth: 0.5 },
+  seaBand: { position: "absolute", top: 0, left: 0, right: 0, height: 38, alignItems: "center", justifyContent: "center" },
+  cityLabel: { position: "absolute", top: 45, left: "38%", alignItems: "center" },
+  cityDot: { width: 10, height: 10, borderRadius: 5, marginBottom: 3 },
+  districtTag: { position: "absolute", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   mapPin: { position: "absolute", width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 }, elevation: 5 },
   pinBadge: { position: "absolute", top: -4, right: -4, width: 14, height: 14, borderRadius: 7, alignItems: "center", justifyContent: "center" },
+  myLocation: { position: "absolute", bottom: 20, right: 20, width: 18, height: 18, borderRadius: 9, borderWidth: 3, alignItems: "center", justifyContent: "center" },
+  myLocationInner: { width: 7, height: 7, borderRadius: 4 },
+  mapBadge: { position: "absolute", bottom: 10, left: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   ordersSection: { flex: 1 },
   listHeader: { paddingHorizontal: 16, paddingTop: 14, marginBottom: 10, alignItems: "center", gap: 8 },
   countChip: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 12 },

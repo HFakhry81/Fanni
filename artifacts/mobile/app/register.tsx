@@ -1,12 +1,7 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Platform,
-  Alert,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +10,9 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
+import LocationPicker from "@/components/LocationPicker";
+import AppHeader from "@/components/AppHeader";
+import { DEFAULT_GOVERNORATE } from "@/constants/egyptLocations";
 
 type RegisterType = "client" | "technician";
 type PaymentMethod = "bank" | "ewallet" | "instapay";
@@ -29,35 +27,37 @@ export default function RegisterScreen() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Personal info
+  // ── Personal Info ──────────────────────────────────────────────────────────
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
+  const [nationalId, setNationalId] = useState("");
 
-  // Account info
+  // ── Payment ────────────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank");
+  const [bankAccount, setBankAccount] = useState("");
 
-  // Technician fields
+  // ── Technician Info ────────────────────────────────────────────────────────
   const [profession, setProfession] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [experience, setExperience] = useState("");
 
-  // Location
-  const [governorate, setGovernorate] = useState("");
-  const [area, setArea] = useState("");
-  const [district, setDistrict] = useState("");
+  // ── Location (shared) ──────────────────────────────────────────────────────
+  const [governorateId, setGovernorateId] = useState(DEFAULT_GOVERNORATE);
+  const [areaId, setAreaId] = useState("");
+  const [neighborhoodId, setNeighborhoodId] = useState("");
+  const [street, setStreet] = useState("");
+  const [building, setBuilding] = useState("");
+  const [floor, setFloor] = useState("");
+  const [apartment, setApartment] = useState("");
+
+  // ── Technician service hours ───────────────────────────────────────────────
   const [serviceStart, setServiceStart] = useState("08:00");
-  const [serviceEnd, setServiceEnd] = useState("20:00");
+  const [serviceEnd, setServiceEnd] = useState("22:00");
 
-  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
-
   const totalSteps = regType === "client" ? 2 : 3;
-
-  const progressColor = (s: number) =>
-    s <= step ? colors.primary : colors.border;
 
   const handleNext = async () => {
     if (step < totalSteps) {
@@ -71,19 +71,17 @@ export default function RegisterScreen() {
   };
 
   const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    } else {
-      router.back();
-    }
+    if (step > 1) setStep(step - 1);
+    else router.back();
   };
 
   const paymentOptions = [
-    { id: "bank" as PaymentMethod, label: t("register.bankAccount") },
-    { id: "ewallet" as PaymentMethod, label: t("register.eWallet") },
-    { id: "instapay" as PaymentMethod, label: t("register.instaPay") },
+    { id: "bank"    as PaymentMethod, label: t("register.bankAccount"), icon: "credit-card" },
+    { id: "ewallet" as PaymentMethod, label: t("register.eWallet"),     icon: "smartphone"  },
+    { id: "instapay"as PaymentMethod, label: t("register.instaPay"),    icon: "zap"         },
   ];
 
+  // ── Step indicator ─────────────────────────────────────────────────────────
   const renderStepIndicator = () => (
     <View style={[styles.stepRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
       {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
@@ -91,76 +89,86 @@ export default function RegisterScreen() {
           <View
             style={[
               styles.stepCircle,
-              {
-                backgroundColor: s <= step ? colors.primary : colors.muted,
-                borderColor: s <= step ? colors.primary : colors.border,
-              },
+              { backgroundColor: s <= step ? colors.primary : colors.muted, borderColor: s <= step ? colors.primary : colors.border },
             ]}
           >
             {s < step ? (
               <Feather name="check" size={14} color="#FFF" />
             ) : (
-              <Text
-                style={{
-                  color: s <= step ? "#FFF" : colors.mutedForeground,
-                  fontSize: 12,
-                  fontFamily: "Inter_600SemiBold",
-                }}
-              >
-                {s}
-              </Text>
+              <Text style={{ color: s <= step ? "#FFF" : colors.mutedForeground, fontSize: 12, fontFamily: "Inter_600SemiBold" }}>{s}</Text>
             )}
           </View>
           {s < totalSteps && (
-            <View
-              style={[
-                styles.stepLine,
-                { backgroundColor: s < step ? colors.primary : colors.border },
-              ]}
-            />
+            <View style={[styles.stepLine, { backgroundColor: s < step ? colors.primary : colors.border }]} />
           )}
         </React.Fragment>
       ))}
     </View>
   );
 
+  // ── Step 1: Personal info ──────────────────────────────────────────────────
   const renderStep1 = () => (
     <View>
-      <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
-        {t("register.step1")}
-      </Text>
-      <FanniInput label={t("register.name")} value={name} onChangeText={setName} required placeholder={isRTL ? "الاسم الكامل" : "Full name"} />
+      <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
+          <Feather name="user" size={20} color={colors.primary} />
+        </View>
+        <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+          {t("register.step1")}
+        </Text>
+      </View>
+
+      <FanniInput label={t("register.name")} value={name} onChangeText={setName} required placeholder={isRTL ? "الاسم رباعي كامل" : "Full name"} />
       {regType === "technician" && (
         <FanniInput label={t("register.age")} value={age} onChangeText={setAge} keyboardType="numeric" placeholder="25" />
       )}
-      <FanniInput label={t("register.mobile")} value={mobile} onChangeText={setMobile} keyboardType="phone-pad" required placeholder="01XXXXXXXXX" />
+      <FanniInput
+        label={isRTL ? "رقم الهاتف" : "Mobile Number"}
+        value={mobile} onChangeText={setMobile}
+        keyboardType="phone-pad" required
+        placeholder="01XXXXXXXXX"
+      />
       <FanniInput label={t("register.email")} value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="email@example.com" />
-      <FanniInput label={t("register.address")} value={address} onChangeText={setAddress} required placeholder={isRTL ? "العنوان" : "Address"} />
 
       {regType === "technician" && (
-        <View
-          style={[
-            styles.uploadBox,
-            { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted },
-          ]}
-        >
-          <Feather name="camera" size={24} color={colors.mutedForeground} />
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 8 }}>
+        <FanniInput
+          label={isRTL ? "الرقم القومي" : "National ID"}
+          value={nationalId} onChangeText={setNationalId}
+          keyboardType="numeric" required
+          placeholder="2XXXXXXXXXXXXXXXXX"
+        />
+      )}
+
+      {regType === "technician" && (
+        <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
+          <Feather name="camera" size={24} color={colors.secondary} />
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
             {t("register.idPhoto")}
           </Text>
-        </View>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 3 }}>
+            {isRTL ? "صورة واضحة من الوجهين" : "Clear photo of both sides"}
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
 
+  // ── Step 2 Client: Payment ─────────────────────────────────────────────────
   const renderStep2Client = () => (
     <View>
-      <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
-        {t("register.step2")}
-      </Text>
-      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+      <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.stepIcon, { backgroundColor: colors.accentBlue }]}>
+          <Feather name="credit-card" size={20} color={colors.secondary} />
+        </View>
+        <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+          {t("register.step2")}
+        </Text>
+      </View>
+
+      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
         {t("register.paymentMethod")}
       </Text>
+
       {paymentOptions.map((opt) => (
         <TouchableOpacity
           key={opt.id}
@@ -175,75 +183,109 @@ export default function RegisterScreen() {
           ]}
           onPress={() => setPaymentMethod(opt.id)}
         >
-          <View
-            style={[
-              styles.radio,
-              {
-                borderColor: paymentMethod === opt.id ? colors.primary : colors.border,
-                backgroundColor: paymentMethod === opt.id ? colors.primary : "transparent",
-              },
-            ]}
-          />
-          <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
+          <View style={[styles.optionIcon, { backgroundColor: paymentMethod === opt.id ? colors.primary + "20" : colors.muted, borderRadius: 10 }]}>
+            <Feather name={opt.icon as any} size={18} color={paymentMethod === opt.id ? colors.primary : colors.mutedForeground} />
+          </View>
+          <Text style={{ color: colors.foreground, fontFamily: paymentMethod === opt.id ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 14, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
             {opt.label}
           </Text>
+          <View style={[styles.radio, { borderColor: paymentMethod === opt.id ? colors.primary : colors.border, backgroundColor: paymentMethod === opt.id ? colors.primary : "transparent" }]} />
         </TouchableOpacity>
       ))}
+
+      {(paymentMethod === "bank" || paymentMethod === "ewallet") && (
+        <FanniInput
+          label={paymentMethod === "bank" ? (isRTL ? "رقم الحساب البنكي" : "Bank Account Number") : (isRTL ? "رقم المحفظة" : "E-Wallet Number")}
+          value={bankAccount} onChangeText={setBankAccount}
+          keyboardType="numeric"
+          placeholder={paymentMethod === "bank" ? "XXXXXXXXXXXXXXXXXXXXXXX" : "01XXXXXXXXX"}
+        />
+      )}
     </View>
   );
 
+  // ── Step 2 Tech: Profession info ───────────────────────────────────────────
   const renderStep2Tech = () => (
     <View>
-      <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
-        {isRTL ? "بيانات المهنة" : "Profession Info"}
-      </Text>
-      <FanniInput label={t("register.profession")} value={profession} onChangeText={setProfession} required placeholder={isRTL ? "مثال: كهرباء، سباكة" : "e.g. Electrician, Plumber"} />
-      <FanniInput label={t("register.specialty")} value={specialty} onChangeText={setSpecialty} required placeholder={isRTL ? "مثال: تكييف، سخانات" : "e.g. AC, Heaters"} />
-      <FanniInput label={t("register.experience")} value={experience} onChangeText={setExperience} keyboardType="numeric" required placeholder="5" />
-      <View style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
-        <Feather name="image" size={24} color={colors.mutedForeground} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 8 }}>
-          {t("register.workPhotos")} (5 {isRTL ? "صور" : "photos"})
+      <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
+          <Feather name="tool" size={20} color={colors.primary} />
+        </View>
+        <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+          {isRTL ? "بيانات المهنة" : "Profession Info"}
         </Text>
       </View>
-      <View style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, marginTop: 12 }]}>
-        <Feather name="award" size={24} color={colors.mutedForeground} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 8 }}>
-          {t("register.licensePhoto")}
-        </Text>
-      </View>
-    </View>
-  );
 
-  const renderStep3Tech = () => (
-    <View>
-      <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
-        {t("register.step3")}
-      </Text>
-      <FanniInput label={t("register.governorate")} value={governorate} onChangeText={setGovernorate} required placeholder={isRTL ? "مثال: القاهرة" : "e.g. Cairo"} />
-      <FanniInput label={t("register.area")} value={area} onChangeText={setArea} placeholder={isRTL ? "مثال: مدينة نصر" : "e.g. Nasr City"} />
-      <FanniInput label={t("register.district")} value={district} onChangeText={setDistrict} placeholder={isRTL ? "مثال: الحي الثامن" : "e.g. District 8"} />
+      <FanniInput label={t("register.profession")} value={profession} onChangeText={setProfession} required placeholder={isRTL ? "مثال: كهربائي، سباك" : "e.g. Electrician, Plumber"} />
+      <FanniInput label={t("register.specialty")} value={specialty} onChangeText={setSpecialty} required placeholder={isRTL ? "مثال: تكييف، سخانات" : "e.g. AC, Water Heaters"} />
+      <FanniInput label={`${t("register.experience")} (${isRTL ? "سنوات" : "years"})`} value={experience} onChangeText={setExperience} keyboardType="numeric" required placeholder="5" />
 
       <View style={[styles.timeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
-          <FanniInput label={t("register.serviceStart")} value={serviceStart} onChangeText={setServiceStart} placeholder="08:00" />
+          <FanniInput label={isRTL ? "بداية العمل" : "Work Start"} value={serviceStart} onChangeText={setServiceStart} placeholder="08:00" />
         </View>
         <View style={{ flex: 1 }}>
-          <FanniInput label={t("register.serviceEnd")} value={serviceEnd} onChangeText={setServiceEnd} placeholder="20:00" />
+          <FanniInput label={isRTL ? "نهاية العمل" : "Work End"} value={serviceEnd} onChangeText={setServiceEnd} placeholder="22:00" />
         </View>
       </View>
 
-      <View
-        style={[
-          styles.mapPlaceholder,
-          { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted },
-        ]}
-      >
-        <Feather name="map-pin" size={30} color={colors.primary} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 8, textAlign: "center" }}>
-          {isRTL ? "اضغط لتحديد نطاق الخدمة على الخريطة" : "Tap to set service area on map"}
+      <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
+        <Feather name="image" size={24} color={colors.secondary} />
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
+          {t("register.workPhotos")} (5 {isRTL ? "صور" : "photos"})
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, marginTop: 10 }]}>
+        <Feather name="award" size={24} color={colors.secondary} />
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
+          {t("register.licensePhoto")}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // ── Step 3 Tech: Location ──────────────────────────────────────────────────
+  const renderStep3Tech = () => (
+    <View>
+      <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.stepIcon, { backgroundColor: colors.accentBlue }]}>
+          <Feather name="map-pin" size={20} color={colors.secondary} />
+        </View>
+        <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+          {t("register.step3")}
         </Text>
       </View>
+
+      {/* Egypt badge */}
+      <View style={[styles.egyptBadge, { backgroundColor: colors.accent, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Text style={{ fontSize: 18 }}>🇪🇬</Text>
+        <View style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+            {isRTL ? "جمهورية مصر العربية" : "Arab Republic of Egypt"}
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+            {isRTL ? "نطاق الخدمة: الإسكندرية ومحافظات مصر" : "Service coverage: Alexandria & Egypt"}
+          </Text>
+        </View>
+      </View>
+
+      <LocationPicker
+        governorateId={governorateId}
+        areaId={areaId}
+        neighborhoodId={neighborhoodId}
+        onGovernorateChange={setGovernorateId}
+        onAreaChange={setAreaId}
+        onNeighborhoodChange={setNeighborhoodId}
+        street={street}
+        onStreetChange={setStreet}
+        building={building}
+        onBuildingChange={setBuilding}
+        floor={floor}
+        onFloorChange={setFloor}
+        apartment={apartment}
+        onApartmentChange={setApartment}
+        showDetails
+      />
     </View>
   );
 
@@ -261,39 +303,18 @@ export default function RegisterScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.dark, paddingTop: topPad + 12 }]}>
-        <TouchableOpacity
-          style={[styles.backBtn, { [isRTL ? "right" : "left"]: 16 }]}
-          onPress={handleBack}
-        >
-          <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={22} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: "#FFF", fontFamily: "Inter_700Bold" }]}>
-          {t("register.title")}
-        </Text>
-      </View>
+      <AppHeader title={t("register.title")} showBack onBack={handleBack} />
 
       {/* Type Selector */}
       <View style={[styles.typeRow, { backgroundColor: colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {(["client", "technician"] as RegisterType[]).map((rt) => (
           <TouchableOpacity
             key={rt}
-            style={[
-              styles.typeBtn,
-              {
-                backgroundColor: regType === rt ? colors.primary : "transparent",
-                borderRadius: colors.radius,
-              },
-            ]}
+            style={[styles.typeBtn, { backgroundColor: regType === rt ? colors.primary : "transparent", borderRadius: colors.radius - 4 }]}
             onPress={() => { setRegType(rt); setStep(1); }}
           >
-            <Text
-              style={{
-                color: regType === rt ? "#FFF" : colors.mutedForeground,
-                fontFamily: "Inter_600SemiBold",
-                fontSize: 14,
-              }}
-            >
+            <Feather name={rt === "client" ? "home" : "tool"} size={14} color={regType === rt ? "#FFF" : colors.mutedForeground} />
+            <Text style={{ color: regType === rt ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>
               {rt === "client" ? t("register.asClient") : t("register.asTech")}
             </Text>
           </TouchableOpacity>
@@ -307,12 +328,7 @@ export default function RegisterScreen() {
       >
         {renderStepIndicator()}
 
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 },
-          ]}
-        >
+        <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
           {renderCurrentStep()}
         </View>
 
@@ -339,88 +355,22 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    position: "relative",
-  },
-  backBtn: {
-    position: "absolute",
-    bottom: 20,
-    padding: 4,
-  },
-  headerTitle: { fontSize: 18 },
-  typeRow: {
-    flexDirection: "row",
-    margin: 16,
-    padding: 4,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  typeBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
+  typeRow: { margin: 12, padding: 4, borderRadius: 14 },
+  typeBtn: { flex: 1, paddingVertical: 10, alignItems: "center", flexDirection: "row", justifyContent: "center" },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 8 },
-  stepRow: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  stepRow: { alignItems: "center", justifyContent: "center", marginBottom: 20 },
+  stepCircle: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   stepLine: { flex: 1, height: 2, maxWidth: 60 },
-  stepTitle: { fontSize: 18, marginBottom: 20 },
-  card: {
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 16,
-  },
-  uploadBox: {
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    paddingVertical: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  optionRow: {
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1.5,
-    alignItems: "center",
-    gap: 12,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-  },
-  timeRow: { gap: 0 },
-  mapPlaceholder: {
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    height: 140,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
+  stepHeader: { alignItems: "center", marginBottom: 20 },
+  stepIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  stepTitle: { fontSize: 17 },
+  card: { padding: 20, marginBottom: 16, shadowColor: "#0D1B2A", shadowOpacity: 0.08, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8, elevation: 3 },
+  uploadBox: { borderWidth: 1.5, borderStyle: "dashed", paddingVertical: 22, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+  optionRow: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center" },
+  optionIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2 },
+  timeRow: { gap: 0, marginBottom: 4 },
+  egyptBadge: { padding: 12, borderWidth: 1.5, borderRadius: 12, alignItems: "center", marginBottom: 16 },
   navBtns: { gap: 8, marginBottom: 8 },
 });
