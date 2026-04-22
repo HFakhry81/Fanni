@@ -285,16 +285,28 @@ export default function OrderTrackingScreen() {
         )}
 
         {order.technicianMobile && (
-          <TouchableOpacity
-            style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-            onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
-            activeOpacity={0.8}
-          >
-            <Feather name="phone" size={16} color="#FFF" />
-            <Text style={[styles.callBtnText, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
-              {t("order.callTech")}
-            </Text>
-          </TouchableOpacity>
+          <View style={[styles.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+              onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
+              activeOpacity={0.8}
+            >
+              <Feather name="phone" size={16} color="#FFF" />
+              <Text style={[styles.callBtnText, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
+                {t("order.callTech")}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.accent, borderRadius: colors.radius }]}
+              onPress={() => Linking.openURL(`sms:${order.technicianMobile}`)}
+              activeOpacity={0.8}
+            >
+              <Feather name="message-circle" size={16} color={colors.primary} />
+              <Text style={[styles.callBtnText, { color: colors.primary, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
+                {t("order.messageTech")}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </View>
@@ -840,5 +852,15 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
+  },
+  actionRow: {
+    gap: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
   },
 });

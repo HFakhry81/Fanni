@@ -156,6 +156,7 @@ const translations: Record<string, Record<Language, string>> = {
   "order.minutes": { ar: "دقيقة", en: "min" },
   "order.routeLine": { ar: "مسار الفني", en: "Tech Route" },
   "order.callTech": { ar: "اتصل بالفني", en: "Call Technician" },
+  "order.messageTech": { ar: "رسالة للفني", en: "Message Technician" },
 
   // Technician
   "tech.newOrder": { ar: "طلب جديد!", en: "New Order!" },
