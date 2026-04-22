@@ -12,6 +12,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import LocationPicker from "@/components/LocationPicker";
+import Toast from "@/components/Toast";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
 export default function ClientProfileScreen() {
@@ -24,6 +25,8 @@ export default function ClientProfileScreen() {
 
   const [editVisible, setEditVisible] = useState(false);
   const [pwVisible, setPwVisible] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -102,6 +105,8 @@ export default function ClientProfileScreen() {
       address: editStreet.trim(),
     });
     setEditVisible(false);
+    setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
+    setToastVisible(true);
   };
 
   const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
@@ -551,6 +556,12 @@ export default function ClientProfileScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
     </View>
   );
 }
