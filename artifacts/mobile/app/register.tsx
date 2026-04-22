@@ -56,13 +56,61 @@ export default function RegisterScreen() {
   const [serviceStart, setServiceStart] = useState("08:00");
   const [serviceEnd, setServiceEnd] = useState("22:00");
 
+  // ── Validation errors ──────────────────────────────────────────────────────
+  const [errors, setErrors] = useState<{
+    name?: string;
+    mobile?: string;
+    nationalId?: string;
+    area?: string;
+  }>({});
+
+  const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
+
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
   const totalSteps = 3;
 
+  const validateCurrentStep = (): boolean => {
+    const newErrors: typeof errors = {};
+
+    if (step === 1) {
+      if (!name.trim()) {
+        newErrors.name = isRTL ? "الاسم مطلوب" : "Name is required";
+      }
+
+      const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+      if (!mobileDigits) {
+        newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
+      } else if (!mobileDigits.match(EGYPT_MOBILE_RE)) {
+        newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
+      }
+
+      if (regType === "technician" && !nationalId.trim()) {
+        newErrors.nationalId = isRTL ? "الرقم القومي مطلوب" : "National ID is required";
+      }
+    }
+
+    if (step === totalSteps) {
+      if (!governorateId) {
+        newErrors.area = isRTL ? "يرجى اختيار المحافظة" : "Please select a governorate";
+      } else if (!areaId) {
+        newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleNext = async () => {
+    if (!validateCurrentStep()) return;
+
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
+      const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+      const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
+      if (mobileMatch) setMobile(`0${mobileMatch[2]}`);
+
       setLoading(true);
       await new Promise((r) => setTimeout(r, 1000));
       setLoading(false);
@@ -118,24 +166,35 @@ export default function RegisterScreen() {
         </Text>
       </View>
 
-      <FanniInput label={t("register.name")} value={name} onChangeText={setName} required placeholder={isRTL ? "الاسم رباعي كامل" : "Full name"} />
+      <FanniInput
+        label={t("register.name")}
+        value={name}
+        onChangeText={(v) => { setName(v); if (v.trim()) setErrors((e) => ({ ...e, name: undefined })); }}
+        required
+        placeholder={isRTL ? "الاسم رباعي كامل" : "Full name"}
+        error={errors.name}
+      />
       {regType === "technician" && (
         <FanniInput label={t("register.age")} value={age} onChangeText={setAge} keyboardType="numeric" placeholder="25" />
       )}
       <FanniInput
         label={isRTL ? "رقم الهاتف" : "Mobile Number"}
-        value={mobile} onChangeText={setMobile}
+        value={mobile}
+        onChangeText={(v) => { setMobile(v); setErrors((e) => ({ ...e, mobile: undefined })); }}
         keyboardType="phone-pad" required
         placeholder="01XXXXXXXXX"
+        error={errors.mobile}
       />
       <FanniInput label={t("register.email")} value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="email@example.com" />
 
       {regType === "technician" && (
         <FanniInput
           label={isRTL ? "الرقم القومي" : "National ID"}
-          value={nationalId} onChangeText={setNationalId}
+          value={nationalId}
+          onChangeText={(v) => { setNationalId(v); if (v.trim()) setErrors((e) => ({ ...e, nationalId: undefined })); }}
           keyboardType="numeric" required
           placeholder="2XXXXXXXXXXXXXXXXX"
+          error={errors.nationalId}
         />
       )}
 
@@ -273,7 +332,7 @@ export default function RegisterScreen() {
         areaId={areaId}
         neighborhoodId={neighborhoodId}
         onGovernorateChange={setGovernorateId}
-        onAreaChange={setAreaId}
+        onAreaChange={(id) => { setAreaId(id); if (id) setErrors((e) => ({ ...e, area: undefined })); }}
         onNeighborhoodChange={setNeighborhoodId}
         street={street}
         onStreetChange={setStreet}
@@ -285,6 +344,11 @@ export default function RegisterScreen() {
         onApartmentChange={setApartment}
         showDetails
       />
+      {errors.area ? (
+        <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: -8, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
+          {errors.area}
+        </Text>
+      ) : null}
     </View>
   );
 
@@ -318,7 +382,7 @@ export default function RegisterScreen() {
         areaId={areaId}
         neighborhoodId={neighborhoodId}
         onGovernorateChange={setGovernorateId}
-        onAreaChange={setAreaId}
+        onAreaChange={(id) => { setAreaId(id); if (id) setErrors((e) => ({ ...e, area: undefined })); }}
         onNeighborhoodChange={setNeighborhoodId}
         street={street}
         onStreetChange={setStreet}
@@ -330,6 +394,11 @@ export default function RegisterScreen() {
         onApartmentChange={setApartment}
         showDetails
       />
+      {errors.area ? (
+        <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: -8, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
+          {errors.area}
+        </Text>
+      ) : null}
     </View>
   );
 
@@ -356,7 +425,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             key={rt}
             style={[styles.typeBtn, { backgroundColor: regType === rt ? colors.primary : "transparent", borderRadius: colors.radius - 4 }]}
-            onPress={() => { setRegType(rt); setStep(1); }}
+            onPress={() => { setRegType(rt); setStep(1); setErrors({}); }}
           >
             <Feather name={rt === "client" ? "home" : "tool"} size={14} color={regType === rt ? "#FFF" : colors.mutedForeground} />
             <Text style={{ color: regType === rt ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>
