@@ -1,26 +1,101 @@
-import React from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+
+interface ApiInvoice {
+  id: string;
+  invoiceNumber: string;
+  invoiceSerial: number;
+  orderId: string | null;
+  orderNumber: string | null;
+  clientId: string | null;
+  technicianId: string | null;
+  category: string | null;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  currency: string;
+  status: "draft" | "issued" | "paid" | "cancelled";
+  noteAr: string | null;
+  noteEn: string | null;
+  issuedAt: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+function getApiBaseUrl(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  if (domain) return `https://${domain}`;
+  return "";
+}
+
+function statusColor(status: string, colors: ReturnType<typeof useColors>) {
+  switch (status) {
+    case "paid": return colors.success ?? "#22A36B";
+    case "issued": return colors.secondary;
+    case "cancelled": return colors.destructive ?? "#EF4444";
+    default: return colors.mutedForeground;
+  }
+}
+
+function statusLabel(status: string, isRTL: boolean) {
+  const map: Record<string, [string, string]> = {
+    issued:    ["مُصدرة",    "Issued"],
+    paid:      ["مدفوعة",   "Paid"],
+    cancelled: ["ملغاة",    "Cancelled"],
+    draft:     ["مسودة",    "Draft"],
+  };
+  const pair = map[status] ?? [status, status];
+  return isRTL ? pair[0] : pair[1];
+}
 
 export default function ClientInvoicesScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL, user } = useApp();
-  const { getOrdersByClient } = useOrders();
-  const orders = getOrdersByClient(user?.id ?? "client1").filter((o) => o.invoice);
+  const { t, isRTL } = useApp();
+  const { sessionToken, isAuthenticated } = useAuth();
+  const [invoices, setInvoices] = useState<ApiInvoice[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const totalPaid = orders.reduce((sum, o) => sum + (o.invoice?.total ?? 0), 0);
+  const fetchInvoices = useCallback(async () => {
+    if (!isAuthenticated || !sessionToken) return;
+    const base = getApiBaseUrl();
+    if (!base) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${base}/api/invoices`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInvoices(data.invoices ?? []);
+      } else {
+        setError(isRTL ? "فشل تحميل الفواتير" : "Failed to load invoices");
+      }
+    } catch {
+      setError(isRTL ? "خطأ في الاتصال" : "Connection error");
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, sessionToken, isRTL]);
+
+  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+
+  const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + i.total, 0);
+  const totalIssued = invoices.filter(i => i.status === "issued").reduce((s, i) => s + i.total, 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={t("nav.invoices")} />
 
-      {/* Summary banner */}
       <View style={[styles.summaryBanner, { backgroundColor: colors.darkMid }]}>
         <View style={[styles.summaryInner, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={{ flex: 1 }}>
@@ -32,45 +107,60 @@ export default function ClientInvoicesScreen() {
             </Text>
           </View>
           <View style={[styles.summaryIcon, { backgroundColor: "rgba(245,166,35,0.1)" }]}>
-            <Image
-              source={require("@/assets/images/icon.png")}
-              style={{ width: 40, height: 40, borderRadius: 8 }}
-              resizeMode="contain"
-            />
+            <Image source={require("@/assets/images/icon.png")} style={{ width: 40, height: 40, borderRadius: 8 }} resizeMode="contain" />
           </View>
         </View>
         <View style={[styles.summaryFooter, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={[styles.statChip, { backgroundColor: "rgba(77,173,217,0.15)" }]}>
             <Feather name="check-circle" size={13} color={colors.secondary} />
             <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
-              {orders.length} {isRTL ? "فاتورة" : "invoices"}
+              {invoices.filter(i => i.status === "paid").length} {isRTL ? "مدفوعة" : "paid"}
             </Text>
           </View>
+          {totalIssued > 0 && (
+            <View style={[styles.statChip, { backgroundColor: "rgba(245,166,35,0.15)" }]}>
+              <Feather name="clock" size={13} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
+                {totalIssued.toFixed(0)} {t("common.egp")} {isRTL ? "معلقة" : "pending"}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      <FlatList
-        data={orders}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
-              <Feather name="file-text" size={40} color={colors.mutedForeground} />
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={{ color: colors.destructive ?? "#EF4444", textAlign: "center", fontFamily: "Inter_400Regular" }}>{error}</Text>
+          <TouchableOpacity onPress={fetchInvoices} style={{ marginTop: 12 }}>
+            <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold" }}>{isRTL ? "إعادة المحاولة" : "Retry"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={invoices}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
+                <Feather name="file-text" size={40} color={colors.mutedForeground} />
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 14, textAlign: "center", fontFamily: "Inter_400Regular" }}>
+                {t("common.noData")}
+              </Text>
             </View>
-            <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 14, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-              {t("common.noData")}
-            </Text>
-          </View>
-        }
-        renderItem={({ item }) =>
-          item.invoice ? (
+          }
+          renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
-              onPress={() => router.push({ pathname: "/order-details", params: { orderId: item.id } })}
+              onPress={() => item.orderId && router.push({ pathname: "/order-details", params: { orderId: item.orderId } })}
               activeOpacity={0.85}
             >
-              <View style={[styles.accentBar, { backgroundColor: colors.primary }]} />
+              <View style={[styles.accentBar, { backgroundColor: statusColor(item.status, colors) }]} />
               <View style={styles.cardBody}>
                 <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <View style={[styles.iconWrap, { backgroundColor: colors.accent, borderRadius: 12 }]}>
@@ -78,30 +168,36 @@ export default function ClientInvoicesScreen() {
                   </View>
                   <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
                     <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
-                      {t("invoice.number")} {item.invoice.invoiceNumber}
+                      {item.invoiceNumber}
                     </Text>
                     <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
-                      {item.invoice.date} · {t(`cat.${item.category}`)}
+                      {item.orderNumber ?? ""}{item.category ? ` · ${t(`cat.${item.category}`)}` : ""}
                     </Text>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 4 }}>
+                      <View style={[styles.statusBadge, { backgroundColor: `${statusColor(item.status, colors)}20` }]}>
+                        <Text style={{ color: statusColor(item.status, colors), fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                          {statusLabel(item.status, isRTL)}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                   <View style={[styles.totalChip, { backgroundColor: colors.accent, borderRadius: 10 }]}>
-                    <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>{item.invoice.total.toFixed(0)}</Text>
+                    <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>{item.total.toFixed(0)}</Text>
                     <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>{t("common.egp")}</Text>
                   </View>
                 </View>
-                {item.technicianName && (
-                  <View style={[styles.techRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                    <Feather name="user" size={13} color={colors.secondary} />
-                    <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
-                      {item.technicianName}
+                {item.taxRate > 0 && (
+                  <View style={[styles.taxRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>
+                      {isRTL ? `قبل الضريبة: ${item.subtotal.toFixed(0)} ${t("common.egp")} · ضريبة ${item.taxRate}%: ${item.taxAmount.toFixed(0)} ${t("common.egp")}` : `Before tax: ${item.subtotal.toFixed(0)} ${t("common.egp")} · VAT ${item.taxRate}%: ${item.taxAmount.toFixed(0)} ${t("common.egp")}`}
                     </Text>
                   </View>
                 )}
               </View>
             </TouchableOpacity>
-          ) : null
-        }
-      />
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -120,7 +216,9 @@ const styles = StyleSheet.create({
   cardTop: { alignItems: "center", gap: 0 },
   iconWrap: { width: 46, height: 46, alignItems: "center", justifyContent: "center" },
   totalChip: { paddingVertical: 8, paddingHorizontal: 12, alignItems: "center" },
-  techRow: { marginTop: 10, borderTopWidth: 1, paddingTop: 10, alignItems: "center", gap: 0 },
+  taxRow: { marginTop: 8, borderTopWidth: 1, paddingTop: 8 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
 });

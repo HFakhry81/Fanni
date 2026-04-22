@@ -54,6 +54,10 @@ function NativeTechTabs() {
         <Icon sf={{ default: "list.bullet", selected: "list.bullet.fill" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="invoices">
+        <Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} />
+        <Label>Invoices</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -112,6 +116,13 @@ function ClassicTechTabs() {
         options={{
           title: t("nav.orders"),
           tabBarIcon: ({ color }) => isIOS ? null : <Feather name="list" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="invoices"
+        options={{
+          title: t("nav.invoices"),
+          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="file-text" size={22} color={color} />,
         }}
       />
       <Tabs.Screen

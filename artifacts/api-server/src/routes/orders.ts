@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { sql, desc } from "drizzle-orm";
+import { sql, desc, eq } from "drizzle-orm";
 import { broadcastNewOrder } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable } from "@workspace/db";
@@ -8,6 +8,10 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
+function formatOrderNumber(serial: number): string {
+  return `ORD-${String(serial).padStart(6, "0")}`;
+}
+
 router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
   const userId = req.user!.id;
 
@@ -15,7 +19,7 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
     const rows = await db
       .select()
       .from(ordersTable)
-      .where(sql`${ordersTable.data}->>'clientId' = ${userId}`)
+      .where(eq(ordersTable.clientId, userId))
       .orderBy(desc(ordersTable.createdAt));
 
     const orders = rows.map((row) => {
@@ -23,15 +27,16 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
       return {
         id: row.id,
         orderNumber: row.orderNumber,
-        status: (data.status as string) ?? row.status,
+        orderSerial: row.orderSerial,
+        status: row.status,
         createdAt: row.createdAt,
-        category: data.category,
+        category: row.category ?? data.category,
         subCategory: data.subCategory,
         street: data.street,
         floor: data.floor,
         visitDate: data.visitDate,
         visitTime: data.visitTime,
-        technicianId: data.technicianId ?? null,
+        technicianId: row.technicianId ?? data.technicianId ?? null,
         technicianName: data.technicianName ?? null,
         technicianMobile: data.technicianMobile ?? null,
         technicianAvatar: data.technicianAvatar ?? null,
@@ -41,11 +46,11 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
         building: data.building,
         apartment: data.apartment,
         landmark: data.landmark,
-        governorate: data.governorate ?? null,
-        area: data.area ?? null,
+        governorate: row.governorate ?? data.governorate ?? null,
+        area: row.area ?? data.area ?? null,
         latitude: data.latitude ?? null,
         longitude: data.longitude ?? null,
-        clientId: data.clientId,
+        clientId: row.clientId ?? data.clientId,
         clientName: data.clientName,
         clientMobile: data.clientMobile,
         photos: data.photos ?? [],
@@ -66,9 +71,10 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
 
 router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   const order = req.body;
+  const user = req.user!;
 
-  if (!order || !order.id || !order.orderNumber || !order.category) {
-    res.status(400).json({ error: "Invalid order payload: id, orderNumber, and category are required" });
+  if (!order || !order.id || !order.category) {
+    res.status(400).json({ error: "Invalid order payload: id and category are required" });
     return;
   }
 
@@ -79,25 +85,105 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   };
 
   try {
-    await db.insert(ordersTable).values({
-      id: order.id,
-      orderNumber: String(order.orderNumber),
-      status: "pending",
-      data: order,
-    }).onConflictDoNothing();
+    const [inserted] = await db
+      .insert(ordersTable)
+      .values({
+        id: order.id,
+        orderNumber: String(order.orderNumber ?? ""),
+        status: "pending",
+        clientId: user.id,
+        technicianId: null,
+        category: order.category as string,
+        governorate: routingMeta.governorate,
+        area: routingMeta.area,
+        data: order,
+      })
+      .onConflictDoNothing()
+      .returning({ orderSerial: ordersTable.orderSerial, id: ordersTable.id });
 
-    logger.info({ orderId: order.id, orderNumber: order.orderNumber }, "Order saved to database");
+    if (inserted) {
+      const dbOrderNumber = formatOrderNumber(inserted.orderSerial);
+      await db
+        .update(ordersTable)
+        .set({ orderNumber: dbOrderNumber, updatedAt: new Date() })
+        .where(eq(ordersTable.id, order.id));
+
+      const fullOrder = { ...order, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial };
+      broadcastNewOrder(fullOrder);
+      logger.info({ orderId: order.id, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial }, "Order saved to database");
+      res.status(201).json({ success: true, orderId: order.id, orderNumber: dbOrderNumber });
+    } else {
+      broadcastNewOrder(order);
+      res.status(201).json({ success: true, orderId: order.id });
+    }
   } catch (err) {
     logger.error({ err, orderId: order.id }, "Failed to save order to database");
     res.status(500).json({ error: "Failed to persist order" });
+  }
+});
+
+router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  const { id } = req.params;
+
+  if (user.role !== "technician" && user.role !== "admin") {
+    res.status(403).json({ error: "Only technicians can acknowledge orders" });
     return;
   }
 
-  logger.info({ orderId: order.id, orderNumber: order.orderNumber, ...routingMeta }, "Received new order, routing to matched technicians");
+  try {
+    await db
+      .update(ordersTable)
+      .set({
+        status: "acknowledged",
+        technicianId: user.id,
+        acknowledgedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(ordersTable.id, id));
 
-  broadcastNewOrder(order);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to acknowledge order");
+    res.status(500).json({ error: "Failed to acknowledge order" });
+  }
+});
 
-  res.status(201).json({ success: true, orderId: order.id });
+router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  const { id } = req.params;
+
+  if (user.role !== "technician" && user.role !== "admin") {
+    res.status(403).json({ error: "Only technicians can complete orders" });
+    return;
+  }
+
+  try {
+    await db
+      .update(ordersTable)
+      .set({ status: "completed", completedAt: new Date(), updatedAt: new Date() })
+      .where(eq(ordersTable.id, id));
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to complete order");
+    res.status(500).json({ error: "Failed to complete order" });
+  }
+});
+
+router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db
+      .update(ordersTable)
+      .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+      .where(eq(ordersTable.id, id));
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to cancel order");
+    res.status(500).json({ error: "Failed to cancel order" });
+  }
 });
 
 export default router;
