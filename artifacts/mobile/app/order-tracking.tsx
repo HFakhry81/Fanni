@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   Linking,
+  Animated,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -629,6 +630,8 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
         style={[
           styles.pinMarker,
           { left: techScreen.x, top: techScreen.y, backgroundColor: TECH_PIN_COLOR },
+          // @ts-ignore – CSS transition for web smooth animation
+          { transition: "left 1s linear, top 1s linear" },
         ]}
         // @ts-ignore
         pointerEvents="none"
@@ -702,6 +705,24 @@ type MapComponents = {
 function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords }: MapProps) {
   const [components, setComponents] = useState<MapComponents | null>(null);
   const mapRef = useRef<import("react-native-maps").default | null>(null);
+
+  const animCoord = useRef(new Animated.ValueXY({ x: techLat, y: techLng })).current;
+  const [displayCoord, setDisplayCoord] = useState({ latitude: techLat, longitude: techLng });
+
+  useEffect(() => {
+    const id = animCoord.addListener(({ x, y }) => {
+      setDisplayCoord({ latitude: x, longitude: y });
+    });
+    return () => animCoord.removeListener(id);
+  }, [animCoord]);
+
+  useEffect(() => {
+    Animated.timing(animCoord, {
+      toValue: { x: techLat, y: techLng },
+      duration: 900,
+      useNativeDriver: false,
+    }).start();
+  }, [techLat, techLng, animCoord]);
 
   useEffect(() => {
     let cancelled = false;
@@ -777,7 +798,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
           lineDashPattern={hasRoute ? undefined : [8, 5]}
         />
         <Marker
-          coordinate={{ latitude: techLat, longitude: techLng }}
+          coordinate={displayCoord}
           title={order.technicianName ?? ""}
           pinColor={TECH_PIN_COLOR}
         />
