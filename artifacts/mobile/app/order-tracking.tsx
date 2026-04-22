@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Image,
   Linking,
-  type DimensionValue,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -179,6 +178,10 @@ const TECH_PIN_COLOR = "#1565C0";
 const CLIENT_PIN_COLOR = "#E53935";
 const ROUTE_COLOR = "#1565C0";
 const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_SIZE = 256;
+const MIN_ZOOM = 10;
+const MAX_ZOOM = 18;
+const INITIAL_ZOOM = 14;
 
 interface WebMapViewProps extends MapProps {
   colors: AppColors;
@@ -186,94 +189,278 @@ interface WebMapViewProps extends MapProps {
   isRTL: boolean;
 }
 
-function lngToTileX(lng: number, zoom: number): number {
-  return Math.floor(((lng + 180) / 360) * Math.pow(2, zoom));
-}
-
-function latToTileY(lat: number, zoom: number): number {
+function geoToWorld(lat: number, lng: number, zoom: number): { x: number; y: number } {
+  const scale = TILE_SIZE * Math.pow(2, zoom);
+  const x = ((lng + 180) / 360) * scale;
   const radLat = (lat * Math.PI) / 180;
-  return Math.floor(
-    ((1 - Math.log(Math.tan(radLat) + 1 / Math.cos(radLat)) / Math.PI) / 2) * Math.pow(2, zoom),
-  );
+  const y = ((1 - Math.log(Math.tan(radLat) + 1 / Math.cos(radLat)) / Math.PI) / 2) * scale;
+  return { x, y };
 }
 
 function buildTileUrl(z: number, x: number, y: number): string {
-  return OSM_TILE_URL.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
-}
-
-function techProgress(techLat: number, techLng: number, clientLat: number, clientLng: number): number {
-  const startLat = clientLat - TECH_START_OFFSET;
-  const startLng = clientLng - TECH_START_OFFSET;
-  const totalDist = Math.sqrt(Math.pow(clientLat - startLat, 2) + Math.pow(clientLng - startLng, 2));
-  const remainDist = Math.sqrt(Math.pow(clientLat - techLat, 2) + Math.pow(clientLng - techLng, 2));
-  return totalDist > 0 ? 1 - remainDist / totalDist : 1;
+  const maxTile = Math.pow(2, z);
+  const nx = ((x % maxTile) + maxTile) % maxTile;
+  const ny = Math.max(0, Math.min(maxTile - 1, y));
+  return OSM_TILE_URL.replace("{z}", String(z)).replace("{x}", String(nx)).replace("{y}", String(ny));
 }
 
 function WebMapView({ order, techLat, techLng, clientLat, clientLng, colors, t, isRTL }: WebMapViewProps) {
-  const zoom = 14;
-  const tx = lngToTileX(ALEX.lng, zoom);
-  const ty = latToTileY(ALEX.lat, zoom);
+  const midLat = (techLat + clientLat) / 2;
+  const midLng = (techLng + clientLng) / 2;
 
-  const progress = techProgress(techLat, techLng, clientLat, clientLng);
-  const techLeftPct = Math.max(8, Math.min(75, Math.round((1 - progress) * 70)));
+  const zoomRef = useRef(INITIAL_ZOOM);
+  const centerRef = useRef(geoToWorld(midLat, midLng, INITIAL_ZOOM));
+  const [, setRenderTick] = useState(0);
+  const triggerRender = useCallback(() => setRenderTick((n) => n + 1), []);
 
-  const clientLeftPct = 85;
-  const clientTopPct = 55;
-  const techTopPct = 35;
+  const containerRef = useRef<View>(null);
+  const sizeRef = useRef({ w: 400, h: 400 });
 
-  const tileRows: string[][] = [
-    [buildTileUrl(zoom, tx - 1, ty - 1), buildTileUrl(zoom, tx, ty - 1), buildTileUrl(zoom, tx + 1, ty - 1)],
-    [buildTileUrl(zoom, tx - 1, ty),     buildTileUrl(zoom, tx, ty),     buildTileUrl(zoom, tx + 1, ty)],
-    [buildTileUrl(zoom, tx - 1, ty + 1), buildTileUrl(zoom, tx, ty + 1), buildTileUrl(zoom, tx + 1, ty + 1)],
-  ];
+  const dragRef = useRef<{ startX: number; startY: number; startCx: number; startCy: number } | null>(null);
+  const pinchRef = useRef<{ dist: number; startZoom: number } | null>(null);
 
-  const pinHalfPct = 1.5;
+  const clampCenter = useCallback((cx: number, cy: number, zoom: number) => {
+    const scale = TILE_SIZE * Math.pow(2, zoom);
+    return { x: Math.max(0, Math.min(scale, cx)), y: Math.max(0, Math.min(scale, cy)) };
+  }, []);
+
+  const applyZoom = useCallback((newZoom: number, pivotScreenX?: number, pivotScreenY?: number) => {
+    newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+    if (newZoom === zoomRef.current) return;
+    const scale = Math.pow(2, newZoom - zoomRef.current);
+    const { w, h } = sizeRef.current;
+    const px = pivotScreenX ?? w / 2;
+    const py = pivotScreenY ?? h / 2;
+    const cx = centerRef.current.x;
+    const cy = centerRef.current.y;
+    const worldPivotX = cx + (px - w / 2);
+    const worldPivotY = cy + (py - h / 2);
+    const newCx = worldPivotX * scale - (px - w / 2);
+    const newCy = worldPivotY * scale - (py - h / 2);
+    zoomRef.current = newZoom;
+    centerRef.current = clampCenter(newCx, newCy, newZoom);
+    triggerRender();
+  }, [clampCenter, triggerRender]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const el = (containerRef.current as unknown as HTMLElement);
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1 : -1;
+      const rect = el.getBoundingClientRect();
+      applyZoom(zoomRef.current + delta, e.clientX - rect.left, e.clientY - rect.top);
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startCx: centerRef.current.x,
+        startCy: centerRef.current.y,
+      };
+      el.style.cursor = "grabbing";
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      centerRef.current = clampCenter(
+        dragRef.current.startCx - dx,
+        dragRef.current.startCy - dy,
+        zoomRef.current,
+      );
+      triggerRender();
+    };
+
+    const onMouseUp = () => {
+      dragRef.current = null;
+      el.style.cursor = "grab";
+    };
+
+    const touchDist = (t: TouchList) => {
+      const dx = t[0].clientX - t[1].clientX;
+      const dy = t[0].clientY - t[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        dragRef.current = {
+          startX: e.touches[0].clientX,
+          startY: e.touches[0].clientY,
+          startCx: centerRef.current.x,
+          startCy: centerRef.current.y,
+        };
+        pinchRef.current = null;
+      } else if (e.touches.length === 2) {
+        dragRef.current = null;
+        pinchRef.current = { dist: touchDist(e.touches), startZoom: zoomRef.current };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && dragRef.current) {
+        const dx = e.touches[0].clientX - dragRef.current.startX;
+        const dy = e.touches[0].clientY - dragRef.current.startY;
+        centerRef.current = clampCenter(
+          dragRef.current.startCx - dx,
+          dragRef.current.startCy - dy,
+          zoomRef.current,
+        );
+        triggerRender();
+      } else if (e.touches.length === 2 && pinchRef.current) {
+        const newDist = touchDist(e.touches);
+        const ratio = newDist / pinchRef.current.dist;
+        const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(pinchRef.current.startZoom + Math.log2(ratio))));
+        if (newZoom !== zoomRef.current) {
+          const rect = el.getBoundingClientRect();
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+          applyZoom(newZoom, midX, midY);
+        }
+      }
+    };
+
+    const onTouchEnd = () => {
+      dragRef.current = null;
+      pinchRef.current = null;
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.style.cursor = "grab";
+
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [applyZoom, clampCenter, triggerRender]);
+
+  const zoom = zoomRef.current;
+  const cx = centerRef.current.x;
+  const cy = centerRef.current.y;
+  const { w: mapW, h: mapH } = sizeRef.current;
+
+  const centerTileX = Math.floor(cx / TILE_SIZE);
+  const centerTileY = Math.floor(cy / TILE_SIZE);
+  const RADIUS = 3;
+  const tiles: Array<{ key: string; url: string; left: number; top: number }> = [];
+  for (let ty = centerTileY - RADIUS; ty <= centerTileY + RADIUS; ty++) {
+    for (let tx = centerTileX - RADIUS; tx <= centerTileX + RADIUS; tx++) {
+      const left = tx * TILE_SIZE - cx + mapW / 2;
+      const top = ty * TILE_SIZE - cy + mapH / 2;
+      tiles.push({ key: `${zoom}-${tx}-${ty}`, url: buildTileUrl(zoom, tx, ty), left, top });
+    }
+  }
+
+  const toScreen = (lat: number, lng: number) => {
+    const w = geoToWorld(lat, lng, zoom);
+    return { x: w.x - cx + mapW / 2, y: w.y - cy + mapH / 2 };
+  };
+
+  const techScreen = toScreen(techLat, techLng);
+  const clientScreen = toScreen(clientLat, clientLng);
+  const PIN_HALF = 14;
 
   return (
-    <View style={[styles.webMapContainer, { backgroundColor: "#d4e4f0" }]}>
-      <View style={[styles.tilesGrid, { pointerEvents: "none" }]}>
-        {tileRows.map((row, ri) => (
-          <View key={ri} style={styles.tilesRow}>
-            {row.map((url, ci) => (
-              <Image key={ci} source={{ uri: url }} style={styles.tile} resizeMode="cover" />
-            ))}
-          </View>
-        ))}
+    <View
+      ref={containerRef}
+      style={[styles.webMapContainer, { backgroundColor: "#d4e4f0" }]}
+      // @ts-ignore
+      onLayout={(e) => {
+        sizeRef.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
+      }}
+    >
+      {tiles.map(({ key, url, left, top }) => (
+        <Image
+          key={key}
+          source={{ uri: url }}
+          style={{
+            position: "absolute",
+            left,
+            top,
+            width: TILE_SIZE,
+            height: TILE_SIZE,
+          }}
+          resizeMode="cover"
+        />
+      ))}
+
+      {Platform.OS === "web" && (
+        // @ts-ignore
+        <svg
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+        >
+          {/* @ts-ignore */}
+          <line
+            x1={techScreen.x + PIN_HALF}
+            y1={techScreen.y + PIN_HALF}
+            x2={clientScreen.x + PIN_HALF}
+            y2={clientScreen.y + PIN_HALF}
+            stroke={ROUTE_COLOR}
+            strokeWidth="2.5"
+            strokeDasharray="8 4"
+            strokeLinecap="round"
+            opacity="0.8"
+          />
+        </svg>
+      )}
+
+      <View
+        style={[
+          styles.pinMarker,
+          { left: techScreen.x, top: techScreen.y, backgroundColor: TECH_PIN_COLOR },
+        ]}
+        // @ts-ignore
+        pointerEvents="none"
+      >
+        <Feather name="tool" size={11} color="#FFF" />
       </View>
 
-      {/* SVG route line overlay */}
-      <View style={[styles.routeOverlay, { pointerEvents: "none" }]}>
-        {Platform.OS === "web" && (
-          // @ts-ignore - SVG is valid on web
-          <svg
-            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-            preserveAspectRatio="none"
-            viewBox="0 0 100 100"
-          >
-            {/* @ts-ignore */}
-            <line
-              x1={techLeftPct + pinHalfPct}
-              y1={techTopPct + pinHalfPct}
-              x2={clientLeftPct + pinHalfPct}
-              y2={clientTopPct + pinHalfPct}
-              stroke={ROUTE_COLOR}
-              strokeWidth="1.8"
-              strokeDasharray="5 3"
-              strokeLinecap="round"
-              opacity="0.75"
-            />
-          </svg>
-        )}
+      <View
+        style={[
+          styles.pinMarker,
+          { left: clientScreen.x, top: clientScreen.y, backgroundColor: CLIENT_PIN_COLOR },
+        ]}
+        // @ts-ignore
+        pointerEvents="none"
+      >
+        <Feather name="home" size={11} color="#FFF" />
       </View>
 
-      <View style={[styles.pinsOverlay, { pointerEvents: "none" }]}>
-        <View style={[styles.pinMarker, { left: `${techLeftPct}%` as DimensionValue, top: `${techTopPct}%` as DimensionValue, backgroundColor: TECH_PIN_COLOR }]}>
-          <Feather name="tool" size={11} color="#FFF" />
-        </View>
-        <View style={[styles.pinMarker, { left: `${clientLeftPct}%` as DimensionValue, top: `${clientTopPct}%` as DimensionValue, backgroundColor: CLIENT_PIN_COLOR }]}>
-          <Feather name="home" size={11} color="#FFF" />
-        </View>
+      <View style={[styles.zoomControls, { borderColor: colors.border }]} pointerEvents="box-none">
+        <TouchableOpacity
+          style={[styles.zoomBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => applyZoom(zoomRef.current + 1)}
+          activeOpacity={0.75}
+        >
+          <Feather name="plus" size={18} color={colors.foreground} />
+        </TouchableOpacity>
+        <View style={[styles.zoomDivider, { backgroundColor: colors.border }]} />
+        <TouchableOpacity
+          style={[styles.zoomBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => applyZoom(zoomRef.current - 1)}
+          activeOpacity={0.75}
+        >
+          <Feather name="minus" size={18} color={colors.foreground} />
+        </TouchableOpacity>
       </View>
+
       <View style={[styles.webOverlay, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
         <View style={[styles.webOverlayRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <Feather name="map-pin" size={16} color={TECH_PIN_COLOR} />
@@ -393,11 +580,6 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
   webMapContainer: { flex: 1, position: "relative", overflow: "hidden" },
-  tilesGrid: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  tilesRow: { flex: 1, flexDirection: "row" },
-  tile: { flex: 1 },
-  routeOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  pinsOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   pinMarker: {
     position: "absolute",
     width: 28,
@@ -410,11 +592,33 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
+  zoomControls: {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    marginTop: -44,
+    borderRadius: 10,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+    borderWidth: 1,
+  },
+  zoomBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  zoomDivider: {
+    height: 1,
+  },
   webOverlay: {
     position: "absolute",
     bottom: 16,
     left: 16,
-    right: 16,
+    right: 64,
     padding: 12,
     borderWidth: 1,
     shadowColor: "#000",
