@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   Linking,
+  Image,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -233,6 +234,20 @@ export default function OrderDetailsScreen() {
         {/* Invoice */}
         {hasInvoice && order.invoice && (
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+            {/* Logo header */}
+            <View style={[styles.invoiceLogoRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+              <Image
+                source={require("@/assets/images/icon.png")}
+                style={styles.invoiceLogo}
+                resizeMode="contain"
+              />
+              <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL ? "فني · FANNI" : "FANNI · فني"}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                #{order.invoice.invoiceNumber}
+              </Text>
+            </View>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
               {t("invoice.title")} #{order.invoice.invoiceNumber}
             </Text>
@@ -328,6 +343,8 @@ const styles = StyleSheet.create({
   phoneRow: { alignItems: "center", gap: 4, marginTop: 4 },
   completionOption: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center", gap: 10 },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2 },
+  invoiceLogoRow: { alignItems: "center", marginBottom: 14, paddingBottom: 14, borderBottomWidth: 1 },
+  invoiceLogo: { width: 40, height: 40, borderRadius: 8 },
   invoiceRow: { paddingVertical: 10, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
   invoiceTotalRow: { padding: 14, marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   trackBtn: { marginTop: 14, paddingVertical: 12, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", gap: 8 },

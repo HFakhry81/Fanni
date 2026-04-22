@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -31,8 +31,12 @@ export default function ClientInvoicesScreen() {
               {totalPaid.toFixed(0)} <Text style={{ fontSize: 14 }}>{t("common.egp")}</Text>
             </Text>
           </View>
-          <View style={[styles.summaryIcon, { backgroundColor: "rgba(245,166,35,0.15)" }]}>
-            <Feather name="file-text" size={28} color={colors.primary} />
+          <View style={[styles.summaryIcon, { backgroundColor: "rgba(245,166,35,0.1)" }]}>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={{ width: 44, height: 44, borderRadius: 10 }}
+              resizeMode="contain"
+            />
           </View>
         </View>
         <View style={[styles.summaryFooter, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
