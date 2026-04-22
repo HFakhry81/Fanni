@@ -34,7 +34,7 @@ export default function ClientInvoicesScreen() {
           <View style={[styles.summaryIcon, { backgroundColor: "rgba(245,166,35,0.1)" }]}>
             <Image
               source={require("@/assets/images/icon.png")}
-              style={{ width: 44, height: 44, borderRadius: 10 }}
+              style={{ width: 40, height: 40, borderRadius: 8 }}
               resizeMode="contain"
             />
           </View>
