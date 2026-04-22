@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Platform, Image, ImageSourcePropType,
+  ScrollView, Platform, Image, ImageBackground,
+  ImageSourcePropType,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -9,6 +10,11 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
+
+// ─── Switch between "A", "B", or "C" to preview each design variant ───────────
+type Variant = "A" | "B" | "C";
+const VARIANT: Variant = "A";
+// ──────────────────────────────────────────────────────────────────────────────
 
 type Category = {
   id: string;
@@ -30,10 +36,10 @@ const CATEGORIES: Category[] = [
 
 const SUB_CATEGORIES: Record<string, { id: string; icon: string; label_ar: string; label_en: string }[]> = {
   electricity: [
-    { id: "wiring",       icon: "zap",         label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
-    { id: "computers",    icon: "monitor",     label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
-    { id: "washingmachine",icon: "loader",     label_ar: "غسالات",            label_en: "Washing Machines" },
-    { id: "heater",       icon: "thermometer", label_ar: "سخانات",            label_en: "Water Heaters" },
+    { id: "wiring",        icon: "zap",         label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
+    { id: "computers",     icon: "monitor",     label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
+    { id: "washingmachine",icon: "loader",      label_ar: "غسالات",            label_en: "Washing Machines" },
+    { id: "heater",        icon: "thermometer", label_ar: "سخانات",            label_en: "Water Heaters" },
   ],
   ac:          [
     { id: "repair",   icon: "tool", label_ar: "صيانة مكيفات", label_en: "AC Repair" },
@@ -64,6 +70,141 @@ const SUB_CATEGORIES: Record<string, { id: string; icon: string; label_ar: strin
     { id: "parquet", icon: "layers", label_ar: "باركيه",  label_en: "Parquet" },
   ],
 };
+
+// ─── Variant A: Full-bleed ImageBackground card ────────────────────────────────
+function VariantAImageCard({
+  cat, isSelected, label, radius, onPress,
+}: {
+  cat: Category; isSelected: boolean; label: string; radius: number; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      key={cat.id}
+      onPress={onPress}
+      activeOpacity={0.85}
+      style={[
+        styles.catCardFull,
+        {
+          borderRadius: radius,
+          borderWidth: 2.5,
+          borderColor: isSelected ? "#F5A623" : "transparent",
+          overflow: "hidden",
+        },
+      ]}
+    >
+      <ImageBackground
+        source={cat.image!}
+        style={styles.catBgFull}
+        resizeMode="cover"
+      >
+        {isSelected && (
+          <View style={styles.catSelectedOverlay} />
+        )}
+        <View style={styles.catGradientOverlay}>
+          <Text style={styles.catLabelOnImage} numberOfLines={2}>
+            {label}
+          </Text>
+        </View>
+      </ImageBackground>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Variant B: Big round circle badge ────────────────────────────────────────
+function VariantBImageCard({
+  cat, isSelected, label, colors, radius, onPress,
+}: {
+  cat: Category; isSelected: boolean; label: string;
+  colors: ReturnType<typeof useColors>; radius: number; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      key={cat.id}
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={[
+        styles.catCard,
+        {
+          backgroundColor: isSelected ? colors.darkMid : colors.card,
+          borderRadius: radius,
+          borderColor: isSelected ? "#F5A623" : colors.border,
+          borderWidth: 2,
+        },
+      ]}
+    >
+      <View style={[
+        styles.catCircleBadge,
+        { borderWidth: isSelected ? 2.5 : 0, borderColor: "#F5A623" },
+      ]}>
+        <Image
+          source={cat.image!}
+          style={styles.catCircleImage}
+          resizeMode="cover"
+        />
+      </View>
+      <Text
+        style={{
+          color: isSelected ? "#FFF" : colors.foreground,
+          fontFamily: "Inter_600SemiBold",
+          fontSize: 11,
+          textAlign: "center",
+          marginTop: 7,
+        }}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Variant C: Tall tile — image top + accent bar + label bottom ─────────────
+function VariantCImageCard({
+  cat, isSelected, label, colors, radius, onPress,
+}: {
+  cat: Category; isSelected: boolean; label: string;
+  colors: ReturnType<typeof useColors>; radius: number; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      key={cat.id}
+      onPress={onPress}
+      activeOpacity={0.85}
+      style={[
+        styles.catCardTall,
+        {
+          backgroundColor: isSelected ? colors.darkMid : colors.card,
+          borderRadius: radius,
+          borderColor: isSelected ? "#F5A623" : colors.border,
+          borderWidth: 2,
+          overflow: "hidden",
+        },
+      ]}
+    >
+      <ImageBackground
+        source={cat.image!}
+        style={styles.catTallImageArea}
+        resizeMode="cover"
+      >
+        {isSelected && <View style={styles.catSelectedOverlay} />}
+      </ImageBackground>
+      <View style={[styles.catAccentBar, { backgroundColor: isSelected ? "#F5A623" : cat.color }]} />
+      <View style={styles.catTallLabelWrap}>
+        <Text
+          style={{
+            color: isSelected ? "#FFF" : colors.foreground,
+            fontFamily: "Inter_600SemiBold",
+            fontSize: 10,
+            textAlign: "center",
+          }}
+          numberOfLines={2}
+        >
+          {label}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function ClientHomeScreen() {
   const router = useRouter();
@@ -143,6 +284,50 @@ export default function ClientHomeScreen() {
         <View style={styles.grid}>
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCat === cat.id;
+            const label = t(`cat.${cat.id}`);
+            const toggle = () => setSelectedCat(isSelected ? null : cat.id);
+
+            if (cat.image) {
+              if (VARIANT === "A") {
+                return (
+                  <VariantAImageCard
+                    key={cat.id}
+                    cat={cat}
+                    isSelected={isSelected}
+                    label={label}
+                    radius={colors.radius}
+                    onPress={toggle}
+                  />
+                );
+              }
+              if (VARIANT === "B") {
+                return (
+                  <VariantBImageCard
+                    key={cat.id}
+                    cat={cat}
+                    isSelected={isSelected}
+                    label={label}
+                    colors={colors}
+                    radius={colors.radius}
+                    onPress={toggle}
+                  />
+                );
+              }
+              if (VARIANT === "C") {
+                return (
+                  <VariantCImageCard
+                    key={cat.id}
+                    cat={cat}
+                    isSelected={isSelected}
+                    label={label}
+                    colors={colors}
+                    radius={colors.radius}
+                    onPress={toggle}
+                  />
+                );
+              }
+            }
+
             return (
               <TouchableOpacity
                 key={cat.id}
@@ -155,22 +340,14 @@ export default function ClientHomeScreen() {
                     borderWidth: 2,
                   },
                 ]}
-                onPress={() => setSelectedCat(isSelected ? null : cat.id)}
+                onPress={toggle}
                 activeOpacity={0.8}
               >
                 <View style={[styles.catIconWrap, { backgroundColor: isSelected ? "rgba(245,166,35,0.15)" : cat.color + "18", borderRadius: 12 }]}>
-                  {cat.image ? (
-                    <Image
-                      source={cat.image}
-                      style={[styles.catImage, isSelected && { tintColor: colors.primary }]}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Feather name={cat.icon as any} size={26} color={isSelected ? colors.primary : cat.color} />
-                  )}
+                  <Feather name={cat.icon as any} size={26} color={isSelected ? colors.primary : cat.color} />
                 </View>
                 <Text style={{ color: isSelected ? "#FFF" : colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "center", marginTop: 6 }} numberOfLines={2}>
-                  {t(`cat.${cat.id}`)}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
@@ -235,23 +412,41 @@ export default function ClientHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 16 },
-  heroBanner: { flexDirection: "row", alignItems: "center", padding: 18, marginBottom: 10 },
+  container:    { flex: 1 },
+  avatar:       { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  scroll:       { flex: 1 },
+  content:      { paddingHorizontal: 16, paddingTop: 16 },
+  heroBanner:   { flexDirection: "row", alignItems: "center", padding: 18, marginBottom: 10 },
   locationChip: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1.5, marginBottom: 20 },
-  bannerIcon: { width: 60, height: 60, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  bannerIcon:   { width: 60, height: 60, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   sectionTitle: { fontSize: 17, marginBottom: 14 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 },
-  catCard: { width: "22%", paddingVertical: 14, paddingHorizontal: 4, alignItems: "center", minWidth: 76 },
-  catIconWrap: { width: 50, height: 50, alignItems: "center", justifyContent: "center" },
-  catImage: { width: 34, height: 34 },
-  subSection: { marginBottom: 24 },
-  subGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  subCard: { width: "47%", paddingVertical: 18, paddingHorizontal: 12, alignItems: "center" },
+  grid:         { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 },
+
+  catCard:      { width: "22%", paddingVertical: 14, paddingHorizontal: 4, alignItems: "center", minWidth: 76 },
+  catIconWrap:  { width: 50, height: 50, alignItems: "center", justifyContent: "center" },
+
+  // ── Variant A ──────────────────────────────────────────────────────────────
+  catCardFull:        { width: "22%", minWidth: 76, height: 110 },
+  catBgFull:          { flex: 1, justifyContent: "flex-end" },
+  catGradientOverlay: { backgroundColor: "rgba(0,0,0,0.52)", paddingVertical: 8, paddingHorizontal: 4, alignItems: "center" },
+  catLabelOnImage:    { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 10, textAlign: "center" },
+  catSelectedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(245,166,35,0.22)" },
+
+  // ── Variant B ──────────────────────────────────────────────────────────────
+  catCircleBadge: { width: 64, height: 64, borderRadius: 32, overflow: "hidden" },
+  catCircleImage: { width: 64, height: 64 },
+
+  // ── Variant C ──────────────────────────────────────────────────────────────
+  catCardTall:      { width: "22%", minWidth: 76, height: 120 },
+  catTallImageArea: { height: 72 },
+  catAccentBar:     { height: 4 },
+  catTallLabelWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+
+  subSection:  { marginBottom: 24 },
+  subGrid:     { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  subCard:     { width: "47%", paddingVertical: 18, paddingHorizontal: 12, alignItems: "center" },
   subIconWrap: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  quickRow: { gap: 10, marginBottom: 24 },
-  quickCard: { flex: 1, paddingVertical: 16, alignItems: "center" },
-  quickIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  quickRow:    { gap: 10, marginBottom: 24 },
+  quickCard:   { flex: 1, paddingVertical: 16, alignItems: "center" },
+  quickIcon:   { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
 });
