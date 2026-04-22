@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  Modal, TextInput, KeyboardAvoidingView,
+  Modal, TextInput, KeyboardAvoidingView, Alert, Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
@@ -69,6 +70,73 @@ export default function ClientProfileScreen() {
     router.replace("/welcome");
   };
 
+  const pickPhoto = () => {
+    const options = [
+      isRTL ? "الكاميرا" : "Camera",
+      isRTL ? "معرض الصور" : "Photo Library",
+      isRTL ? "إلغاء" : "Cancel",
+    ];
+    Alert.alert(
+      isRTL ? "تغيير صورة الملف الشخصي" : "Change Profile Photo",
+      "",
+      [
+        {
+          text: options[0],
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert(
+                isRTL ? "لا يوجد إذن" : "Permission Required",
+                isRTL ? "يرجى السماح للتطبيق باستخدام الكاميرا من الإعدادات." : "Please allow camera access in your device settings."
+              );
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+              base64: true,
+            });
+            if (!result.canceled && result.assets[0] && user) {
+              const uri = result.assets[0].base64
+                ? `data:image/jpeg;base64,${result.assets[0].base64}`
+                : result.assets[0].uri;
+              await setUser({ ...user, avatar: uri });
+            }
+          },
+        },
+        {
+          text: options[1],
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert(
+                isRTL ? "لا يوجد إذن" : "Permission Required",
+                isRTL ? "يرجى السماح للتطبيق بالوصول إلى معرض الصور من الإعدادات." : "Please allow photo library access in your device settings."
+              );
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+              base64: true,
+            });
+            if (!result.canceled && result.assets[0] && user) {
+              const uri = result.assets[0].base64
+                ? `data:image/jpeg;base64,${result.assets[0].base64}`
+                : result.assets[0].uri;
+              await setUser({ ...user, avatar: uri });
+            }
+          },
+        },
+        { text: options[2], style: "cancel" },
+      ]
+    );
+  };
+
   const menuItems = [
     { icon: "list",       label: t("profile.previousOrders"),   color: colors.primary,   action: () => router.push("/(client)/orders") },
     { icon: "file-text",  label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices") },
@@ -82,13 +150,22 @@ export default function ClientProfileScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Profile hero */}
         <View style={[styles.profileHero, { backgroundColor: colors.darkMid }]}>
-          <View style={[styles.avatarRing, { borderColor: colors.primary }]}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 34 }}>
-                {(user?.name?.[0] ?? "U").toUpperCase()}
-              </Text>
+          <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8}>
+            <View style={[styles.avatarRing, { borderColor: colors.primary }]}>
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 34 }}>
+                    {(user?.name?.[0] ?? "U").toUpperCase()}
+                  </Text>
+                </View>
+              )}
             </View>
-          </View>
+            <View style={styles.cameraOverlay}>
+              <Feather name="camera" size={14} color="#FFF" />
+            </View>
+          </TouchableOpacity>
           <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 12 }}>{user?.name}</Text>
           <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 4 }}>{user?.mobile}</Text>
           {user?.email && (
@@ -272,6 +349,7 @@ const styles = StyleSheet.create({
   profileHero: { alignItems: "center", paddingVertical: 28, paddingBottom: 32 },
   avatarRing: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, alignItems: "center", justifyContent: "center" },
   avatar: { width: 90, height: 90, borderRadius: 45, alignItems: "center", justifyContent: "center" },
+  cameraOverlay: { position: "absolute", bottom: 0, right: 0, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, width: 24, height: 24, alignItems: "center", justifyContent: "center" },
   editBadge: { flexDirection: "row", alignItems: "center", marginTop: 14, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20 },
   menuSection: { padding: 16, gap: 10 },
   langCard: { padding: 14, borderWidth: 1.5, flexDirection: "row", alignItems: "center" },
