@@ -4,6 +4,7 @@ import {
   ScrollView, Platform, Image, ImageBackground,
   ImageSourcePropType,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -100,11 +101,14 @@ function VariantAImageCard({
         {isSelected && (
           <View style={styles.catSelectedOverlay} />
         )}
-        <View style={styles.catGradientOverlay}>
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.55)"]}
+          style={styles.catGradientOverlay}
+        >
           <Text style={styles.catLabelOnImage} numberOfLines={2}>
             {label}
           </Text>
-        </View>
+        </LinearGradient>
       </ImageBackground>
     </TouchableOpacity>
   );
@@ -125,9 +129,9 @@ function VariantBImageCard({
       style={[
         styles.catCard,
         {
-          backgroundColor: isSelected ? colors.darkMid : colors.card,
+          backgroundColor: colors.card,
           borderRadius: radius,
-          borderColor: isSelected ? "#F5A623" : colors.border,
+          borderColor: colors.border,
           borderWidth: 2,
         },
       ]}
@@ -144,7 +148,7 @@ function VariantBImageCard({
       </View>
       <Text
         style={{
-          color: isSelected ? "#FFF" : colors.foreground,
+          color: colors.foreground,
           fontFamily: "Inter_600SemiBold",
           fontSize: 11,
           textAlign: "center",
