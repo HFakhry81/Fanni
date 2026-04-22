@@ -35,6 +35,7 @@ interface AppContextType {
   isLoggedIn: boolean;
   isOnline: boolean;
   setIsOnline: (value: boolean, sessionToken?: string) => Promise<void>;
+  isAvailabilityHydrated: boolean;
 }
 
 const translations: Record<string, Record<Language, string>> = {
@@ -363,6 +364,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLoggedIn: !!user,
         isOnline,
         setIsOnline,
+        isAvailabilityHydrated,
       }}
     >
       {children}

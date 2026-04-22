@@ -24,8 +24,9 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
-  const { user: authUser } = useAuth();
-  const { setUser } = useApp();
+  const { user: authUser, sessionToken } = useAuth();
+  const { setUser, isOnline, setIsOnline, isAvailabilityHydrated } = useApp();
+  const hasSynced = React.useRef(false);
 
   useEffect(() => {
     if (authUser) {
@@ -46,8 +47,39 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       });
     } else {
       setUser(null);
+      hasSynced.current = false;
     }
   }, [authUser]);
+
+  useEffect(() => {
+    if (
+      !hasSynced.current &&
+      isAvailabilityHydrated &&
+      authUser?.role === "technician" &&
+      authUser?.id &&
+      sessionToken
+    ) {
+      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+      const apiBase = domain ? `https://${domain}` : "";
+      if (!apiBase) return;
+      const techId = authUser.id;
+      const token = sessionToken;
+      fetch(`${apiBase}/api/technicians/${techId}/availability`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isAvailable: isOnline }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            hasSynced.current = true;
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAvailabilityHydrated, authUser, sessionToken, isOnline]);
 
   return <>{children}</>;
 }
