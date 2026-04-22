@@ -7,13 +7,17 @@ import { eq } from "drizzle-orm";
 interface TechnicianMeta {
   registered: boolean;
   isAvailable: boolean;
-  category?: string;
+  categories?: string[];
   governorate?: string;
   area?: string;
 }
 
 function hasRoutingConstraints(meta: TechnicianMeta): boolean {
-  return !!(meta.category || meta.governorate || meta.area);
+  return !!(
+    (meta.categories && meta.categories.length > 0) ||
+    meta.governorate ||
+    meta.area
+  );
 }
 
 function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta): boolean {
@@ -25,9 +29,9 @@ function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta):
     return false;
   }
 
-  if (meta.category) {
+  if (meta.categories && meta.categories.length > 0) {
     const orderCategory = (order.category as string | undefined)?.toLowerCase();
-    if (!orderCategory || orderCategory !== meta.category.toLowerCase()) {
+    if (!orderCategory || !meta.categories.includes(orderCategory)) {
       return false;
     }
   }
@@ -79,8 +83,12 @@ wss.on("connection", (ws: WebSocket) => {
         const isAvailable = msg.isAvailable !== false;
         const meta: TechnicianMeta = { registered: true, isAvailable };
 
-        if (msg.category && typeof msg.category === "string" && msg.category.trim()) {
-          meta.category = msg.category.trim().toLowerCase();
+        if (Array.isArray(msg.categories) && msg.categories.length > 0) {
+          meta.categories = (msg.categories as unknown[])
+            .filter((c): c is string => typeof c === "string" && c.trim() !== "")
+            .map((c) => c.trim().toLowerCase());
+        } else if (msg.category && typeof msg.category === "string" && msg.category.trim()) {
+          meta.categories = [msg.category.trim().toLowerCase()];
         }
 
         if (msg.governorate && typeof msg.governorate === "string" && msg.governorate.trim()) {
@@ -94,7 +102,7 @@ wss.on("connection", (ws: WebSocket) => {
         clients.set(ws, meta);
 
         const hasConstraints = hasRoutingConstraints(meta);
-        logger.info({ meta, hasConstraints }, "Technician registered with metadata");
+        logger.info({ categories: meta.categories, governorate: meta.governorate, area: meta.area, hasConstraints }, "Technician registered with metadata");
 
         if (!hasConstraints) {
           logger.info("Technician registered with no routing constraints — no orders will be delivered");
@@ -172,9 +180,9 @@ export function broadcastNewOrder(order: unknown): void {
       skipped,
       unregistered,
       unconstrained,
-      orderCategory: o.category,
-      orderGovernorate: o.governorate,
-      orderArea: o.area,
+      orderCategory: o["category"],
+      orderGovernorate: o["governorate"],
+      orderArea: o["area"],
     },
     "Routed new order to matching technicians"
   );

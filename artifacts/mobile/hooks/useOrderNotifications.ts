@@ -32,12 +32,14 @@ function getWsUrl(): string {
 }
 
 function buildRegisterMessage(user: User | null): string {
-  const payload: Record<string, string | boolean> = { type: "register", isAvailable: true };
+  const payload: Record<string, unknown> = { type: "register", isAvailable: true };
 
-  if (user?.profession) {
+  if (user?.serviceCategories && user.serviceCategories.length > 0) {
+    payload.categories = user.serviceCategories.map((c) => c.toLowerCase());
+  } else if (user?.profession) {
     const category = professionToCategory(user.profession);
     if (category) {
-      payload.category = category;
+      payload.categories = [category];
     }
   }
 
@@ -136,5 +138,5 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(buildRegisterMessage(user));
-  }, [user?.id, user?.profession, user?.governorate, user?.area, isOnline]);
+  }, [user?.id, user?.profession, user?.serviceCategories, user?.governorate, user?.area, isOnline]);
 }

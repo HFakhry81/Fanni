@@ -20,6 +20,7 @@ export interface User {
   district?: string;
   rating?: number;
   avatar?: string;
+  serviceCategories?: string[];
 }
 
 interface AppContextType {

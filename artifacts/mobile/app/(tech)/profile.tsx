@@ -17,6 +17,17 @@ import Toast from "@/components/Toast";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 
+const SERVICE_CATEGORIES = [
+  { key: "electricity", ar: "كهرباء", en: "Electricity" },
+  { key: "plumbing", ar: "سباكة", en: "Plumbing" },
+  { key: "ac", ar: "تكييف", en: "Air Conditioning" },
+  { key: "carpentry", ar: "نجارة", en: "Carpentry" },
+  { key: "appliances", ar: "أجهزة منزلية", en: "Appliances" },
+  { key: "painting", ar: "دهانات", en: "Painting" },
+  { key: "pest", ar: "مكافحة حشرات", en: "Pest Control" },
+  { key: "flooring", ar: "أرضيات", en: "Flooring" },
+] as const;
+
 export default function TechProfileScreen() {
   const router = useRouter();
   const colors = useColors();
@@ -38,6 +49,7 @@ export default function TechProfileScreen() {
   const [editArea, setEditArea] = useState("");
   const [editDistrict, setEditDistrict] = useState("");
   const [editStreet, setEditStreet] = useState("");
+  const [editCategories, setEditCategories] = useState<string[]>([]);
 
   // Change password state
   const [currentPw, setCurrentPw] = useState("");
@@ -53,6 +65,12 @@ export default function TechProfileScreen() {
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
+  const toggleCategory = (key: string) => {
+    setEditCategories((prev) =>
+      prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]
+    );
+  };
+
   const openEdit = () => {
     if (!user) return;
     setEditName(user.name ?? "");
@@ -62,6 +80,7 @@ export default function TechProfileScreen() {
     setEditArea(user.area ?? "");
     setEditDistrict(user.district ?? "");
     setEditStreet(user.address ?? "");
+    setEditCategories(user.serviceCategories ?? []);
     setErrors({});
     setEditVisible(true);
   };
@@ -108,6 +127,7 @@ export default function TechProfileScreen() {
       area: editArea,
       district: editDistrict,
       address: editStreet.trim(),
+      serviceCategories: editCategories,
     });
     setEditVisible(false);
     setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
@@ -386,6 +406,44 @@ export default function TechProfileScreen() {
             <Feather name="edit-2" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
 
+          {/* Service Categories display */}
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, alignItems: "flex-start" }]}
+            onPress={openEdit}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
+              <Feather name="grid" size={18} color={colors.secondary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 6 }}>
+                {isRTL ? "تخصصات الخدمة" : "Service Categories"}
+              </Text>
+              {user?.serviceCategories && user.serviceCategories.length > 0 ? (
+                <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 6 }]}>
+                  {user.serviceCategories.map((key) => {
+                    const cat = SERVICE_CATEGORIES.find((c) => c.key === key);
+                    return (
+                      <View
+                        key={key}
+                        style={{ backgroundColor: colors.primary + "22", borderColor: colors.primary, borderWidth: 1, borderRadius: 14, paddingVertical: 4, paddingHorizontal: 10 }}
+                      >
+                        <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                          {cat ? (isRTL ? cat.ar : cat.en) : key}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+                  {isRTL ? "لم يتم تحديد تخصصات بعد" : "No categories selected yet"}
+                </Text>
+              )}
+            </View>
+            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+          </TouchableOpacity>
+
           {/* Service area */}
           <TouchableOpacity
             style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
@@ -619,6 +677,48 @@ export default function TechProfileScreen() {
                   />
                 </View>
 
+                {/* Service Categories */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {isRTL ? "تخصصات الخدمة" : "Service Categories"}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
+                    {isRTL ? "اختر واحدة أو أكثر من الفئات التي تتقنها" : "Select one or more categories you specialize in"}
+                  </Text>
+                  <View style={[styles.categoryGrid, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    {SERVICE_CATEGORIES.map((cat) => {
+                      const selected = editCategories.includes(cat.key);
+                      return (
+                        <TouchableOpacity
+                          key={cat.key}
+                          onPress={() => toggleCategory(cat.key)}
+                          style={[
+                            styles.categoryChip,
+                            {
+                              backgroundColor: selected ? colors.primary : colors.card,
+                              borderColor: selected ? colors.primary : colors.border,
+                            },
+                          ]}
+                          activeOpacity={0.7}
+                        >
+                          {selected && (
+                            <Feather name="check" size={12} color="#FFF" style={{ marginRight: isRTL ? 0 : 5, marginLeft: isRTL ? 5 : 0 }} />
+                          )}
+                          <Text
+                            style={{
+                              color: selected ? "#FFF" : colors.foreground,
+                              fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular",
+                              fontSize: 13,
+                            }}
+                          >
+                            {isRTL ? cat.ar : cat.en}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
                 {/* Divider */}
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
                   {t("register.step3")}
@@ -694,4 +794,6 @@ const styles = StyleSheet.create({
   errorText: { fontFamily: "Inter_400Regular", fontSize: 12, color: "#E53E3E", marginTop: 4 },
   pwInputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 12, paddingLeft: 14, paddingRight: 4 },
   pwInput: { flex: 1, paddingVertical: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  categoryGrid: { flexWrap: "wrap", gap: 8 },
+  categoryChip: { flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1.5 },
 });
