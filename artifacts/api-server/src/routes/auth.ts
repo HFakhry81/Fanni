@@ -1,5 +1,6 @@
 import * as oidc from "openid-client";
 import { Router, type IRouter, type Request, type Response } from "express";
+import crypto from "node:crypto";
 import {
   GetCurrentAuthUserResponse,
   ExchangeMobileAuthorizationCodeBody,
@@ -7,8 +8,9 @@ import {
   LogoutMobileSessionResponse,
   SetUserRoleBody,
 } from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
+import { eq, and, gt, isNull } from "drizzle-orm";
+import { sendPasswordResetCode } from "../lib/email";
 import {
   clearSession,
   getOidcConfig,
@@ -24,6 +26,28 @@ import {
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 
 const router: IRouter = Router();
+
+const rateLimitStore = new Map<string, number[]>();
+
+function checkRateLimit(key: string, maxRequests: number, windowMs: number): boolean {
+  const now = Date.now();
+  const timestamps = (rateLimitStore.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (timestamps.length >= maxRequests) return false;
+  timestamps.push(now);
+  rateLimitStore.set(key, timestamps);
+  return true;
+}
+
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    const cutoff = Date.now() - 60 * 60 * 1000;
+    for (const [key, ts] of rateLimitStore) {
+      const pruned = ts.filter((t) => t > cutoff);
+      if (pruned.length === 0) rateLimitStore.delete(key);
+      else rateLimitStore.set(key, pruned);
+    }
+  }, 5 * 60 * 1000);
+}
 
 function getOrigin(req: Request): string {
   const proto = req.headers["x-forwarded-proto"] || "https";
@@ -261,6 +285,195 @@ router.post("/mobile-auth/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
   if (sid) await deleteSession(sid);
   res.json(LogoutMobileSessionResponse.parse({ success: true }));
+});
+
+function hashPassword(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
+}
+
+function generateSalt(): string {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  const [salt, hash] = storedHash.split(":");
+  if (!salt || !hash) return false;
+  const derived = hashPassword(password, salt);
+  return crypto.timingSafeEqual(Buffer.from(derived, "hex"), Buffer.from(hash, "hex"));
+}
+
+function hashResetCode(code: string): string {
+  return crypto.createHash("sha256").update(code).digest("hex");
+}
+
+router.post("/auth/forgot-password", async (req: Request, res: Response) => {
+  const { identifier } = req.body as { identifier?: string };
+  if (!identifier || typeof identifier !== "string" || !identifier.trim()) {
+    res.status(400).json({ error: "Email or mobile number is required" });
+    return;
+  }
+
+  const needle = identifier.trim().toLowerCase();
+
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  if (!checkRateLimit(`forgot:ip:${ip}`, 5, 60 * 60 * 1000) || !checkRateLimit(`forgot:id:${needle}`, 3, 60 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many requests. Please wait before trying again." });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(
+      needle.includes("@") ? eq(usersTable.email, needle) : eq(usersTable.mobile, needle),
+    );
+
+  if (!user) {
+    res.json({ success: true });
+    return;
+  }
+
+  const code = String(crypto.randomInt(100_000, 1_000_000));
+  const tokenHash = hashResetCode(code);
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+  await db.insert(passwordResetTokensTable).values({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+  });
+
+  req.log.info({ userId: user.id }, "Password reset requested");
+
+  const destination = user.email ?? user.mobile;
+  if (destination) {
+    const sent = await sendPasswordResetCode({ to: destination, code });
+    if (!sent) {
+      console.warn(`[PASSWORD RESET] Email not sent (SMTP unconfigured). Configure SMTP_HOST/SMTP_USER/SMTP_PASS to enable email delivery.`);
+    }
+  }
+
+  res.json({ success: true });
+});
+
+router.post("/auth/reset-password", async (req: Request, res: Response) => {
+  const { identifier, code, newPassword } = req.body as {
+    identifier?: string;
+    code?: string;
+    newPassword?: string;
+  };
+
+  if (!identifier || !code || !newPassword) {
+    res.status(400).json({ error: "identifier, code and newPassword are required" });
+    return;
+  }
+
+  if (typeof newPassword !== "string" || newPassword.length < 6) {
+    res.status(400).json({ error: "Password must be at least 6 characters" });
+    return;
+  }
+
+  const needle = identifier.trim().toLowerCase();
+
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  if (!checkRateLimit(`reset:ip:${ip}`, 10, 60 * 60 * 1000) || !checkRateLimit(`reset:id:${needle}`, 5, 60 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many attempts. Please wait before trying again." });
+    return;
+  }
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(
+      needle.includes("@") ? eq(usersTable.email, needle) : eq(usersTable.mobile, needle),
+    );
+
+  if (!user) {
+    res.status(400).json({ error: "Invalid or expired code" });
+    return;
+  }
+
+  const tokenHash = hashResetCode(code.trim());
+  const now = new Date();
+
+  const [resetToken] = await db
+    .select()
+    .from(passwordResetTokensTable)
+    .where(
+      and(
+        eq(passwordResetTokensTable.userId, user.id),
+        eq(passwordResetTokensTable.tokenHash, tokenHash),
+        gt(passwordResetTokensTable.expiresAt, now),
+        isNull(passwordResetTokensTable.usedAt),
+      ),
+    );
+
+  if (!resetToken) {
+    res.status(400).json({ error: "Invalid or expired code" });
+    return;
+  }
+
+  await db
+    .update(passwordResetTokensTable)
+    .set({ usedAt: now })
+    .where(eq(passwordResetTokensTable.id, resetToken.id));
+
+  const salt = generateSalt();
+  const passwordHash = `${salt}:${hashPassword(newPassword, salt)}`;
+
+  await db
+    .update(usersTable)
+    .set({ passwordHash, updatedAt: now })
+    .where(eq(usersTable.id, user.id));
+
+  req.log.info({ userId: user.id }, "Password reset successful");
+  res.json({ success: true });
+});
+
+router.post("/auth/login-with-password", async (req: Request, res: Response) => {
+  const { identifier, password } = req.body as {
+    identifier?: string;
+    password?: string;
+  };
+
+  if (!identifier || !password) {
+    res.status(400).json({ error: "identifier and password are required" });
+    return;
+  }
+
+  const needle = identifier.trim().toLowerCase();
+
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  if (!checkRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000) || !checkRateLimit(`login:id:${needle}`, 10, 15 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many login attempts. Please wait before trying again." });
+    return;
+  }
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(
+      needle.includes("@") ? eq(usersTable.email, needle) : eq(usersTable.mobile, needle),
+    );
+
+  if (!user || !user.passwordHash) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  const valid = verifyPassword(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  const sessionData = {
+    user: buildAuthUser(user),
+    access_token: "",
+    refresh_token: undefined,
+    expires_at: undefined,
+  };
+  const sid = await createSession(sessionData as Parameters<typeof createSession>[0]);
+  req.log.info({ userId: user.id }, "User signed in with password");
+  res.json({ token: sid, user: buildAuthUser(user) });
 });
 
 export default router;

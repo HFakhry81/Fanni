@@ -58,6 +58,25 @@ const translations: Record<string, Record<Language, string>> = {
   "login.noAccount": { ar: "ليس لديك حساب؟", en: "Don't have an account?" },
   "login.register": { ar: "إنشاء حساب", en: "Register" },
 
+  // Forgot password
+  "forgot.title": { ar: "استعادة كلمة المرور", en: "Reset Password" },
+  "forgot.subtitle": { ar: "أدخل بريدك الإلكتروني أو رقم هاتفك وسنرسل لك رمز التحقق", en: "Enter your email or mobile number and we'll send you a reset code" },
+  "forgot.identifier": { ar: "البريد الإلكتروني أو رقم الهاتف", en: "Email or Mobile Number" },
+  "forgot.send": { ar: "إرسال الرمز", en: "Send Code" },
+  "forgot.sent": { ar: "تم إرسال رمز التحقق", en: "Reset code sent" },
+  "forgot.sentDesc": { ar: "تحقق من بريدك الإلكتروني أو هاتفك للحصول على رمز التحقق المكون من 6 أرقام", en: "Check your email or phone for the 6-digit reset code" },
+  "forgot.code": { ar: "رمز التحقق", en: "Reset Code" },
+  "forgot.codePlaceholder": { ar: "أدخل الرمز المكون من 6 أرقام", en: "Enter 6-digit code" },
+  "forgot.newPassword": { ar: "كلمة المرور الجديدة", en: "New Password" },
+  "forgot.confirmPassword": { ar: "تأكيد كلمة المرور", en: "Confirm Password" },
+  "forgot.resetBtn": { ar: "تعيين كلمة المرور الجديدة", en: "Set New Password" },
+  "forgot.success": { ar: "تم تغيير كلمة المرور بنجاح!", en: "Password changed successfully!" },
+  "forgot.successDesc": { ar: "يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة", en: "You can now sign in with your new password" },
+  "forgot.backToLogin": { ar: "العودة لتسجيل الدخول", en: "Back to Sign In" },
+  "forgot.invalidCode": { ar: "الرمز غير صحيح أو منتهي الصلاحية", en: "Invalid or expired code" },
+  "forgot.passwordMismatch": { ar: "كلمتا المرور غير متطابقتين", en: "Passwords do not match" },
+  "forgot.passwordTooShort": { ar: "يجب أن تكون كلمة المرور 6 أحرف على الأقل", en: "Password must be at least 6 characters" },
+
   // Register
   "register.title": { ar: "إنشاء حساب جديد", en: "Create Account" },
   "register.asClient": { ar: "تسجيل كعميل", en: "Register as Client" },
