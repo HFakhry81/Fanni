@@ -351,12 +351,33 @@ function buildTileUrl(z: number, x: number, y: number): string {
   return OSM_TILE_URL.replace("{z}", String(z)).replace("{x}", String(nx)).replace("{y}", String(ny));
 }
 
-function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, colors, t, isRTL }: WebMapViewProps) {
-  const midLat = (techLat + clientLat) / 2;
-  const midLng = (techLng + clientLng) / 2;
+function computeFit(
+  techLat: number, techLng: number,
+  clientLat: number, clientLng: number,
+  w: number, h: number
+): { zoom: number; cx: number; cy: number } {
+  const padding = 72;
+  for (let z = MAX_ZOOM; z >= MIN_ZOOM; z--) {
+    const techW = geoToWorld(techLat, techLng, z);
+    const clientW = geoToWorld(clientLat, clientLng, z);
+    const minX = Math.min(techW.x, clientW.x);
+    const maxX = Math.max(techW.x, clientW.x);
+    const minY = Math.min(techW.y, clientW.y);
+    const maxY = Math.max(techW.y, clientW.y);
+    if (maxX - minX <= w - 2 * padding && maxY - minY <= h - 2 * padding) {
+      return { zoom: z, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+    }
+  }
+  const techW = geoToWorld(techLat, techLng, MIN_ZOOM);
+  const clientW = geoToWorld(clientLat, clientLng, MIN_ZOOM);
+  return { zoom: MIN_ZOOM, cx: (techW.x + clientW.x) / 2, cy: (techW.y + clientW.y) / 2 };
+}
 
-  const zoomRef = useRef(INITIAL_ZOOM);
-  const centerRef = useRef(geoToWorld(midLat, midLng, INITIAL_ZOOM));
+function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, colors, t, isRTL }: WebMapViewProps) {
+  const initialFit = computeFit(techLat, techLng, clientLat, clientLng, 400, 400);
+
+  const zoomRef = useRef(initialFit.zoom);
+  const centerRef = useRef({ x: initialFit.cx, y: initialFit.cy });
   const [, setRenderTick] = useState(0);
   const triggerRender = useCallback(() => setRenderTick((n) => n + 1), []);
 
@@ -370,6 +391,14 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     const scale = TILE_SIZE * Math.pow(2, zoom);
     return { x: Math.max(0, Math.min(scale, cx)), y: Math.max(0, Math.min(scale, cy)) };
   }, []);
+
+  const fitBothPins = useCallback(() => {
+    const { w, h } = sizeRef.current;
+    const fit = computeFit(techLat, techLng, clientLat, clientLng, w, h);
+    zoomRef.current = fit.zoom;
+    centerRef.current = clampCenter(fit.cx, fit.cy, fit.zoom);
+    triggerRender();
+  }, [techLat, techLng, clientLat, clientLng, clampCenter, triggerRender]);
 
   const applyZoom = useCallback((newZoom: number, pivotScreenX?: number, pivotScreenY?: number) => {
     newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
@@ -540,7 +569,12 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       style={[styles.webMapContainer, { backgroundColor: "#d4e4f0" }]}
       // @ts-ignore
       onLayout={(e) => {
-        sizeRef.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
+        const { width, height } = e.nativeEvent.layout;
+        sizeRef.current = { w: width, h: height };
+        const fit = computeFit(techLat, techLng, clientLat, clientLng, width, height);
+        zoomRef.current = fit.zoom;
+        centerRef.current = { x: fit.cx, y: fit.cy };
+        triggerRender();
       }}
     >
       {tiles.map(({ key, url, left, top }) => (
@@ -629,6 +663,14 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
         >
           <Feather name="minus" size={18} color={colors.foreground} />
         </TouchableOpacity>
+        <View style={[styles.zoomDivider, { backgroundColor: colors.border }]} />
+        <TouchableOpacity
+          style={[styles.zoomBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={fitBothPins}
+          activeOpacity={0.75}
+        >
+          <Feather name="maximize-2" size={16} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.webOverlay, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
@@ -659,6 +701,7 @@ type MapComponents = {
 
 function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords }: MapProps) {
   const [components, setComponents] = useState<MapComponents | null>(null);
+  const mapRef = useRef<import("react-native-maps").default | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -675,6 +718,17 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  const fitPins = useCallback(() => {
+    if (!mapRef.current) return;
+    mapRef.current.fitToCoordinates(
+      [
+        { latitude: techLat, longitude: techLng },
+        { latitude: clientLat, longitude: clientLng },
+      ],
+      { edgePadding: { top: 80, right: 80, bottom: 80, left: 80 }, animated: true }
+    );
+  }, [techLat, techLng, clientLat, clientLng]);
 
   if (!components) {
     return (
@@ -695,46 +749,58 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
       ];
 
   return (
-    <MapView
-      style={styles.map}
-      initialRegion={{
-        latitude: ALEX.lat,
-        longitude: ALEX.lng,
-        latitudeDelta: 0.08,
-        longitudeDelta: 0.08,
-      }}
-      mapType="none"
-      showsUserLocation={false}
-      showsMyLocationButton={false}
-    >
-      <UrlTile
-        urlTemplate={OSM_TILE_URL}
-        maximumZ={19}
-        flipY={false}
-      />
-      <Polyline
-        coordinates={routeCoordinates}
-        strokeColor={ROUTE_COLOR}
-        strokeWidth={3}
-        lineDashPattern={hasRoute ? undefined : [8, 5]}
-      />
-      <Marker
-        coordinate={{ latitude: techLat, longitude: techLng }}
-        title={order.technicianName ?? ""}
-        pinColor={TECH_PIN_COLOR}
-      />
-      <Marker
-        coordinate={{ latitude: clientLat, longitude: clientLng }}
-        title={order.street}
-        pinColor={CLIENT_PIN_COLOR}
-      />
-      <Circle
-        center={{ latitude: clientLat, longitude: clientLng }}
-        radius={120}
-        strokeColor="rgba(229,57,53,0.5)"
-        fillColor="rgba(229,57,53,0.12)"
-      />
-    </MapView>
+    <View style={{ flex: 1 }}>
+      <MapView
+        // @ts-ignore – ref forwarding on dynamic import; works at runtime
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={{
+          latitude: ALEX.lat,
+          longitude: ALEX.lng,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        }}
+        mapType="none"
+        showsUserLocation={false}
+        showsMyLocationButton={false}
+        onMapReady={fitPins}
+      >
+        <UrlTile
+          urlTemplate={OSM_TILE_URL}
+          maximumZ={19}
+          flipY={false}
+        />
+        <Polyline
+          coordinates={routeCoordinates}
+          strokeColor={ROUTE_COLOR}
+          strokeWidth={3}
+          lineDashPattern={hasRoute ? undefined : [8, 5]}
+        />
+        <Marker
+          coordinate={{ latitude: techLat, longitude: techLng }}
+          title={order.technicianName ?? ""}
+          pinColor={TECH_PIN_COLOR}
+        />
+        <Marker
+          coordinate={{ latitude: clientLat, longitude: clientLng }}
+          title={order.street}
+          pinColor={CLIENT_PIN_COLOR}
+        />
+        <Circle
+          center={{ latitude: clientLat, longitude: clientLng }}
+          radius={120}
+          strokeColor="rgba(229,57,53,0.5)"
+          fillColor="rgba(229,57,53,0.12)"
+        />
+      </MapView>
+      <TouchableOpacity
+        style={styles.nativeFitBtn}
+        onPress={fitPins}
+        activeOpacity={0.75}
+      >
+        <Feather name="maximize-2" size={18} color="#1565C0" />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -800,6 +866,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   webOverlayRow: { alignItems: "center" },
+  nativeFitBtn: {
+    position: "absolute",
+    right: 12,
+    top: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+  },
   infoCard: {
     paddingTop: 14,
     paddingHorizontal: 16,
