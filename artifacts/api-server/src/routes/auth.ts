@@ -429,6 +429,103 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
+
+router.post("/auth/register", async (req: Request, res: Response) => {
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId } = req.body as {
+    name?: string;
+    email?: string;
+    mobile?: string;
+    password?: string;
+    role?: string;
+    nationalId?: string;
+    governorateId?: string;
+    areaId?: string;
+  };
+
+  if (!name || !name.trim()) {
+    res.status(400).json({ error: "Name is required" });
+    return;
+  }
+  if (!mobile || !mobile.trim()) {
+    res.status(400).json({ error: "Mobile number is required" });
+    return;
+  }
+  if (!EGYPT_MOBILE_RE.test(mobile.trim().replace(/\s|-/g, ""))) {
+    res.status(400).json({ error: "Invalid Egyptian mobile number" });
+    return;
+  }
+  if (!password || password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+  if (role && !["client", "technician"].includes(role)) {
+    res.status(400).json({ error: "Invalid role" });
+    return;
+  }
+
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  if (!checkRateLimit(`register:ip:${ip}`, 5, 60 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many registration attempts. Please wait before trying again." });
+    return;
+  }
+
+  const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+  const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
+  const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+
+  const [existingMobile] = await db.select().from(usersTable).where(eq(usersTable.mobile, normalizedMobile));
+  if (existingMobile) {
+    res.status(409).json({ error: "Mobile number is already registered" });
+    return;
+  }
+
+  if (email && email.trim()) {
+    const [existingEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
+    if (existingEmail) {
+      res.status(409).json({ error: "Email address is already registered" });
+      return;
+    }
+  }
+
+  const salt = generateSalt();
+  const hashedPassword = hashPassword(password, salt);
+  const passwordHash = `${salt}:${hashedPassword}`;
+
+  const nameParts = name.trim().split(/\s+/);
+  const firstName = nameParts[0] ?? name.trim();
+  const lastName = nameParts.slice(1).join(" ") || null;
+
+  const [newUser] = await db
+    .insert(usersTable)
+    .values({
+      email: email ? email.trim().toLowerCase() : null,
+      firstName,
+      lastName,
+      mobile: normalizedMobile,
+      role: (role as "client" | "technician") ?? "client",
+      passwordHash,
+      governorate: governorateId ?? null,
+      area: areaId ?? null,
+    })
+    .returning();
+
+  if (!newUser) {
+    res.status(500).json({ error: "Failed to create user" });
+    return;
+  }
+
+  const sessionData = {
+    user: buildAuthUser(newUser),
+    access_token: "",
+    refresh_token: undefined,
+    expires_at: undefined,
+  };
+  const sid = await createSession(sessionData as Parameters<typeof createSession>[0]);
+  req.log.info({ userId: newUser.id }, "New user registered");
+  res.status(201).json({ token: sid, user: buildAuthUser(newUser) });
+});
+
 router.post("/auth/login-with-password", async (req: Request, res: Response) => {
   const { identifier, password } = req.body as {
     identifier?: string;

@@ -5,14 +5,24 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as SecureStore from "expo-secure-store";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
+import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import { DEFAULT_GOVERNORATE } from "@/constants/egyptLocations";
+
+const AUTH_TOKEN_KEY = "fanni_auth_token";
+
+function getApiBase(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+  return domain ? `https://${domain}` : "";
+}
 
 type RegisterType = "client" | "technician";
 type PaymentMethod = "bank" | "ewallet" | "instapay";
@@ -21,6 +31,7 @@ export default function RegisterScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
+  const { refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [regType, setRegType] = useState<RegisterType>("client");
@@ -33,6 +44,8 @@ export default function RegisterScreen() {
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
   const [nationalId, setNationalId] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // ── Payment ────────────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank");
@@ -56,12 +69,17 @@ export default function RegisterScreen() {
   const [serviceStart, setServiceStart] = useState("08:00");
   const [serviceEnd, setServiceEnd] = useState("22:00");
 
+  // ── API error ─────────────────────────────────────────────────────────────
+  const [apiError, setApiError] = useState("");
+
   // ── Validation errors ──────────────────────────────────────────────────────
   const [errors, setErrors] = useState<{
     name?: string;
     mobile?: string;
     nationalId?: string;
     area?: string;
+    password?: string;
+    confirmPassword?: string;
   }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
@@ -87,6 +105,18 @@ export default function RegisterScreen() {
       if (regType === "technician" && !nationalId.trim()) {
         newErrors.nationalId = isRTL ? "الرقم القومي مطلوب" : "National ID is required";
       }
+
+      if (!password) {
+        newErrors.password = isRTL ? "كلمة المرور مطلوبة" : "Password is required";
+      } else if (!getPasswordStrength(password, isRTL).isStrong) {
+        newErrors.password = isRTL ? "كلمة المرور ضعيفة — يرجى استيفاء جميع المتطلبات" : "Password is too weak — please meet all requirements";
+      }
+
+      if (!confirmPassword) {
+        newErrors.confirmPassword = isRTL ? "تأكيد كلمة المرور مطلوب" : "Please confirm your password";
+      } else if (password !== confirmPassword) {
+        newErrors.confirmPassword = isRTL ? "كلمتا المرور غير متطابقتين" : "Passwords do not match";
+      }
     }
 
     if (step === totalSteps) {
@@ -109,12 +139,48 @@ export default function RegisterScreen() {
     } else {
       const mobileDigits = mobile.trim().replace(/\s|-/g, "");
       const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-      if (mobileMatch) setMobile(`0${mobileMatch[2]}`);
+      const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
 
+      setApiError("");
       setLoading(true);
-      await new Promise((r) => setTimeout(r, 1000));
-      setLoading(false);
-      router.push("/register-success");
+      try {
+        const apiBase = getApiBase();
+        const res = await fetch(`${apiBase}/api/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name.trim(),
+            email: email.trim() || undefined,
+            mobile: normalizedMobile,
+            password,
+            role: regType,
+            nationalId: nationalId.trim() || undefined,
+            governorateId: governorateId || undefined,
+            areaId: areaId || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (data.token) {
+          await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+          await refreshUser();
+          router.push("/register-success");
+        } else {
+          const msg = data.error ?? "Unknown error";
+          if (msg.includes("Mobile number is already registered")) {
+            setApiError(isRTL ? "رقم الهاتف مسجل بالفعل" : "Mobile number is already registered");
+          } else if (msg.includes("Email address is already registered")) {
+            setApiError(isRTL ? "البريد الإلكتروني مسجل بالفعل" : "Email address is already registered");
+          } else if (msg.includes("Too many")) {
+            setApiError(isRTL ? "محاولات كثيرة جداً، يرجى الانتظار" : "Too many attempts, please wait");
+          } else {
+            setApiError(isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again");
+          }
+        }
+      } catch {
+        setApiError(isRTL ? "تعذّر الاتصال بالخادم" : "Could not connect to server");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -186,6 +252,27 @@ export default function RegisterScreen() {
         error={errors.mobile}
       />
       <FanniInput label={t("register.email")} value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="email@example.com" />
+
+      <FanniInput
+        label={isRTL ? "كلمة المرور" : "Password"}
+        value={password}
+        onChangeText={(v) => { setPassword(v); if (v) setErrors((e) => ({ ...e, password: undefined })); }}
+        secureTextEntry
+        required
+        placeholder={isRTL ? "أدخل كلمة مرور قوية" : "Enter a strong password"}
+        error={errors.password}
+      />
+      {!!password && <PasswordStrengthBar password={password} />}
+
+      <FanniInput
+        label={isRTL ? "تأكيد كلمة المرور" : "Confirm Password"}
+        value={confirmPassword}
+        onChangeText={(v) => { setConfirmPassword(v); if (v) setErrors((e) => ({ ...e, confirmPassword: undefined })); }}
+        secureTextEntry
+        required
+        placeholder={isRTL ? "أعد إدخال كلمة المرور" : "Re-enter your password"}
+        error={errors.confirmPassword}
+      />
 
       {regType === "technician" && (
         <FanniInput
@@ -446,6 +533,14 @@ export default function RegisterScreen() {
           {renderCurrentStep()}
         </View>
 
+        {!!apiError && step === totalSteps && (
+          <View style={[styles.apiErrorBox, { backgroundColor: "#FEE2E2", borderColor: "#EF4444", borderRadius: colors.radius }]}>
+            <Feather name="alert-circle" size={14} color="#EF4444" style={{ marginRight: isRTL ? 0 : 6, marginLeft: isRTL ? 6 : 0 }} />
+            <Text style={{ color: "#EF4444", fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }}>
+              {apiError}
+            </Text>
+          </View>
+        )}
         <View style={[styles.navBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {step > 1 && (
             <FanniButton
@@ -487,4 +582,5 @@ const styles = StyleSheet.create({
   timeRow: { gap: 0, marginBottom: 4 },
   egyptBadge: { padding: 12, borderWidth: 1.5, borderRadius: 12, alignItems: "center", marginBottom: 16 },
   navBtns: { gap: 8, marginBottom: 8 },
+  apiErrorBox: { flexDirection: "row", alignItems: "center", borderWidth: 1, padding: 12, marginBottom: 12 },
 });
