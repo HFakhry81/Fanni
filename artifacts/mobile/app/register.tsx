@@ -163,7 +163,11 @@ export default function RegisterScreen() {
         if (data.token) {
           await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
           await refreshUser();
-          router.push("/register-success");
+          if (regType === "technician") {
+            router.replace("/(tech)/map");
+          } else {
+            router.replace("/(client)/home");
+          }
         } else {
           const msg = data.error ?? "Unknown error";
           if (msg.includes("Mobile number is already registered")) {

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Platform,
+  View, Text, StyleSheet, ScrollView, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,6 +12,7 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
+import Toast from "@/components/Toast";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -37,7 +37,8 @@ export default function AddAdminScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
 
   const [errors, setErrors] = useState<{
     name?: string;
@@ -111,8 +112,9 @@ export default function AddAdminScreen() {
       });
       const data = await res.json();
       if (data.success) {
-        setSuccessMsg(isRTL ? "تم إنشاء المسئول بنجاح" : "Admin created successfully");
-        setTimeout(() => router.back(), 1500);
+        const msg = isRTL ? "تم إنشاء المسئول بنجاح" : "Admin created successfully";
+        setToastMsg(msg);
+        setShowToast(true);
       } else {
         const msg = data.error ?? "Unknown error";
         if (msg.includes("Mobile number is already registered")) {
@@ -219,21 +221,22 @@ export default function AddAdminScreen() {
           </View>
         )}
 
-        {!!successMsg && (
-          <View style={[styles.msgBox, { backgroundColor: "#D1FAE5", borderColor: "#10B981", borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="check-circle" size={14} color="#10B981" />
-            <Text style={{ color: "#065F46", fontFamily: "Inter_600SemiBold", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
-              {successMsg}
-            </Text>
-          </View>
-        )}
-
         <FanniButton
           title={isRTL ? "إنشاء المسئول" : "Create Admin"}
           onPress={handleSubmit}
           loading={loading}
         />
       </ScrollView>
+
+      <Toast
+        visible={showToast}
+        message={toastMsg}
+        duration={2000}
+        onHide={() => {
+          setShowToast(false);
+          router.back();
+        }}
+      />
     </View>
   );
 }

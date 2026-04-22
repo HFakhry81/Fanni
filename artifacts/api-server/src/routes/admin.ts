@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -17,7 +17,7 @@ function generateSalt(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
-function requireAdmin(req: Request, res: Response, next: () => void) {
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!req.user || req.user.role !== "admin") {
     res.status(403).json({ error: "Admin access required" });
     return;
@@ -25,7 +25,7 @@ function requireAdmin(req: Request, res: Response, next: () => void) {
   next();
 }
 
-router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin as any, async (req: Request, res: Response) => {
+router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const { name, email, mobile, password } = req.body as {
     name?: string;
     email?: string;
