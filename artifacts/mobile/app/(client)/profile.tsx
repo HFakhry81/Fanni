@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  Modal, TextInput, KeyboardAvoidingView, Alert, Image,
+  Modal, TextInput, KeyboardAvoidingView, Alert, Image, type AlertButton,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -164,69 +164,80 @@ export default function ClientProfileScreen() {
   };
 
   const pickPhoto = () => {
-    const options = [
-      isRTL ? "الكاميرا" : "Camera",
-      isRTL ? "معرض الصور" : "Photo Library",
-      isRTL ? "إلغاء" : "Cancel",
+    const hasPhoto = !!user?.avatar;
+    const buttons: AlertButton[] = [
+      {
+        text: isRTL ? "الكاميرا" : "Camera",
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert(
+              isRTL ? "لا يوجد إذن" : "Permission Required",
+              isRTL ? "يرجى السماح للتطبيق باستخدام الكاميرا من الإعدادات." : "Please allow camera access in your device settings."
+            );
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.7,
+            base64: true,
+          });
+          if (!result.canceled && result.assets[0] && user) {
+            const uri = result.assets[0].base64
+              ? `data:image/jpeg;base64,${result.assets[0].base64}`
+              : result.assets[0].uri;
+            await setUser({ ...user, avatar: uri });
+          }
+        },
+      },
+      {
+        text: isRTL ? "معرض الصور" : "Photo Library",
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert(
+              isRTL ? "لا يوجد إذن" : "Permission Required",
+              isRTL ? "يرجى السماح للتطبيق بالوصول إلى معرض الصور من الإعدادات." : "Please allow photo library access in your device settings."
+            );
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.7,
+            base64: true,
+          });
+          if (!result.canceled && result.assets[0] && user) {
+            const uri = result.assets[0].base64
+              ? `data:image/jpeg;base64,${result.assets[0].base64}`
+              : result.assets[0].uri;
+            await setUser({ ...user, avatar: uri });
+          }
+        },
+      },
     ];
+
+    if (hasPhoto) {
+      buttons.push({
+        text: isRTL ? "حذف الصورة" : "Remove Photo",
+        style: "destructive" as const,
+        onPress: async () => {
+          if (user) {
+            await setUser({ ...user, avatar: undefined });
+          }
+        },
+      });
+    }
+
+    buttons.push({ text: isRTL ? "إلغاء" : "Cancel", style: "cancel" as const });
+
     Alert.alert(
       isRTL ? "تغيير صورة الملف الشخصي" : "Change Profile Photo",
       "",
-      [
-        {
-          text: options[0],
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert(
-                isRTL ? "لا يوجد إذن" : "Permission Required",
-                isRTL ? "يرجى السماح للتطبيق باستخدام الكاميرا من الإعدادات." : "Please allow camera access in your device settings."
-              );
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.7,
-              base64: true,
-            });
-            if (!result.canceled && result.assets[0] && user) {
-              const uri = result.assets[0].base64
-                ? `data:image/jpeg;base64,${result.assets[0].base64}`
-                : result.assets[0].uri;
-              await setUser({ ...user, avatar: uri });
-            }
-          },
-        },
-        {
-          text: options[1],
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert(
-                isRTL ? "لا يوجد إذن" : "Permission Required",
-                isRTL ? "يرجى السماح للتطبيق بالوصول إلى معرض الصور من الإعدادات." : "Please allow photo library access in your device settings."
-              );
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.7,
-              base64: true,
-            });
-            if (!result.canceled && result.assets[0] && user) {
-              const uri = result.assets[0].base64
-                ? `data:image/jpeg;base64,${result.assets[0].base64}`
-                : result.assets[0].uri;
-              await setUser({ ...user, avatar: uri });
-            }
-          },
-        },
-        { text: options[2], style: "cancel" },
-      ]
+      buttons
     );
   };
 
