@@ -100,10 +100,6 @@ function ClassicAdminTabs() {
           tabBarIcon: ({ color }) => isIOS ? null : <Feather name="shield" size={22} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="add-admin"
-        options={{ href: null }}
-      />
     </Tabs>
   );
 }

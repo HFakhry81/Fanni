@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, Platform,
 } from "react-native";
@@ -8,6 +8,7 @@ import * as SecureStore from "expo-secure-store";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
@@ -22,11 +23,13 @@ function getApiBase(): string {
 }
 
 const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AddAdminScreen() {
   const router = useRouter();
   const colors = useColors();
   const { isRTL } = useApp();
+  const { user, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -48,6 +51,12 @@ export default function AddAdminScreen() {
     confirmPassword?: string;
   }>({});
 
+  useEffect(() => {
+    if (!isLoading && (!user || user.role !== "admin")) {
+      router.replace("/(admin)/dashboard");
+    }
+  }, [isLoading, user]);
+
   const validate = (): boolean => {
     const newErrors: typeof errors = {};
 
@@ -57,7 +66,7 @@ export default function AddAdminScreen() {
 
     if (!email.trim()) {
       newErrors.email = isRTL ? "البريد الإلكتروني مطلوب" : "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    } else if (!EMAIL_RE.test(email.trim())) {
       newErrors.email = isRTL ? "بريد إلكتروني غير صحيح" : "Invalid email format";
     }
 
@@ -131,6 +140,10 @@ export default function AddAdminScreen() {
     }
   };
 
+  if (isLoading || !user || user.role !== "admin") {
+    return null;
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
@@ -145,7 +158,6 @@ export default function AddAdminScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
-          {/* Header */}
           <View style={[styles.cardHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={[styles.headerIcon, { backgroundColor: colors.accent }]}>
               <Feather name="user-plus" size={22} color={colors.primary} />

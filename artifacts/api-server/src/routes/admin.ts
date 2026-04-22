@@ -37,6 +37,14 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
     res.status(400).json({ error: "Name is required" });
     return;
   }
+  if (!email || !email.trim()) {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    res.status(400).json({ error: "Invalid email format" });
+    return;
+  }
   if (!mobile || !mobile.trim()) {
     res.status(400).json({ error: "Mobile number is required" });
     return;
