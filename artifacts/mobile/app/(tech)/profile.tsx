@@ -19,7 +19,7 @@ export default function TechProfileScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language, isOnline, setIsOnline } = useApp();
-  const { logout } = useAuth();
+  const { logout, sessionToken } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -304,7 +304,7 @@ export default function TechProfileScreen() {
           {/* Availability toggle */}
           <TouchableOpacity
             style={[styles.availCard, { backgroundColor: isOnline ? "#22A36B" : "#EF4444", flexDirection: isRTL ? "row-reverse" : "row" }]}
-            onPress={() => setIsOnline(!isOnline)}
+            onPress={() => setIsOnline(!isOnline, sessionToken ?? undefined)}
             activeOpacity={0.8}
           >
             <View style={[styles.availDot, { backgroundColor: "rgba(255,255,255,0.5)" }]} />

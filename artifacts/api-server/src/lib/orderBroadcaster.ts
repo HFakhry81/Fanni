@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 
 interface TechnicianMeta {
   registered: boolean;
+  isAvailable: boolean;
   category?: string;
   governorate?: string;
   area?: string;
@@ -55,7 +56,7 @@ const clients = new Map<WebSocket, TechnicianMeta>();
 let pendingOrders: unknown[] = [];
 
 wss.on("connection", (ws: WebSocket) => {
-  clients.set(ws, { registered: false });
+  clients.set(ws, { registered: false, isAvailable: true });
   logger.info({ total: clients.size }, "Technician WebSocket connected");
 
   ws.send(JSON.stringify({ type: "connected", message: "Connected to Fanni order stream" }));
@@ -63,8 +64,20 @@ wss.on("connection", (ws: WebSocket) => {
   ws.on("message", (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
+
+      if (msg.type === "set_availability") {
+        const current = clients.get(ws);
+        if (current) {
+          const isAvailable = msg.isAvailable === true;
+          clients.set(ws, { ...current, isAvailable });
+          logger.info({ isAvailable }, "Technician updated availability via WebSocket");
+        }
+        return;
+      }
+
       if (msg.type === "register") {
-        const meta: TechnicianMeta = { registered: true };
+        const isAvailable = msg.isAvailable !== false;
+        const meta: TechnicianMeta = { registered: true, isAvailable };
 
         if (msg.category && typeof msg.category === "string" && msg.category.trim()) {
           meta.category = msg.category.trim().toLowerCase();
@@ -85,6 +98,11 @@ wss.on("connection", (ws: WebSocket) => {
 
         if (!hasConstraints) {
           logger.info("Technician registered with no routing constraints — no orders will be delivered");
+          return;
+        }
+
+        if (!isAvailable) {
+          logger.info("Technician registered as offline — pending orders will not be replayed");
           return;
         }
 
@@ -129,6 +147,10 @@ export function broadcastNewOrder(order: unknown): void {
     if (client.readyState !== WebSocket.OPEN) continue;
     if (!meta.registered) {
       unregistered++;
+      continue;
+    }
+    if (!meta.isAvailable) {
+      skipped++;
       continue;
     }
     if (!hasRoutingConstraints(meta)) {

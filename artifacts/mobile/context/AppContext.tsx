@@ -33,7 +33,7 @@ interface AppContextType {
   setUserType: (type: UserType) => void;
   isLoggedIn: boolean;
   isOnline: boolean;
-  setIsOnline: (value: boolean) => Promise<void>;
+  setIsOnline: (value: boolean, sessionToken?: string) => Promise<void>;
 }
 
 const translations: Record<string, Record<Language, string>> = {
@@ -297,11 +297,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   };
 
-  const setIsOnline = async (value: boolean) => {
+  const setIsOnline = async (value: boolean, sessionToken?: string) => {
     setIsOnlineState(value);
     try {
       await AsyncStorage.setItem("techIsOnline", String(value));
     } catch (_) {}
+    if (user?.id && sessionToken) {
+      try {
+        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+        const apiBase = domain ? `https://${domain}` : "";
+        if (apiBase) {
+          await fetch(`${apiBase}/api/technicians/${user.id}/availability`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionToken}`,
+            },
+            body: JSON.stringify({ isAvailable: value }),
+          });
+        }
+      } catch (_) {}
+    }
   };
 
   const setUserType = (type: UserType) => {

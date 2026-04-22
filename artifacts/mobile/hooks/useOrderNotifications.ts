@@ -32,7 +32,7 @@ function getWsUrl(): string {
 }
 
 function buildRegisterMessage(user: User | null): string {
-  const payload: Record<string, string> = { type: "register" };
+  const payload: Record<string, string | boolean> = { type: "register", isAvailable: true };
 
   if (user?.profession) {
     const category = professionToCategory(user.profession);

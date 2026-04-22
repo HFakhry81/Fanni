@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import StatusBadge from "@/components/StatusBadge";
@@ -15,6 +16,7 @@ export default function TechMapScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user, isOnline, setIsOnline } = useApp();
+  const { sessionToken } = useAuth();
   const { allOrders, updateOrder, newPendingOrders, markOrderSeen } = useOrders();
   const insets = useSafeAreaInsets();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -86,7 +88,7 @@ export default function TechMapScreen() {
         rightElement={
           <TouchableOpacity
             style={[styles.onlineBadge, { backgroundColor: isOnline ? "#22A36B" : "#EF4444" }]}
-            onPress={() => setIsOnline(!isOnline)}
+            onPress={() => setIsOnline(!isOnline, sessionToken ?? undefined)}
             activeOpacity={0.75}
           >
             <View style={styles.onlineDot} />
