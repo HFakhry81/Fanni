@@ -31,6 +31,8 @@ interface AppContextType {
   userType: UserType;
   setUserType: (type: UserType) => void;
   isLoggedIn: boolean;
+  isOnline: boolean;
+  setIsOnline: (value: boolean) => Promise<void>;
 }
 
 const translations: Record<string, Record<Language, string>> = {
@@ -154,6 +156,8 @@ const translations: Record<string, Record<Language, string>> = {
   "tech.newOrder": { ar: "طلب جديد!", en: "New Order!" },
   "tech.accept": { ar: "قبول", en: "Accept" },
   "tech.reject": { ar: "رفض", en: "Reject" },
+  "tech.online": { ar: "متاح", en: "Online" },
+  "tech.offline": { ar: "غير متاح", en: "Offline" },
   "tech.materials": { ar: "البضاعة والمستلزمات", en: "Materials & Supplies" },
   "tech.materialPhoto": { ar: "صورة الفاتورة", en: "Invoice Photo" },
   "tech.materialDesc": { ar: "وصف الأصناف", en: "Items Description" },
@@ -238,6 +242,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar");
   const [user, setUserState] = useState<User | null>(null);
   const [userType, setUserTypeState] = useState<UserType>(null);
+  const [isOnline, setIsOnlineState] = useState<boolean>(false);
+  const [isAvailabilityHydrated, setIsAvailabilityHydrated] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
@@ -252,7 +258,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setUserState(parsed);
           setUserTypeState(parsed.type);
         }
-      } catch (_) {}
+        const storedOnline = await AsyncStorage.getItem("techIsOnline");
+        setIsOnlineState(storedOnline === null ? true : storedOnline === "true");
+      } catch (_) {
+        setIsOnlineState(true);
+      } finally {
+        setIsAvailabilityHydrated(true);
+      }
     })();
   }, []);
 
@@ -272,6 +284,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         await AsyncStorage.removeItem("user");
       }
+    } catch (_) {}
+  };
+
+  const setIsOnline = async (value: boolean) => {
+    setIsOnlineState(value);
+    try {
+      await AsyncStorage.setItem("techIsOnline", String(value));
     } catch (_) {}
   };
 
@@ -295,6 +314,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userType,
         setUserType,
         isLoggedIn: !!user,
+        isOnline,
+        setIsOnline,
       }}
     >
       {children}

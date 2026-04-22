@@ -9,7 +9,7 @@ function getWsUrl(): string {
   return `wss://${domain}/api/ws`;
 }
 
-export function useOrderNotifications() {
+export function useOrderNotifications(isOnline: boolean = true) {
   const { injectNewOrder } = useOrders();
   const injectRef = useRef(injectNewOrder);
   injectRef.current = injectNewOrder;
@@ -20,6 +20,18 @@ export function useOrderNotifications() {
 
   useEffect(() => {
     mountedRef.current = true;
+
+    function disconnect() {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    }
 
     function connect() {
       const url = getWsUrl();
@@ -36,6 +48,7 @@ export function useOrderNotifications() {
       };
 
       ws.onmessage = (event) => {
+        if (!isOnline) return;
         try {
           const data = JSON.parse(event.data as string);
           if (data.type === "new_order" && data.order) {
@@ -47,7 +60,7 @@ export function useOrderNotifications() {
 
       ws.onclose = () => {
         wsRef.current = null;
-        if (mountedRef.current) {
+        if (mountedRef.current && isOnline) {
           console.warn("[Fanni] Order notification WS closed. Reconnecting in", WS_RECONNECT_DELAY_MS, "ms...");
           reconnectTimerRef.current = setTimeout(connect, WS_RECONNECT_DELAY_MS);
         }
@@ -59,18 +72,15 @@ export function useOrderNotifications() {
       };
     }
 
-    connect();
+    if (isOnline) {
+      connect();
+    } else {
+      disconnect();
+    }
 
     return () => {
       mountedRef.current = false;
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      disconnect();
     };
-  }, []);
+  }, [isOnline]);
 }

@@ -14,7 +14,7 @@ import AppHeader from "@/components/AppHeader";
 export default function TechMapScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL, user } = useApp();
+  const { t, isRTL, user, isOnline, setIsOnline } = useApp();
   const { allOrders, updateOrder, newPendingOrders, markOrderSeen } = useOrders();
   const insets = useSafeAreaInsets();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -22,11 +22,19 @@ export default function TechMapScreen() {
   const [loading, setLoading] = useState(false);
   const autoShownRef = useRef<Set<string>>(new Set());
 
-  useOrderNotifications();
+  useOrderNotifications(isOnline);
 
   const pendingOrders = allOrders.filter((o) => o.status === "pending");
 
   useEffect(() => {
+    if (!isOnline && modalVisible) {
+      setModalVisible(false);
+      setSelectedOrder(null);
+    }
+  }, [isOnline]);
+
+  useEffect(() => {
+    if (!isOnline) return;
     if (newPendingOrders.length === 0) return;
     const unshown = newPendingOrders.filter((o) => !autoShownRef.current.has(o.id));
     if (unshown.length === 0) return;
@@ -35,7 +43,7 @@ export default function TechMapScreen() {
     autoShownRef.current.add(order.id);
     setSelectedOrder(order);
     setModalVisible(true);
-  }, [newPendingOrders, modalVisible]);
+  }, [newPendingOrders, modalVisible, isOnline]);
 
   const handleAccept = async () => {
     if (!selectedOrder) return;
@@ -76,12 +84,16 @@ export default function TechMapScreen() {
         subtitle={isRTL ? "منطقة الخدمة" : "Service Area"}
         showLangToggle
         rightElement={
-          <View style={[styles.onlineBadge, { backgroundColor: "#22A36B" }]}>
+          <TouchableOpacity
+            style={[styles.onlineBadge, { backgroundColor: isOnline ? "#22A36B" : "#EF4444" }]}
+            onPress={() => setIsOnline(!isOnline)}
+            activeOpacity={0.75}
+          >
             <View style={styles.onlineDot} />
             <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
-              {isRTL ? "متاح" : "Online"}
+              {isOnline ? t("tech.online") : t("tech.offline")}
             </Text>
-          </View>
+          </TouchableOpacity>
         }
       />
 
@@ -163,6 +175,14 @@ export default function TechMapScreen() {
 
       {/* Orders list */}
       <View style={[styles.ordersSection, { backgroundColor: colors.background }]}>
+        {!isOnline && (
+          <View style={[styles.offlineBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+            <Feather name="wifi-off" size={14} color="#EF4444" />
+            <Text style={{ color: "#EF4444", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
+              {isRTL ? "أنت غير متاح — لن تتلقى طلبات جديدة" : "You are offline — no new orders will be received"}
+            </Text>
+          </View>
+        )}
         <View style={[styles.listHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
             {isRTL ? "الطلبات المتاحة" : "Available Orders"}
@@ -325,6 +345,7 @@ const styles = StyleSheet.create({
   myLocationInner: { width: 7, height: 7, borderRadius: 4 },
   mapBadge: { position: "absolute", bottom: 10, left: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   ordersSection: { flex: 1 },
+  offlineBanner: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 12, padding: 10, borderRadius: 10, borderWidth: 1 },
   listHeader: { paddingHorizontal: 16, paddingTop: 14, marginBottom: 10, alignItems: "center", gap: 8 },
   countChip: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 12 },
   horizontalList: { paddingHorizontal: 16, paddingBottom: Platform.OS === "web" ? 100 : 90, gap: 10 },
