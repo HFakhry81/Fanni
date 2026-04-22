@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "0JyGk6uGyGeu0_RWhzzd-"
@@ -24,3 +23,15 @@ id = "XCeC5XBQ_l7mAAmMFU6az"
 uri = "file://artifacts/mobile/assets/images/splash-icon.png"
 type = "image"
 title = "fanni-splash"
+
+[[outputs]]
+id = "4Gs2IWV17ltcuUknQ572v"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "شعار فني — أيقونة التطبيق (Welcome Screen)"
+
+[[outputs]]
+id = "G1ZTwlfJpLhesnCRpjNQy"
+uri = "file://artifacts/mobile/assets/images/splash-icon.png"
+type = "image"
+title = "شعار فني — صفحة البداية (Splash Screen)"
