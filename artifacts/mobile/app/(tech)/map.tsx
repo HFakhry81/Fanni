@@ -5,7 +5,8 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { useOrders, Order, SIMULATED_NEW_ORDER } from "@/context/OrderContext";
+import { useOrders, Order } from "@/context/OrderContext";
+import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import StatusBadge from "@/components/StatusBadge";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
@@ -14,22 +15,14 @@ export default function TechMapScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user } = useApp();
-  const { allOrders, updateOrder, newPendingOrders, markOrderSeen, injectNewOrder } = useOrders();
+  const { allOrders, updateOrder, newPendingOrders, markOrderSeen } = useOrders();
   const insets = useSafeAreaInsets();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const autoShownRef = useRef<Set<string>>(new Set());
-  const simulationFiredRef = useRef(false);
 
-  useEffect(() => {
-    if (simulationFiredRef.current) return;
-    simulationFiredRef.current = true;
-    const timer = setTimeout(() => {
-      injectNewOrder({ ...SIMULATED_NEW_ORDER, createdAt: new Date().toISOString() });
-    }, 10000);
-    return () => clearTimeout(timer);
-  }, []);
+  useOrderNotifications();
 
   const pendingOrders = allOrders.filter((o) => o.status === "pending");
 

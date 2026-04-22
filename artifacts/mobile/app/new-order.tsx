@@ -71,7 +71,7 @@ export default function NewOrderScreen() {
       street,
     ].filter(Boolean).join(isRTL ? "، " : ", ");
 
-    await addOrder({
+    const newOrder = {
       id: orderId,
       orderNumber,
       clientId: user?.id ?? "client1",
@@ -85,9 +85,28 @@ export default function NewOrderScreen() {
       street: fullAddress,
       building, floor, apartment, landmark,
       visitDate, visitTime,
-      status: "pending",
+      status: "pending" as const,
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    await addOrder(newOrder);
+
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+    if (domain) {
+      try {
+        const res = await fetch(`https://${domain}/api/orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newOrder),
+        });
+        if (!res.ok) {
+          console.warn("[Fanni] Failed to broadcast order to server:", res.status);
+        }
+      } catch (err) {
+        console.warn("[Fanni] Could not reach order notification server:", err);
+      }
+    }
+
     setLoading(false);
     router.replace("/(client)/orders");
   };

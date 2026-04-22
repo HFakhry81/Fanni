@@ -1,4 +1,6 @@
+import http from "node:http";
 import app from "./app";
+import { handleUpgrade } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
@@ -15,7 +17,17 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = http.createServer(app);
+
+server.on("upgrade", (req, socket, head) => {
+  if (req.url === "/api/ws") {
+    handleUpgrade(req, socket as import("node:net").Socket, head);
+  } else {
+    socket.destroy();
+  }
+});
+
+server.listen(port, (err?: Error) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
