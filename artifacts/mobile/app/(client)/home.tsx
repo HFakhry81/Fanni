@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Platform,
+  ScrollView, Platform, Image, ImageSourcePropType,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -10,15 +10,22 @@ import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
-const CATEGORIES = [
-  { id: "electricity", icon: "zap",            color: "#F5A623" },
-  { id: "plumbing",    icon: "droplet",         color: "#4DADD9" },
-  { id: "ac",          icon: "wind",            color: "#2B8FBB" },
-  { id: "carpentry",   icon: "tool",            color: "#8B6F47" },
-  { id: "appliances",  icon: "cpu",             color: "#7C5CBF" },
-  { id: "painting",    icon: "edit-3",          color: "#E84393" },
-  { id: "pest",        icon: "alert-triangle",  color: "#22A36B" },
-  { id: "flooring",    icon: "layers",          color: "#E67E22" },
+type Category = {
+  id: string;
+  icon?: string;
+  image?: ImageSourcePropType;
+  color: string;
+};
+
+const CATEGORIES: Category[] = [
+  { id: "electricity", icon: "zap",           color: "#F5A623" },
+  { id: "plumbing",    image: require("@/assets/images/icon_plumbing.png"),  color: "#4DADD9" },
+  { id: "ac",          image: require("@/assets/images/icon_ac.png"),        color: "#2B8FBB" },
+  { id: "carpentry",   image: require("@/assets/images/icon_carpentry.png"), color: "#8B6F47" },
+  { id: "appliances",  icon: "cpu",            color: "#7C5CBF" },
+  { id: "painting",    icon: "edit-3",         color: "#E84393" },
+  { id: "pest",        icon: "alert-triangle", color: "#22A36B" },
+  { id: "flooring",    icon: "layers",         color: "#E67E22" },
 ];
 
 const SUB_CATEGORIES: Record<string, { id: string; icon: string; label_ar: string; label_en: string }[]> = {
@@ -152,7 +159,15 @@ export default function ClientHomeScreen() {
                 activeOpacity={0.8}
               >
                 <View style={[styles.catIconWrap, { backgroundColor: isSelected ? "rgba(245,166,35,0.15)" : cat.color + "18", borderRadius: 12 }]}>
-                  <Feather name={cat.icon as any} size={26} color={isSelected ? colors.primary : cat.color} />
+                  {cat.image ? (
+                    <Image
+                      source={cat.image}
+                      style={[styles.catImage, isSelected && { tintColor: colors.primary }]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Feather name={cat.icon as any} size={26} color={isSelected ? colors.primary : cat.color} />
+                  )}
                 </View>
                 <Text style={{ color: isSelected ? "#FFF" : colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "center", marginTop: 6 }} numberOfLines={2}>
                   {t(`cat.${cat.id}`)}
@@ -231,6 +246,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 },
   catCard: { width: "22%", paddingVertical: 14, paddingHorizontal: 4, alignItems: "center", minWidth: 76 },
   catIconWrap: { width: 50, height: 50, alignItems: "center", justifyContent: "center" },
+  catImage: { width: 34, height: 34 },
   subSection: { marginBottom: 24 },
   subGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   subCard: { width: "47%", paddingVertical: 18, paddingHorizontal: 12, alignItems: "center" },
