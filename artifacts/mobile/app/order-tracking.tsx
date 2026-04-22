@@ -24,6 +24,16 @@ function interpolate(a: number, b: number, progress: number): number {
   return a + (b - a) * progress;
 }
 
+function computeEta(techLat: number, techLng: number, clientLat: number, clientLng: number): number {
+  const latDiff = clientLat - techLat;
+  const lngDiff = clientLng - techLng;
+  const distDeg = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+  const distKm = distDeg * 111;
+  const speedKmH = 20;
+  const minutes = (distKm / speedKmH) * 60;
+  return Math.max(1, Math.round(minutes));
+}
+
 interface MapProps {
   order: Order;
   techLat: number;
@@ -68,6 +78,7 @@ export default function OrderTrackingScreen() {
     );
   }
 
+  const eta = computeEta(techLat, techLng, clientLat, clientLng);
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng };
 
@@ -107,7 +118,21 @@ export default function OrderTrackingScreen() {
               {t("order.yourLocation")}
             </Text>
           </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.routeLegendLine, { backgroundColor: ROUTE_COLOR }]} />
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+              {t("order.routeLine")}
+            </Text>
+          </View>
         </View>
+
+        <View style={[styles.etaBanner, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <Feather name="clock" size={15} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+            {t("order.arrivingIn")}{eta} {t("order.minutes")}
+          </Text>
+        </View>
+
         {order.technicianName && (
           <View style={[styles.techRow, { flexDirection: isRTL ? "row-reverse" : "row", borderTopColor: colors.border }]}>
             <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
@@ -138,6 +163,7 @@ export default function OrderTrackingScreen() {
 
 const TECH_PIN_COLOR = "#1565C0";
 const CLIENT_PIN_COLOR = "#E53935";
+const ROUTE_COLOR = "#1565C0";
 const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 interface WebMapViewProps extends MapProps {
@@ -177,11 +203,17 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, colors, t, 
   const progress = techProgress(techLat, techLng, clientLat, clientLng);
   const techLeftPct = Math.max(8, Math.min(75, Math.round((1 - progress) * 70)));
 
+  const clientLeftPct = 85;
+  const clientTopPct = 55;
+  const techTopPct = 35;
+
   const tileRows: string[][] = [
     [buildTileUrl(zoom, tx - 1, ty - 1), buildTileUrl(zoom, tx, ty - 1), buildTileUrl(zoom, tx + 1, ty - 1)],
     [buildTileUrl(zoom, tx - 1, ty),     buildTileUrl(zoom, tx, ty),     buildTileUrl(zoom, tx + 1, ty)],
     [buildTileUrl(zoom, tx - 1, ty + 1), buildTileUrl(zoom, tx, ty + 1), buildTileUrl(zoom, tx + 1, ty + 1)],
   ];
+
+  const pinHalfPct = 1.5;
 
   return (
     <View style={[styles.webMapContainer, { backgroundColor: "#d4e4f0" }]}>
@@ -194,11 +226,37 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, colors, t, 
           </View>
         ))}
       </View>
+
+      {/* SVG route line overlay */}
+      <View style={[styles.routeOverlay, { pointerEvents: "none" }]}>
+        {Platform.OS === "web" && (
+          // @ts-ignore - SVG is valid on web
+          <svg
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+            preserveAspectRatio="none"
+            viewBox="0 0 100 100"
+          >
+            {/* @ts-ignore */}
+            <line
+              x1={techLeftPct + pinHalfPct}
+              y1={techTopPct + pinHalfPct}
+              x2={clientLeftPct + pinHalfPct}
+              y2={clientTopPct + pinHalfPct}
+              stroke={ROUTE_COLOR}
+              strokeWidth="1.8"
+              strokeDasharray="5 3"
+              strokeLinecap="round"
+              opacity="0.75"
+            />
+          </svg>
+        )}
+      </View>
+
       <View style={[styles.pinsOverlay, { pointerEvents: "none" }]}>
-        <View style={[styles.pinMarker, { left: `${techLeftPct}%` as DimensionValue, top: "35%" as DimensionValue, backgroundColor: TECH_PIN_COLOR }]}>
+        <View style={[styles.pinMarker, { left: `${techLeftPct}%` as DimensionValue, top: `${techTopPct}%` as DimensionValue, backgroundColor: TECH_PIN_COLOR }]}>
           <Feather name="tool" size={11} color="#FFF" />
         </View>
-        <View style={[styles.pinMarker, { right: "15%" as DimensionValue, top: "55%" as DimensionValue, backgroundColor: CLIENT_PIN_COLOR }]}>
+        <View style={[styles.pinMarker, { left: `${clientLeftPct}%` as DimensionValue, top: `${clientTopPct}%` as DimensionValue, backgroundColor: CLIENT_PIN_COLOR }]}>
           <Feather name="home" size={11} color="#FFF" />
         </View>
       </View>
@@ -223,6 +281,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, colors, t, 
 type MapComponents = {
   MapView: React.ComponentType<import("react-native-maps").MapViewProps>;
   Marker: React.ComponentType<import("react-native-maps").MarkerProps>;
+  Polyline: React.ComponentType<import("react-native-maps").PolylineProps>;
   UrlTile: React.ComponentType<import("react-native-maps").UrlTileProps>;
   Circle: React.ComponentType<import("react-native-maps").CircleProps>;
 };
@@ -237,6 +296,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng }: MapPro
         setComponents({
           MapView: mod.default,
           Marker: mod.Marker,
+          Polyline: mod.Polyline,
           UrlTile: mod.UrlTile,
           Circle: mod.Circle,
         });
@@ -253,7 +313,12 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng }: MapPro
     );
   }
 
-  const { MapView, Marker, UrlTile, Circle } = components;
+  const { MapView, Marker, Polyline, UrlTile, Circle } = components;
+
+  const routeCoordinates = [
+    { latitude: techLat, longitude: techLng },
+    { latitude: clientLat, longitude: clientLng },
+  ];
 
   return (
     <MapView
@@ -272,6 +337,12 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng }: MapPro
         urlTemplate={OSM_TILE_URL}
         maximumZ={19}
         flipY={false}
+      />
+      <Polyline
+        coordinates={routeCoordinates}
+        strokeColor={ROUTE_COLOR}
+        strokeWidth={3}
+        lineDashPattern={[8, 5]}
       />
       <Marker
         coordinate={{ latitude: techLat, longitude: techLng }}
@@ -311,6 +382,7 @@ const styles = StyleSheet.create({
   tilesGrid: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   tilesRow: { flex: 1, flexDirection: "row" },
   tile: { flex: 1 },
+  routeOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   pinsOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   pinMarker: {
     position: "absolute",
@@ -342,9 +414,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderTopWidth: 1,
   },
-  legendRow: { alignItems: "center", justifyContent: "center", gap: 24, marginBottom: 12 },
+  legendRow: { alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 10, flexWrap: "wrap" },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 12, height: 12, borderRadius: 6 },
+  routeLegendLine: { width: 18, height: 3, borderRadius: 2, opacity: 0.75 },
+  etaBanner: {
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    gap: 0,
+  },
   techRow: {
     alignItems: "center",
     borderTopWidth: 1,
