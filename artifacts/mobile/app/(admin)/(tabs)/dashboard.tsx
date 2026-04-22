@@ -105,7 +105,7 @@ export default function AdminDashboardScreen() {
             { icon: "list",       label: t("admin.orders"),      color: colors.primary,   route: "/(admin)/orders" },
             { icon: "bar-chart-2",label: t("admin.stats"),       color: "#7C5CBF",        route: "/(admin)/stats" },
             { icon: "shield",     label: t("admin.permissions"), color: "#22A36B",        route: "/(admin)/permissions" },
-            { icon: "user-plus",  label: isRTL ? "إضافة مسئول" : "Add Admin", color: colors.primary, route: "/add-admin" },
+            { icon: "user-plus",  label: isRTL ? "إضافة مسئول" : "Add Admin", color: colors.primary, route: "/(admin)/add-admin" },
           ].map((item) => (
             <TouchableOpacity
               key={item.label}
