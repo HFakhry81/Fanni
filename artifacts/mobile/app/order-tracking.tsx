@@ -262,9 +262,17 @@ export default function OrderTrackingScreen() {
 
         {order.technicianName && (
           <View style={[styles.techRow, { flexDirection: isRTL ? "row-reverse" : "row", borderTopColor: colors.border }]}>
-            <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
-              <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{order.technicianName[0]}</Text>
-            </View>
+            {order.technicianAvatar ? (
+              <Image
+                source={{ uri: order.technicianAvatar }}
+                style={[styles.techAvatar, { backgroundColor: colors.muted }]}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
+                <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{order.technicianName[0]}</Text>
+              </View>
+            )}
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
                 {order.technicianName}
@@ -835,6 +843,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   ratingChip: {
     flexDirection: "row",

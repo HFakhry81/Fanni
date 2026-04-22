@@ -56,6 +56,7 @@ export default function TechMapScreen() {
       technicianId: user?.id ?? "tech1",
       technicianName: user?.name ?? "محمد علي",
       technicianMobile: user?.mobile ?? "01098765432",
+      technicianAvatar: user?.avatar,
       technicianRating: 4.8,
     });
     setLoading(false);

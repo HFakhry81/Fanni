@@ -39,6 +39,7 @@ export interface Order {
   technicianId?: string;
   technicianName?: string;
   technicianMobile?: string;
+  technicianAvatar?: string;
   technicianRating?: number;
   materials?: MaterialItem[];
   solutionDescription?: string;
