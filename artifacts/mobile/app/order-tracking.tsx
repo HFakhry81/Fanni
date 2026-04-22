@@ -20,11 +20,103 @@ import { GOV_COORDINATES } from "@/constants/egyptLocations";
 const ALEX = GOV_COORDINATES.alexandria;
 const TECH_START_OFFSET = 0.018;
 
-function interpolate(a: number, b: number, progress: number): number {
-  return a + (b - a) * progress;
+interface RouteData {
+  coords: Array<{ lat: number; lng: number }>;
+  durationSec: number;
 }
 
-function computeEta(techLat: number, techLng: number, clientLat: number, clientLng: number): number {
+async function fetchOSRMRoute(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+): Promise<RouteData | null> {
+  try {
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${startLng},${startLat};${endLng},${endLat}` +
+      `?overview=full&geometries=geojson`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.code !== "Ok" || !data.routes?.[0]) return null;
+    const route = data.routes[0];
+    const coords = (route.geometry.coordinates as [number, number][]).map(
+      ([lng, lat]) => ({ lat, lng })
+    );
+    return { coords, durationSec: route.duration };
+  } catch {
+    return null;
+  }
+}
+
+function interpolateAlongRoute(
+  coords: Array<{ lat: number; lng: number }>,
+  progress: number
+): { lat: number; lng: number } {
+  if (coords.length === 0) return { lat: 0, lng: 0 };
+  if (coords.length === 1 || progress >= 1) return coords[coords.length - 1];
+  if (progress <= 0) return coords[0];
+
+  const distances: number[] = [0];
+  for (let i = 1; i < coords.length; i++) {
+    const dlat = coords[i].lat - coords[i - 1].lat;
+    const dlng = coords[i].lng - coords[i - 1].lng;
+    distances.push(distances[i - 1] + Math.sqrt(dlat * dlat + dlng * dlng));
+  }
+  const total = distances[distances.length - 1];
+  const target = progress * total;
+
+  for (let i = 1; i < distances.length; i++) {
+    if (distances[i] >= target) {
+      const segStart = distances[i - 1];
+      const segEnd = distances[i];
+      const t = segEnd === segStart ? 0 : (target - segStart) / (segEnd - segStart);
+      return {
+        lat: coords[i - 1].lat + t * (coords[i].lat - coords[i - 1].lat),
+        lng: coords[i - 1].lng + t * (coords[i].lng - coords[i - 1].lng),
+      };
+    }
+  }
+  return coords[coords.length - 1];
+}
+
+function getRemainingRoute(
+  coords: Array<{ lat: number; lng: number }>,
+  progress: number,
+  currentLat: number,
+  currentLng: number
+): Array<{ lat: number; lng: number }> {
+  if (coords.length === 0) return [];
+  if (progress <= 0) return coords;
+  if (progress >= 1) return [{ lat: currentLat, lng: currentLng }];
+
+  const distances: number[] = [0];
+  for (let i = 1; i < coords.length; i++) {
+    const dlat = coords[i].lat - coords[i - 1].lat;
+    const dlng = coords[i].lng - coords[i - 1].lng;
+    distances.push(distances[i - 1] + Math.sqrt(dlat * dlat + dlng * dlng));
+  }
+  const total = distances[distances.length - 1];
+  const target = progress * total;
+
+  for (let i = 1; i < distances.length; i++) {
+    if (distances[i] >= target) {
+      return [{ lat: currentLat, lng: currentLng }, ...coords.slice(i)];
+    }
+  }
+  return [{ lat: currentLat, lng: currentLng }];
+}
+
+function computeEtaFallback(
+  techLat: number,
+  techLng: number,
+  clientLat: number,
+  clientLng: number
+): number {
   const latDiff = clientLat - techLat;
   const lngDiff = clientLng - techLng;
   const distDeg = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
@@ -40,6 +132,7 @@ interface MapProps {
   techLng: number;
   clientLat: number;
   clientLng: number;
+  routeCoords: Array<{ lat: number; lng: number }>;
 }
 
 export default function OrderTrackingScreen() {
@@ -55,20 +148,44 @@ export default function OrderTrackingScreen() {
   const clientLat = order?.latitude ?? ALEX.lat;
   const clientLng = order?.longitude ?? ALEX.lng;
 
-  const [techLat, setTechLat] = useState(clientLat - TECH_START_OFFSET);
-  const [techLng, setTechLng] = useState(clientLng - TECH_START_OFFSET);
+  const techStartLat = clientLat - TECH_START_OFFSET;
+  const techStartLng = clientLng - TECH_START_OFFSET;
+
+  const [techLat, setTechLat] = useState(techStartLat);
+  const [techLng, setTechLng] = useState(techStartLng);
+  const [routeData, setRouteData] = useState<RouteData | null>(null);
   const progressRef = useRef(0);
+
+  useEffect(() => {
+    if (!order) return;
+    let cancelled = false;
+    fetchOSRMRoute(techStartLat, techStartLng, clientLat, clientLng).then((data) => {
+      if (!cancelled) setRouteData(data);
+    });
+    return () => { cancelled = true; };
+  }, [order, techStartLat, techStartLng, clientLat, clientLng]);
 
   useEffect(() => {
     if (!order) return;
     const interval = setInterval(() => {
       progressRef.current = Math.min(progressRef.current + 0.005, 0.95);
       const p = progressRef.current;
-      setTechLat(interpolate(clientLat - TECH_START_OFFSET, clientLat - 0.0005, p));
-      setTechLng(interpolate(clientLng - TECH_START_OFFSET, clientLng - 0.0005, p));
+
+      if (routeData && routeData.coords.length > 1) {
+        const pos = interpolateAlongRoute(routeData.coords, p);
+        setTechLat(pos.lat);
+        setTechLng(pos.lng);
+      } else {
+        setTechLat(
+          techStartLat + (clientLat - 0.0005 - techStartLat) * p
+        );
+        setTechLng(
+          techStartLng + (clientLng - 0.0005 - techStartLng) * p
+        );
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [order, clientLat, clientLng]);
+  }, [order, clientLat, clientLng, techStartLat, techStartLng, routeData]);
 
   if (!order) {
     return (
@@ -78,9 +195,19 @@ export default function OrderTrackingScreen() {
     );
   }
 
-  const eta = computeEta(techLat, techLng, clientLat, clientLng);
+  let eta: number;
+  if (routeData) {
+    const remaining = routeData.durationSec * (1 - progressRef.current);
+    eta = Math.max(1, Math.round(remaining / 60));
+  } else {
+    eta = computeEtaFallback(techLat, techLng, clientLat, clientLng);
+  }
+
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
-  const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng };
+  const routeCoords = routeData
+    ? getRemainingRoute(routeData.coords, progressRef.current, techLat, techLng)
+    : [];
+  const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng, routeCoords };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -204,7 +331,7 @@ function buildTileUrl(z: number, x: number, y: number): string {
   return OSM_TILE_URL.replace("{z}", String(z)).replace("{x}", String(nx)).replace("{y}", String(ny));
 }
 
-function WebMapView({ order, techLat, techLng, clientLat, clientLng, colors, t, isRTL }: WebMapViewProps) {
+function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, colors, t, isRTL }: WebMapViewProps) {
   const midLat = (techLat + clientLat) / 2;
   const midLng = (techLng + clientLng) / 2;
 
@@ -377,6 +504,16 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, colors, t, 
   const clientScreen = toScreen(clientLat, clientLng);
   const PIN_HALF = 14;
 
+  const hasRoute = routeCoords.length > 1;
+  const routePoints = hasRoute
+    ? routeCoords
+        .map((c) => {
+          const s = toScreen(c.lat, c.lng);
+          return `${s.x + PIN_HALF},${s.y + PIN_HALF}`;
+        })
+        .join(" ")
+    : null;
+
   return (
     <View
       ref={containerRef}
@@ -406,18 +543,31 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, colors, t, 
         <svg
           style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
         >
-          {/* @ts-ignore */}
-          <line
-            x1={techScreen.x + PIN_HALF}
-            y1={techScreen.y + PIN_HALF}
-            x2={clientScreen.x + PIN_HALF}
-            y2={clientScreen.y + PIN_HALF}
-            stroke={ROUTE_COLOR}
-            strokeWidth="2.5"
-            strokeDasharray="8 4"
-            strokeLinecap="round"
-            opacity="0.8"
-          />
+          {hasRoute ? (
+            // @ts-ignore
+            <polyline
+              points={routePoints!}
+              fill="none"
+              stroke={ROUTE_COLOR}
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.85"
+            />
+          ) : (
+            // @ts-ignore
+            <line
+              x1={techScreen.x + PIN_HALF}
+              y1={techScreen.y + PIN_HALF}
+              x2={clientScreen.x + PIN_HALF}
+              y2={clientScreen.y + PIN_HALF}
+              stroke={ROUTE_COLOR}
+              strokeWidth="2.5"
+              strokeDasharray="8 4"
+              strokeLinecap="round"
+              opacity="0.8"
+            />
+          )}
         </svg>
       )}
 
@@ -487,7 +637,7 @@ type MapComponents = {
   Circle: React.ComponentType<import("react-native-maps").CircleProps>;
 };
 
-function NativeMapView({ order, techLat, techLng, clientLat, clientLng }: MapProps) {
+function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords }: MapProps) {
   const [components, setComponents] = useState<MapComponents | null>(null);
 
   useEffect(() => {
@@ -516,10 +666,13 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng }: MapPro
 
   const { MapView, Marker, Polyline, UrlTile, Circle } = components;
 
-  const routeCoordinates = [
-    { latitude: techLat, longitude: techLng },
-    { latitude: clientLat, longitude: clientLng },
-  ];
+  const hasRoute = routeCoords.length > 1;
+  const routeCoordinates = hasRoute
+    ? routeCoords.map((c) => ({ latitude: c.lat, longitude: c.lng }))
+    : [
+        { latitude: techLat, longitude: techLng },
+        { latitude: clientLat, longitude: clientLng },
+      ];
 
   return (
     <MapView
@@ -543,7 +696,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng }: MapPro
         coordinates={routeCoordinates}
         strokeColor={ROUTE_COLOR}
         strokeWidth={3}
-        lineDashPattern={[8, 5]}
+        lineDashPattern={hasRoute ? undefined : [8, 5]}
       />
       <Marker
         coordinate={{ latitude: techLat, longitude: techLng }}
@@ -632,41 +785,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderTopWidth: 1,
   },
-  legendRow: { alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 10, flexWrap: "wrap" },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legendDot: { width: 12, height: 12, borderRadius: 6 },
-  routeLegendLine: { width: 18, height: 3, borderRadius: 2, opacity: 0.75 },
-  etaBanner: {
+  legendRow: {
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 12,
+  },
+  legendItem: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-    gap: 0,
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  routeLegendLine: {
+    width: 18,
+    height: 3,
+    borderRadius: 2,
+  },
+  etaBanner: {
+    padding: 10,
+    alignItems: "center",
+    marginBottom: 12,
   },
   techRow: {
     alignItems: "center",
-    borderTopWidth: 1,
     paddingTop: 12,
-    gap: 0,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
   },
   techAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
-  ratingChip: { flexDirection: "row", alignItems: "center", paddingVertical: 4, paddingHorizontal: 10 },
+  ratingChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
   callBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    marginTop: 12,
+    padding: 12,
   },
   callBtnText: {
     color: "#FFF",
-    fontFamily: "Inter_700Bold",
-    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
   },
 });
