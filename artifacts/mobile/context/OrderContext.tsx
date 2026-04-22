@@ -80,6 +80,7 @@ interface OrderContextType {
   markPendingOrdersSeen: () => void;
   markOrderSeen: (orderId: string) => void;
   injectNewOrder: (order: Order) => void;
+  mergeOrders: (incoming: Order[]) => void;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -281,6 +282,15 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const mergeOrders = (incoming: Order[]) => {
+    setOrders((prev) => {
+      const existingIds = new Set(prev.map((o) => o.id));
+      const toAdd = incoming.filter((o) => !existingIds.has(o.id));
+      if (toAdd.length === 0) return prev;
+      return [...prev, ...toAdd];
+    });
+  };
+
   const getOrdersByClient = (clientId: string) =>
     orders.filter((o) => o.clientId === clientId);
 
@@ -308,6 +318,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         markPendingOrdersSeen,
         markOrderSeen,
         injectNewOrder,
+        mergeOrders,
       }}
     >
       {children}

@@ -1,23 +1,67 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders, Order } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
+
+function getApiBaseUrl(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  if (domain) return `https://${domain}`;
+  return "";
+}
 
 export default function ClientOrdersScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user } = useApp();
-  const { getOrdersByClient } = useOrders();
+  const { getOrdersByClient, mergeOrders } = useOrders();
+  const { sessionToken, isAuthenticated } = useAuth();
   const [tab, setTab] = useState<"active" | "history">("active");
+  const [apiOrders, setApiOrders] = useState<Order[]>([]);
+  const [loadingApi, setLoadingApi] = useState(false);
+  const fetchOrdersFromApi = useCallback(async () => {
+    if (!isAuthenticated || !sessionToken) return;
+    const base = getApiBaseUrl();
+    if (!base) return;
 
-  const orders = getOrdersByClient(user?.id ?? "client1");
-  const activeOrders = orders.filter((o) => ["pending", "accepted", "inProgress"].includes(o.status));
-  const historyOrders = orders.filter((o) => ["completed", "cancelled"].includes(o.status));
+    setLoadingApi(true);
+    try {
+      const res = await fetch(`${base}/api/orders`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const fetched = (data.orders ?? []) as Order[];
+        setApiOrders(fetched);
+        mergeOrders(fetched);
+      }
+    } catch {
+    } finally {
+      setLoadingApi(false);
+    }
+  }, [isAuthenticated, sessionToken, mergeOrders]);
+
+  useEffect(() => {
+    fetchOrdersFromApi();
+  }, [fetchOrdersFromApi]);
+
+  const localOrders = getOrdersByClient(user?.id ?? "client1");
+
+  const mergedOrders: Order[] = isAuthenticated
+    ? (() => {
+        const apiIds = new Set(apiOrders.map((o) => o.id));
+        const localOnly = localOrders.filter((o) => !apiIds.has(o.id));
+        return [...apiOrders, ...localOnly];
+      })()
+    : localOrders;
+
+  const activeOrders = mergedOrders.filter((o) => ["pending", "accepted", "inProgress"].includes(o.status));
+  const historyOrders = mergedOrders.filter((o) => ["completed", "cancelled"].includes(o.status));
   const displayOrders = tab === "active" ? activeOrders : historyOrders;
 
   const renderOrder = ({ item }: { item: Order }) => (
@@ -26,7 +70,6 @@ export default function ClientOrdersScreen() {
       onPress={() => router.push({ pathname: "/order-details", params: { orderId: item.id } })}
       activeOpacity={0.85}
     >
-      {/* Color accent left bar */}
       <View style={[styles.accentBar, { backgroundColor: item.status === "completed" ? colors.success : item.status === "cancelled" ? colors.destructive : colors.secondary }]} />
       <View style={styles.cardBody}>
         <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -52,6 +95,14 @@ export default function ClientOrdersScreen() {
             {item.visitDate} — {item.visitTime}
           </Text>
         </View>
+        {item.createdAt && (
+          <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Feather name="clock" size={13} color={colors.secondary} />
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
+              {new Date(item.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
+            </Text>
+          </View>
+        )}
         {item.technicianName && (
           <View style={[styles.techRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
@@ -86,7 +137,6 @@ export default function ClientOrdersScreen() {
         }
       />
 
-      {/* Tabs */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {([["active", t("order.active")], ["history", t("order.history")]] as [string, string][]).map(([key, label]) => (
           <TouchableOpacity
@@ -108,22 +158,28 @@ export default function ClientOrdersScreen() {
         ))}
       </View>
 
-      <FlatList
-        data={displayOrders}
-        keyExtractor={(item) => item.id}
-        renderItem={renderOrder}
-        contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
-              <Feather name="inbox" size={40} color={colors.mutedForeground} />
+      {loadingApi ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={displayOrders}
+          keyExtractor={(item) => item.id}
+          renderItem={renderOrder}
+          contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
+                <Feather name="inbox" size={40} color={colors.mutedForeground} />
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15, marginTop: 14, textAlign: "center" }}>
+                {t("common.noData")}
+              </Text>
             </View>
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15, marginTop: 14, textAlign: "center" }}>
-              {t("common.noData")}
-            </Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </View>
   );
 }
@@ -145,4 +201,5 @@ const styles = StyleSheet.create({
   ratingChip: { flexDirection: "row", alignItems: "center", paddingVertical: 3, paddingHorizontal: 8 },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
