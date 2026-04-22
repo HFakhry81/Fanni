@@ -30,40 +30,40 @@ const CATEGORIES: Category[] = [
   { id: "flooring",    image: require("@/assets/images/icon_flooring.png"),    color: "#E67E22" },
 ];
 
-const SUB_CATEGORIES: Record<string, { id: string; icon: string; label_ar: string; label_en: string }[]> = {
+const SUB_CATEGORIES: Record<string, { id: string; image: ImageSourcePropType; label_ar: string; label_en: string }[]> = {
   electricity: [
-    { id: "wiring",        icon: "zap",         label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
-    { id: "computers",     icon: "monitor",     label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
-    { id: "washingmachine",icon: "loader",      label_ar: "غسالات",            label_en: "Washing Machines" },
-    { id: "heater",        icon: "thermometer", label_ar: "سخانات",            label_en: "Water Heaters" },
+    { id: "wiring",        image: require("@/assets/images/sub_electrical_wiring.png"), label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
+    { id: "computers",     image: require("@/assets/images/sub_computers.png"),         label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
+    { id: "washingmachine",image: require("@/assets/images/sub_washing_machine.png"),   label_ar: "غسالات",            label_en: "Washing Machines" },
+    { id: "heater",        image: require("@/assets/images/sub_water_heater.png"),      label_ar: "سخانات",            label_en: "Water Heaters" },
   ],
-  ac:          [
-    { id: "repair",   icon: "tool", label_ar: "صيانة مكيفات", label_en: "AC Repair" },
-    { id: "cleaning", icon: "wind", label_ar: "تنظيف مكيفات", label_en: "AC Cleaning" },
+  ac: [
+    { id: "repair",   image: require("@/assets/images/sub_ac_repair.png"),   label_ar: "صيانة مكيفات", label_en: "AC Repair" },
+    { id: "cleaning", image: require("@/assets/images/sub_ac_cleaning.png"), label_ar: "تنظيف مكيفات", label_en: "AC Cleaning" },
   ],
-  plumbing:    [
-    { id: "pipes",    icon: "droplet", label_ar: "مواسير",      label_en: "Pipes" },
-    { id: "sanitary", icon: "archive", label_ar: "أدوات صحية", label_en: "Sanitary" },
+  plumbing: [
+    { id: "pipes",    image: require("@/assets/images/sub_pipes.png"),   label_ar: "مواسير",      label_en: "Pipes" },
+    { id: "sanitary", image: require("@/assets/images/sub_sanitary.png"), label_ar: "أدوات صحية", label_en: "Sanitary" },
   ],
-  carpentry:   [
-    { id: "doors",     icon: "maximize-2", label_ar: "أبواب", label_en: "Doors" },
-    { id: "furniture", icon: "package",    label_ar: "أثاث",  label_en: "Furniture" },
+  carpentry: [
+    { id: "doors",     image: require("@/assets/images/sub_doors.png"),     label_ar: "أبواب", label_en: "Doors" },
+    { id: "furniture", image: require("@/assets/images/sub_furniture.png"), label_ar: "أثاث",  label_en: "Furniture" },
   ],
-  appliances:  [
-    { id: "fridge",     icon: "thermometer", label_ar: "ثلاجات",       label_en: "Refrigerators" },
-    { id: "dishwasher", icon: "loader",      label_ar: "غسالة أطباق", label_en: "Dishwasher" },
+  appliances: [
+    { id: "fridge",     image: require("@/assets/images/sub_fridge.png"),     label_ar: "ثلاجات",       label_en: "Refrigerators" },
+    { id: "dishwasher", image: require("@/assets/images/sub_dishwasher.png"), label_ar: "غسالة أطباق", label_en: "Dishwasher" },
   ],
-  painting:    [
-    { id: "interior", icon: "edit-3", label_ar: "دهان داخلي", label_en: "Interior Paint" },
-    { id: "exterior", icon: "home",   label_ar: "دهان خارجي", label_en: "Exterior Paint" },
+  painting: [
+    { id: "interior", image: require("@/assets/images/sub_interior_paint.png"), label_ar: "دهان داخلي", label_en: "Interior Paint" },
+    { id: "exterior", image: require("@/assets/images/sub_exterior_paint.png"), label_ar: "دهان خارجي", label_en: "Exterior Paint" },
   ],
-  pest:        [
-    { id: "insects", icon: "alert-triangle", label_ar: "حشرات", label_en: "Insects" },
-    { id: "rodents", icon: "alert-circle",   label_ar: "قوارض", label_en: "Rodents" },
+  pest: [
+    { id: "insects", image: require("@/assets/images/sub_insects.png"), label_ar: "حشرات", label_en: "Insects" },
+    { id: "rodents", image: require("@/assets/images/sub_rodents.png"), label_ar: "قوارض", label_en: "Rodents" },
   ],
-  flooring:    [
-    { id: "tiles",   icon: "grid",   label_ar: "سيراميك", label_en: "Tiles" },
-    { id: "parquet", icon: "layers", label_ar: "باركيه",  label_en: "Parquet" },
+  flooring: [
+    { id: "tiles",   image: require("@/assets/images/sub_tiles.png"),   label_ar: "سيراميك", label_en: "Tiles" },
+    { id: "parquet", image: require("@/assets/images/sub_parquet.png"), label_ar: "باركيه",  label_en: "Parquet" },
   ],
 };
 
@@ -238,17 +238,24 @@ export default function ClientHomeScreen() {
               {subs.map((sub) => (
                 <TouchableOpacity
                   key={sub.id}
-                  style={[styles.subCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.secondary, borderWidth: 1.5 }]}
+                  style={[styles.subCard, { borderRadius: colors.radius, overflow: "hidden" }]}
                   onPress={() => router.push({ pathname: "/new-order", params: { category: selectedCat, subCategory: isRTL ? sub.label_ar : sub.label_en } })}
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                 >
-                  <View style={[styles.subIconWrap, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
-                    <Feather name={sub.icon as any} size={20} color={colors.secondary} />
-                  </View>
-                  <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "center", marginTop: 8 }} numberOfLines={2}>
-                    {isRTL ? sub.label_ar : sub.label_en}
-                  </Text>
-                  <Feather name={isRTL ? "arrow-left" : "arrow-right"} size={14} color={colors.secondary} style={{ marginTop: 6 }} />
+                  <ImageBackground
+                    source={sub.image}
+                    style={styles.subBg}
+                    resizeMode="cover"
+                  >
+                    <LinearGradient
+                      colors={["transparent", "rgba(0,0,0,0.62)"]}
+                      style={styles.subGradient}
+                    >
+                      <Text style={styles.subLabelOnImage} numberOfLines={2}>
+                        {isRTL ? sub.label_ar : sub.label_en}
+                      </Text>
+                    </LinearGradient>
+                  </ImageBackground>
                 </TouchableOpacity>
               ))}
             </View>
@@ -305,10 +312,12 @@ const styles = StyleSheet.create({
   catLabelOnImage:    { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 10, textAlign: "center" },
   catSelectedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(245,166,35,0.22)" },
 
-  subSection:  { marginBottom: 24 },
-  subGrid:     { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  subCard:     { width: "47%", paddingVertical: 18, paddingHorizontal: 12, alignItems: "center" },
-  subIconWrap: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  subSection:       { marginBottom: 24 },
+  subGrid:          { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  subCard:          { width: "47%", height: 120 },
+  subBg:            { flex: 1, justifyContent: "flex-end" },
+  subGradient:      { paddingVertical: 10, paddingHorizontal: 8, alignItems: "center" },
+  subLabelOnImage:  { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 12, textAlign: "center" },
   quickRow:    { gap: 10, marginBottom: 24 },
   quickCard:   { flex: 1, paddingVertical: 16, alignItems: "center" },
   quickIcon:   { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
