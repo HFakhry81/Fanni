@@ -14,3 +14,95 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Get the currently authenticated user
+ */
+export const GetCurrentAuthUserHeader = zod.object({
+  Authorization: zod.string().optional(),
+});
+
+export const GetCurrentAuthUserResponse = zod.object({
+  user: zod
+    .object({
+      id: zod.string(),
+      email: zod.string().nullish(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      profileImageUrl: zod.string().nullish(),
+      role: zod.enum(["client", "technician", "admin"]).nullish(),
+      mobile: zod.string().nullish(),
+      governorate: zod.string().nullish(),
+      area: zod.string().nullish(),
+      district: zod.string().nullish(),
+    })
+    .nullable(),
+});
+
+/**
+ * @summary Set or update the authenticated user's role
+ */
+export const SetUserRoleHeader = zod.object({
+  Authorization: zod.string().optional(),
+});
+
+export const SetUserRoleBody = zod.object({
+  role: zod.enum(["client", "technician", "admin"]),
+});
+
+export const SetUserRoleResponse = zod.object({
+  user: zod
+    .object({
+      id: zod.string(),
+      email: zod.string().nullish(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      profileImageUrl: zod.string().nullish(),
+      role: zod.enum(["client", "technician", "admin"]).nullish(),
+      mobile: zod.string().nullish(),
+      governorate: zod.string().nullish(),
+      area: zod.string().nullish(),
+      district: zod.string().nullish(),
+    })
+    .nullable(),
+});
+
+/**
+ * @summary Start the browser OIDC login flow
+ */
+export const BeginBrowserLoginQueryParams = zod.object({
+  returnTo: zod.coerce.string().optional(),
+});
+
+/**
+ * @summary Clear the session and begin OIDC logout
+ */
+export const LogoutBrowserSessionHeader = zod.object({
+  Authorization: zod.string().optional(),
+});
+
+/**
+ * @summary Exchange a mobile OIDC code for a session token
+ */
+export const ExchangeMobileAuthorizationCodeBody = zod.object({
+  code: zod.string(),
+  code_verifier: zod.string(),
+  redirect_uri: zod.string(),
+  state: zod.string(),
+  nonce: zod.string().nullish(),
+});
+
+export const ExchangeMobileAuthorizationCodeResponse = zod.object({
+  token: zod.string(),
+});
+
+/**
+ * @summary Delete a mobile session
+ */
+export const LogoutMobileSessionHeader = zod.object({
+  Authorization: zod.string().optional(),
+});
+
+export const LogoutMobileSessionResponse = zod.object({
+  success: zod.boolean(),
+});

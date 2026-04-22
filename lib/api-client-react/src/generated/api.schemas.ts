@@ -8,3 +8,65 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type AuthUserRole =
+  | (typeof AuthUserRole)[keyof typeof AuthUserRole]
+  | null;
+
+export const AuthUserRole = {
+  client: "client",
+  technician: "technician",
+  admin: "admin",
+} as const;
+
+export interface AuthUser {
+  id: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
+  role?: AuthUserRole;
+  mobile?: string | null;
+  governorate?: string | null;
+  area?: string | null;
+  district?: string | null;
+}
+
+export interface AuthUserEnvelope {
+  user: AuthUser | null;
+}
+
+export type SetUserRoleBodyRole =
+  (typeof SetUserRoleBodyRole)[keyof typeof SetUserRoleBodyRole];
+
+export const SetUserRoleBodyRole = {
+  client: "client",
+  technician: "technician",
+  admin: "admin",
+} as const;
+
+export interface SetUserRoleBody {
+  role: SetUserRoleBodyRole;
+}
+
+export interface ExchangeMobileAuthorizationCodeBody {
+  code: string;
+  code_verifier: string;
+  redirect_uri: string;
+  state: string;
+  nonce?: string | null;
+}
+
+export interface ExchangeMobileAuthorizationCodeResponse {
+  token: string;
+}
+
+export interface LogoutMobileSessionResponse {
+  success: boolean;
+}
+
+export type AuthorizationSessionHeaderParameter = string;
+
+export type BeginBrowserLoginParams = {
+  returnTo?: string;
+};

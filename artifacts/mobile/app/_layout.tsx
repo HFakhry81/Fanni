@@ -15,12 +15,40 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { I18nManager } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AppProvider, useApp } from "@/context/AppContext";
+import { AppProvider, useApp, type UserType } from "@/context/AppContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function AuthUserBridge({ children }: { children: React.ReactNode }) {
+  const { user: authUser } = useAuth();
+  const { setUser } = useApp();
+
+  useEffect(() => {
+    if (authUser) {
+      const displayName = [authUser.firstName, authUser.lastName]
+        .filter(Boolean)
+        .join(" ") || authUser.email || "User";
+      setUser({
+        id: authUser.id,
+        type: (authUser.role as UserType) ?? null,
+        name: displayName,
+        mobile: authUser.mobile ?? "",
+        email: authUser.email ?? "",
+        governorate: authUser.governorate ?? undefined,
+        area: authUser.area ?? undefined,
+        district: authUser.district ?? undefined,
+      });
+    } else {
+      setUser(null);
+    }
+  }, [authUser]);
+
+  return <>{children}</>;
+}
 
 function RootLayoutNav() {
   const { isRTL } = useApp();
@@ -30,6 +58,7 @@ function RootLayoutNav() {
       <Stack.Screen name="index" />
       <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="select-role" />
       <Stack.Screen name="register" />
       <Stack.Screen name="register-success" />
       <Stack.Screen name="new-order" />
@@ -66,9 +95,13 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <AppProvider>
-                <OrderProvider>
-                  <RootLayoutNav />
-                </OrderProvider>
+                <AuthProvider>
+                  <AuthUserBridge>
+                    <OrderProvider>
+                      <RootLayoutNav />
+                    </OrderProvider>
+                  </AuthUserBridge>
+                </AuthProvider>
               </AppProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

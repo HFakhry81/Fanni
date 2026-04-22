@@ -9,6 +9,7 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import StarRating from "@/components/StarRating";
 import AppHeader from "@/components/AppHeader";
 import LocationPicker from "@/components/LocationPicker";
@@ -18,6 +19,7 @@ export default function TechProfileScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
+  const { logout } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -102,7 +104,7 @@ export default function TechProfileScreen() {
   const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : (isRTL ? "حي شرق" : "Al Sharq District");
 
   const handleLogout = async () => {
-    await setUser(null);
+    await logout();
     router.replace("/welcome");
   };
 
