@@ -15,6 +15,7 @@ import AppHeader from "@/components/AppHeader";
 import LocationPicker from "@/components/LocationPicker";
 import Toast from "@/components/Toast";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
+import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 
 export default function TechProfileScreen() {
   const router = useRouter();
@@ -139,8 +140,11 @@ export default function TechProfileScreen() {
       errs.current = isRTL ? "كلمة المرور الحالية غير صحيحة" : "Current password is incorrect";
     }
 
-    if (newPw.length < 6) {
-      errs.newPw = isRTL ? "كلمة المرور يجب أن تكون 6 أحرف على الأقل" : "Password must be at least 6 characters";
+    const pwStrength = getPasswordStrength(newPw, isRTL);
+    if (!pwStrength.isStrong) {
+      errs.newPw = isRTL
+        ? "كلمة المرور لا تستوفي متطلبات القوة"
+        : "Password does not meet strength requirements";
     } else if (user.password && newPw === user.password) {
       errs.newPw = isRTL ? "يجب أن تختلف كلمة المرور الجديدة عن الحالية" : "New password must differ from the current one";
     }
@@ -449,9 +453,20 @@ export default function TechProfileScreen() {
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
                   {t("profile.changePassword")}
                 </Text>
-                <TouchableOpacity onPress={handlePwSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
-                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("common.save")}</Text>
-                </TouchableOpacity>
+                {(() => {
+                  const pwOk = newPw.length > 0 && getPasswordStrength(newPw, isRTL).isStrong;
+                  return (
+                    <TouchableOpacity
+                      onPress={handlePwSave}
+                      disabled={!pwOk}
+                      style={[styles.saveBtn, { backgroundColor: pwOk ? colors.primary : colors.muted }]}
+                    >
+                      <Text style={{ color: pwOk ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                        {t("common.save")}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
 
               <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
@@ -496,6 +511,7 @@ export default function TechProfileScreen() {
                       <Feather name={showNewPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
+                  <PasswordStrengthBar password={newPw} />
                   {pwErrors.newPw ? (
                     <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{pwErrors.newPw}</Text>
                   ) : null}
