@@ -260,7 +260,7 @@ export default function RegisterScreen() {
       <FanniInput
         label={isRTL ? "كلمة المرور" : "Password"}
         value={password}
-        onChangeText={(v) => { setPassword(v); if (v) setErrors((e) => ({ ...e, password: undefined })); }}
+        onChangeText={(v) => { setPassword(v); setErrors((e) => ({ ...e, password: undefined })); }}
         secureTextEntry
         required
         placeholder={isRTL ? "أدخل كلمة مرور قوية" : "Enter a strong password"}
@@ -271,7 +271,7 @@ export default function RegisterScreen() {
       <FanniInput
         label={isRTL ? "تأكيد كلمة المرور" : "Confirm Password"}
         value={confirmPassword}
-        onChangeText={(v) => { setConfirmPassword(v); if (v) setErrors((e) => ({ ...e, confirmPassword: undefined })); }}
+        onChangeText={(v) => { setConfirmPassword(v); setErrors((e) => ({ ...e, confirmPassword: undefined })); }}
         secureTextEntry
         required
         placeholder={isRTL ? "أعد إدخال كلمة المرور" : "Re-enter your password"}

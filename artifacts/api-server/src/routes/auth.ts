@@ -455,8 +455,18 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Invalid Egyptian mobile number" });
     return;
   }
-  if (!password || password.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters" });
+  if (!password) {
+    res.status(400).json({ error: "Password is required" });
+    return;
+  }
+  if (
+    password.length < 8 ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[^A-Za-z0-9]/.test(password)
+  ) {
+    res.status(400).json({ error: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character" });
     return;
   }
   if (role && !["client", "technician"].includes(role)) {
