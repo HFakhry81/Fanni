@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  Linking,
   type DimensionValue,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -155,6 +156,19 @@ export default function OrderTrackingScreen() {
               </View>
             )}
           </View>
+        )}
+
+        {order.technicianMobile && (
+          <TouchableOpacity
+            style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+            onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
+            activeOpacity={0.8}
+          >
+            <Feather name="phone" size={16} color="#FFF" />
+            <Text style={[styles.callBtnText, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
+              {t("order.callTech")}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -439,4 +453,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ratingChip: { flexDirection: "row", alignItems: "center", paddingVertical: 4, paddingHorizontal: 10 },
+  callBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  callBtnText: {
+    color: "#FFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 15,
+  },
 });
