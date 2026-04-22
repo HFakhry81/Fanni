@@ -30,6 +30,11 @@ export default function ClientProfileScreen() {
   const [editDistrict, setEditDistrict] = useState("");
   const [editStreet, setEditStreet] = useState("");
 
+  // Validation errors
+  const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string }>({});
+
+  const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
+
   const openEdit = () => {
     if (!user) return;
     setEditName(user.name ?? "");
@@ -38,15 +43,47 @@ export default function ClientProfileScreen() {
     setEditArea(user.area ?? "");
     setEditDistrict(user.district ?? "");
     setEditStreet(user.address ?? "");
+    setErrors({});
     setEditVisible(true);
   };
 
   const handleSave = async () => {
     if (!user) return;
+
+    const newErrors: typeof errors = {};
+
+    if (!editName.trim()) {
+      newErrors.name = isRTL ? "الاسم مطلوب" : "Name is required";
+    }
+
+    const mobileDigits = editMobile.trim().replace(/\s|-/g, "");
+    const mobileMatch = mobileDigits ? mobileDigits.match(EGYPT_MOBILE_RE) : null;
+    if (!mobileDigits) {
+      newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
+    } else if (!mobileMatch) {
+      newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
+    }
+
+    if (!editGov) {
+      newErrors.gov = isRTL ? "يرجى اختيار المحافظة" : "Please select a governorate";
+    }
+
+    if (!editArea) {
+      newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+
+    setErrors({});
     await setUser({
       ...user,
-      name: editName.trim() || user.name,
-      mobile: editMobile.trim() || user.mobile,
+      name: editName.trim(),
+      mobile: normalizedMobile,
       governorate: editGov,
       area: editArea,
       district: editDistrict,
@@ -298,8 +335,11 @@ export default function ClientProfileScreen() {
                     onChangeText={setEditName}
                     placeholder={t("register.name")}
                     placeholderTextColor={colors.mutedForeground}
-                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.name ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                   />
+                  {errors.name ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.name}</Text>
+                  ) : null}
                 </View>
 
                 {/* Mobile */}
@@ -313,14 +353,25 @@ export default function ClientProfileScreen() {
                     placeholder="+20 1XX XXX XXXX"
                     placeholderTextColor={colors.mutedForeground}
                     keyboardType="phone-pad"
-                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.mobile ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                   />
+                  {errors.mobile ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.mobile}</Text>
+                  ) : null}
                 </View>
 
                 {/* Divider */}
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
                   {t("register.address")}
                 </Text>
+
+                {/* Location errors */}
+                {errors.gov ? (
+                  <Text style={[styles.errorText, { marginBottom: 6, textAlign: isRTL ? "right" : "left" }]}>{errors.gov}</Text>
+                ) : null}
+                {errors.area ? (
+                  <Text style={[styles.errorText, { marginBottom: 6, textAlign: isRTL ? "right" : "left" }]}>{errors.area}</Text>
+                ) : null}
 
                 {/* Location Picker */}
                 <LocationPicker
@@ -370,4 +421,5 @@ const styles = StyleSheet.create({
   fieldLabel: { fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 6 },
   textInput: { paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1.5, borderRadius: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
   sectionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, marginBottom: 10, marginTop: 4 },
+  errorText: { fontFamily: "Inter_400Regular", fontSize: 12, color: "#E53E3E", marginTop: 4 },
 });
