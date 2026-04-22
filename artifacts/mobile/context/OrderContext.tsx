@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface OrderPhoto {
@@ -73,6 +73,10 @@ interface OrderContextType {
   getOrdersByTech: (techId: string) => Order[];
   getActiveOrdersForTech: (techId: string) => Order[];
   allOrders: Order[];
+  newPendingOrders: Order[];
+  markPendingOrdersSeen: () => void;
+  markOrderSeen: (orderId: string) => void;
+  injectNewOrder: (order: Order) => void;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -182,8 +186,34 @@ const SEED_ORDERS: Order[] = [
   },
 ];
 
+export const SIMULATED_NEW_ORDER: Order = {
+  id: "ord_sim001",
+  orderNumber: "ORD-2025-004",
+  clientId: "client2",
+  clientName: "سارة إبراهيم",
+  clientMobile: "01155667788",
+  category: "carpentry",
+  subCategory: "نجارة",
+  problemDescription: "باب الغرفة الرئيسية لا يغلق بشكل صحيح ويحتاج إلى ضبط المفصلات",
+  deviceType: "باب خشبي",
+  photos: [],
+  street: "شارع سيدي بشر",
+  building: "3",
+  floor: "4",
+  apartment: "14",
+  landmark: "بجوار مدرسة الأمل",
+  latitude: 31.2310,
+  longitude: 29.9700,
+  visitDate: "2025-04-22",
+  visitTime: "15:00",
+  status: "pending",
+  createdAt: new Date().toISOString(),
+};
+
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
+  const seenIdsRef = useRef<Set<string>>(new Set(SEED_ORDERS.map((o) => o.id)));
+  const [newPendingOrders, setNewPendingOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -191,7 +221,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         const stored = await AsyncStorage.getItem("orders");
         if (stored) {
           const parsed = JSON.parse(stored) as Order[];
-          setOrders([...SEED_ORDERS, ...parsed]);
+          const merged = [...SEED_ORDERS, ...parsed];
+          setOrders(merged);
+          parsed.forEach((o) => seenIdsRef.current.add(o.id));
         }
       } catch (_) {}
     })();
@@ -210,12 +242,40 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     const updated = [...orders, order];
     setOrders(updated);
     await saveOrders(updated);
+    if (!seenIdsRef.current.has(order.id) && order.status === "pending") {
+      seenIdsRef.current.add(order.id);
+      setNewPendingOrders((prev) => [...prev, order]);
+    }
   };
 
   const updateOrder = async (id: string, update: Partial<Order>) => {
     const updated = orders.map((o) => (o.id === id ? { ...o, ...update } : o));
     setOrders(updated);
     await saveOrders(updated);
+    if (update.status && update.status !== "pending") {
+      setNewPendingOrders((prev) => prev.filter((o) => o.id !== id));
+    }
+  };
+
+  const markPendingOrdersSeen = () => {
+    newPendingOrders.forEach((o) => seenIdsRef.current.add(o.id));
+    setNewPendingOrders([]);
+  };
+
+  const markOrderSeen = (orderId: string) => {
+    seenIdsRef.current.add(orderId);
+    setNewPendingOrders((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
+  const injectNewOrder = (order: Order) => {
+    setOrders((prev) => {
+      if (prev.find((o) => o.id === order.id)) return prev;
+      return [...prev, order];
+    });
+    setNewPendingOrders((prev) => {
+      if (prev.find((o) => o.id === order.id)) return prev;
+      return [...prev, order];
+    });
   };
 
   const getOrdersByClient = (clientId: string) =>
@@ -241,6 +301,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         getOrdersByTech,
         getActiveOrdersForTech,
         allOrders: orders,
+        newPendingOrders,
+        markPendingOrdersSeen,
+        markOrderSeen,
+        injectNewOrder,
       }}
     >
       {children}
