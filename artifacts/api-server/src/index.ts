@@ -1,6 +1,6 @@
 import http from "node:http";
 import app from "./app";
-import { handleUpgrade } from "./lib/orderBroadcaster";
+import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
@@ -27,11 +27,9 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
-server.listen(port, (err?: Error) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
-
+server.listen(port, () => {
   logger.info({ port }, "Server listening");
+  recoverPendingOrders().catch((err) => {
+    logger.error({ err }, "Startup order recovery failed");
+  });
 });
