@@ -2,10 +2,12 @@ import { Router, type IRouter } from "express";
 import { broadcastNewOrder } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable } from "@workspace/db";
+import { authMiddleware } from "../middlewares/authMiddleware";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.post("/orders", async (req, res) => {
+router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   const order = req.body;
 
   if (!order || !order.id || !order.orderNumber || !order.category) {

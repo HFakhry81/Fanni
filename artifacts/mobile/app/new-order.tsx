@@ -9,6 +9,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
@@ -23,6 +24,7 @@ export default function NewOrderScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { addOrder } = useOrders();
+  const { sessionToken } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<OrderStep>(1);
@@ -96,9 +98,13 @@ export default function NewOrderScreen() {
     const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
     if (domain) {
       try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (sessionToken) {
+          headers["Authorization"] = `Bearer ${sessionToken}`;
+        }
         const res = await fetch(`https://${domain}/api/orders`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(newOrder),
         });
         if (!res.ok) {
