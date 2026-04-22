@@ -24,6 +24,36 @@ uri = "file://artifacts/mobile/assets/images/splash-icon.png"
 type = "image"
 title = "fanni-splash"
 
+[[generated]]
+id = "NJ6iAjJolEGFl2BYOOmZ1"
+uri = "file://artifacts/mobile/assets/images/icon_electricity.png"
+type = "image"
+title = "electricity service icon"
+
+[[generated]]
+id = "dP2wmTi4Aik1xzNb_RiZ8"
+uri = "file://artifacts/mobile/assets/images/icon_appliances.png"
+type = "image"
+title = "appliances service icon"
+
+[[generated]]
+id = "BKSCl4urrOHrd-r6-BODa"
+uri = "file://artifacts/mobile/assets/images/icon_painting.png"
+type = "image"
+title = "painting service icon"
+
+[[generated]]
+id = "AY9klMyipziMzaY7bSC3i"
+uri = "file://artifacts/mobile/assets/images/icon_pest.png"
+type = "image"
+title = "pest control service icon"
+
+[[generated]]
+id = "n0Ez8cxH7Ti0O4EK5Y0gD"
+uri = "file://artifacts/mobile/assets/images/icon_flooring.png"
+type = "image"
+title = "flooring service icon"
+
 [[outputs]]
 id = "4Gs2IWV17ltcuUknQ572v"
 uri = "file://artifacts/mobile/assets/images/icon.png"

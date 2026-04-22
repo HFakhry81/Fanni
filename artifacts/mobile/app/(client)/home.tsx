@@ -20,14 +20,14 @@ type Category = {
 };
 
 const CATEGORIES: Category[] = [
-  { id: "electricity", icon: "zap",           color: "#F5A623" },
-  { id: "plumbing",    image: require("@/assets/images/icon_plumbing.png"),  color: "#4DADD9" },
-  { id: "ac",          image: require("@/assets/images/icon_ac.png"),        color: "#2B8FBB" },
-  { id: "carpentry",   image: require("@/assets/images/icon_carpentry.png"), color: "#8B6F47" },
-  { id: "appliances",  icon: "cpu",            color: "#7C5CBF" },
-  { id: "painting",    icon: "edit-3",         color: "#E84393" },
-  { id: "pest",        icon: "alert-triangle", color: "#22A36B" },
-  { id: "flooring",    icon: "layers",         color: "#E67E22" },
+  { id: "electricity", image: require("@/assets/images/icon_electricity.png"), color: "#F5A623" },
+  { id: "plumbing",    image: require("@/assets/images/icon_plumbing.png"),    color: "#4DADD9" },
+  { id: "ac",          image: require("@/assets/images/icon_ac.png"),          color: "#2B8FBB" },
+  { id: "carpentry",   image: require("@/assets/images/icon_carpentry.png"),   color: "#8B6F47" },
+  { id: "appliances",  image: require("@/assets/images/icon_appliances.png"),  color: "#7C5CBF" },
+  { id: "painting",    image: require("@/assets/images/icon_painting.png"),    color: "#E84393" },
+  { id: "pest",        image: require("@/assets/images/icon_pest.png"),        color: "#22A36B" },
+  { id: "flooring",    image: require("@/assets/images/icon_flooring.png"),    color: "#E67E22" },
 ];
 
 const SUB_CATEGORIES: Record<string, { id: string; icon: string; label_ar: string; label_en: string }[]> = {
