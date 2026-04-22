@@ -19,6 +19,9 @@ if (Number.isNaN(port) || port <= 0) {
 
 const server = http.createServer(app);
 
+// PUBLIC WebSocket endpoint (/api/ws): intentionally allows unauthenticated connections.
+// Technician clients connect here to receive new-order broadcasts. Authentication is
+// handled at the application layer via the "register" message sent after connection.
 server.on("upgrade", (req, socket, head) => {
   if (req.url === "/api/ws") {
     handleUpgrade(req, socket as import("node:net").Socket, head);

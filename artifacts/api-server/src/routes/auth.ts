@@ -22,6 +22,8 @@ import {
   ISSUER_URL,
   type SessionData,
 } from "../lib/auth";
+import { authMiddleware } from "../middlewares/authMiddleware";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 
@@ -126,6 +128,8 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
   };
 }
 
+// PUBLIC: Returns the current user if authenticated, or { user: null } if not.
+// Intentionally allows unauthenticated access so clients can check login state.
 router.get("/auth/user", async (req: Request, res: Response) => {
   if (!req.isAuthenticated()) {
     res.json(GetCurrentAuthUserResponse.parse({ user: null }));
@@ -139,11 +143,7 @@ router.get("/auth/user", async (req: Request, res: Response) => {
   res.json(GetCurrentAuthUserResponse.parse({ user: buildAuthUser(dbUser) }));
 });
 
-router.post("/auth/role", async (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+router.post("/auth/role", authMiddleware, requireAuth, async (req: Request, res: Response) => {
   const parsed = SetUserRoleBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid role" });
@@ -152,11 +152,12 @@ router.post("/auth/role", async (req: Request, res: Response) => {
   const [dbUser] = await db
     .update(usersTable)
     .set({ role: parsed.data.role, updatedAt: new Date() })
-    .where(eq(usersTable.id, req.user.id))
+    .where(eq(usersTable.id, req.user!.id))
     .returning();
   res.json(GetCurrentAuthUserResponse.parse({ user: buildAuthUser(dbUser) }));
 });
 
+// PUBLIC: Initiates the OIDC login flow. No auth required.
 router.get("/login", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
   const callbackUrl = `${getOrigin(req)}/api/callback`;
@@ -181,6 +182,7 @@ router.get("/login", async (req: Request, res: Response) => {
   res.redirect(redirectTo.href);
 });
 
+// PUBLIC: OIDC authorization code callback. No auth required.
 router.get("/callback", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
   const callbackUrl = `${getOrigin(req)}/api/callback`;
@@ -229,6 +231,7 @@ router.get("/callback", async (req: Request, res: Response) => {
   res.redirect(returnTo);
 });
 
+// PUBLIC: Ends the session and redirects to the OIDC logout endpoint. No auth required.
 router.get("/logout", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
   const origin = getOrigin(req);
@@ -241,6 +244,7 @@ router.get("/logout", async (req: Request, res: Response) => {
   res.redirect(endSessionUrl.href);
 });
 
+// PUBLIC: Exchanges a mobile OIDC authorization code for a session token. No auth required.
 router.post("/mobile-auth/token-exchange", async (req: Request, res: Response) => {
   const parsed = ExchangeMobileAuthorizationCodeBody.safeParse(req.body);
   if (!parsed.success) {
@@ -281,6 +285,7 @@ router.post("/mobile-auth/token-exchange", async (req: Request, res: Response) =
   }
 });
 
+// PUBLIC: Deletes a mobile session (logout). No auth required — the token is supplied in the request body.
 router.post("/mobile-auth/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
   if (sid) await deleteSession(sid);
@@ -306,6 +311,7 @@ function hashResetCode(code: string): string {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
 
+// PUBLIC: Sends a password reset code. No auth required — used for account recovery.
 router.post("/auth/forgot-password", async (req: Request, res: Response) => {
   const { identifier } = req.body as { identifier?: string };
   if (!identifier || typeof identifier !== "string" || !identifier.trim()) {
@@ -356,6 +362,7 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// PUBLIC: Resets a user's password using a valid reset code. No auth required.
 router.post("/auth/reset-password", async (req: Request, res: Response) => {
   const { identifier, code, newPassword } = req.body as {
     identifier?: string;
@@ -431,6 +438,7 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
 
 const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
+// PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
   const { name, email, mobile, password, role, nationalId, governorateId, areaId } = req.body as {
     name?: string;
@@ -536,6 +544,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   res.status(201).json({ token: sid, user: buildAuthUser(newUser) });
 });
 
+// PUBLIC: Authenticates with mobile/email + password credentials. No auth required.
 router.post("/auth/login-with-password", async (req: Request, res: Response) => {
   const { identifier, password } = req.body as {
     identifier?: string;
