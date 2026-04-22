@@ -290,9 +290,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setUserTypeState(parsed.type);
         }
         const storedOnline = await AsyncStorage.getItem("techIsOnline");
-        setIsOnlineState(storedOnline === null ? true : storedOnline === "true");
+        setIsOnlineState(storedOnline === "true");
       } catch (_) {
-        setIsOnlineState(true);
+        setIsOnlineState(false);
       } finally {
         setIsAvailabilityHydrated(true);
       }
