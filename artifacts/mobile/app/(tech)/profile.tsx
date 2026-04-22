@@ -18,7 +18,7 @@ import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 export default function TechProfileScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL, user, setUser, setLanguage, language } = useApp();
+  const { t, isRTL, user, setUser, setLanguage, language, isOnline, setIsOnline } = useApp();
   const { logout } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -301,6 +301,28 @@ export default function TechProfileScreen() {
         </View>
 
         <View style={styles.menuSection}>
+          {/* Availability toggle */}
+          <TouchableOpacity
+            style={[styles.availCard, { backgroundColor: isOnline ? "#22A36B" : "#EF4444", flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={() => setIsOnline(!isOnline)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.availDot, { backgroundColor: "rgba(255,255,255,0.5)" }]} />
+            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+              <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                {isOnline ? t("tech.online") : t("tech.offline")}
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.75)", fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
+                {isOnline
+                  ? (isRTL ? "أنت متاح لاستقبال الطلبات" : "You are available to receive orders")
+                  : (isRTL ? "أنت غير متاح — لن تتلقى طلبات جديدة" : "You are offline — no new orders will be received")}
+              </Text>
+            </View>
+            <View style={[styles.availToggleKnob, { backgroundColor: "rgba(255,255,255,0.25)", borderColor: "rgba(255,255,255,0.5)" }]}>
+              <Feather name={isOnline ? "toggle-right" : "toggle-left"} size={30} color="#FFF" />
+            </View>
+          </TouchableOpacity>
+
           {/* Language toggle */}
           <View style={[styles.langCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
             <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
@@ -618,6 +640,9 @@ const styles = StyleSheet.create({
   langToggle: { padding: 3 },
   langOption: { paddingVertical: 6, paddingHorizontal: 12 },
   logoutBtn: { padding: 16, borderWidth: 2, alignItems: "center" },
+  availCard: { padding: 16, borderRadius: 14, flexDirection: "row", alignItems: "center" },
+  availDot: { width: 10, height: 10, borderRadius: 5 },
+  availToggleKnob: { borderWidth: 1, borderRadius: 10, padding: 2 },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", minHeight: "60%" },
