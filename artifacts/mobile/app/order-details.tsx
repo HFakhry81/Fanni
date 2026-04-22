@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  Linking,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -151,19 +152,40 @@ export default function OrderDetailsScreen() {
                     </Text>
                   </View>
                 )}
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-                  {order.technicianMobile}
-                </Text>
+                {order.technicianMobile && (
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
+                    activeOpacity={0.7}
+                    style={[styles.phoneRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}
+                  >
+                    <Feather name="phone" size={13} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13, marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}>
+                      {order.technicianMobile}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-            {(order.status === "accepted" || order.status === "inProgress") && (
+            {order.technicianMobile && (
               <TouchableOpacity
                 style={[styles.trackBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
+                activeOpacity={0.85}
+              >
+                <Feather name="phone" size={16} color="#FFF" />
+                <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                  {t("order.callTech")}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {(order.status === "accepted" || order.status === "inProgress") && (
+              <TouchableOpacity
+                style={[styles.trackBtn, { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 1.5, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", marginTop: 8 }]}
                 onPress={() => router.push({ pathname: "/order-tracking", params: { orderId: order.id } })}
                 activeOpacity={0.85}
               >
-                <Feather name="map-pin" size={16} color="#FFF" />
-                <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                <Feather name="map-pin" size={16} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                   {t("order.trackBtn")}
                 </Text>
               </TouchableOpacity>
@@ -303,6 +325,7 @@ const styles = StyleSheet.create({
   techCard: { alignItems: "center", gap: 0 },
   techAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
   ratingRow: { alignItems: "center", gap: 4, marginTop: 4 },
+  phoneRow: { alignItems: "center", gap: 4, marginTop: 4 },
   completionOption: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center", gap: 10 },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2 },
   invoiceRow: { paddingVertical: 10, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
