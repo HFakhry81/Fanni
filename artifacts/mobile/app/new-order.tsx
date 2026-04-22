@@ -24,7 +24,7 @@ export default function NewOrderScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { addOrder } = useOrders();
-  const { sessionToken } = useAuth();
+  const { sessionToken, isAuthenticated, login } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<OrderStep>(1);
@@ -57,6 +57,10 @@ export default function NewOrderScreen() {
   };
 
   const handleSubmit = async () => {
+    if (!isAuthenticated) {
+      await login();
+      return;
+    }
     setLoading(true);
     await new Promise((r) => setTimeout(r, 1200));
     const orderId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
@@ -314,6 +318,15 @@ export default function NewOrderScreen() {
           {step === 3 && renderStep3()}
         </View>
 
+        {step === 3 && !isAuthenticated && (
+          <View style={[styles.authBanner, { backgroundColor: colors.accentBlue, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Feather name="lock" size={16} color={colors.secondary} />
+            <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL ? "يجب تسجيل الدخول لإرسال الطلب" : "You must be logged in to submit an order"}
+            </Text>
+          </View>
+        )}
+
         <View style={[styles.navBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {step > 1 && (
             <FanniButton
@@ -324,7 +337,9 @@ export default function NewOrderScreen() {
           )}
           {step < 3
             ? <FanniButton title={t("common.next")} onPress={handleNext} style={{ flex: 1 }} />
-            : <FanniButton title={t("common.sendOrder")} onPress={handleSubmit} loading={loading} style={{ flex: 1 }} />
+            : !isAuthenticated
+              ? <FanniButton title={isRTL ? "تسجيل الدخول" : "Log In to Submit"} onPress={login} style={{ flex: 1 }} />
+              : <FanniButton title={t("common.sendOrder")} onPress={handleSubmit} loading={loading} style={{ flex: 1 }} />
           }
         </View>
       </ScrollView>
@@ -354,4 +369,5 @@ const styles = StyleSheet.create({
   confirmRow: { paddingVertical: 10, borderBottomWidth: 1, alignItems: "center", flexDirection: "row" },
   totalRow: { padding: 14, borderWidth: 1.5, marginTop: 16, flexDirection: "row", alignItems: "center" },
   navBtns: { gap: 8, marginBottom: 8 },
+  authBanner: { padding: 12, marginBottom: 10, alignItems: "center", gap: 8 },
 });
