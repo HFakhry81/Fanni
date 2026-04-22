@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Platform, Image, ImageBackground,
+  ScrollView, Platform, ImageBackground,
   ImageSourcePropType,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,11 +11,6 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
-
-// ─── Switch between "A", "B", or "C" to preview each design variant ───────────
-type Variant = "A" | "B" | "C";
-const VARIANT: Variant = "A";
-// ──────────────────────────────────────────────────────────────────────────────
 
 type Category = {
   id: string;
@@ -72,8 +67,7 @@ const SUB_CATEGORIES: Record<string, { id: string; icon: string; label_ar: strin
   ],
 };
 
-// ─── Variant A: Full-bleed ImageBackground card ────────────────────────────────
-function VariantAImageCard({
+function ImageCard({
   cat, isSelected, label, radius, onPress,
 }: {
   cat: Category; isSelected: boolean; label: string; radius: number; onPress: () => void;
@@ -110,102 +104,6 @@ function VariantAImageCard({
           </Text>
         </LinearGradient>
       </ImageBackground>
-    </TouchableOpacity>
-  );
-}
-
-// ─── Variant B: Big round circle badge ────────────────────────────────────────
-function VariantBImageCard({
-  cat, isSelected, label, colors, radius, onPress,
-}: {
-  cat: Category; isSelected: boolean; label: string;
-  colors: ReturnType<typeof useColors>; radius: number; onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      key={cat.id}
-      onPress={onPress}
-      activeOpacity={0.8}
-      style={[
-        styles.catCard,
-        {
-          backgroundColor: colors.card,
-          borderRadius: radius,
-          borderColor: colors.border,
-          borderWidth: 2,
-        },
-      ]}
-    >
-      <View style={[
-        styles.catCircleBadge,
-        { borderWidth: isSelected ? 2.5 : 0, borderColor: "#F5A623" },
-      ]}>
-        <Image
-          source={cat.image!}
-          style={styles.catCircleImage}
-          resizeMode="cover"
-        />
-      </View>
-      <Text
-        style={{
-          color: colors.foreground,
-          fontFamily: "Inter_600SemiBold",
-          fontSize: 11,
-          textAlign: "center",
-          marginTop: 7,
-        }}
-        numberOfLines={2}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-// ─── Variant C: Tall tile — image top + accent bar + label bottom ─────────────
-function VariantCImageCard({
-  cat, isSelected, label, colors, radius, onPress,
-}: {
-  cat: Category; isSelected: boolean; label: string;
-  colors: ReturnType<typeof useColors>; radius: number; onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      key={cat.id}
-      onPress={onPress}
-      activeOpacity={0.85}
-      style={[
-        styles.catCardTall,
-        {
-          backgroundColor: isSelected ? colors.darkMid : colors.card,
-          borderRadius: radius,
-          borderColor: isSelected ? "#F5A623" : colors.border,
-          borderWidth: 2,
-          overflow: "hidden",
-        },
-      ]}
-    >
-      <ImageBackground
-        source={cat.image!}
-        style={styles.catTallImageArea}
-        resizeMode="cover"
-      >
-        {isSelected && <View style={styles.catSelectedOverlay} />}
-      </ImageBackground>
-      <View style={[styles.catAccentBar, { backgroundColor: isSelected ? "#F5A623" : cat.color }]} />
-      <View style={styles.catTallLabelWrap}>
-        <Text
-          style={{
-            color: isSelected ? "#FFF" : colors.foreground,
-            fontFamily: "Inter_600SemiBold",
-            fontSize: 10,
-            textAlign: "center",
-          }}
-          numberOfLines={2}
-        >
-          {label}
-        </Text>
-      </View>
     </TouchableOpacity>
   );
 }
@@ -292,44 +190,16 @@ export default function ClientHomeScreen() {
             const toggle = () => setSelectedCat(isSelected ? null : cat.id);
 
             if (cat.image) {
-              if (VARIANT === "A") {
-                return (
-                  <VariantAImageCard
-                    key={cat.id}
-                    cat={cat}
-                    isSelected={isSelected}
-                    label={label}
-                    radius={colors.radius}
-                    onPress={toggle}
-                  />
-                );
-              }
-              if (VARIANT === "B") {
-                return (
-                  <VariantBImageCard
-                    key={cat.id}
-                    cat={cat}
-                    isSelected={isSelected}
-                    label={label}
-                    colors={colors}
-                    radius={colors.radius}
-                    onPress={toggle}
-                  />
-                );
-              }
-              if (VARIANT === "C") {
-                return (
-                  <VariantCImageCard
-                    key={cat.id}
-                    cat={cat}
-                    isSelected={isSelected}
-                    label={label}
-                    colors={colors}
-                    radius={colors.radius}
-                    onPress={toggle}
-                  />
-                );
-              }
+              return (
+                <ImageCard
+                  key={cat.id}
+                  cat={cat}
+                  isSelected={isSelected}
+                  label={label}
+                  radius={colors.radius}
+                  onPress={toggle}
+                />
+              );
             }
 
             return (
@@ -429,22 +299,11 @@ const styles = StyleSheet.create({
   catCard:      { width: "22%", paddingVertical: 14, paddingHorizontal: 4, alignItems: "center", minWidth: 76 },
   catIconWrap:  { width: 50, height: 50, alignItems: "center", justifyContent: "center" },
 
-  // ── Variant A ──────────────────────────────────────────────────────────────
   catCardFull:        { width: "22%", minWidth: 76, height: 110 },
   catBgFull:          { flex: 1, justifyContent: "flex-end" },
   catGradientOverlay: { backgroundColor: "rgba(0,0,0,0.52)", paddingVertical: 8, paddingHorizontal: 4, alignItems: "center" },
   catLabelOnImage:    { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 10, textAlign: "center" },
   catSelectedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(245,166,35,0.22)" },
-
-  // ── Variant B ──────────────────────────────────────────────────────────────
-  catCircleBadge: { width: 64, height: 64, borderRadius: 32, overflow: "hidden" },
-  catCircleImage: { width: 64, height: 64 },
-
-  // ── Variant C ──────────────────────────────────────────────────────────────
-  catCardTall:      { width: "22%", minWidth: 76, height: 120 },
-  catTallImageArea: { height: 72 },
-  catAccentBar:     { height: 4 },
-  catTallLabelWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
 
   subSection:  { marginBottom: 24 },
   subGrid:     { flexDirection: "row", flexWrap: "wrap", gap: 12 },
