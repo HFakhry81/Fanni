@@ -10,6 +10,7 @@ export interface User {
   name: string;
   mobile: string;
   email: string;
+  password?: string;
   address?: string;
   profession?: string;
   specialty?: string;
@@ -212,6 +213,11 @@ const translations: Record<string, Record<Language, string>> = {
   "profile.reports": { ar: "التقارير", en: "Reports" },
   "profile.previousOrders": { ar: "الطلبات السابقة", en: "Previous Orders" },
   "profile.previousInvoices": { ar: "الفواتير السابقة", en: "Previous Invoices" },
+  "profile.changePassword": { ar: "تغيير كلمة المرور", en: "Change Password" },
+  "profile.currentPassword": { ar: "كلمة المرور الحالية", en: "Current Password" },
+  "profile.newPassword": { ar: "كلمة المرور الجديدة", en: "New Password" },
+  "profile.confirmPassword": { ar: "تأكيد كلمة المرور", en: "Confirm New Password" },
+  "profile.passwordUpdated": { ar: "تم تحديث كلمة المرور بنجاح", en: "Password updated successfully" },
 
   // Common
   "common.next": { ar: "التالي", en: "Next" },

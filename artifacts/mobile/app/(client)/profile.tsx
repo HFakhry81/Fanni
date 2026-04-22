@@ -23,6 +23,7 @@ export default function ClientProfileScreen() {
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const [editVisible, setEditVisible] = useState(false);
+  const [pwVisible, setPwVisible] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -31,6 +32,15 @@ export default function ClientProfileScreen() {
   const [editArea, setEditArea] = useState("");
   const [editDistrict, setEditDistrict] = useState("");
   const [editStreet, setEditStreet] = useState("");
+
+  // Change password state
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwErrors, setPwErrors] = useState<{ current?: string; newPw?: string; confirm?: string }>({});
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   // Validation errors
   const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string }>({});
@@ -103,6 +113,50 @@ export default function ClientProfileScreen() {
   const neighborhoodText = neighborhoodData
     ? (isRTL ? neighborhoodData.ar : neighborhoodData.en)
     : areaData ? (isRTL ? areaData.ar : areaData.en) : "";
+
+  const openPwSheet = () => {
+    setCurrentPw("");
+    setNewPw("");
+    setConfirmPw("");
+    setPwErrors({});
+    setShowCurrentPw(false);
+    setShowNewPw(false);
+    setShowConfirmPw(false);
+    setPwVisible(true);
+  };
+
+  const handlePwSave = async () => {
+    if (!user) return;
+    const errs: typeof pwErrors = {};
+
+    if (!currentPw) {
+      errs.current = isRTL ? "كلمة المرور الحالية مطلوبة" : "Current password is required";
+    } else if (user.password && currentPw !== user.password) {
+      errs.current = isRTL ? "كلمة المرور الحالية غير صحيحة" : "Current password is incorrect";
+    }
+
+    if (newPw.length < 6) {
+      errs.newPw = isRTL ? "كلمة المرور يجب أن تكون 6 أحرف على الأقل" : "Password must be at least 6 characters";
+    } else if (user.password && newPw === user.password) {
+      errs.newPw = isRTL ? "يجب أن تختلف كلمة المرور الجديدة عن الحالية" : "New password must differ from the current one";
+    }
+
+    if (newPw !== confirmPw) {
+      errs.confirm = isRTL ? "كلمتا المرور غير متطابقتين" : "Passwords do not match";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setPwErrors(errs);
+      return;
+    }
+
+    await setUser({ ...user, password: newPw });
+    setPwVisible(false);
+    Alert.alert(
+      isRTL ? "تم" : "Done",
+      t("profile.passwordUpdated")
+    );
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -180,6 +234,7 @@ export default function ClientProfileScreen() {
     { icon: "list",       label: t("profile.previousOrders"),   color: colors.primary,   action: () => router.push("/(client)/orders") },
     { icon: "file-text",  label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices") },
     { icon: "bar-chart-2",label: t("profile.reports"),          color: "#7C5CBF",        action: () => {} },
+    { icon: "lock",       label: t("profile.changePassword"),   color: "#22A36B",        action: openPwSheet },
   ];
 
   return (
@@ -301,6 +356,99 @@ export default function ClientProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Change Password Modal */}
+      <Modal visible={pwVisible} animationType="slide" transparent onRequestClose={() => setPwVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: botPad + 16, minHeight: "50%", maxHeight: "80%" }]}>
+              <View style={[styles.handle, { backgroundColor: colors.border }]} />
+              <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+                <TouchableOpacity onPress={() => setPwVisible(false)} style={{ padding: 4 }}>
+                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
+                  {t("profile.changePassword")}
+                </Text>
+                <TouchableOpacity onPress={handlePwSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("common.save")}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+                {/* Current Password */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("profile.currentPassword")}
+                  </Text>
+                  <View style={[styles.pwInputRow, { backgroundColor: colors.card, borderColor: pwErrors.current ? colors.destructive : colors.border }]}>
+                    <TextInput
+                      value={currentPw}
+                      onChangeText={setCurrentPw}
+                      placeholder={t("profile.currentPassword")}
+                      placeholderTextColor={colors.mutedForeground}
+                      secureTextEntry={!showCurrentPw}
+                      style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                    />
+                    <TouchableOpacity onPress={() => setShowCurrentPw((v) => !v)} style={{ padding: 8 }}>
+                      <Feather name={showCurrentPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </View>
+                  {pwErrors.current ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{pwErrors.current}</Text>
+                  ) : null}
+                </View>
+
+                {/* New Password */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("profile.newPassword")}
+                  </Text>
+                  <View style={[styles.pwInputRow, { backgroundColor: colors.card, borderColor: pwErrors.newPw ? colors.destructive : colors.border }]}>
+                    <TextInput
+                      value={newPw}
+                      onChangeText={setNewPw}
+                      placeholder={t("profile.newPassword")}
+                      placeholderTextColor={colors.mutedForeground}
+                      secureTextEntry={!showNewPw}
+                      style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                    />
+                    <TouchableOpacity onPress={() => setShowNewPw((v) => !v)} style={{ padding: 8 }}>
+                      <Feather name={showNewPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </View>
+                  {pwErrors.newPw ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{pwErrors.newPw}</Text>
+                  ) : null}
+                </View>
+
+                {/* Confirm New Password */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("profile.confirmPassword")}
+                  </Text>
+                  <View style={[styles.pwInputRow, { backgroundColor: colors.card, borderColor: pwErrors.confirm ? colors.destructive : colors.border }]}>
+                    <TextInput
+                      value={confirmPw}
+                      onChangeText={setConfirmPw}
+                      placeholder={t("profile.confirmPassword")}
+                      placeholderTextColor={colors.mutedForeground}
+                      secureTextEntry={!showConfirmPw}
+                      style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                    />
+                    <TouchableOpacity onPress={() => setShowConfirmPw((v) => !v)} style={{ padding: 8 }}>
+                      <Feather name={showConfirmPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </View>
+                  {pwErrors.confirm ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{pwErrors.confirm}</Text>
+                  ) : null}
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       {/* Edit Profile Modal */}
       <Modal visible={editVisible} animationType="slide" transparent onRequestClose={() => setEditVisible(false)}>
@@ -424,4 +572,6 @@ const styles = StyleSheet.create({
   textInput: { paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1.5, borderRadius: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
   sectionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, marginBottom: 10, marginTop: 4 },
   errorText: { fontFamily: "Inter_400Regular", fontSize: 12, color: "#E53E3E", marginTop: 4 },
+  pwInputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 12, paddingLeft: 14, paddingRight: 4 },
+  pwInput: { flex: 1, paddingVertical: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
 });
