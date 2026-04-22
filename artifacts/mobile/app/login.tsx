@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
-  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,18 +14,89 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
+import AppHeader from "@/components/AppHeader";
 
 const MOCK_USERS = [
-  { mobile: "123", password: "123", type: "client" as const, name: "أحمد محمد", email: "ahmed@email.com", address: "القاهرة، مصر", id: "client1" },
-  { mobile: "111", password: "1", type: "technician" as const, name: "محمد علي", email: "tech@email.com", address: "الجيزة، مصر", id: "tech1", profession: "كهرباء", specialty: "تكييف", experience: 5 },
-  { mobile: "111", password: "10", type: "admin" as const, name: "مسئول النظام", email: "admin@fanni.com", address: "", id: "admin1" },
+  {
+    mobile: "01012345678",
+    password: "123456",
+    type: "client" as const,
+    name: "أحمد محمد السيد",
+    email: "ahmed@email.com",
+    address: "الإسكندرية، سموحة",
+    id: "client1",
+    governorate: "alexandria",
+    area: "alex_east",
+    district: "smouha",
+  },
+  {
+    mobile: "01098765432",
+    password: "123456",
+    type: "technician" as const,
+    name: "محمد علي حسن",
+    email: "tech@email.com",
+    address: "الإسكندرية، فلمنج",
+    id: "tech1",
+    profession: "كهرباء",
+    specialty: "تكييف",
+    experience: 5,
+    governorate: "alexandria",
+    area: "alex_east",
+    district: "fleming",
+  },
+  {
+    mobile: "01000000000",
+    password: "admin123",
+    type: "admin" as const,
+    name: "مسئول النظام",
+    email: "admin@fanni.com",
+    address: "",
+    id: "admin1",
+  },
+  // Short demo credentials (keep for backward compat)
+  {
+    mobile: "123",
+    password: "123",
+    type: "client" as const,
+    name: "أحمد محمد السيد",
+    email: "ahmed@email.com",
+    address: "الإسكندرية، سموحة",
+    id: "client1",
+    governorate: "alexandria",
+    area: "alex_east",
+    district: "smouha",
+  },
+  {
+    mobile: "111",
+    password: "1",
+    type: "technician" as const,
+    name: "محمد علي حسن",
+    email: "tech@email.com",
+    address: "الإسكندرية، فلمنج",
+    id: "tech1",
+    profession: "كهرباء",
+    specialty: "تكييف",
+    experience: 5,
+    governorate: "alexandria",
+    area: "alex_east",
+    district: "fleming",
+  },
+  {
+    mobile: "111",
+    password: "10",
+    type: "admin" as const,
+    name: "مسئول النظام",
+    email: "admin@fanni.com",
+    address: "",
+    id: "admin1",
+  },
 ];
 
 export default function LoginScreen() {
   const { type = "client" } = useLocalSearchParams<{ type: string }>();
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL, setUser, setUserType } = useApp();
+  const { t, isRTL, setUser } = useApp();
   const insets = useSafeAreaInsets();
 
   const [mobile, setMobile] = useState("");
@@ -34,7 +104,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const validate = () => {
@@ -63,13 +132,20 @@ export default function LoginScreen() {
         profession: "profession" in found ? found.profession : undefined,
         specialty: "specialty" in found ? found.specialty : undefined,
         experience: "experience" in found ? found.experience : undefined,
+        governorate: "governorate" in found ? (found as any).governorate : undefined,
+        area: "area" in found ? (found as any).area : undefined,
+        district: "district" in found ? (found as any).district : undefined,
       });
       if (found.type === "client") router.replace("/(client)/home");
       else if (found.type === "technician") router.replace("/(tech)/map");
       else router.replace("/(admin)/dashboard");
     } else {
       setLoading(false);
-      setErrors({ general: isRTL ? "بيانات غير صحيحة، تحقق من رقم الموبايل وكلمة المرور" : "Invalid credentials, please check your mobile and password" });
+      setErrors({
+        general: isRTL
+          ? "بيانات غير صحيحة، تحقق من رقم الموبايل وكلمة المرور"
+          : "Invalid credentials, check your mobile and password",
+      });
     }
     setLoading(false);
   };
@@ -82,74 +158,58 @@ export default function LoginScreen() {
 
   const typeLabel = isRTL ? typeLabels[type]?.ar : typeLabels[type]?.en;
 
+  const demoInfo: Record<string, { mobile: string; password: string }> = {
+    client:     { mobile: "01012345678", password: "123456" },
+    technician: { mobile: "01098765432", password: "123456" },
+    admin:      { mobile: "01000000000", password: "admin123" },
+  };
+  const demo = demoInfo[type] ?? demoInfo.client;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.dark,
-            paddingTop: topPad + 12,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={[styles.backBtn, { [isRTL ? "right" : "left"]: 16 }]}
-          onPress={() => router.back()}
-        >
-          <Feather
-            name={isRTL ? "arrow-right" : "arrow-left"}
-            size={22}
-            color="#FFF"
-          />
-        </TouchableOpacity>
-        <Text
-          style={[
-            styles.headerTitle,
-            { color: "#FFF", fontFamily: "Inter_700Bold" },
-          ]}
-        >
-          {t("login.title")} — {typeLabel}
-        </Text>
-      </View>
+      <AppHeader
+        title={`${t("login.title")} — ${typeLabel}`}
+        showBack
+        onBack={() => router.back()}
+        showLangToggle
+      />
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 },
-          ]}
-        >
+        {/* Demo hint card */}
+        <View style={[styles.demoCard, { backgroundColor: colors.accentBlue, borderColor: colors.secondary, borderRadius: colors.radius }]}>
+          <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }]}>
+            <Feather name="info" size={16} color={colors.secondary} />
+            <Text style={{ color: colors.secondary, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+              {isRTL ? "بيانات التجربة" : "Demo Credentials"}
+            </Text>
+          </View>
+          <Text style={{ color: colors.secondary, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 6, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL
+              ? `📱 ${demo.mobile}   🔑 ${demo.password}`
+              : `📱 ${demo.mobile}   🔑 ${demo.password}`}
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
           {errors.general && (
-            <View
-              style={[
-                styles.errorBox,
-                { backgroundColor: "#FFE6E6", borderRadius: colors.radius },
-              ]}
-            >
-              <Text
-                style={{
-                  color: colors.destructive,
-                  fontFamily: "Inter_400Regular",
-                  fontSize: 13,
-                  textAlign: isRTL ? "right" : "left",
-                }}
-              >
+            <View style={[styles.errorBox, { backgroundColor: "#FFE6E6", borderRadius: colors.radius }]}>
+              <Feather name="alert-circle" size={14} color={colors.destructive} />
+              <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left", flex: 1, marginLeft: 6 }}>
                 {errors.general}
               </Text>
             </View>
           )}
 
           <FanniInput
-            label={isRTL ? "اسم المستخدم" : "Username"}
-            placeholder={isRTL ? "أدخل اسم المستخدم" : "Enter username"}
+            label={isRTL ? "رقم الموبايل" : "Mobile Number"}
+            placeholder={isRTL ? "01XXXXXXXXX" : "01XXXXXXXXX"}
             value={mobile}
             onChangeText={setMobile}
-            keyboardType="default"
+            keyboardType="phone-pad"
             autoCapitalize="none"
             error={errors.mobile}
             required
@@ -165,14 +225,8 @@ export default function LoginScreen() {
             required
           />
 
-          <TouchableOpacity style={styles.forgotRow} onPress={() => {}}>
-            <Text
-              style={{
-                color: colors.primary,
-                fontFamily: "Inter_500Medium",
-                fontSize: 13,
-              }}
-            >
+          <TouchableOpacity style={[styles.forgotRow, { alignItems: isRTL ? "flex-start" : "flex-end" }]} onPress={() => {}}>
+            <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13 }}>
               {t("login.forgot")}
             </Text>
           </TouchableOpacity>
@@ -187,54 +241,15 @@ export default function LoginScreen() {
         </View>
 
         {type !== "admin" && (
-          <View
-            style={[
-              styles.registerRow,
-              { flexDirection: isRTL ? "row-reverse" : "row" },
-            ]}
-          >
-            <Text
-              style={{
-                color: colors.mutedForeground,
-                fontFamily: "Inter_400Regular",
-                fontSize: 14,
-              }}
-            >
+          <View style={[styles.registerRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14 }}>
               {t("login.noAccount")}{" "}
             </Text>
             <TouchableOpacity onPress={() => router.push("/register")}>
-              <Text
-                style={{
-                  color: colors.primary,
-                  fontFamily: "Inter_600SemiBold",
-                  fontSize: 14,
-                }}
-              >
+              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
                 {t("login.register")}
               </Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {type === "client" && (
-          <View style={styles.hint}>
-            <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-              {isRTL ? "للتجربة: اسم المستخدم 123 | كلمة المرور 123" : "Demo: username 123 | password 123"}
-            </Text>
-          </View>
-        )}
-        {type === "technician" && (
-          <View style={styles.hint}>
-            <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-              {isRTL ? "للتجربة: اسم المستخدم 111 | كلمة المرور 1" : "Demo: username 111 | password 1"}
-            </Text>
-          </View>
-        )}
-        {type === "admin" && (
-          <View style={styles.hint}>
-            <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-              {isRTL ? "للتجربة: اسم المستخدم 111 | كلمة المرور 10" : "Demo: username 111 | password 10"}
-            </Text>
           </View>
         )}
       </ScrollView>
@@ -244,20 +259,13 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    position: "relative",
-  },
-  backBtn: {
-    position: "absolute",
-    bottom: 20,
-    padding: 4,
-  },
-  headerTitle: { fontSize: 18 },
   scroll: { flex: 1 },
-  content: { padding: 20 },
+  content: { padding: 16 },
+  demoCard: {
+    borderWidth: 1.5,
+    padding: 12,
+    marginBottom: 14,
+  },
   card: {
     padding: 20,
     shadowColor: "#000",
@@ -267,8 +275,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginBottom: 16,
   },
-  errorBox: { padding: 12, marginBottom: 12 },
-  forgotRow: { alignItems: "flex-end", marginBottom: 16 },
-  registerRow: { justifyContent: "center", alignItems: "center", marginBottom: 8 },
-  hint: { marginTop: 8 },
+  errorBox: { padding: 12, marginBottom: 12, flexDirection: "row", alignItems: "center" },
+  forgotRow: { marginBottom: 16 },
+  registerRow: { justifyContent: "center", alignItems: "center" },
 });

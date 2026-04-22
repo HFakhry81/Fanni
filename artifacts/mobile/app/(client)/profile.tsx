@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
+import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -13,6 +14,11 @@ export default function ClientProfileScreen() {
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+
+  const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
+  const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
+  const govText = govData ? (isRTL ? govData.ar : govData.en) : (isRTL ? "الإسكندرية" : "Alexandria");
+  const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : "";
 
   const handleLogout = async () => {
     await setUser(null);
@@ -78,6 +84,27 @@ export default function ClientProfileScreen() {
             </View>
           </View>
 
+          {/* Address card */}
+          <View style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
+              <Feather name="map-pin" size={18} color={colors.secondary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL ? "عنوان المنزل" : "Home Address"}
+              </Text>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+                {govText}{areaText ? ` — ${areaText}` : ""}
+              </Text>
+              {user?.address ? (
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+                  {user.address}
+                </Text>
+              ) : null}
+            </View>
+            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+          </View>
+
           {/* Menu items */}
           {menuItems.map((item) => (
             <TouchableOpacity
@@ -129,5 +156,6 @@ const styles = StyleSheet.create({
   langOption: { paddingVertical: 6, paddingHorizontal: 12 },
   menuItem: { padding: 16, borderWidth: 1.5, alignItems: "center" },
   menuIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
+  infoCard: { padding: 14, borderWidth: 1.5, alignItems: "center" },
   logoutBtn: { padding: 16, borderWidth: 2, alignItems: "center" },
 });

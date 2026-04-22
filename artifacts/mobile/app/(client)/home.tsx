@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
+import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
 const CATEGORIES = [
   { id: "electricity", icon: "zap",            color: "#F5A623" },
@@ -65,6 +66,16 @@ export default function ClientHomeScreen() {
 
   const subs = selectedCat ? (SUB_CATEGORIES[selectedCat] ?? []) : [];
 
+  const govLabel = user?.governorate
+    ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate)
+    : null;
+  const areaLabel = govLabel && user?.area
+    ? govLabel.areas.find((a) => a.id === user.area)
+    : null;
+  const locationText = areaLabel
+    ? isRTL ? `${govLabel!.ar} — ${areaLabel.ar}` : `${govLabel!.en} — ${areaLabel.en}`
+    : isRTL ? "الإسكندرية — مصر" : "Alexandria — Egypt";
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
@@ -99,6 +110,19 @@ export default function ClientHomeScreen() {
             <Feather name="tool" size={32} color={colors.primary} />
           </View>
         </View>
+
+        {/* Location chip */}
+        <TouchableOpacity
+          style={[styles.locationChip, { backgroundColor: colors.accentBlue, borderColor: colors.secondary, borderRadius: 30, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          activeOpacity={0.8}
+          onPress={() => router.push("/(client)/profile")}
+        >
+          <Feather name="map-pin" size={14} color={colors.secondary} />
+          <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
+            {locationText}
+          </Text>
+          <Feather name="chevron-down" size={13} color={colors.secondary} style={{ marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }} />
+        </TouchableOpacity>
 
         {/* Categories */}
         <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
@@ -195,7 +219,8 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 16 },
-  heroBanner: { flexDirection: "row", alignItems: "center", padding: 18, marginBottom: 24 },
+  heroBanner: { flexDirection: "row", alignItems: "center", padding: 18, marginBottom: 10 },
+  locationChip: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1.5, marginBottom: 20 },
   bannerIcon: { width: 60, height: 60, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   sectionTitle: { fontSize: 17, marginBottom: 14 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 },

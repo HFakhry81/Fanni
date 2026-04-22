@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import StarRating from "@/components/StarRating";
 import AppHeader from "@/components/AppHeader";
+import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
 export default function TechProfileScreen() {
   const router = useRouter();
@@ -14,6 +15,11 @@ export default function TechProfileScreen() {
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+
+  const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
+  const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
+  const govText = govData ? (isRTL ? govData.ar : govData.en) : (isRTL ? "الإسكندرية" : "Alexandria");
+  const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : (isRTL ? "حي شرق" : "Al Sharq District");
 
   const handleLogout = async () => {
     await setUser(null);
@@ -112,6 +118,25 @@ export default function TechProfileScreen() {
                 {user?.specialty ?? (isRTL ? "صيانة مكيفات" : "AC Maintenance")}
               </Text>
             </View>
+          </View>
+
+          {/* Service area */}
+          <View style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
+            <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
+              <Feather name="map-pin" size={18} color={colors.secondary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL ? "نطاق الخدمة" : "Service Area"}
+              </Text>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                {govText}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1, textAlign: isRTL ? "right" : "left" }}>
+                {areaText}
+              </Text>
+            </View>
+            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
           </View>
 
           {/* Logout */}

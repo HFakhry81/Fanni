@@ -57,7 +57,7 @@ export default function RegisterScreen() {
   const [serviceEnd, setServiceEnd] = useState("22:00");
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
-  const totalSteps = regType === "client" ? 2 : 3;
+  const totalSteps = 3;
 
   const handleNext = async () => {
     if (step < totalSteps) {
@@ -244,6 +244,50 @@ export default function RegisterScreen() {
     </View>
   );
 
+  // ── Step 3 Client: Home address ───────────────────────────────────────────
+  const renderStep3Client = () => (
+    <View>
+      <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.stepIcon, { backgroundColor: colors.accentBlue }]}>
+          <Feather name="home" size={20} color={colors.secondary} />
+        </View>
+        <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+          {isRTL ? "عنوان المنزل" : "Home Address"}
+        </Text>
+      </View>
+
+      <View style={[styles.egyptBadge, { backgroundColor: colors.accent, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Text style={{ fontSize: 18 }}>🇪🇬</Text>
+        <View style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+            {isRTL ? "جمهورية مصر العربية" : "Arab Republic of Egypt"}
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+            {isRTL ? "حدد عنوانك الكامل لتصلك الخدمة" : "Set your full address for service delivery"}
+          </Text>
+        </View>
+      </View>
+
+      <LocationPicker
+        governorateId={governorateId}
+        areaId={areaId}
+        neighborhoodId={neighborhoodId}
+        onGovernorateChange={setGovernorateId}
+        onAreaChange={setAreaId}
+        onNeighborhoodChange={setNeighborhoodId}
+        street={street}
+        onStreetChange={setStreet}
+        building={building}
+        onBuildingChange={setBuilding}
+        floor={floor}
+        onFloorChange={setFloor}
+        apartment={apartment}
+        onApartmentChange={setApartment}
+        showDetails
+      />
+    </View>
+  );
+
   // ── Step 3 Tech: Location ──────────────────────────────────────────────────
   const renderStep3Tech = () => (
     <View>
@@ -293,6 +337,7 @@ export default function RegisterScreen() {
     if (regType === "client") {
       if (step === 1) return renderStep1();
       if (step === 2) return renderStep2Client();
+      if (step === 3) return renderStep3Client();
     } else {
       if (step === 1) return renderStep1();
       if (step === 2) return renderStep2Tech();
