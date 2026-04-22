@@ -22,7 +22,7 @@ export default function TechMapScreen() {
   const [loading, setLoading] = useState(false);
   const autoShownRef = useRef<Set<string>>(new Set());
 
-  useOrderNotifications(isOnline);
+  useOrderNotifications(isOnline, user);
 
   const pendingOrders = allOrders.filter((o) => o.status === "pending");
 

@@ -84,6 +84,8 @@ export default function NewOrderScreen() {
       photos: [],
       street: fullAddress,
       building, floor, apartment, landmark,
+      governorate: gov ? gov.en.toLowerCase() : undefined,
+      area: area ? area.en.toLowerCase() : undefined,
       visitDate, visitTime,
       status: "pending" as const,
       createdAt: new Date().toISOString(),

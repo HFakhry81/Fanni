@@ -29,6 +29,8 @@ export interface Order {
   floor: string;
   apartment: string;
   landmark: string;
+  governorate?: string;
+  area?: string;
   latitude?: number;
   longitude?: number;
   visitDate: string;

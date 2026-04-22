@@ -173,6 +173,12 @@ components:
         district:
           type: string
           nullable: true
+        profession:
+          type: string
+          nullable: true
+        specialty:
+          type: string
+          nullable: true
       required:
         - id
     AuthUserEnvelope:

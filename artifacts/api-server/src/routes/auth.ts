@@ -97,6 +97,8 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
     governorate: dbUser.governorate ?? null,
     area: dbUser.area ?? null,
     district: dbUser.district ?? null,
+    profession: dbUser.profession ?? null,
+    specialty: dbUser.specialty ?? null,
   };
 }
 

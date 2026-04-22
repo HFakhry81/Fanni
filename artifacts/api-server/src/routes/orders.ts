@@ -8,10 +8,16 @@ const router: IRouter = Router();
 router.post("/orders", async (req, res) => {
   const order = req.body;
 
-  if (!order || !order.id || !order.orderNumber) {
-    res.status(400).json({ error: "Invalid order payload" });
+  if (!order || !order.id || !order.orderNumber || !order.category) {
+    res.status(400).json({ error: "Invalid order payload: id, orderNumber, and category are required" });
     return;
   }
+
+  const routingMeta = {
+    category: order.category as string,
+    governorate: (order.governorate as string | undefined) ?? null,
+    area: (order.area as string | undefined) ?? null,
+  };
 
   try {
     await db.insert(ordersTable).values({
@@ -28,7 +34,7 @@ router.post("/orders", async (req, res) => {
     return;
   }
 
-  logger.info({ orderId: order.id, orderNumber: order.orderNumber }, "Received new order, broadcasting to technicians");
+  logger.info({ orderId: order.id, orderNumber: order.orderNumber, ...routingMeta }, "Received new order, routing to matched technicians");
 
   broadcastNewOrder(order);
 

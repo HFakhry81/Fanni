@@ -41,6 +41,8 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         governorate: authUser.governorate ?? undefined,
         area: authUser.area ?? undefined,
         district: authUser.district ?? undefined,
+        profession: authUser.profession ?? undefined,
+        specialty: authUser.specialty ?? undefined,
       });
     } else {
       setUser(null);

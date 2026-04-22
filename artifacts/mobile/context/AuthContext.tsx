@@ -26,6 +26,8 @@ export interface AuthUser {
   governorate: string | null;
   area: string | null;
   district: string | null;
+  profession: string | null;
+  specialty: string | null;
 }
 
 interface AuthContextValue {
