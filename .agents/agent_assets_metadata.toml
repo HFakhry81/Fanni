@@ -35,3 +35,9 @@ id = "G1ZTwlfJpLhesnCRpjNQy"
 uri = "file://artifacts/mobile/assets/images/splash-icon.png"
 type = "image"
 title = "شعار فني — صفحة البداية (Splash Screen)"
+
+[[outputs]]
+id = "1Cz2nhZyhhW1OL4b5O5M1"
+uri = "file://artifacts/mobile/assets/images/icon_clean.png"
+type = "image"
+title = "شعار فني — نظيف بدون تعليقات"
