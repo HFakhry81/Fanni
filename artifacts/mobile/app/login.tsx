@@ -69,43 +69,6 @@ const MOCK_USERS: MockUser[] = [
     address: "",
     id: "admin1",
   },
-  // Short demo credentials (kept for backward compatibility)
-  {
-    mobile: "123",
-    password: "123",
-    type: "client",
-    name: "أحمد محمد السيد",
-    email: "ahmed@email.com",
-    address: "الإسكندرية، سموحة",
-    id: "client1",
-    governorate: "alexandria",
-    area: "alex_east",
-    district: "smouha",
-  },
-  {
-    mobile: "111",
-    password: "1",
-    type: "technician",
-    name: "محمد علي حسن",
-    email: "tech@email.com",
-    address: "الإسكندرية، فلمنج",
-    id: "tech1",
-    profession: "كهرباء",
-    specialty: "تكييف",
-    experience: 5,
-    governorate: "alexandria",
-    area: "alex_east",
-    district: "fleming",
-  },
-  {
-    mobile: "111",
-    password: "10",
-    type: "admin",
-    name: "مسئول النظام",
-    email: "admin@fanni.com",
-    address: "",
-    id: "admin1",
-  },
 ];
 
 export default function LoginScreen() {

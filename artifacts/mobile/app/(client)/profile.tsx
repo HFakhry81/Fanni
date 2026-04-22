@@ -17,8 +17,13 @@ export default function ClientProfileScreen() {
 
   const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
   const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
+  const neighborhoodData = areaData && user?.district
+    ? areaData.neighborhoods.find((n) => n.id === user.district)
+    : null;
   const govText = govData ? (isRTL ? govData.ar : govData.en) : (isRTL ? "الإسكندرية" : "Alexandria");
-  const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : "";
+  const neighborhoodText = neighborhoodData
+    ? (isRTL ? neighborhoodData.ar : neighborhoodData.en)
+    : areaData ? (isRTL ? areaData.ar : areaData.en) : "";
 
   const handleLogout = async () => {
     await setUser(null);
@@ -94,7 +99,7 @@ export default function ClientProfileScreen() {
                 {isRTL ? "عنوان المنزل" : "Home Address"}
               </Text>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
-                {govText}{areaText ? ` — ${areaText}` : ""}
+                {govText}{neighborhoodText ? ` — ${neighborhoodText}` : ""}
               </Text>
               {user?.address ? (
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
