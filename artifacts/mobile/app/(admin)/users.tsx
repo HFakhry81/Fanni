@@ -8,11 +8,13 @@ import StarRating from "@/components/StarRating";
 import AppHeader from "@/components/AppHeader";
 
 const MOCK_USERS = [
-  { id: "c1", type: "client",     name: "أحمد محمد",    nameEn: "Ahmed Mohamed",  mobile: "123",         status: "active",    orders: 3 },
-  { id: "c2", type: "client",     name: "سارة أحمد",    nameEn: "Sara Ahmed",     mobile: "01111223344", status: "active",    orders: 1 },
-  { id: "t1", type: "technician", name: "محمد علي",     nameEn: "Mohamed Ali",    mobile: "111",         status: "active",    orders: 8,  specialty: "تكييف / AC",    rating: 4.8 },
-  { id: "t2", type: "technician", name: "خالد حسن",     nameEn: "Khaled Hassan",  mobile: "01234567890", status: "suspended", orders: 2,  specialty: "كهرباء / Elec", rating: 4.2 },
-  { id: "t3", type: "technician", name: "طارق إبراهيم", nameEn: "Tarek Ibrahim", mobile: "01555666777", status: "active",    orders: 15, specialty: "سباكة / Plumb", rating: 4.9 },
+  { id: "c1", type: "client",     name: "أحمد محمد السيد",  nameEn: "Ahmed Mohamed Elsayed", mobile: "01012345678", area: "الإسكندرية — سموحة",      status: "active",    orders: 3 },
+  { id: "c2", type: "client",     name: "سارة أحمد فوزي",   nameEn: "Sara Ahmed Fawzy",      mobile: "01123456789", area: "الإسكندرية — فلمنج",       status: "active",    orders: 1 },
+  { id: "c3", type: "client",     name: "هاني رمضان",        nameEn: "Hany Ramadan",          mobile: "01287654321", area: "الإسكندرية — سيدي بشر",    status: "active",    orders: 5 },
+  { id: "t1", type: "technician", name: "محمد علي حسن",      nameEn: "Mohamed Ali Hassan",    mobile: "01098765432", area: "الإسكندرية — حي شرق",      status: "active",    orders: 8,  specialty: "تكييف / AC",    rating: 4.8 },
+  { id: "t2", type: "technician", name: "خالد حسن محمود",    nameEn: "Khaled Hassan Mahmoud", mobile: "01055443322", area: "الإسكندرية — المنتزه",     status: "suspended", orders: 2,  specialty: "كهرباء / Elec", rating: 4.2 },
+  { id: "t3", type: "technician", name: "طارق إبراهيم سعيد", nameEn: "Tarek Ibrahim Saeed",   mobile: "01066778899", area: "الإسكندرية — حي وسط",      status: "active",    orders: 15, specialty: "سباكة / Plumb", rating: 4.9 },
+  { id: "t4", type: "technician", name: "رامي عبد العزيز",   nameEn: "Ramy Abdel Aziz",       mobile: "01144556677", area: "الإسكندرية — العجمي",       status: "active",    orders: 6,  specialty: "نجارة / Carp",  rating: 4.5 },
 ];
 
 type UserTab = "clients" | "technicians";

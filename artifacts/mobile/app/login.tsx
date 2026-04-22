@@ -16,11 +16,27 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 
-const MOCK_USERS = [
+interface MockUser {
+  mobile: string;
+  password: string;
+  type: "client" | "technician" | "admin";
+  name: string;
+  email: string;
+  address: string;
+  id: string;
+  governorate?: string;
+  area?: string;
+  district?: string;
+  profession?: string;
+  specialty?: string;
+  experience?: number;
+}
+
+const MOCK_USERS: MockUser[] = [
   {
     mobile: "01012345678",
     password: "123456",
-    type: "client" as const,
+    type: "client",
     name: "أحمد محمد السيد",
     email: "ahmed@email.com",
     address: "الإسكندرية، سموحة",
@@ -32,7 +48,7 @@ const MOCK_USERS = [
   {
     mobile: "01098765432",
     password: "123456",
-    type: "technician" as const,
+    type: "technician",
     name: "محمد علي حسن",
     email: "tech@email.com",
     address: "الإسكندرية، فلمنج",
@@ -47,17 +63,17 @@ const MOCK_USERS = [
   {
     mobile: "01000000000",
     password: "admin123",
-    type: "admin" as const,
+    type: "admin",
     name: "مسئول النظام",
     email: "admin@fanni.com",
     address: "",
     id: "admin1",
   },
-  // Short demo credentials (keep for backward compat)
+  // Short demo credentials (kept for backward compatibility)
   {
     mobile: "123",
     password: "123",
-    type: "client" as const,
+    type: "client",
     name: "أحمد محمد السيد",
     email: "ahmed@email.com",
     address: "الإسكندرية، سموحة",
@@ -69,7 +85,7 @@ const MOCK_USERS = [
   {
     mobile: "111",
     password: "1",
-    type: "technician" as const,
+    type: "technician",
     name: "محمد علي حسن",
     email: "tech@email.com",
     address: "الإسكندرية، فلمنج",
@@ -84,7 +100,7 @@ const MOCK_USERS = [
   {
     mobile: "111",
     password: "10",
-    type: "admin" as const,
+    type: "admin",
     name: "مسئول النظام",
     email: "admin@fanni.com",
     address: "",
@@ -129,12 +145,12 @@ export default function LoginScreen() {
         mobile: found.mobile,
         email: found.email,
         address: found.address,
-        profession: "profession" in found ? found.profession : undefined,
-        specialty: "specialty" in found ? found.specialty : undefined,
-        experience: "experience" in found ? found.experience : undefined,
-        governorate: "governorate" in found ? (found as any).governorate : undefined,
-        area: "area" in found ? (found as any).area : undefined,
-        district: "district" in found ? (found as any).district : undefined,
+        profession: found.profession,
+        specialty: found.specialty,
+        experience: found.experience,
+        governorate: found.governorate,
+        area: found.area,
+        district: found.district,
       });
       if (found.type === "client") router.replace("/(client)/home");
       else if (found.type === "technician") router.replace("/(tech)/map");
