@@ -92,7 +92,6 @@ export default function AddAdminScreen() {
     const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
 
     setApiError("");
-    setSuccessMsg("");
     setLoading(true);
     try {
       const apiBase = getApiBase();
