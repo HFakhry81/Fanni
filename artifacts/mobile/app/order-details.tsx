@@ -156,6 +156,18 @@ export default function OrderDetailsScreen() {
                 </Text>
               </View>
             </View>
+            {(order.status === "accepted" || order.status === "inProgress") && (
+              <TouchableOpacity
+                style={[styles.trackBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                onPress={() => router.push({ pathname: "/order-tracking", params: { orderId: order.id } })}
+                activeOpacity={0.85}
+              >
+                <Feather name="map-pin" size={16} color="#FFF" />
+                <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                  {t("order.trackBtn")}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -295,4 +307,5 @@ const styles = StyleSheet.create({
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2 },
   invoiceRow: { paddingVertical: 10, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
   invoiceTotalRow: { padding: 14, marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  trackBtn: { marginTop: 14, paddingVertical: 12, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", gap: 8 },
 });

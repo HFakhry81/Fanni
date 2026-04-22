@@ -144,6 +144,11 @@ const translations: Record<string, Record<Language, string>> = {
   "order.submit": { ar: "إرسال الطلب", en: "Submit Request" },
   "order.history": { ar: "الطلبات السابقة", en: "Previous Orders" },
   "order.active": { ar: "الطلبات الحالية", en: "Active Orders" },
+  "order.trackMap": { ar: "تتبع الطلب على الخريطة", en: "Track Order on Map" },
+  "order.trackBtn": { ar: "تتبع الفني على الخريطة", en: "Track Technician on Map" },
+  "order.techLocation": { ar: "موقع الفني", en: "Technician Location" },
+  "order.yourLocation": { ar: "موقعك", en: "Your Location" },
+  "order.onTheWay": { ar: "في الطريق إليك", en: "On the way to you" },
 
   // Technician
   "tech.newOrder": { ar: "طلب جديد!", en: "New Order!" },

@@ -34,6 +34,7 @@ function RootLayoutNav() {
       <Stack.Screen name="register-success" />
       <Stack.Screen name="new-order" />
       <Stack.Screen name="order-details" />
+      <Stack.Screen name="order-tracking" />
       <Stack.Screen name="(client)" />
       <Stack.Screen name="(tech)" />
       <Stack.Screen name="(admin)" />
