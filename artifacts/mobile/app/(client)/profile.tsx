@@ -1,11 +1,15 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
+import React, { useState } from "react";
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
+  Modal, TextInput, KeyboardAvoidingView,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
+import LocationPicker from "@/components/LocationPicker";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
 export default function ClientProfileScreen() {
@@ -14,6 +18,41 @@ export default function ClientProfileScreen() {
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+
+  const [editVisible, setEditVisible] = useState(false);
+
+  // Edit form state
+  const [editName, setEditName] = useState("");
+  const [editMobile, setEditMobile] = useState("");
+  const [editGov, setEditGov] = useState("");
+  const [editArea, setEditArea] = useState("");
+  const [editDistrict, setEditDistrict] = useState("");
+  const [editStreet, setEditStreet] = useState("");
+
+  const openEdit = () => {
+    if (!user) return;
+    setEditName(user.name ?? "");
+    setEditMobile(user.mobile ?? "");
+    setEditGov(user.governorate ?? "");
+    setEditArea(user.area ?? "");
+    setEditDistrict(user.district ?? "");
+    setEditStreet(user.address ?? "");
+    setEditVisible(true);
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    await setUser({
+      ...user,
+      name: editName.trim() || user.name,
+      mobile: editMobile.trim() || user.mobile,
+      governorate: editGov,
+      area: editArea,
+      district: editDistrict,
+      address: editStreet.trim(),
+    });
+    setEditVisible(false);
+  };
 
   const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
   const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
@@ -34,7 +73,6 @@ export default function ClientProfileScreen() {
     { icon: "list",       label: t("profile.previousOrders"),   color: colors.primary,   action: () => router.push("/(client)/orders") },
     { icon: "file-text",  label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices") },
     { icon: "bar-chart-2",label: t("profile.reports"),          color: "#7C5CBF",        action: () => {} },
-    { icon: "edit-2",     label: t("profile.edit"),             color: "#22A36B",        action: () => {} },
   ];
 
   return (
@@ -57,7 +95,7 @@ export default function ClientProfileScreen() {
             <Text style={{ color: "rgba(255,255,255,0.5)", fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>{user.email}</Text>
           )}
           {/* Edit badge */}
-          <TouchableOpacity style={[styles.editBadge, { backgroundColor: colors.primary }]}>
+          <TouchableOpacity style={[styles.editBadge, { backgroundColor: colors.primary }]} onPress={openEdit}>
             <Feather name="edit-2" size={13} color="#FFF" />
             <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 5 }}>
               {t("profile.edit")}
@@ -90,7 +128,11 @@ export default function ClientProfileScreen() {
           </View>
 
           {/* Address card */}
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={openEdit}
+            activeOpacity={0.8}
+          >
             <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
               <Feather name="map-pin" size={18} color={colors.secondary} />
             </View>
@@ -108,7 +150,7 @@ export default function ClientProfileScreen() {
               ) : null}
             </View>
             <Feather name="edit-2" size={15} color={colors.mutedForeground} />
-          </View>
+          </TouchableOpacity>
 
           {/* Menu items */}
           {menuItems.map((item) => (
@@ -143,6 +185,83 @@ export default function ClientProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={editVisible} animationType="slide" transparent onRequestClose={() => setEditVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: botPad + 16 }]}>
+              {/* Handle */}
+              <View style={[styles.handle, { backgroundColor: colors.border }]} />
+
+              {/* Header */}
+              <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+                <TouchableOpacity onPress={() => setEditVisible(false)} style={{ padding: 4 }}>
+                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
+                  {t("profile.edit")}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleSave}
+                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("common.save")}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={{ padding: 16, gap: 0 }} showsVerticalScrollIndicator={false}>
+                {/* Name */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.name")}
+                  </Text>
+                  <TextInput
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder={t("register.name")}
+                    placeholderTextColor={colors.mutedForeground}
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                </View>
+
+                {/* Mobile */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.mobile")}
+                  </Text>
+                  <TextInput
+                    value={editMobile}
+                    onChangeText={setEditMobile}
+                    placeholder="+20 1XX XXX XXXX"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                </View>
+
+                {/* Divider */}
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                  {t("register.address")}
+                </Text>
+
+                {/* Location Picker */}
+                <LocationPicker
+                  governorateId={editGov}
+                  areaId={editArea}
+                  neighborhoodId={editDistrict}
+                  onGovernorateChange={setEditGov}
+                  onAreaChange={setEditArea}
+                  onNeighborhoodChange={setEditDistrict}
+                  street={editStreet}
+                  onStreetChange={setEditStreet}
+                  showDetails={false}
+                />
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -163,4 +282,14 @@ const styles = StyleSheet.create({
   menuIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   infoCard: { padding: 14, borderWidth: 1.5, alignItems: "center" },
   logoutBtn: { padding: 16, borderWidth: 2, alignItems: "center" },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", minHeight: "60%" },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 12, marginBottom: 16 },
+  modalHeader: { alignItems: "center", paddingHorizontal: 16, paddingBottom: 14, marginBottom: 4, borderBottomWidth: 1 },
+  saveBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20 },
+  fieldWrap: { marginBottom: 14 },
+  fieldLabel: { fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 6 },
+  textInput: { paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1.5, borderRadius: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  sectionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, marginBottom: 10, marginTop: 4 },
 });

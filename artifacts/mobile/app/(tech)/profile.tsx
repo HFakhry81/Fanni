@@ -1,5 +1,8 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
+import React, { useState } from "react";
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
+  Modal, TextInput, KeyboardAvoidingView,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -7,6 +10,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import StarRating from "@/components/StarRating";
 import AppHeader from "@/components/AppHeader";
+import LocationPicker from "@/components/LocationPicker";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
 export default function TechProfileScreen() {
@@ -15,6 +19,44 @@ export default function TechProfileScreen() {
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+
+  const [editVisible, setEditVisible] = useState(false);
+
+  // Edit form state
+  const [editName, setEditName] = useState("");
+  const [editMobile, setEditMobile] = useState("");
+  const [editSpecialty, setEditSpecialty] = useState("");
+  const [editGov, setEditGov] = useState("");
+  const [editArea, setEditArea] = useState("");
+  const [editDistrict, setEditDistrict] = useState("");
+  const [editStreet, setEditStreet] = useState("");
+
+  const openEdit = () => {
+    if (!user) return;
+    setEditName(user.name ?? "");
+    setEditMobile(user.mobile ?? "");
+    setEditSpecialty(user.specialty ?? "");
+    setEditGov(user.governorate ?? "");
+    setEditArea(user.area ?? "");
+    setEditDistrict(user.district ?? "");
+    setEditStreet(user.address ?? "");
+    setEditVisible(true);
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    await setUser({
+      ...user,
+      name: editName.trim() || user.name,
+      mobile: editMobile.trim() || user.mobile,
+      specialty: editSpecialty.trim() || user.specialty,
+      governorate: editGov,
+      area: editArea,
+      district: editDistrict,
+      address: editStreet.trim(),
+    });
+    setEditVisible(false);
+  };
 
   const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
   const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
@@ -69,6 +111,13 @@ export default function TechProfileScreen() {
               </Text>
             </View>
           </View>
+          {/* Edit badge */}
+          <TouchableOpacity style={[styles.editBadge, { backgroundColor: colors.secondary + "33", borderColor: colors.secondary, borderWidth: 1 }]} onPress={openEdit}>
+            <Feather name="edit-2" size={13} color={colors.secondary} />
+            <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 5 }}>
+              {t("profile.edit")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Stats */}
@@ -106,7 +155,11 @@ export default function TechProfileScreen() {
           </View>
 
           {/* Specialty info */}
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+            onPress={openEdit}
+            activeOpacity={0.8}
+          >
             <View style={[styles.menuIcon, { backgroundColor: colors.accent, borderRadius: 10 }]}>
               <Feather name="tool" size={18} color={colors.primary} />
             </View>
@@ -118,10 +171,15 @@ export default function TechProfileScreen() {
                 {user?.specialty ?? (isRTL ? "صيانة مكيفات" : "AC Maintenance")}
               </Text>
             </View>
-          </View>
+            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+          </TouchableOpacity>
 
           {/* Service area */}
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+            onPress={openEdit}
+            activeOpacity={0.8}
+          >
             <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
               <Feather name="map-pin" size={18} color={colors.secondary} />
             </View>
@@ -137,7 +195,7 @@ export default function TechProfileScreen() {
               </Text>
             </View>
             <Feather name="edit-2" size={15} color={colors.mutedForeground} />
-          </View>
+          </TouchableOpacity>
 
           {/* Logout */}
           <TouchableOpacity
@@ -154,6 +212,97 @@ export default function TechProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={editVisible} animationType="slide" transparent onRequestClose={() => setEditVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: botPad + 16 }]}>
+              {/* Handle */}
+              <View style={[styles.handle, { backgroundColor: colors.border }]} />
+
+              {/* Header */}
+              <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+                <TouchableOpacity onPress={() => setEditVisible(false)} style={{ padding: 4 }}>
+                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
+                  {t("profile.edit")}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleSave}
+                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("common.save")}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+                {/* Name */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.name")}
+                  </Text>
+                  <TextInput
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder={t("register.name")}
+                    placeholderTextColor={colors.mutedForeground}
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                </View>
+
+                {/* Mobile */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.mobile")}
+                  </Text>
+                  <TextInput
+                    value={editMobile}
+                    onChangeText={setEditMobile}
+                    placeholder="+20 1XX XXX XXXX"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                </View>
+
+                {/* Specialty */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.specialty")}
+                  </Text>
+                  <TextInput
+                    value={editSpecialty}
+                    onChangeText={setEditSpecialty}
+                    placeholder={isRTL ? "مثال: صيانة مكيفات" : "e.g. AC Maintenance"}
+                    placeholderTextColor={colors.mutedForeground}
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                </View>
+
+                {/* Divider */}
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                  {t("register.step3")}
+                </Text>
+
+                {/* Location Picker */}
+                <LocationPicker
+                  governorateId={editGov}
+                  areaId={editArea}
+                  neighborhoodId={editDistrict}
+                  onGovernorateChange={setEditGov}
+                  onAreaChange={setEditArea}
+                  onNeighborhoodChange={setEditDistrict}
+                  street={editStreet}
+                  onStreetChange={setEditStreet}
+                  showDetails={false}
+                />
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -164,6 +313,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: "center", paddingVertical: 28, paddingBottom: 28 },
   avatarRing: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, alignItems: "center", justifyContent: "center" },
   avatar: { width: 90, height: 90, borderRadius: 45, alignItems: "center", justifyContent: "center" },
+  editBadge: { flexDirection: "row", alignItems: "center", marginTop: 14, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20 },
   badgesRow: { marginTop: 14, gap: 8 },
   badge: { flexDirection: "row", alignItems: "center", paddingVertical: 5, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1 },
   statsRow: { paddingHorizontal: 16, paddingTop: 16, gap: 10 },
@@ -175,4 +325,14 @@ const styles = StyleSheet.create({
   langToggle: { padding: 3 },
   langOption: { paddingVertical: 6, paddingHorizontal: 12 },
   logoutBtn: { padding: 16, borderWidth: 2, alignItems: "center" },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", minHeight: "60%" },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 12, marginBottom: 16 },
+  modalHeader: { alignItems: "center", paddingHorizontal: 16, paddingBottom: 14, marginBottom: 4, borderBottomWidth: 1 },
+  saveBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20 },
+  fieldWrap: { marginBottom: 14 },
+  fieldLabel: { fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 6 },
+  textInput: { paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1.5, borderRadius: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  sectionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, marginBottom: 10, marginTop: 4 },
 });
