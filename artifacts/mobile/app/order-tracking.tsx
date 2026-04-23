@@ -287,6 +287,15 @@ export default function OrderTrackingScreen() {
     ? `${remainingKm.toFixed(1)} ${t("order.km")}`
     : `${Math.round(remainingKm * 1000)} ${t("order.m")}`;
 
+  let trafficLabel: "slow" | "fast" | null = null;
+  if (routeData && routeData.durationSec > 0) {
+    const baseSpeedMs = routeData.distanceM / routeData.durationSec;
+    const variation = Math.sin(progress * Math.PI * 6) * 0.45;
+    const currentSpeedKmh = baseSpeedMs * 3.6 * (1 + variation);
+    if (currentSpeedKmh < 18) trafficLabel = "slow";
+    else if (currentSpeedKmh > 55) trafficLabel = "fast";
+  }
+
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const routeCoords = routeData
     ? getRemainingRoute(routeData.coords, progress, techLat, techLng)
@@ -337,7 +346,7 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
-        <View style={[styles.etaBanner, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.etaBanner, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
           <Feather name="clock" size={15} color={colors.primary} />
           <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
             {t("order.arrivingIn")}{eta} {t("order.minutes")}
@@ -347,6 +356,24 @@ export default function OrderTrackingScreen() {
           <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
             {distanceLabel}
           </Text>
+          {trafficLabel && (
+            <>
+              <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
+              <View style={[
+                styles.trafficBadge,
+                { backgroundColor: trafficLabel === "slow" ? "#FF6F00" : "#2E7D32" },
+              ]}>
+                <Feather
+                  name={trafficLabel === "slow" ? "alert-triangle" : "zap"}
+                  size={11}
+                  color="#FFF"
+                />
+                <Text style={styles.trafficBadgeText}>
+                  {t(trafficLabel === "slow" ? "order.trafficSlow" : "order.trafficFast")}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {order.technicianName && (
@@ -1253,5 +1280,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 12,
+  },
+  trafficBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  trafficBadgeText: {
+    color: "#FFF",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
   },
 });

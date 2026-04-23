@@ -183,6 +183,8 @@ const translations: Record<string, Record<Language, string>> = {
   "order.km": { ar: "كم", en: "km" },
   "order.m": { ar: "م", en: "m" },
   "order.routeLine": { ar: "مسار الفني", en: "Tech Route" },
+  "order.trafficSlow": { ar: "حركة بطيئة", en: "Slow traffic" },
+  "order.trafficFast": { ar: "حركة سريعة", en: "Moving fast" },
   "order.callTech": { ar: "اتصل بالفني", en: "Call Technician" },
   "order.messageTech": { ar: "رسالة للفني", en: "Message Technician" },
   "order.messageClient": { ar: "رسالة للعميل", en: "Message Client" },
