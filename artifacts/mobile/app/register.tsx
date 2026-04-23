@@ -81,6 +81,9 @@ export default function RegisterScreen() {
     area?: string;
     password?: string;
     confirmPassword?: string;
+    profession?: string;
+    specialty?: string;
+    experience?: string;
   }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
@@ -117,6 +120,21 @@ export default function RegisterScreen() {
         newErrors.confirmPassword = isRTL ? "تأكيد كلمة المرور مطلوب" : "Please confirm your password";
       } else if (password !== confirmPassword) {
         newErrors.confirmPassword = isRTL ? "كلمتا المرور غير متطابقتين" : "Passwords do not match";
+      }
+    }
+
+    if (step === 2 && regType === "technician") {
+      if (!profession.trim()) {
+        newErrors.profession = isRTL ? "المهنة مطلوبة" : "Profession is required";
+      }
+      if (!specialty.trim()) {
+        newErrors.specialty = isRTL ? "التخصص مطلوب" : "Specialty is required";
+      }
+      const expNum = Number(experience.trim());
+      if (!experience.trim()) {
+        newErrors.experience = isRTL ? "سنوات الخبرة مطلوبة" : "Years of experience is required";
+      } else if (isNaN(expNum) || expNum <= 0) {
+        newErrors.experience = isRTL ? "يجب أن تكون الخبرة عدداً موجباً" : "Experience must be a positive number";
       }
     }
 
@@ -411,9 +429,31 @@ export default function RegisterScreen() {
         </Text>
       </View>
 
-      <FanniInput label={t("register.profession")} value={profession} onChangeText={setProfession} required placeholder={isRTL ? "مثال: كهربائي، سباك" : "e.g. Electrician, Plumber"} />
-      <FanniInput label={t("register.specialty")} value={specialty} onChangeText={setSpecialty} required placeholder={isRTL ? "مثال: تكييف، سخانات" : "e.g. AC, Water Heaters"} />
-      <FanniInput label={`${t("register.experience")} (${isRTL ? "سنوات" : "years"})`} value={experience} onChangeText={setExperience} keyboardType="numeric" required placeholder="5" />
+      <FanniInput
+        label={t("register.profession")}
+        value={profession}
+        onChangeText={(v) => { setProfession(v); if (v.trim()) setErrors((e) => ({ ...e, profession: undefined })); }}
+        required
+        placeholder={isRTL ? "مثال: كهربائي، سباك" : "e.g. Electrician, Plumber"}
+        error={errors.profession}
+      />
+      <FanniInput
+        label={t("register.specialty")}
+        value={specialty}
+        onChangeText={(v) => { setSpecialty(v); if (v.trim()) setErrors((e) => ({ ...e, specialty: undefined })); }}
+        required
+        placeholder={isRTL ? "مثال: تكييف، سخانات" : "e.g. AC, Water Heaters"}
+        error={errors.specialty}
+      />
+      <FanniInput
+        label={`${t("register.experience")} (${isRTL ? "سنوات" : "years"})`}
+        value={experience}
+        onChangeText={(v) => { setExperience(v); setErrors((e) => ({ ...e, experience: undefined })); }}
+        keyboardType="numeric"
+        required
+        placeholder="5"
+        error={errors.experience}
+      />
 
       <View style={[styles.timeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
