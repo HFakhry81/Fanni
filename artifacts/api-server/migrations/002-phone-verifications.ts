@@ -2,7 +2,7 @@
  * Migration: 002-phone-verifications
  *
  * Adds the `phone_verifications` table used by the OTP registration flow.
- * Stores HMAC/SHA-256 hashed OTP codes with expiry so the plain-text code is
+ * Stores SHA-256 hashed OTP codes with expiry so the plain-text code is
  * never persisted.
  *
  * Status: ALREADY APPLIED to the current development database via drizzle-kit push.

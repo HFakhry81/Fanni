@@ -10,7 +10,7 @@ import {
   SetUserRoleBody,
 } from "@workspace/api-zod";
 import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable } from "@workspace/db";
-import { eq, and, gt, isNull, lt } from "drizzle-orm";
+import { eq, and, gt, isNull, lt, desc } from "drizzle-orm";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import {
   clearSession,
@@ -423,7 +423,7 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
         isNull(phoneVerificationsTable.usedAt),
       ),
     )
-    .orderBy(phoneVerificationsTable.createdAt)
+    .orderBy(desc(phoneVerificationsTable.createdAt))
     .limit(1);
 
   if (!record) {
