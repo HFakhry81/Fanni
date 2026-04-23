@@ -1,15 +1,65 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
-  FlatList, TextInput,
+  FlatList, TextInput, ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import {
-  EGYPT_LOCATIONS, Governorate, Area, Neighborhood,
-  getAreas, getNeighborhoods, DEFAULT_GOVERNORATE,
-} from "@/constants/egyptLocations";
+import MapPickerModal, { type PickedLocation } from "@/components/MapPickerModal";
+
+// ─── API helpers ───────────────────────────────────────────────────────────────
+
+function getApiBase(): string {
+  if (process.env.EXPO_PUBLIC_DOMAIN) {
+    return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+  }
+  return "";
+}
+
+interface LocationRow {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  slug: string;
+  parentId?: string | null;
+}
+
+async function fetchGovernorates(): Promise<LocationRow[]> {
+  const base = getApiBase();
+  if (!base) return [];
+  try {
+    const res = await fetch(`${base}/api/locations/governorates`);
+    const json = await res.json();
+    return json.governorates ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchAreas(govId: string): Promise<LocationRow[]> {
+  const base = getApiBase();
+  if (!base || !govId) return [];
+  try {
+    const res = await fetch(`${base}/api/locations/${govId}/areas`);
+    const json = await res.json();
+    return json.areas ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchNeighborhoods(areaId: string): Promise<LocationRow[]> {
+  const base = getApiBase();
+  if (!base || !areaId) return [];
+  try {
+    const res = await fetch(`${base}/api/locations/${areaId}/neighborhoods`);
+    const json = await res.json();
+    return json.neighborhoods ?? [];
+  } catch {
+    return [];
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,41 +68,40 @@ type PickerType = "governorate" | "area" | "neighborhood";
 interface Option { id: string; ar: string; en: string; }
 
 interface LocationPickerProps {
-  /** Selected governorate id */
   governorateId: string;
-  /** Selected area id */
   areaId: string;
-  /** Selected neighborhood id */
   neighborhoodId: string;
-  /** Callbacks */
   onGovernorateChange: (id: string) => void;
   onAreaChange: (id: string) => void;
   onNeighborhoodChange: (id: string) => void;
-  /** Additional address street field */
   street: string;
   onStreetChange: (v: string) => void;
-  /** Building / floor / apt */
   building?: string;
   onBuildingChange?: (v: string) => void;
   floor?: string;
   onFloorChange?: (v: string) => void;
   apartment?: string;
   onApartmentChange?: (v: string) => void;
-  /** Show the street / building fields? */
   showDetails?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  onCoordsChange?: (lat: number, lon: number) => void;
 }
 
-// ─── Helper: single dropdown ───────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
-interface DropdownProps {
-  label: string;
-  value: string;
-  placeholder: string;
-  onPress: () => void;
-  required?: boolean;
+function rowToOption(r: LocationRow): Option {
+  return { id: r.id, ar: r.nameAr, en: r.nameEn };
 }
 
-function Dropdown({ label, value, placeholder, onPress, required }: DropdownProps) {
+// ─── Single dropdown ──────────────────────────────────────────────────────────
+
+function Dropdown({
+  label, value, placeholder, onPress, required, loading,
+}: {
+  label: string; value: string; placeholder: string;
+  onPress: () => void; required?: boolean; loading?: boolean;
+}) {
   const colors = useColors();
   const { isRTL } = useApp();
   return (
@@ -74,7 +123,9 @@ function Dropdown({ label, value, placeholder, onPress, required }: DropdownProp
         activeOpacity={0.8}
       >
         <View style={[styles.dropdownIcon, { backgroundColor: colors.accentBlue, borderRadius: 8 }]}>
-          <Feather name="map-pin" size={14} color={colors.secondary} />
+          {loading
+            ? <ActivityIndicator size="small" color={colors.secondary} />
+            : <Feather name="map-pin" size={14} color={colors.secondary} />}
         </View>
         <Text
           style={[
@@ -100,19 +151,17 @@ function Dropdown({ label, value, placeholder, onPress, required }: DropdownProp
 
 // ─── Modal Picker ─────────────────────────────────────────────────────────────
 
-interface ModalPickerProps {
-  visible: boolean;
-  title: string;
-  options: Option[];
-  selectedId: string;
-  onSelect: (opt: Option) => void;
-  onClose: () => void;
-}
-
-function ModalPicker({ visible, title, options, selectedId, onSelect, onClose }: ModalPickerProps) {
+function ModalPicker({
+  visible, title, options, selectedId, onSelect, onClose, loading,
+}: {
+  visible: boolean; title: string; options: Option[]; selectedId: string;
+  onSelect: (opt: Option) => void; onClose: () => void; loading?: boolean;
+}) {
   const colors = useColors();
   const { isRTL } = useApp();
   const [search, setSearch] = useState("");
+
+  useEffect(() => { if (!visible) setSearch(""); }, [visible]);
 
   const filtered = options.filter((o) => {
     const q = search.toLowerCase();
@@ -123,16 +172,13 @@ function ModalPicker({ visible, title, options, selectedId, onSelect, onClose }:
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: colors.background, borderRadius: 24 }]}>
-          {/* Handle */}
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          {/* Header */}
           <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1 }}>{title}</Text>
             <TouchableOpacity onPress={onClose}>
               <Feather name="x" size={22} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
-          {/* Search */}
           <View style={[styles.searchWrap, { backgroundColor: colors.muted, borderRadius: 10, flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Feather name="search" size={16} color={colors.mutedForeground} />
             <TextInput
@@ -143,59 +189,66 @@ function ModalPicker({ visible, title, options, selectedId, onSelect, onClose }:
               style={[styles.searchInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
             />
           </View>
-          {/* List */}
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            style={{ flex: 1 }}
-            renderItem={({ item }) => {
-              const isSelected = item.id === selectedId;
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.optionItem,
-                    {
-                      backgroundColor: isSelected ? colors.accent : "transparent",
-                      borderBottomColor: colors.border,
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                    },
-                  ]}
-                  onPress={() => { onSelect(item); onClose(); setSearch(""); }}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.optionIcon, { backgroundColor: isSelected ? colors.primary + "20" : colors.muted, borderRadius: 8 }]}>
-                    <Feather name="map-pin" size={14} color={isSelected ? colors.primary : colors.mutedForeground} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
-                    <Text style={{ color: isSelected ? colors.primary : colors.foreground, fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 15 }}>
-                      {isRTL ? item.ar : item.en}
-                    </Text>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 }}>
-                      {isRTL ? item.en : item.ar}
-                    </Text>
-                  </View>
-                  {isSelected && <Feather name="check" size={16} color={colors.primary} />}
-                </TouchableOpacity>
-              );
-            }}
-            ListEmptyComponent={
-              <View style={{ alignItems: "center", paddingTop: 40 }}>
-                <Feather name="search" size={32} color={colors.border} />
-                <Text style={{ color: colors.mutedForeground, fontSize: 14, marginTop: 10 }}>
-                  {isRTL ? "لا توجد نتائج" : "No results"}
-                </Text>
-              </View>
-            }
-          />
+          {loading ? (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              <ActivityIndicator color={colors.primary} size="large" />
+            </View>
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => item.id}
+              style={{ flex: 1 }}
+              renderItem={({ item }) => {
+                const isSelected = item.id === selectedId;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.optionItem,
+                      {
+                        backgroundColor: isSelected ? colors.accent : "transparent",
+                        borderBottomColor: colors.border,
+                        flexDirection: isRTL ? "row-reverse" : "row",
+                      },
+                    ]}
+                    onPress={() => { onSelect(item); onClose(); }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.optionIcon, { backgroundColor: isSelected ? colors.primary + "20" : colors.muted, borderRadius: 8 }]}>
+                      <Feather name="map-pin" size={14} color={isSelected ? colors.primary : colors.mutedForeground} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+                      <Text style={{ color: isSelected ? colors.primary : colors.foreground, fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 15 }}>
+                        {isRTL ? item.ar : item.en}
+                      </Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 }}>
+                        {isRTL ? item.en : item.ar}
+                      </Text>
+                    </View>
+                    {isSelected && <Feather name="check" size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={{ alignItems: "center", paddingTop: 40 }}>
+                  <Feather name="search" size={32} color={colors.border} />
+                  <Text style={{ color: colors.mutedForeground, fontSize: 14, marginTop: 10 }}>
+                    {isRTL ? "لا توجد نتائج" : "No results"}
+                  </Text>
+                </View>
+              }
+            />
+          )}
         </View>
       </View>
     </Modal>
   );
 }
 
-// ─── Input field ──────────────────────────────────────────────────────────────
+// ─── Inline input ─────────────────────────────────────────────────────────────
 
-function InlineInput({ label, value, onChange, placeholder, keyboardType }: {
+function InlineInput({
+  label, value, onChange, placeholder, keyboardType,
+}: {
   label: string; value: string; onChange: (v: string) => void;
   placeholder: string; keyboardType?: "default" | "numeric";
 }) {
@@ -235,16 +288,48 @@ export default function LocationPicker({
   floor = "", onFloorChange,
   apartment = "", onApartmentChange,
   showDetails = true,
+  latitude, longitude, onCoordsChange,
 }: LocationPickerProps) {
   const colors = useColors();
   const { isRTL } = useApp();
 
   const [modalType, setModalType] = useState<PickerType | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
-  // Build option lists
-  const govOptions: Option[] = EGYPT_LOCATIONS.map((g) => ({ id: g.id, ar: g.ar, en: g.en }));
-  const areaOptions: Option[] = getAreas(governorateId).map((a) => ({ id: a.id, ar: a.ar, en: a.en }));
-  const nbhOptions: Option[] = getNeighborhoods(governorateId, areaId).map((n) => ({ id: n.id, ar: n.ar, en: n.en }));
+  // DB-backed location lists
+  const [govOptions, setGovOptions] = useState<Option[]>([]);
+  const [areaOptions, setAreaOptions] = useState<Option[]>([]);
+  const [nbhOptions, setNbhOptions] = useState<Option[]>([]);
+  const [govLoading, setGovLoading] = useState(false);
+  const [areaLoading, setAreaLoading] = useState(false);
+  const [nbhLoading, setNbhLoading] = useState(false);
+
+  const loadGovernorates = useCallback(async () => {
+    setGovLoading(true);
+    const rows = await fetchGovernorates();
+    setGovOptions(rows.map(rowToOption));
+    setGovLoading(false);
+  }, []);
+
+  const loadAreas = useCallback(async (govId: string) => {
+    if (!govId) { setAreaOptions([]); return; }
+    setAreaLoading(true);
+    const rows = await fetchAreas(govId);
+    setAreaOptions(rows.map(rowToOption));
+    setAreaLoading(false);
+  }, []);
+
+  const loadNeighborhoods = useCallback(async (areaId: string) => {
+    if (!areaId) { setNbhOptions([]); return; }
+    setNbhLoading(true);
+    const rows = await fetchNeighborhoods(areaId);
+    setNbhOptions(rows.map(rowToOption));
+    setNbhLoading(false);
+  }, []);
+
+  useEffect(() => { loadGovernorates(); }, [loadGovernorates]);
+  useEffect(() => { loadAreas(governorateId); }, [governorateId, loadAreas]);
+  useEffect(() => { loadNeighborhoods(areaId); }, [areaId, loadNeighborhoods]);
 
   const govLabel = govOptions.find((g) => g.id === governorateId);
   const areaLabel = areaOptions.find((a) => a.id === areaId);
@@ -263,6 +348,12 @@ export default function LocationPicker({
     return isRTL ? "اختر الحي"     : "Select Neighborhood";
   };
 
+  const getModalLoading = (): boolean => {
+    if (modalType === "governorate") return govLoading;
+    if (modalType === "area") return areaLoading;
+    return nbhLoading;
+  };
+
   const handleSelect = (opt: Option) => {
     if (modalType === "governorate") {
       onGovernorateChange(opt.id);
@@ -276,11 +367,15 @@ export default function LocationPicker({
     }
   };
 
-  const getSelectedId = (): string => {
-    if (modalType === "governorate") return governorateId;
-    if (modalType === "area") return areaId;
-    return neighborhoodId;
+  const handleMapConfirm = (loc: PickedLocation) => {
+    setShowMapPicker(false);
+    onCoordsChange?.(loc.latitude, loc.longitude);
+    if (loc.street && !street) {
+      onStreetChange(loc.street);
+    }
   };
+
+  const hasPinnedLocation = latitude != null && longitude != null;
 
   return (
     <View>
@@ -290,6 +385,7 @@ export default function LocationPicker({
         value={govLabel ? (isRTL ? govLabel.ar : govLabel.en) : ""}
         placeholder={isRTL ? "اختر المحافظة" : "Select Governorate"}
         onPress={() => setModalType("governorate")}
+        loading={govLoading && govOptions.length === 0}
         required
       />
 
@@ -299,6 +395,7 @@ export default function LocationPicker({
         value={areaLabel ? (isRTL ? areaLabel.ar : areaLabel.en) : ""}
         placeholder={governorateId ? (isRTL ? "اختر المنطقة" : "Select Area") : (isRTL ? "اختر المحافظة أولاً" : "Select governorate first")}
         onPress={() => governorateId && setModalType("area")}
+        loading={areaLoading}
         required
       />
 
@@ -308,6 +405,7 @@ export default function LocationPicker({
         value={nbhLabel ? (isRTL ? nbhLabel.ar : nbhLabel.en) : ""}
         placeholder={areaId ? (isRTL ? "اختر الحي" : "Select Neighborhood") : (isRTL ? "اختر المنطقة أولاً" : "Select area first")}
         onPress={() => areaId && setModalType("neighborhood")}
+        loading={nbhLoading}
       />
 
       {/* Street */}
@@ -335,15 +433,38 @@ export default function LocationPicker({
         </View>
       )}
 
-      {/* Map placeholder */}
-      <TouchableOpacity style={[styles.mapPlaceholder, { backgroundColor: colors.accentBlue, borderColor: colors.secondary, borderRadius: 14 }]}>
-        <Feather name="navigation" size={22} color={colors.secondary} />
-        <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginTop: 6, textAlign: "center" }}>
-          {isRTL ? "تحديد الموقع على الخريطة" : "Pin location on map"}
+      {/* Map pin button */}
+      <TouchableOpacity
+        style={[
+          styles.mapPlaceholder,
+          {
+            backgroundColor: hasPinnedLocation ? colors.primary + "15" : colors.accentBlue,
+            borderColor: hasPinnedLocation ? colors.primary : colors.secondary,
+            borderRadius: 14,
+          },
+        ]}
+        onPress={() => setShowMapPicker(true)}
+        activeOpacity={0.8}
+      >
+        <Feather
+          name={hasPinnedLocation ? "check-circle" : "navigation"}
+          size={22}
+          color={hasPinnedLocation ? colors.primary : colors.secondary}
+        />
+        <Text style={{ color: hasPinnedLocation ? colors.primary : colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginTop: 6, textAlign: "center" }}>
+          {hasPinnedLocation
+            ? (isRTL ? "تم تحديد الموقع ✓" : "Location pinned ✓")
+            : (isRTL ? "تحديد الموقع على الخريطة" : "Pin location on map")}
         </Text>
-        <Text style={{ color: colors.secondary + "99", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>
-          {isRTL ? "الإسكندرية — مصر" : "Alexandria — Egypt"}
-        </Text>
+        {hasPinnedLocation ? (
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>
+            {latitude!.toFixed(5)}, {longitude!.toFixed(5)}
+          </Text>
+        ) : (
+          <Text style={{ color: colors.secondary + "99", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>
+            {isRTL ? "الإسكندرية — مصر" : "Alexandria — Egypt"}
+          </Text>
+        )}
       </TouchableOpacity>
 
       {/* Picker Modal */}
@@ -351,9 +472,21 @@ export default function LocationPicker({
         visible={modalType !== null}
         title={getModalTitle()}
         options={getModalOptions()}
-        selectedId={getSelectedId()}
+        selectedId={
+          modalType === "governorate" ? governorateId :
+          modalType === "area" ? areaId : neighborhoodId
+        }
         onSelect={handleSelect}
         onClose={() => setModalType(null)}
+        loading={getModalLoading()}
+      />
+
+      {/* Map Picker Modal */}
+      <MapPickerModal
+        visible={showMapPicker}
+        initialCoords={hasPinnedLocation ? { latitude: latitude!, longitude: longitude! } : null}
+        onConfirm={handleMapConfirm}
+        onClose={() => setShowMapPicker(false)}
       />
     </View>
   );
@@ -386,7 +519,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 4,
   },
-  // Modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalContent: { height: "75%", paddingHorizontal: 16, paddingBottom: 20 },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 12, marginBottom: 16 },

@@ -5,6 +5,8 @@ import authRouter from "./auth";
 import techniciansRouter from "./technicians";
 import adminRouter from "./admin";
 import invoicesRouter from "./invoices";
+import locationsRouter from "./locations";
+import geoRouter from "./geo";
 
 const router: IRouter = Router();
 
@@ -14,5 +16,7 @@ router.use(authRouter);
 router.use(techniciansRouter);
 router.use(adminRouter);
 router.use(invoicesRouter);
+router.use(locationsRouter);
+router.use(geoRouter);
 
 export default router;

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, pool } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -40,6 +40,79 @@ router.patch(
 );
 
 router.get("/technicians/available", authMiddleware, requireAuth, async (req, res) => {
+  const lat = parseFloat(req.query.lat as string);
+  const lon = parseFloat(req.query.lon as string);
+  const radiusKm = parseFloat((req.query.radiusKm as string) ?? "15");
+  const hasSpatial = !isNaN(lat) && !isNaN(lon);
+
+  if (hasSpatial) {
+    try {
+      const client = await pool.connect();
+      try {
+        const radiusM = radiusKm * 1000;
+        const { rows } = await client.query<{
+          id: string;
+          first_name: string;
+          last_name: string;
+          profile_image_url: string | null;
+          governorate: string | null;
+          area: string | null;
+          profession: string | null;
+          specialty: string | null;
+          is_available: boolean;
+          distance_m: number;
+        }>(
+          `SELECT
+             u.id,
+             u.first_name,
+             u.last_name,
+             u.profile_image_url,
+             u.governorate,
+             u.area,
+             u.profession,
+             u.specialty,
+             u.is_available,
+             ST_Distance(
+               u.location,
+               ST_SetSRID(ST_MakePoint($1,$2),4326)::geography
+             ) AS distance_m
+           FROM users u
+           WHERE
+             u.role = 'technician'
+             AND u.is_available = true
+             AND u.location IS NOT NULL
+             AND ST_DWithin(
+               u.location,
+               ST_SetSRID(ST_MakePoint($1,$2),4326)::geography,
+               $3
+             )
+           ORDER BY distance_m ASC`,
+          [lon, lat, radiusM],
+        );
+
+        const technicians = rows.map((r) => ({
+          id: r.id,
+          firstName: r.first_name,
+          lastName: r.last_name,
+          profileImageUrl: r.profile_image_url,
+          governorate: r.governorate,
+          area: r.area,
+          profession: r.profession,
+          specialty: r.specialty,
+          isAvailable: r.is_available,
+          distanceM: Math.round(r.distance_m),
+        }));
+
+        res.json({ technicians, spatialFilter: true, radiusKm });
+        return;
+      } finally {
+        client.release();
+      }
+    } catch {
+      // PostGIS may not be installed — fall through to text-based filter
+    }
+  }
+
   const technicians = await db
     .select({
       id: usersTable.id,
@@ -55,7 +128,7 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
     .from(usersTable)
     .where(and(eq(usersTable.role, "technician"), eq(usersTable.isAvailable, true)));
 
-  res.json({ technicians });
+  res.json({ technicians, spatialFilter: false });
 });
 
 export default router;

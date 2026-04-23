@@ -48,16 +48,18 @@ Bilingual (Arabic RTL + English LTR) home maintenance service app built with Exp
 
 ### Geography — Egypt Focus
 - Default region: **Alexandria** (lat 31.2001, lng 29.9187)
-- `constants/egyptLocations.ts` — 27 Egyptian governorates with areas + neighborhoods
-  - Alexandria: 5 districts (شرق، المنتزه، وسط، الجمرك، غرب) with ~65 neighborhoods (Fleming, Smouha, Sidi Bishr, Montaza, etc.)
-  - Cairo: 4 districts with 20+ neighborhoods
-  - All other 25 governorates with key areas
-- `components/LocationPicker.tsx` — cascading dropdown (Governorate → Area → Neighborhood) with:
-  - Searchable modal bottom sheets
-  - Arabic + English labels
-  - Resets child selections when parent changes
-  - "Pin on map" placeholder linked to Alexandria coords
-- Integrated into: `register.tsx` (step 3 for technicians) and `new-order.tsx` (step 2 address)
+- `constants/egyptLocations.ts` — 27 Egyptian governorates seed source (also seeded into DB)
+- **PostGIS** enabled on the database; `orders.location GEOGRAPHY(POINT,4326)` column stores pin coordinates
+- `lib/db/src/schema/locations.ts` — `locationsTable` (237 rows: govs/areas/neighborhoods) + `nominatimCacheTable`
+- **API routes** (no auth required):
+  - `GET /api/locations/governorates` — all 27 governorates from DB
+  - `GET /api/locations/:govId/areas` — areas for a governorate
+  - `GET /api/locations/:areaId/neighborhoods` — neighborhoods for an area
+  - `GET /api/geo/search?q=&lang=` — Nominatim proxy with 30-day DB cache, 1 req/sec queue
+  - `GET /api/geo/reverse?lat=&lon=&lang=` — reverse geocode with caching
+  - `GET /api/technicians/available?lat=&lon=&radiusKm=` — spatial ST_DWithin filter (falls back to text match)
+- `components/LocationPicker.tsx` — DB-backed cascading dropdowns + integrated map picker
+- `components/MapPickerModal.tsx` — full-screen map (react-native-maps + OpenStreetMap tiles), draggable pin, address search, web fallback
 - Map screen (`(tech)/map.tsx`) shows Alexandria with Mediterranean sea band, district tags, city coordinates
 
 ### Architecture

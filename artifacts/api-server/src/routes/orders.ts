@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { sql, desc, eq } from "drizzle-orm";
 import { broadcastNewOrder, removeOrderFromPending } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
-import { db, ordersTable } from "@workspace/db";
+import { db, ordersTable, pool } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -116,6 +116,24 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
         .update(ordersTable)
         .set({ orderNumber: dbOrderNumber, updatedAt: new Date() })
         .where(eq(ordersTable.id, order.id));
+
+      const lat = parseFloat(order.latitude ?? order.data?.latitude);
+      const lon = parseFloat(order.longitude ?? order.data?.longitude);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        try {
+          const client = await pool.connect();
+          try {
+            await client.query(
+              `UPDATE orders SET location = ST_SetSRID(ST_MakePoint($1,$2),4326)::geography WHERE id = $3`,
+              [lon, lat, String(order.id)],
+            );
+          } finally {
+            client.release();
+          }
+        } catch {
+          logger.warn({ orderId: order.id }, "PostGIS location update skipped (extension may not be installed)");
+        }
+      }
 
       const fullOrder = { ...order, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial };
       broadcastNewOrder(fullOrder);

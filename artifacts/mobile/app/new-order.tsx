@@ -43,6 +43,8 @@ export default function NewOrderScreen() {
   const [floor, setFloor] = useState("");
   const [apartment, setApartment] = useState("");
   const [landmark, setLandmark] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
 
@@ -92,6 +94,8 @@ export default function NewOrderScreen() {
       building, floor, apartment, landmark,
       governorate: gov ? gov.en.toLowerCase() : undefined,
       area: area ? area.en.toLowerCase() : undefined,
+      latitude:  latitude  ?? undefined,
+      longitude: longitude ?? undefined,
       visitDate, visitTime,
       status: "pending" as const,
       createdAt: new Date().toISOString(),
@@ -194,6 +198,9 @@ export default function NewOrderScreen() {
         apartment={apartment}
         onApartmentChange={setApartment}
         showDetails
+        latitude={latitude}
+        longitude={longitude}
+        onCoordsChange={(lat, lon) => { setLatitude(lat); setLongitude(lon); }}
       />
 
       <FanniInput
