@@ -56,7 +56,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "@react-native-community/netinfo": "^12.0.1",
+    "@react-native-community/netinfo": "^11.4.1",
     "expo-asset": "^12.0.12",
     "expo-auth-session": "~7.0.10",
     "expo-crypto": "~15.0.8",

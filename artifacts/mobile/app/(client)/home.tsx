@@ -30,40 +30,40 @@ const CATEGORIES: Category[] = [
   { id: "flooring",    image: require("@/assets/images/icon_flooring.png"),    color: "#E67E22" },
 ];
 
-const SUB_CATEGORIES: Record<string, { id: string; image: ImageSourcePropType; label_ar: string; label_en: string }[]> = {
+const SUB_CATEGORIES: Record<string, { id: string; imageKey: string; image: ImageSourcePropType; label_ar: string; label_en: string }[]> = {
   electricity: [
-    { id: "wiring",        image: require("@/assets/images/sub_electrical_wiring.png"), label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
-    { id: "computers",     image: require("@/assets/images/sub_computers.png"),         label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
-    { id: "washingmachine",image: require("@/assets/images/sub_washing_machine.png"),   label_ar: "غسالات",            label_en: "Washing Machines" },
-    { id: "heater",        image: require("@/assets/images/sub_water_heater.png"),      label_ar: "سخانات",            label_en: "Water Heaters" },
+    { id: "wiring",        imageKey: "sub_electrical_wiring", image: require("@/assets/images/sub_electrical_wiring.png"), label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
+    { id: "computers",     imageKey: "sub_computers",         image: require("@/assets/images/sub_computers.png"),         label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
+    { id: "washingmachine",imageKey: "sub_washing_machine",   image: require("@/assets/images/sub_washing_machine.png"),   label_ar: "غسالات",            label_en: "Washing Machines" },
+    { id: "heater",        imageKey: "sub_water_heater",      image: require("@/assets/images/sub_water_heater.png"),      label_ar: "سخانات",            label_en: "Water Heaters" },
   ],
   ac: [
-    { id: "repair",   image: require("@/assets/images/sub_ac_repair.png"),   label_ar: "صيانة مكيفات", label_en: "AC Repair" },
-    { id: "cleaning", image: require("@/assets/images/sub_ac_cleaning.png"), label_ar: "تنظيف مكيفات", label_en: "AC Cleaning" },
+    { id: "repair",   imageKey: "sub_ac_repair",   image: require("@/assets/images/sub_ac_repair.png"),   label_ar: "صيانة مكيفات", label_en: "AC Repair" },
+    { id: "cleaning", imageKey: "sub_ac_cleaning", image: require("@/assets/images/sub_ac_cleaning.png"), label_ar: "تنظيف مكيفات", label_en: "AC Cleaning" },
   ],
   plumbing: [
-    { id: "pipes",    image: require("@/assets/images/sub_pipes.png"),   label_ar: "مواسير",      label_en: "Pipes" },
-    { id: "sanitary", image: require("@/assets/images/sub_sanitary.png"), label_ar: "أدوات صحية", label_en: "Sanitary" },
+    { id: "pipes",    imageKey: "sub_pipes",    image: require("@/assets/images/sub_pipes.png"),   label_ar: "مواسير",      label_en: "Pipes" },
+    { id: "sanitary", imageKey: "sub_sanitary", image: require("@/assets/images/sub_sanitary.png"), label_ar: "أدوات صحية", label_en: "Sanitary" },
   ],
   carpentry: [
-    { id: "doors",     image: require("@/assets/images/sub_doors.png"),     label_ar: "أبواب", label_en: "Doors" },
-    { id: "furniture", image: require("@/assets/images/sub_furniture.png"), label_ar: "أثاث",  label_en: "Furniture" },
+    { id: "doors",     imageKey: "sub_doors",     image: require("@/assets/images/sub_doors.png"),     label_ar: "أبواب", label_en: "Doors" },
+    { id: "furniture", imageKey: "sub_furniture", image: require("@/assets/images/sub_furniture.png"), label_ar: "أثاث",  label_en: "Furniture" },
   ],
   appliances: [
-    { id: "fridge",     image: require("@/assets/images/sub_fridge.png"),     label_ar: "ثلاجات",       label_en: "Refrigerators" },
-    { id: "dishwasher", image: require("@/assets/images/sub_dishwasher.png"), label_ar: "غسالة أطباق", label_en: "Dishwasher" },
+    { id: "fridge",     imageKey: "sub_fridge",     image: require("@/assets/images/sub_fridge.png"),     label_ar: "ثلاجات",       label_en: "Refrigerators" },
+    { id: "dishwasher", imageKey: "sub_dishwasher", image: require("@/assets/images/sub_dishwasher.png"), label_ar: "غسالة أطباق", label_en: "Dishwasher" },
   ],
   painting: [
-    { id: "interior", image: require("@/assets/images/sub_interior_paint.png"), label_ar: "دهان داخلي", label_en: "Interior Paint" },
-    { id: "exterior", image: require("@/assets/images/sub_exterior_paint.png"), label_ar: "دهان خارجي", label_en: "Exterior Paint" },
+    { id: "interior", imageKey: "sub_interior_paint", image: require("@/assets/images/sub_interior_paint.png"), label_ar: "دهان داخلي", label_en: "Interior Paint" },
+    { id: "exterior", imageKey: "sub_exterior_paint", image: require("@/assets/images/sub_exterior_paint.png"), label_ar: "دهان خارجي", label_en: "Exterior Paint" },
   ],
   pest: [
-    { id: "insects", image: require("@/assets/images/sub_insects.png"), label_ar: "حشرات", label_en: "Insects" },
-    { id: "rodents", image: require("@/assets/images/sub_rodents.png"), label_ar: "قوارض", label_en: "Rodents" },
+    { id: "insects", imageKey: "sub_insects", image: require("@/assets/images/sub_insects.png"), label_ar: "حشرات", label_en: "Insects" },
+    { id: "rodents", imageKey: "sub_rodents", image: require("@/assets/images/sub_rodents.png"), label_ar: "قوارض", label_en: "Rodents" },
   ],
   flooring: [
-    { id: "tiles",   image: require("@/assets/images/sub_tiles.png"),   label_ar: "سيراميك", label_en: "Tiles" },
-    { id: "parquet", image: require("@/assets/images/sub_parquet.png"), label_ar: "باركيه",  label_en: "Parquet" },
+    { id: "tiles",   imageKey: "sub_tiles",   image: require("@/assets/images/sub_tiles.png"),   label_ar: "سيراميك", label_en: "Tiles" },
+    { id: "parquet", imageKey: "sub_parquet", image: require("@/assets/images/sub_parquet.png"), label_ar: "باركيه",  label_en: "Parquet" },
   ],
 };
 
@@ -239,7 +239,7 @@ export default function ClientHomeScreen() {
                 <TouchableOpacity
                   key={sub.id}
                   style={[styles.subCard, { borderRadius: colors.radius, overflow: "hidden" }]}
-                  onPress={() => router.push({ pathname: "/new-order", params: { category: selectedCat, subCategory: isRTL ? sub.label_ar : sub.label_en } })}
+                  onPress={() => router.push({ pathname: "/new-order", params: { category: selectedCat, subCategory: isRTL ? sub.label_ar : sub.label_en, subImageKey: sub.imageKey } })}
                   activeOpacity={0.85}
                 >
                   <ImageBackground

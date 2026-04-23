@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Platform,
+  TouchableOpacity, Platform, ImageBackground,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -17,12 +18,33 @@ import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import type { LocationOption } from "@/components/LocationPicker";
 
+const SUB_IMAGE_MAP: Record<string, ReturnType<typeof require>> = {
+  sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.png"),
+  sub_computers:         require("@/assets/images/sub_computers.png"),
+  sub_washing_machine:   require("@/assets/images/sub_washing_machine.png"),
+  sub_water_heater:      require("@/assets/images/sub_water_heater.png"),
+  sub_ac_repair:         require("@/assets/images/sub_ac_repair.png"),
+  sub_ac_cleaning:       require("@/assets/images/sub_ac_cleaning.png"),
+  sub_pipes:             require("@/assets/images/sub_pipes.png"),
+  sub_sanitary:          require("@/assets/images/sub_sanitary.png"),
+  sub_doors:             require("@/assets/images/sub_doors.png"),
+  sub_furniture:         require("@/assets/images/sub_furniture.png"),
+  sub_fridge:            require("@/assets/images/sub_fridge.png"),
+  sub_dishwasher:        require("@/assets/images/sub_dishwasher.png"),
+  sub_interior_paint:    require("@/assets/images/sub_interior_paint.png"),
+  sub_exterior_paint:    require("@/assets/images/sub_exterior_paint.png"),
+  sub_insects:           require("@/assets/images/sub_insects.png"),
+  sub_rodents:           require("@/assets/images/sub_rodents.png"),
+  sub_tiles:             require("@/assets/images/sub_tiles.png"),
+  sub_parquet:           require("@/assets/images/sub_parquet.png"),
+};
+
 type OrderStep = 1 | 2 | 3;
 
 const DRAFT_KEY = "fanni_order_draft";
 
 export default function NewOrderScreen() {
-  const { category = "", subCategory = "" } = useLocalSearchParams<{ category: string; subCategory: string }>();
+  const { category = "", subCategory = "", subImageKey = "" } = useLocalSearchParams<{ category: string; subCategory: string; subImageKey: string }>();
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user } = useApp();
@@ -368,9 +390,29 @@ export default function NewOrderScreen() {
     );
   }
 
+  const bannerImage = subImageKey ? SUB_IMAGE_MAP[subImageKey] : null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={t("order.new")} showBack onBack={handleBack} />
+
+      {/* Service preview banner */}
+      {bannerImage && (
+        <ImageBackground
+          source={bannerImage}
+          style={styles.banner}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={["rgba(0,0,0,0.18)", "rgba(0,0,0,0.62)"]}
+            style={styles.bannerGradient}
+          >
+            <Text style={styles.bannerLabel} numberOfLines={2}>
+              {subCategory}
+            </Text>
+          </LinearGradient>
+        </ImageBackground>
+      )}
 
       {/* Step indicator */}
       <View style={[styles.stepsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -432,6 +474,9 @@ export default function NewOrderScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  banner:         { width: "100%", height: 160 },
+  bannerGradient: { flex: 1, justifyContent: "flex-end", paddingHorizontal: 18, paddingBottom: 14 },
+  bannerLabel:    { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 18 },
   stepsRow: { paddingHorizontal: 16, paddingVertical: 12, alignItems: "center", justifyContent: "space-between" },
   stepItem: { flex: 1, alignItems: "center" },
   stepDot: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
