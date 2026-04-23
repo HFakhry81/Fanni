@@ -204,14 +204,38 @@ export default function ClientOrdersScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
-                <Feather name="inbox" size={40} color={colors.mutedForeground} />
+            isAuthenticated && mergedOrders.length === 0 ? (
+              <View style={styles.empty}>
+                <View style={[styles.emptyIcon, { backgroundColor: colors.accent, borderRadius: 40 }]}>
+                  <Feather name="clipboard" size={40} color={colors.primary} />
+                </View>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginTop: 16, textAlign: "center" }}>
+                  {t("order.noOrdersYet")}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 6, textAlign: "center", paddingHorizontal: 32 }}>
+                  {t("order.noOrdersHint")}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.bookBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+                  onPress={() => router.push("/(client)/home")}
+                  activeOpacity={0.85}
+                >
+                  <Feather name="plus-circle" size={16} color="#FFF" />
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
+                    {t("order.bookService")}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15, marginTop: 14, textAlign: "center" }}>
-                {t("common.noData")}
-              </Text>
-            </View>
+            ) : (
+              <View style={styles.empty}>
+                <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
+                  <Feather name="inbox" size={40} color={colors.mutedForeground} />
+                </View>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15, marginTop: 14, textAlign: "center" }}>
+                  {t("common.noData")}
+                </Text>
+              </View>
+            )
           }
         />
       )}
@@ -236,6 +260,7 @@ const styles = StyleSheet.create({
   ratingChip: { flexDirection: "row", alignItems: "center", paddingVertical: 3, paddingHorizontal: 8 },
   callBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingTop: 60 },
+  bookBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 28, marginTop: 24 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
