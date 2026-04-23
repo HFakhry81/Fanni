@@ -441,6 +441,52 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     setRenderTick((n) => n + 1);
   }, []);
 
+  const smoothRouteFirstRef = useRef({ lat: techLat, lng: techLng });
+  const routeAnimFromRef = useRef({ lat: techLat, lng: techLng });
+  const routeAnimToRef = useRef({ lat: techLat, lng: techLng });
+  const routeAnimStartRef = useRef<number | null>(null);
+  const routeRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    routeAnimFromRef.current = { ...smoothRouteFirstRef.current };
+    routeAnimToRef.current = { lat: techLat, lng: techLng };
+    routeAnimStartRef.current = performance.now();
+  }, [techLat, techLng]);
+
+  const startRouteRaf = useCallback(() => {
+    if (Platform.OS !== "web") return;
+    if (routeRafRef.current) cancelAnimationFrame(routeRafRef.current);
+    const DURATION = 950;
+    const tick = (now: number) => {
+      if (routeAnimStartRef.current !== null) {
+        const t = Math.min(1, (now - routeAnimStartRef.current) / DURATION);
+        const from = routeAnimFromRef.current;
+        const to = routeAnimToRef.current;
+        smoothRouteFirstRef.current = {
+          lat: from.lat + (to.lat - from.lat) * t,
+          lng: from.lng + (to.lng - from.lng) * t,
+        };
+        setRenderTick((n) => n + 1);
+        if (t < 1) {
+          routeRafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+      }
+      routeRafRef.current = null;
+    };
+    routeRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  useEffect(() => {
+    startRouteRaf();
+  }, [techLat, techLng]);
+
+  useEffect(() => {
+    return () => {
+      if (routeRafRef.current) cancelAnimationFrame(routeRafRef.current);
+    };
+  }, []);
+
   const containerRef = useRef<View>(null);
   const sizeRef = useRef({ w: 400, h: 400 });
 
@@ -659,8 +705,11 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   const PIN_HALF = 14;
 
   const hasRoute = routeCoords.length > 1;
+  const smoothedRouteCoords = hasRoute
+    ? [smoothRouteFirstRef.current, ...routeCoords.slice(1)]
+    : routeCoords;
   const routePoints = hasRoute
-    ? routeCoords
+    ? smoothedRouteCoords
         .map((c) => {
           const s = toScreen(c.lat, c.lng);
           return `${s.x + PIN_HALF},${s.y + PIN_HALF}`;
@@ -946,9 +995,12 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
 
   const hasRoute = routeCoords.length > 1;
   const routeCoordinates = hasRoute
-    ? routeCoords.map((c) => ({ latitude: c.lat, longitude: c.lng }))
+    ? [
+        { latitude: displayCoord.latitude, longitude: displayCoord.longitude },
+        ...routeCoords.slice(1).map((c) => ({ latitude: c.lat, longitude: c.lng })),
+      ]
     : [
-        { latitude: techLat, longitude: techLng },
+        { latitude: displayCoord.latitude, longitude: displayCoord.longitude },
         { latitude: clientLat, longitude: clientLng },
       ];
 
