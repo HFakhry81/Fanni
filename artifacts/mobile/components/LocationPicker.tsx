@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
   FlatList, TextInput, ActivityIndicator,
@@ -49,13 +49,22 @@ async function fetchAreas(govId: string): Promise<LocationRow[]> {
   }
 }
 
-async function fetchNeighborhoods(areaId: string): Promise<LocationRow[]> {
+interface StreetSuggestion {
+  label: string;
+  lat: number;
+  lon: number;
+}
+
+async function fetchStreetSuggestions(q: string, cityId: string, lang: string): Promise<StreetSuggestion[]> {
   const base = getApiBase();
-  if (!base || !areaId) return [];
+  if (!base || q.length < 3) return [];
   try {
-    const res = await fetch(`${base}/api/locations/${areaId}/neighborhoods`);
+    const res = await fetch(
+      `${base}/api/geo/streets?q=${encodeURIComponent(q)}&city_id=${encodeURIComponent(cityId)}&lang=${lang}`,
+    );
+    if (!res.ok) return [];
     const json = await res.json();
-    return json.neighborhoods ?? [];
+    return json.results ?? [];
   } catch {
     return [];
   }
@@ -63,20 +72,17 @@ async function fetchNeighborhoods(areaId: string): Promise<LocationRow[]> {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type PickerType = "governorate" | "area" | "neighborhood";
+type PickerType = "governorate" | "area";
 
 export interface LocationOption { id: string; ar: string; en: string; }
 
 interface LocationPickerProps {
   governorateId: string;
   areaId: string;
-  neighborhoodId: string;
   onGovernorateChange: (id: string) => void;
   onAreaChange: (id: string) => void;
-  onNeighborhoodChange: (id: string) => void;
   onGovernorateSelect?: (opt: LocationOption) => void;
   onAreaSelect?: (opt: LocationOption) => void;
-  onNeighborhoodSelect?: (opt: LocationOption) => void;
   street: string;
   onStreetChange: (v: string) => void;
   building?: string;
@@ -292,12 +298,124 @@ function InlineInput({
   );
 }
 
+// ─── Street Autocomplete ───────────────────────────────────────────────────────
+
+function StreetAutocomplete({
+  value, onChange, cityId, onCoordsChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  cityId: string;
+  onCoordsChange?: (lat: number, lon: number) => void;
+}) {
+  const colors = useColors();
+  const { isRTL } = useApp();
+  const [suggestions, setSuggestions] = useState<StreetSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const search = useCallback(async (q: string) => {
+    if (q.length < 3 || !cityId) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const lang = isRTL ? "ar" : "en";
+      const results = await fetchStreetSuggestions(q, cityId, lang);
+      setSuggestions(results);
+      setShowDropdown(results.length > 0);
+    } finally {
+      setLoading(false);
+    }
+  }, [cityId, isRTL]);
+
+  const onChangeText = (text: string) => {
+    onChange(text);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => search(text), 400);
+  };
+
+  const onSelect = (s: StreetSuggestion) => {
+    onChange(s.label);
+    setSuggestions([]);
+    setShowDropdown(false);
+    if (onCoordsChange && !isNaN(s.lat) && !isNaN(s.lon)) {
+      onCoordsChange(s.lat, s.lon);
+    }
+  };
+
+  return (
+    <View style={styles.fieldWrap}>
+      <Text style={[styles.label, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+        {isRTL ? "اسم الشارع" : "Street Name"}
+      </Text>
+      <View style={{ position: "relative" }}>
+        <View style={[
+          styles.streetInputWrap,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderRadius: 12,
+            flexDirection: isRTL ? "row-reverse" : "row",
+          },
+        ]}>
+          <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={
+              cityId
+                ? (isRTL ? "ابحث عن شارع..." : "Search for a street...")
+                : (isRTL ? "اختر المنطقة أولاً" : "Select area first")
+            }
+            placeholderTextColor={colors.mutedForeground}
+            style={[
+              styles.streetInput,
+              {
+                color: colors.foreground,
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+            editable={!!cityId}
+          />
+          {loading && (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginHorizontal: 8 }} />
+          )}
+          {!loading && (
+            <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginHorizontal: 8 }} />
+          )}
+        </View>
+
+        {showDropdown && suggestions.length > 0 && (
+          <View style={[styles.streetDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {suggestions.map((s, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={[styles.streetItem, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                onPress={() => onSelect(s)}
+                activeOpacity={0.8}
+              >
+                <Feather name="map-pin" size={13} color={colors.primary} style={{ marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0, marginTop: 2 }} />
+                <Text style={{ color: colors.foreground, fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LocationPicker({
-  governorateId, areaId, neighborhoodId,
-  onGovernorateChange, onAreaChange, onNeighborhoodChange,
-  onGovernorateSelect, onAreaSelect, onNeighborhoodSelect,
+  governorateId, areaId,
+  onGovernorateChange, onAreaChange,
+  onGovernorateSelect, onAreaSelect,
   street, onStreetChange,
   building = "", onBuildingChange,
   floor = "", onFloorChange,
@@ -313,10 +431,8 @@ export default function LocationPicker({
 
   const [govOptions, setGovOptions] = useState<LocationOption[]>([]);
   const [areaOptions, setAreaOptions] = useState<LocationOption[]>([]);
-  const [nbhOptions, setNbhOptions] = useState<LocationOption[]>([]);
   const [govLoading, setGovLoading] = useState(false);
   const [areaLoading, setAreaLoading] = useState(false);
-  const [nbhLoading, setNbhLoading] = useState(false);
 
   const loadGovernorates = useCallback(async () => {
     setGovLoading(true);
@@ -333,39 +449,26 @@ export default function LocationPicker({
     setAreaLoading(false);
   }, []);
 
-  const loadNeighborhoods = useCallback(async (aId: string) => {
-    if (!aId) { setNbhOptions([]); return; }
-    setNbhLoading(true);
-    const rows = await fetchNeighborhoods(aId);
-    setNbhOptions(rows.map(rowToOption));
-    setNbhLoading(false);
-  }, []);
-
   useEffect(() => { loadGovernorates(); }, [loadGovernorates]);
   useEffect(() => { loadAreas(governorateId); }, [governorateId, loadAreas]);
-  useEffect(() => { loadNeighborhoods(areaId); }, [areaId, loadNeighborhoods]);
 
   const govLabel = govOptions.find((g) => g.id === governorateId);
   const areaLabel = areaOptions.find((a) => a.id === areaId);
-  const nbhLabel = nbhOptions.find((n) => n.id === neighborhoodId);
 
   const getModalOptions = (): LocationOption[] => {
     if (modalType === "governorate") return govOptions;
     if (modalType === "area") return areaOptions;
-    if (modalType === "neighborhood") return nbhOptions;
     return [];
   };
 
   const getModalTitle = (): string => {
     if (modalType === "governorate") return isRTL ? "اختر المحافظة" : "Select Governorate";
-    if (modalType === "area")        return isRTL ? "اختر المنطقة"  : "Select Area";
-    return isRTL ? "اختر الحي"     : "Select Neighborhood";
+    return isRTL ? "اختر المنطقة / المدينة" : "Select Area / City";
   };
 
   const getModalLoading = (): boolean => {
     if (modalType === "governorate") return govLoading;
-    if (modalType === "area") return areaLoading;
-    return nbhLoading;
+    return areaLoading;
   };
 
   const handleSelect = (opt: LocationOption) => {
@@ -373,14 +476,9 @@ export default function LocationPicker({
       onGovernorateChange(opt.id);
       onGovernorateSelect?.(opt);
       onAreaChange("");
-      onNeighborhoodChange("");
     } else if (modalType === "area") {
       onAreaChange(opt.id);
       onAreaSelect?.(opt);
-      onNeighborhoodChange("");
-    } else {
-      onNeighborhoodChange(opt.id);
-      onNeighborhoodSelect?.(opt);
     }
   };
 
@@ -405,7 +503,6 @@ export default function LocationPicker({
         onGovernorateChange(govMatch.id);
         onGovernorateSelect?.(govMatch);
         onAreaChange("");
-        onNeighborhoodChange("");
 
         const areaRows = await fetchAreas(govMatch.id);
         const areaOpts = areaRows.map(rowToOption);
@@ -426,7 +523,6 @@ export default function LocationPicker({
         if (areaMatch && areaMatch.id !== areaId) {
           onAreaChange(areaMatch.id);
           onAreaSelect?.(areaMatch);
-          onNeighborhoodChange("");
         }
       }
     }
@@ -446,7 +542,7 @@ export default function LocationPicker({
       />
 
       <Dropdown
-        label={isRTL ? "المنطقة / الحي الرئيسي" : "Area / District"}
+        label={isRTL ? "المنطقة / المدينة" : "Area / City"}
         value={areaLabel ? (isRTL ? areaLabel.ar : areaLabel.en) : ""}
         placeholder={governorateId ? (isRTL ? "اختر المنطقة" : "Select Area") : (isRTL ? "اختر المحافظة أولاً" : "Select governorate first")}
         onPress={() => governorateId && setModalType("area")}
@@ -454,19 +550,11 @@ export default function LocationPicker({
         required
       />
 
-      <Dropdown
-        label={isRTL ? "الحي / الحارة" : "Neighborhood"}
-        value={nbhLabel ? (isRTL ? nbhLabel.ar : nbhLabel.en) : ""}
-        placeholder={areaId ? (isRTL ? "اختر الحي" : "Select Neighborhood") : (isRTL ? "اختر المنطقة أولاً" : "Select area first")}
-        onPress={() => areaId && setModalType("neighborhood")}
-        loading={nbhLoading}
-      />
-
-      <InlineInput
-        label={isRTL ? "اسم الشارع" : "Street Name"}
+      <StreetAutocomplete
         value={street}
         onChange={onStreetChange}
-        placeholder={isRTL ? "مثال: شارع النصر" : "e.g. Al Nasr Street"}
+        cityId={areaId}
+        onCoordsChange={onCoordsChange}
       />
 
       {showDetails && (
@@ -522,10 +610,7 @@ export default function LocationPicker({
         visible={modalType !== null}
         title={getModalTitle()}
         options={getModalOptions()}
-        selectedId={
-          modalType === "governorate" ? governorateId :
-          modalType === "area" ? areaId : neighborhoodId
-        }
+        selectedId={modalType === "governorate" ? governorateId : areaId}
         onSelect={handleSelect}
         onClose={() => setModalType(null)}
         loading={getModalLoading()}
@@ -551,6 +636,40 @@ const styles = StyleSheet.create({
   },
   dropdownIcon: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
   dropdownText: { fontSize: 14 },
+  streetInputWrap: {
+    borderWidth: 1.5,
+    alignItems: "center",
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  streetInput: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
+  streetDropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    zIndex: 999,
+    borderRadius: 12,
+    borderWidth: 1,
+    maxHeight: 220,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  streetItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    alignItems: "flex-start",
+  },
   textInput: {
     paddingVertical: 12,
     paddingHorizontal: 14,

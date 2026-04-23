@@ -1,20 +1,13 @@
 /**
- * Egyptian governorates, areas, and neighborhoods data
- * Sourced from Google Maps / official Egyptian administrative divisions
- * Focus on Alexandria with full neighborhood detail
+ * Egyptian governorates and cities (27 governorates, 396 cities/districts)
+ * Sourced from authoritative Egyptian administrative dataset
+ * 2-level only: Governorate → City (no neighborhood level)
  */
-
-export interface Neighborhood {
-  id: string;
-  ar: string;
-  en: string;
-}
 
 export interface Area {
   id: string;
   ar: string;
   en: string;
-  neighborhoods: Neighborhood[];
 }
 
 export interface Governorate {
@@ -24,733 +17,622 @@ export interface Governorate {
   areas: Area[];
 }
 
-export const EGYPT_LOCATIONS: Governorate[] = [
-  // ─── الإسكندرية — Alexandria (detailed) ─────────────────────────────────
-  {
-    id: "alexandria",
-    ar: "الإسكندرية",
-    en: "Alexandria",
-    areas: [
-      {
-        id: "alex_east",
-        ar: "حي شرق",
-        en: "Al Sharq District",
-        neighborhoods: [
-          { id: "ramla",        ar: "محطة الرمل",    en: "Ramla Station"   },
-          { id: "al_ramla",     ar: "الرمل",          en: "Al Ramla"        },
-          { id: "fleming",      ar: "فلمنج",          en: "Fleming"         },
-          { id: "sporting",     ar: "سبورتنج",        en: "Sporting"        },
-          { id: "ibrahimia",    ar: "الإبراهيمية",    en: "Ibrahimia"       },
-          { id: "shatby",       ar: "الشاطبي",        en: "Shatby"          },
-          { id: "bab_sharq",    ar: "باب شرق",        en: "Bab Al Sharq"    },
-          { id: "louran",       ar: "لوران",          en: "Louran"          },
-          { id: "rush_d",       ar: "رشدي",           en: "Rushdy"          },
-          { id: "gleem",        ar: "جليم",           en: "Gleem"           },
-          { id: "san_stefano",  ar: "سان ستيفانو",    en: "San Stefano"     },
-          { id: "kafr_abdou",   ar: "كفر عبدو",       en: "Kafr Abdou"      },
-          { id: "zizinia",      ar: "زيزينيا",        en: "Zizinia"         },
-          { id: "bolkly",       ar: "بولكلي",         en: "Bolkly"          },
-          { id: "smouha",       ar: "سموحة",          en: "Smouha"          },
-          { id: "victoria",     ar: "فيكتوريا",       en: "Victoria"        },
-        ],
-      },
-      {
-        id: "alex_montaza",
-        ar: "حي المنتزه",
-        en: "Al Montaza District",
-        neighborhoods: [
-          { id: "sidi_bishr",   ar: "سيدي بشر",       en: "Sidi Bishr"      },
-          { id: "miami",        ar: "ميامي",           en: "Miami"           },
-          { id: "mandara",      ar: "المندرة",         en: "Al Mandara"      },
-          { id: "asafra",       ar: "العصافرة",        en: "Al Asafra"       },
-          { id: "montaza",      ar: "المنتزه",         en: "Al Montaza"      },
-          { id: "maamoura",     ar: "المعمورة",        en: "Al Maamoura"     },
-          { id: "abu_qir",      ar: "أبو قير",         en: "Abu Qir"         },
-          { id: "nozha",        ar: "النزهة",          en: "Al Nozha"        },
-          { id: "sidi_gaber",   ar: "سيدي جابر",       en: "Sidi Gaber"      },
-          { id: "bekos",        ar: "باكوس",           en: "Bakos"           },
-          { id: "cleopatra",    ar: "كليوباترا",       en: "Cleopatra"       },
-          { id: "loran2",       ar: "سيدي بشر بحري",  en: "Sidi Bishr Bahri"},
-        ],
-      },
-      {
-        id: "alex_center",
-        ar: "حي وسط",
-        en: "Central District",
-        neighborhoods: [
-          { id: "manshia",      ar: "المنشية",         en: "Al Manshia"      },
-          { id: "attarine",     ar: "العطارين",        en: "Al Attarine"     },
-          { id: "azarita",      ar: "الأزاريطة",       en: "Al Azarita"      },
-          { id: "moharram_bey", ar: "محرم بك",         en: "Moharram Bey"    },
-          { id: "mina_basal",   ar: "ميناء البصل",     en: "Mina Al Basal"   },
-          { id: "karmus",       ar: "كرموز",           en: "Karmus"          },
-          { id: "raas_el_teen", ar: "رأس التين",       en: "Raas El Teen"    },
-          { id: "anfushi",      ar: "الأنفوشي",        en: "Al Anfushi"      },
-          { id: "laban",        ar: "اللبان",          en: "Al Laban"        },
-          { id: "hadara",       ar: "حدائق القبة",     en: "Hadaek Al Qobba" },
-        ],
-      },
-      {
-        id: "alex_gomrok",
-        ar: "حي الجمرك",
-        en: "Al Gomrok District",
-        neighborhoods: [
-          { id: "gomrok",       ar: "الجمرك",          en: "Al Gomrok"       },
-          { id: "mina_shaab",   ar: "المينا الشعبية",  en: "Al Mina Al Shabia"},
-          { id: "bahri",        ar: "بحري",            en: "Bahri"           },
-          { id: "dekhela",      ar: "الدخيلة",         en: "Al Dekhela"      },
-          { id: "mex",          ar: "المكس",           en: "Al Mex"          },
-          { id: "wardian",      ar: "ورديان",          en: "Wardian"         },
-        ],
-      },
-      {
-        id: "alex_west",
-        ar: "حي غرب",
-        en: "West Alexandria District",
-        neighborhoods: [
-          { id: "agami",        ar: "العجمي",          en: "Al Agami"        },
-          { id: "hannoville",   ar: "الهانوفيل",       en: "Hannoville"      },
-          { id: "amreya",       ar: "العامرية",        en: "Al Amreya"       },
-          { id: "borg_arab",    ar: "برج العرب",       en: "Borg Al Arab"    },
-          { id: "new_borg",     ar: "برج العرب الجديدة",en: "New Borg Al Arab"},
-          { id: "bitash",       ar: "البيطاش",         en: "Al Bitash"       },
-          { id: "biyala",       ar: "العجمي الجديدة",  en: "New Agami"       },
-        ],
-      },
-    ],
-  },
+export const DEFAULT_GOVERNORATE = "alexandria";
 
-  // ─── القاهرة — Cairo ─────────────────────────────────────────────────────
+export const GOV_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  cairo:         { lat: 30.0626, lng: 31.2497 },
+  giza:          { lat: 30.0131, lng: 31.2089 },
+  alexandria:    { lat: 31.2001, lng: 29.9187 },
+  dakahlia:      { lat: 31.0364, lng: 31.3807 },
+  red_sea:       { lat: 27.2579, lng: 33.8116 },
+  beheira:       { lat: 30.8480, lng: 30.3436 },
+  fayoum:        { lat: 29.3084, lng: 30.8428 },
+  gharbiya:      { lat: 30.7870, lng: 30.9990 },
+  ismailia:      { lat: 30.5965, lng: 32.2715 },
+  menofia:       { lat: 30.5981, lng: 30.9876 },
+  minya:         { lat: 28.1099, lng: 30.7503 },
+  qaliubiya:     { lat: 30.3292, lng: 31.2168 },
+  new_valley:    { lat: 25.4547, lng: 29.0100 },
+  suez:          { lat: 29.9668, lng: 32.5498 },
+  aswan:         { lat: 24.0889, lng: 32.8998 },
+  assiut:        { lat: 27.1809, lng: 31.1837 },
+  beni_suef:     { lat: 29.0661, lng: 31.0994 },
+  port_said:     { lat: 31.2653, lng: 32.3019 },
+  damietta:      { lat: 31.4165, lng: 31.8133 },
+  sharkia:       { lat: 30.7441, lng: 31.7011 },
+  south_sinai:   { lat: 28.5549, lng: 33.9772 },
+  kafr_al_sheikh: { lat: 31.1107, lng: 30.9388 },
+  matrouh:       { lat: 31.3543, lng: 27.2373 },
+  luxor:         { lat: 25.6872, lng: 32.6396 },
+  qena:          { lat: 26.1551, lng: 32.7160 },
+  north_sinai:   { lat: 30.2942, lng: 33.6731 },
+  sohag:         { lat: 26.5569, lng: 31.6948 },
+};
+
+export const EGYPT_LOCATIONS: Governorate[] = [
   {
     id: "cairo",
     ar: "القاهرة",
     en: "Cairo",
     areas: [
-      {
-        id: "cairo_east",
-        ar: "شرق القاهرة",
-        en: "East Cairo",
-        neighborhoods: [
-          { id: "nasr_city",    ar: "مدينة نصر",      en: "Nasr City"       },
-          { id: "heliopolis",   ar: "مصر الجديدة",    en: "Heliopolis"      },
-          { id: "zaytoun",      ar: "الزيتون",         en: "Al Zaytoun"      },
-          { id: "ain_shams",    ar: "عين شمس",         en: "Ain Shams"       },
-          { id: "mataria",      ar: "المطرية",         en: "Al Mataria"      },
-          { id: "nozha_c",      ar: "النزهة",          en: "Al Nozha"        },
-          { id: "rehab",        ar: "الرحاب",          en: "Al Rehab"        },
-          { id: "new_cairo",    ar: "القاهرة الجديدة", en: "New Cairo"       },
-          { id: "fifth_settle", ar: "التجمع الخامس",   en: "Fifth Settlement"},
-        ],
-      },
-      {
-        id: "cairo_west",
-        ar: "غرب القاهرة",
-        en: "West Cairo",
-        neighborhoods: [
-          { id: "dokki",        ar: "الدقي",           en: "Dokki"           },
-          { id: "agouza",       ar: "العجوزة",         en: "Agouza"          },
-          { id: "mohandessin",  ar: "المهندسين",       en: "Mohandessin"     },
-          { id: "imbaba",       ar: "إمبابة",          en: "Imbaba"          },
-          { id: "zamalek",      ar: "الزمالك",         en: "Zamalek"         },
-        ],
-      },
-      {
-        id: "cairo_south",
-        ar: "جنوب القاهرة",
-        en: "South Cairo",
-        neighborhoods: [
-          { id: "maadi",        ar: "المعادي",         en: "Maadi"           },
-          { id: "mokattam",     ar: "المقطم",          en: "Al Mokattam"     },
-          { id: "basateen",     ar: "البساتين",        en: "Al Basateen"     },
-          { id: "helwan",       ar: "حلوان",           en: "Helwan"          },
-          { id: "new_helwan",   ar: "حلوان الجديدة",  en: "New Helwan"      },
-        ],
-      },
-      {
-        id: "cairo_center",
-        ar: "وسط القاهرة",
-        en: "Central Cairo",
-        neighborhoods: [
-          { id: "downtown",     ar: "وسط البلد",       en: "Downtown"        },
-          { id: "garden_city",  ar: "جاردن سيتي",      en: "Garden City"     },
-          { id: "abdin",        ar: "عابدين",          en: "Abdin"           },
-          { id: "sayeda_zeinab",ar: "السيدة زينب",     en: "Sayeda Zeinab"   },
-          { id: "bab_el_luq",   ar: "باب اللوق",       en: "Bab El Luq"      },
-          { id: "shubra",       ar: "شبرا",            en: "Shubra"          },
-        ],
-      },
+      { id: "cairo__15_may", ar: "15 مايو", en: "15 May" },
+      { id: "cairo__al_azbakeyah", ar: "الازبكية", en: "Al Azbakeyah" },
+      { id: "cairo__al_basatin", ar: "البساتين", en: "Al Basatin" },
+      { id: "cairo__tebin", ar: "التبين", en: "Tebin" },
+      { id: "cairo__elkhalifa", ar: "الخليفة", en: "El-Khalifa" },
+      { id: "cairo__el_darrasa", ar: "الدراسة", en: "El darrasa" },
+      { id: "cairo__aldarb_alahmar", ar: "الدرب الاحمر", en: "Aldarb Alahmar" },
+      { id: "cairo__zawya_alhamra", ar: "الزاوية الحمراء", en: "Zawya al-Hamra" },
+      { id: "cairo__elzaytoun", ar: "الزيتون", en: "El-Zaytoun" },
+      { id: "cairo__sahel", ar: "الساحل", en: "Sahel" },
+      { id: "cairo__el_salam", ar: "السلام", en: "El Salam" },
+      { id: "cairo__sayeda_zeinab", ar: "السيدة زينب", en: "Sayeda Zeinab" },
+      { id: "cairo__el_sharabeya", ar: "الشرابية", en: "El Sharabeya" },
+      { id: "cairo__shorouk", ar: "مدينة الشروق", en: "Shorouk" },
+      { id: "cairo__el_daher", ar: "الظاهر", en: "El Daher" },
+      { id: "cairo__ataba", ar: "العتبة", en: "Ataba" },
+      { id: "cairo__new_cairo", ar: "القاهرة الجديدة", en: "New Cairo" },
+      { id: "cairo__el_marg", ar: "المرج", en: "El Marg" },
+      { id: "cairo__ezbet_el_nakhl", ar: "عزبة النخل", en: "Ezbet el Nakhl" },
+      { id: "cairo__matareya", ar: "المطرية", en: "Matareya" },
+      { id: "cairo__maadi", ar: "المعادى", en: "Maadi" },
+      { id: "cairo__maasara", ar: "المعصرة", en: "Maasara" },
+      { id: "cairo__mokattam", ar: "المقطم", en: "Mokattam" },
+      { id: "cairo__manyal", ar: "المنيل", en: "Manyal" },
+      { id: "cairo__mosky", ar: "الموسكى", en: "Mosky" },
+      { id: "cairo__nozha", ar: "النزهة", en: "Nozha" },
+      { id: "cairo__waily", ar: "الوايلى", en: "Waily" },
+      { id: "cairo__bab_alshereia", ar: "باب الشعرية", en: "Bab al-Shereia" },
+      { id: "cairo__bolaq", ar: "بولاق", en: "Bolaq" },
+      { id: "cairo__garden_city", ar: "جاردن سيتى", en: "Garden City" },
+      { id: "cairo__hadayek_elkobba", ar: "حدائق القبة", en: "Hadayek El-Kobba" },
+      { id: "cairo__helwan", ar: "حلوان", en: "Helwan" },
+      { id: "cairo__dar_al_salam", ar: "دار السلام", en: "Dar Al Salam" },
+      { id: "cairo__shubra", ar: "شبرا", en: "Shubra" },
+      { id: "cairo__tura", ar: "طره", en: "Tura" },
+      { id: "cairo__abdeen", ar: "عابدين", en: "Abdeen" },
+      { id: "cairo__abaseya", ar: "عباسية", en: "Abaseya" },
+      { id: "cairo__ain_shams", ar: "عين شمس", en: "Ain Shams" },
+      { id: "cairo__nasr_city", ar: "مدينة نصر", en: "Nasr City" },
+      { id: "cairo__new_heliopolis", ar: "مصر الجديدة", en: "New Heliopolis" },
+      { id: "cairo__masr_al_qadima", ar: "مصر القديمة", en: "Masr Al Qadima" },
+      { id: "cairo__mansheya_nasir", ar: "منشية ناصر", en: "Mansheya Nasir" },
+      { id: "cairo__badr_city", ar: "مدينة بدر", en: "Badr City" },
+      { id: "cairo__obour_city", ar: "مدينة العبور", en: "Obour City" },
+      { id: "cairo__cairo_downtown", ar: "وسط البلد", en: "Cairo Downtown" },
+      { id: "cairo__zamalek", ar: "الزمالك", en: "Zamalek" },
+      { id: "cairo__kasr_el_nile", ar: "قصر النيل", en: "Kasr El Nile" },
+      { id: "cairo__rehab", ar: "الرحاب", en: "Rehab" },
+      { id: "cairo__katameya", ar: "القطامية", en: "Katameya" },
+      { id: "cairo__madinty", ar: "مدينتي", en: "Madinty" },
+      { id: "cairo__rod_alfarag", ar: "روض الفرج", en: "Rod Alfarag" },
+      { id: "cairo__sheraton", ar: "شيراتون", en: "Sheraton" },
+      { id: "cairo__elgamaleya", ar: "الجمالية", en: "El-Gamaleya" },
+      { id: "cairo__10th_of_ramadan_city", ar: "العاشر من رمضان", en: "10th of Ramadan City" },
+      { id: "cairo__helmeyat_alzaytoun", ar: "الحلمية", en: "Helmeyat Alzaytoun" },
+      { id: "cairo__new_nozha", ar: "النزهة الجديدة", en: "New Nozha" },
+      { id: "cairo__capital_new", ar: "العاصمة الإدارية", en: "Capital New" },
     ],
   },
-
-  // ─── الجيزة — Giza ──────────────────────────────────────────────────────
   {
     id: "giza",
     ar: "الجيزة",
     en: "Giza",
     areas: [
-      {
-        id: "giza_east",
-        ar: "شرق الجيزة",
-        en: "East Giza",
-        neighborhoods: [
-          { id: "haram",        ar: "الهرم",           en: "Al Haram"        },
-          { id: "faisal",       ar: "فيصل",            en: "Faisal"          },
-          { id: "ard_el_lewa",  ar: "أرض اللواء",      en: "Ard El Lewa"     },
-        ],
-      },
-      {
-        id: "oct_6",
-        ar: "السادس من أكتوبر",
-        en: "6th of October City",
-        neighborhoods: [
-          { id: "oct_center",   ar: "المدينة",         en: "City Center"     },
-          { id: "zayed",        ar: "الشيخ زايد",      en: "Sheikh Zayed"    },
-          { id: "hayy_11",      ar: "الحي الحادي عشر", en: "District 11"     },
-        ],
-      },
+      { id: "giza__giza", ar: "الجيزة", en: "Giza" },
+      { id: "giza__sixth_of_october", ar: "السادس من أكتوبر", en: "Sixth of October" },
+      { id: "giza__cheikh_zayed", ar: "الشيخ زايد", en: "Cheikh Zayed" },
+      { id: "giza__hawamdiyah", ar: "الحوامدية", en: "Hawamdiyah" },
+      { id: "giza__al_badrasheen", ar: "البدرشين", en: "Al Badrasheen" },
+      { id: "giza__saf", ar: "الصف", en: "Saf" },
+      { id: "giza__atfih", ar: "أطفيح", en: "Atfih" },
+      { id: "giza__al_ayat", ar: "العياط", en: "Al Ayat" },
+      { id: "giza__albawaiti", ar: "الباويطي", en: "Al-Bawaiti" },
+      { id: "giza__manshiyetal_qanater", ar: "منشأة القناطر", en: "ManshiyetAl Qanater" },
+      { id: "giza__oaseem", ar: "أوسيم", en: "Oaseem" },
+      { id: "giza__kerdasa", ar: "كرداسة", en: "Kerdasa" },
+      { id: "giza__abu_nomros", ar: "أبو النمرس", en: "Abu Nomros" },
+      { id: "giza__kafr_ghati", ar: "كفر غطاطي", en: "Kafr Ghati" },
+      { id: "giza__manshiyet_al_bakari", ar: "منشأة البكاري", en: "Manshiyet Al Bakari" },
+      { id: "giza__dokki", ar: "الدقى", en: "Dokki" },
+      { id: "giza__agouza", ar: "العجوزة", en: "Agouza" },
+      { id: "giza__haram", ar: "الهرم", en: "Haram" },
+      { id: "giza__warraq", ar: "الوراق", en: "Warraq" },
+      { id: "giza__imbaba", ar: "امبابة", en: "Imbaba" },
+      { id: "giza__boulaq_dakrour", ar: "بولاق الدكرور", en: "Boulaq Dakrour" },
+      { id: "giza__al_wahat_al_baharia", ar: "الواحات البحرية", en: "Al Wahat Al Baharia" },
+      { id: "giza__omraneya", ar: "العمرانية", en: "Omraneya" },
+      { id: "giza__moneeb", ar: "المنيب", en: "Moneeb" },
+      { id: "giza__bin_alsarayat", ar: "بين السرايات", en: "Bin Alsarayat" },
+      { id: "giza__kit_kat", ar: "الكيت كات", en: "Kit Kat" },
+      { id: "giza__mohandessin", ar: "المهندسين", en: "Mohandessin" },
+      { id: "giza__faisal", ar: "فيصل", en: "Faisal" },
+      { id: "giza__abu_rawash", ar: "أبو رواش", en: "Abu Rawash" },
+      { id: "giza__hadayek_alahram", ar: "حدائق الأهرام", en: "Hadayek Alahram" },
+      { id: "giza__haraneya", ar: "الحرانية", en: "Haraneya" },
+      { id: "giza__hadayek_october", ar: "حدائق اكتوبر", en: "Hadayek October" },
+      { id: "giza__saft_allaban", ar: "صفط اللبن", en: "Saft Allaban" },
+      { id: "giza__smart_village", ar: "القرية الذكية", en: "Smart Village" },
+      { id: "giza__ard_ellwaa", ar: "ارض اللواء", en: "Ard Ellwaa" },
     ],
   },
-
-  // ─── القليوبية — Qalyubia ──────────────────────────────────────────────
   {
-    id: "qalyubia",
-    ar: "القليوبية",
-    en: "Qalyubia",
+    id: "alexandria",
+    ar: "الإسكندرية",
+    en: "Alexandria",
     areas: [
-      {
-        id: "banha",
-        ar: "بنها",
-        en: "Banha",
-        neighborhoods: [
-          { id: "banha_c", ar: "مركز بنها", en: "Banha Center" },
-          { id: "tokh",    ar: "طوخ",       en: "Tokh"         },
-        ],
-      },
-      {
-        id: "shubra_khima",
-        ar: "شبرا الخيمة",
-        en: "Shubra Al Kheima",
-        neighborhoods: [
-          { id: "shubra_c", ar: "وسط شبرا الخيمة", en: "Shubra Al Kheima Center" },
-          { id: "qalyub",   ar: "قليوب",           en: "Qalyub"                  },
-        ],
-      },
+      { id: "alexandria__abu_qir", ar: "ابو قير", en: "Abu Qir" },
+      { id: "alexandria__al_ibrahimeyah", ar: "الابراهيمية", en: "Al Ibrahimeyah" },
+      { id: "alexandria__azarita", ar: "الأزاريطة", en: "Azarita" },
+      { id: "alexandria__anfoushi", ar: "الانفوشى", en: "Anfoushi" },
+      { id: "alexandria__dekheila", ar: "الدخيلة", en: "Dekheila" },
+      { id: "alexandria__el_soyof", ar: "السيوف", en: "El Soyof" },
+      { id: "alexandria__ameria", ar: "العامرية", en: "Ameria" },
+      { id: "alexandria__el_labban", ar: "اللبان", en: "El Labban" },
+      { id: "alexandria__al_mafrouza", ar: "المفروزة", en: "Al Mafrouza" },
+      { id: "alexandria__el_montaza", ar: "المنتزه", en: "El Montaza" },
+      { id: "alexandria__mansheya", ar: "المنشية", en: "Mansheya" },
+      { id: "alexandria__naseria", ar: "الناصرية", en: "Naseria" },
+      { id: "alexandria__ambrozo", ar: "امبروزو", en: "Ambrozo" },
+      { id: "alexandria__bab_sharq", ar: "باب شرق", en: "Bab Sharq" },
+      { id: "alexandria__bourj_alarab", ar: "برج العرب", en: "Bourj Alarab" },
+      { id: "alexandria__stanley", ar: "ستانلى", en: "Stanley" },
+      { id: "alexandria__smouha", ar: "سموحة", en: "Smouha" },
+      { id: "alexandria__sidi_bishr", ar: "سيدى بشر", en: "Sidi Bishr" },
+      { id: "alexandria__shads", ar: "شدس", en: "Shads" },
+      { id: "alexandria__gheet_alenab", ar: "غيط العنب", en: "Gheet Alenab" },
+      { id: "alexandria__fleming", ar: "فلمينج", en: "Fleming" },
+      { id: "alexandria__victoria", ar: "فيكتوريا", en: "Victoria" },
+      { id: "alexandria__camp_shizar", ar: "كامب شيزار", en: "Camp Shizar" },
+      { id: "alexandria__karmooz", ar: "كرموز", en: "Karmooz" },
+      { id: "alexandria__mahta_alraml", ar: "محطة الرمل", en: "Mahta Alraml" },
+      { id: "alexandria__mina_elbasal", ar: "مينا البصل", en: "Mina El-Basal" },
+      { id: "alexandria__asafra", ar: "العصافرة", en: "Asafra" },
+      { id: "alexandria__agamy", ar: "العجمي", en: "Agamy" },
+      { id: "alexandria__bakos", ar: "بكوس", en: "Bakos" },
+      { id: "alexandria__boulkly", ar: "بولكلي", en: "Boulkly" },
+      { id: "alexandria__cleopatra", ar: "كليوباترا", en: "Cleopatra" },
+      { id: "alexandria__glim", ar: "جليم", en: "Glim" },
+      { id: "alexandria__al_mamurah", ar: "المعمورة", en: "Al Mamurah" },
+      { id: "alexandria__al_mandara", ar: "المندرة", en: "Al Mandara" },
+      { id: "alexandria__moharam_bek", ar: "محرم بك", en: "Moharam Bek" },
+      { id: "alexandria__elshatby", ar: "الشاطبي", en: "Elshatby" },
+      { id: "alexandria__sidi_gaber", ar: "سيدي جابر", en: "Sidi Gaber" },
+      { id: "alexandria__north_coastsahel", ar: "الساحل الشمالي", en: "North Coast/sahel" },
+      { id: "alexandria__alhadra", ar: "الحضرة", en: "Alhadra" },
+      { id: "alexandria__alattarin", ar: "العطارين", en: "Alattarin" },
+      { id: "alexandria__sidi_kerir", ar: "سيدي كرير", en: "Sidi Kerir" },
+      { id: "alexandria__elgomrok", ar: "الجمرك", en: "Elgomrok" },
+      { id: "alexandria__al_max", ar: "المكس", en: "Al Max" },
+      { id: "alexandria__marina", ar: "مارينا", en: "Marina" },
     ],
   },
-
-  // ─── الشرقية — Sharqia ─────────────────────────────────────────────────
-  {
-    id: "sharqia",
-    ar: "الشرقية",
-    en: "Sharqia",
-    areas: [
-      {
-        id: "zagazig",
-        ar: "الزقازيق",
-        en: "Zagazig",
-        neighborhoods: [
-          { id: "zagazig_c", ar: "وسط الزقازيق", en: "Zagazig Center" },
-          { id: "belbeis",   ar: "بلبيس",        en: "Belbeis"        },
-          { id: "ramadan10", ar: "العاشر من رمضان", en: "10th of Ramadan City" },
-        ],
-      },
-    ],
-  },
-
-  // ─── الدقهلية — Dakahlia ──────────────────────────────────────────────
   {
     id: "dakahlia",
     ar: "الدقهلية",
     en: "Dakahlia",
     areas: [
-      {
-        id: "mansoura",
-        ar: "المنصورة",
-        en: "Mansoura",
-        neighborhoods: [
-          { id: "mansoura_c",   ar: "وسط المنصورة", en: "Mansoura Center" },
-          { id: "talkha",       ar: "طلخا",         en: "Talkha"          },
-          { id: "mit_ghamr",    ar: "ميت غمر",      en: "Mit Ghamr"       },
-        ],
-      },
+      { id: "dakahlia__mansoura", ar: "المنصورة", en: "Mansoura" },
+      { id: "dakahlia__talkha", ar: "طلخا", en: "Talkha" },
+      { id: "dakahlia__mitt_ghamr", ar: "ميت غمر", en: "Mitt Ghamr" },
+      { id: "dakahlia__dekernes", ar: "دكرنس", en: "Dekernes" },
+      { id: "dakahlia__aga", ar: "أجا", en: "Aga" },
+      { id: "dakahlia__menia_el_nasr", ar: "منية النصر", en: "Menia El Nasr" },
+      { id: "dakahlia__sinbillawin", ar: "السنبلاوين", en: "Sinbillawin" },
+      { id: "dakahlia__el_kurdi", ar: "الكردي", en: "El Kurdi" },
+      { id: "dakahlia__bani_ubaid", ar: "بني عبيد", en: "Bani Ubaid" },
+      { id: "dakahlia__al_manzala", ar: "المنزلة", en: "Al Manzala" },
+      { id: "dakahlia__tami_alamdid", ar: "تمي الأمديد", en: "tami al'amdid" },
+      { id: "dakahlia__aljamalia", ar: "الجمالية", en: "aljamalia" },
+      { id: "dakahlia__sherbin", ar: "شربين", en: "Sherbin" },
+      { id: "dakahlia__mataria", ar: "المطرية", en: "Mataria" },
+      { id: "dakahlia__belqas", ar: "بلقاس", en: "Belqas" },
+      { id: "dakahlia__meet_salsil", ar: "ميت سلسيل", en: "Meet Salsil" },
+      { id: "dakahlia__gamasa", ar: "جمصة", en: "Gamasa" },
+      { id: "dakahlia__mahalat_damana", ar: "محلة دمنة", en: "Mahalat Damana" },
+      { id: "dakahlia__nabroh", ar: "نبروه", en: "Nabroh" },
     ],
   },
-
-  // ─── الغربية — Gharbia ────────────────────────────────────────────────
-  {
-    id: "gharbia",
-    ar: "الغربية",
-    en: "Gharbia",
-    areas: [
-      {
-        id: "tanta",
-        ar: "طنطا",
-        en: "Tanta",
-        neighborhoods: [
-          { id: "tanta_c",     ar: "وسط طنطا",        en: "Tanta Center"    },
-          { id: "mahalla",     ar: "المحلة الكبرى",   en: "Al Mahalla"      },
-          { id: "kafr_zayat",  ar: "كفر الزيات",      en: "Kafr Al Zayat"   },
-          { id: "zefta",       ar: "زفتى",            en: "Zefta"           },
-        ],
-      },
-    ],
-  },
-
-  // ─── المنوفية — Monufia ──────────────────────────────────────────────
-  {
-    id: "monufia",
-    ar: "المنوفية",
-    en: "Monufia",
-    areas: [
-      {
-        id: "shebin",
-        ar: "شبين الكوم",
-        en: "Shebin Al Kom",
-        neighborhoods: [
-          { id: "shebin_c", ar: "وسط شبين الكوم", en: "Shebin Center" },
-          { id: "menouf",   ar: "منوف",           en: "Menouf"        },
-          { id: "ashmoun",  ar: "أشمون",          en: "Ashmoun"       },
-        ],
-      },
-    ],
-  },
-
-  // ─── كفر الشيخ — Kafr Al Sheikh ─────────────────────────────────────
-  {
-    id: "kafr_el_sheikh",
-    ar: "كفر الشيخ",
-    en: "Kafr Al Sheikh",
-    areas: [
-      {
-        id: "kafr_c",
-        ar: "كفر الشيخ",
-        en: "Kafr Al Sheikh City",
-        neighborhoods: [
-          { id: "kafr_center", ar: "وسط المدينة", en: "City Center" },
-          { id: "fouh",        ar: "فوه",         en: "Fouh"        },
-          { id: "desouk",      ar: "دسوق",        en: "Desouk"      },
-          { id: "hamoul",      ar: "الحامول",     en: "Al Hamoul"   },
-        ],
-      },
-    ],
-  },
-
-  // ─── البحيرة — Beheira ────────────────────────────────────────────────
-  {
-    id: "beheira",
-    ar: "البحيرة",
-    en: "Beheira",
-    areas: [
-      {
-        id: "damanhur",
-        ar: "دمنهور",
-        en: "Damanhur",
-        neighborhoods: [
-          { id: "damanhur_c",  ar: "وسط دمنهور",  en: "Damanhur Center" },
-          { id: "kom_hamada",  ar: "كوم حمادة",   en: "Kom Hamada"      },
-          { id: "abu_homos",   ar: "أبو حمص",     en: "Abu Homos"       },
-          { id: "rashid",      ar: "رشيد",        en: "Rashid (Rosetta)"},
-        ],
-      },
-    ],
-  },
-
-  // ─── الإسماعيلية — Ismailia ─────────────────────────────────────────
-  {
-    id: "ismailia",
-    ar: "الإسماعيلية",
-    en: "Ismailia",
-    areas: [
-      {
-        id: "ismailia_c",
-        ar: "الإسماعيلية",
-        en: "Ismailia City",
-        neighborhoods: [
-          { id: "ismailia_center", ar: "وسط الإسماعيلية", en: "Ismailia Center" },
-          { id: "abu_sowaer",      ar: "أبو صوير",        en: "Abu Sowaer"      },
-          { id: "el_tal",          ar: "التل الكبير",     en: "Al Tal Al Kabir" },
-          { id: "fayed",           ar: "فايد",            en: "Fayed"           },
-        ],
-      },
-    ],
-  },
-
-  // ─── بور سعيد — Port Said ────────────────────────────────────────────
-  {
-    id: "port_said",
-    ar: "بور سعيد",
-    en: "Port Said",
-    areas: [
-      {
-        id: "port_said_c",
-        ar: "بور سعيد",
-        en: "Port Said City",
-        neighborhoods: [
-          { id: "port_center",  ar: "وسط البلد",    en: "City Center"     },
-          { id: "arab_district",ar: "حي العرب",     en: "Arab District"   },
-          { id: "zohoor",       ar: "حي الزهور",    en: "Al Zohour"       },
-          { id: "sharq_ps",     ar: "حي الشرق",     en: "Al Sharq"        },
-          { id: "dawahy",       ar: "الضواحي",      en: "Al Dawahy"       },
-        ],
-      },
-    ],
-  },
-
-  // ─── السويس — Suez ───────────────────────────────────────────────────
-  {
-    id: "suez",
-    ar: "السويس",
-    en: "Suez",
-    areas: [
-      {
-        id: "suez_c",
-        ar: "السويس",
-        en: "Suez City",
-        neighborhoods: [
-          { id: "suez_center", ar: "وسط السويس",   en: "Suez Center"   },
-          { id: "arbaeen",     ar: "الأربعين",     en: "Al Arbaeen"    },
-          { id: "suez_ganoub", ar: "جنوب السويس",  en: "South Suez"    },
-          { id: "ain_sokhna",  ar: "العين السخنة", en: "Ain Sokhna"    },
-        ],
-      },
-    ],
-  },
-
-  // ─── الفيوم — Fayoum ─────────────────────────────────────────────────
-  {
-    id: "fayoum",
-    ar: "الفيوم",
-    en: "Fayoum",
-    areas: [
-      {
-        id: "fayoum_c",
-        ar: "الفيوم",
-        en: "Fayoum City",
-        neighborhoods: [
-          { id: "fayoum_center", ar: "وسط الفيوم", en: "Fayoum Center" },
-          { id: "sinnuris",      ar: "سنورس",      en: "Sinnuris"      },
-          { id: "ibshaway",      ar: "إبشواي",     en: "Ibshaway"      },
-        ],
-      },
-    ],
-  },
-
-  // ─── بني سويف — Beni Suef ────────────────────────────────────────────
-  {
-    id: "beni_suef",
-    ar: "بني سويف",
-    en: "Beni Suef",
-    areas: [
-      {
-        id: "beni_suef_c",
-        ar: "بني سويف",
-        en: "Beni Suef City",
-        neighborhoods: [
-          { id: "benisuef_c",   ar: "وسط بني سويف", en: "Beni Suef Center" },
-          { id: "el_fashn",     ar: "الفشن",        en: "Al Fashn"         },
-          { id: "beba",         ar: "ببا",           en: "Beba"             },
-        ],
-      },
-    ],
-  },
-
-  // ─── المنيا — Minya ──────────────────────────────────────────────────
-  {
-    id: "minya",
-    ar: "المنيا",
-    en: "Minya",
-    areas: [
-      {
-        id: "minya_c",
-        ar: "المنيا",
-        en: "Minya City",
-        neighborhoods: [
-          { id: "minya_center", ar: "وسط المنيا", en: "Minya Center" },
-          { id: "mallawi",      ar: "ملوي",       en: "Mallawi"      },
-          { id: "sammalout",    ar: "سمالوط",     en: "Sammalout"    },
-          { id: "maghagha",     ar: "مغاغة",      en: "Maghagha"     },
-        ],
-      },
-    ],
-  },
-
-  // ─── أسيوط — Assiut ──────────────────────────────────────────────────
-  {
-    id: "assiut",
-    ar: "أسيوط",
-    en: "Assiut",
-    areas: [
-      {
-        id: "assiut_c",
-        ar: "أسيوط",
-        en: "Assiut City",
-        neighborhoods: [
-          { id: "assiut_center", ar: "وسط أسيوط", en: "Assiut Center" },
-          { id: "dairout",       ar: "ديروط",     en: "Dairout"       },
-          { id: "manfalout",     ar: "منفلوط",    en: "Manfalout"     },
-          { id: "abnoub",        ar: "أبنوب",     en: "Abnoub"        },
-        ],
-      },
-    ],
-  },
-
-  // ─── سوهاج — Sohag ───────────────────────────────────────────────────
-  {
-    id: "sohag",
-    ar: "سوهاج",
-    en: "Sohag",
-    areas: [
-      {
-        id: "sohag_c",
-        ar: "سوهاج",
-        en: "Sohag City",
-        neighborhoods: [
-          { id: "sohag_center", ar: "وسط سوهاج", en: "Sohag Center"  },
-          { id: "akhmim",       ar: "أخميم",     en: "Akhmim"        },
-          { id: "girga",        ar: "جرجا",      en: "Girga"         },
-          { id: "tahta",        ar: "طهطا",      en: "Tahta"         },
-        ],
-      },
-    ],
-  },
-
-  // ─── قنا — Qena ──────────────────────────────────────────────────────
-  {
-    id: "qena",
-    ar: "قنا",
-    en: "Qena",
-    areas: [
-      {
-        id: "qena_c",
-        ar: "قنا",
-        en: "Qena City",
-        neighborhoods: [
-          { id: "qena_center",  ar: "وسط قنا",    en: "Qena Center"  },
-          { id: "nag_hammadi",  ar: "نجع حمادي",  en: "Nag Hammadi"  },
-          { id: "deshna",       ar: "دشنا",       en: "Deshna"       },
-        ],
-      },
-    ],
-  },
-
-  // ─── الأقصر — Luxor ──────────────────────────────────────────────────
-  {
-    id: "luxor",
-    ar: "الأقصر",
-    en: "Luxor",
-    areas: [
-      {
-        id: "luxor_c",
-        ar: "الأقصر",
-        en: "Luxor City",
-        neighborhoods: [
-          { id: "luxor_east",  ar: "الأقصر شرق", en: "Luxor East"  },
-          { id: "luxor_west",  ar: "الأقصر غرب", en: "Luxor West"  },
-          { id: "esna",        ar: "إسنا",       en: "Esna"        },
-          { id: "armant",      ar: "أرمنت",      en: "Armant"      },
-        ],
-      },
-    ],
-  },
-
-  // ─── أسوان — Aswan ───────────────────────────────────────────────────
-  {
-    id: "aswan",
-    ar: "أسوان",
-    en: "Aswan",
-    areas: [
-      {
-        id: "aswan_c",
-        ar: "أسوان",
-        en: "Aswan City",
-        neighborhoods: [
-          { id: "aswan_center", ar: "وسط أسوان",  en: "Aswan Center"  },
-          { id: "kom_ombo",     ar: "كوم أمبو",   en: "Kom Ombo"      },
-          { id: "edfu",         ar: "إدفو",       en: "Edfu"          },
-          { id: "abu_simbel",   ar: "أبو سمبل",   en: "Abu Simbel"    },
-        ],
-      },
-    ],
-  },
-
-  // ─── البحر الأحمر — Red Sea ──────────────────────────────────────────
   {
     id: "red_sea",
     ar: "البحر الأحمر",
     en: "Red Sea",
     areas: [
-      {
-        id: "hurghada",
-        ar: "الغردقة",
-        en: "Hurghada",
-        neighborhoods: [
-          { id: "hurghada_c",   ar: "الغردقة",        en: "Hurghada"       },
-          { id: "el_gouna",     ar: "الجونة",         en: "El Gouna"       },
-          { id: "safaga",       ar: "سفاجا",          en: "Safaga"         },
-          { id: "quseir",       ar: "القصير",         en: "Al Quseir"      },
-          { id: "marsa_alam",   ar: "مرسى علم",       en: "Marsa Alam"     },
-        ],
-      },
+      { id: "red_sea__hurghada", ar: "الغردقة", en: "Hurghada" },
+      { id: "red_sea__ras_ghareb", ar: "رأس غارب", en: "Ras Ghareb" },
+      { id: "red_sea__safaga", ar: "سفاجا", en: "Safaga" },
+      { id: "red_sea__el_qusiar", ar: "القصير", en: "El Qusiar" },
+      { id: "red_sea__marsa_alam", ar: "مرسى علم", en: "Marsa Alam" },
+      { id: "red_sea__shalatin", ar: "الشلاتين", en: "Shalatin" },
+      { id: "red_sea__halaib", ar: "حلايب", en: "Halaib" },
+      { id: "red_sea__aldahar", ar: "الدهار", en: "Aldahar" },
     ],
   },
-
-  // ─── شمال سيناء — North Sinai ────────────────────────────────────────
   {
-    id: "north_sinai",
-    ar: "شمال سيناء",
-    en: "North Sinai",
+    id: "beheira",
+    ar: "البحيرة",
+    en: "Beheira",
     areas: [
-      {
-        id: "arish",
-        ar: "العريش",
-        en: "Arish",
-        neighborhoods: [
-          { id: "arish_c",   ar: "وسط العريش",  en: "Arish Center"  },
-          { id: "sheikh_zuweid", ar: "الشيخ زويد", en: "Sheikh Zuweid"},
-          { id: "rafah",     ar: "رفح",         en: "Rafah"         },
-        ],
-      },
+      { id: "beheira__damanhour", ar: "دمنهور", en: "Damanhour" },
+      { id: "beheira__kafr_el_dawar", ar: "كفر الدوار", en: "Kafr El Dawar" },
+      { id: "beheira__rashid", ar: "رشيد", en: "Rashid" },
+      { id: "beheira__edco", ar: "إدكو", en: "Edco" },
+      { id: "beheira__abu_almatamir", ar: "أبو المطامير", en: "Abu al-Matamir" },
+      { id: "beheira__abu_homs", ar: "أبو حمص", en: "Abu Homs" },
+      { id: "beheira__delengat", ar: "الدلنجات", en: "Delengat" },
+      { id: "beheira__mahmoudiyah", ar: "المحمودية", en: "Mahmoudiyah" },
+      { id: "beheira__rahmaniyah", ar: "الرحمانية", en: "Rahmaniyah" },
+      { id: "beheira__itai_baroud", ar: "إيتاي البارود", en: "Itai Baroud" },
+      { id: "beheira__housh_eissa", ar: "حوش عيسى", en: "Housh Eissa" },
+      { id: "beheira__shubrakhit", ar: "شبراخيت", en: "Shubrakhit" },
+      { id: "beheira__kom_hamada", ar: "كوم حمادة", en: "Kom Hamada" },
+      { id: "beheira__badr", ar: "بدر", en: "Badr" },
+      { id: "beheira__wadi_natrun", ar: "وادي النطرون", en: "Wadi Natrun" },
+      { id: "beheira__new_nubaria", ar: "النوبارية الجديدة", en: "New Nubaria" },
+      { id: "beheira__alnoubareya", ar: "النوبارية", en: "Alnoubareya" },
     ],
   },
-
-  // ─── جنوب سيناء — South Sinai ────────────────────────────────────────
   {
-    id: "south_sinai",
-    ar: "جنوب سيناء",
-    en: "South Sinai",
+    id: "fayoum",
+    ar: "الفيوم",
+    en: "Fayoum",
     areas: [
-      {
-        id: "sharm",
-        ar: "شرم الشيخ",
-        en: "Sharm El Sheikh",
-        neighborhoods: [
-          { id: "naama_bay",   ar: "خليج نعمة",  en: "Naama Bay"     },
-          { id: "hadaba",      ar: "الحدبة",      en: "Al Hadaba"     },
-          { id: "soho_sq",     ar: "سوهو سكوير", en: "Soho Square"   },
-        ],
-      },
-      {
-        id: "dahab",
-        ar: "دهب",
-        en: "Dahab",
-        neighborhoods: [
-          { id: "dahab_c",  ar: "دهب",        en: "Dahab"         },
-          { id: "nuweiba",  ar: "نويبع",      en: "Nuweiba"       },
-          { id: "taba",     ar: "طابا",       en: "Taba"          },
-        ],
-      },
+      { id: "fayoum__fayoum", ar: "الفيوم", en: "Fayoum" },
+      { id: "fayoum__fayoum_el_gedida", ar: "الفيوم الجديدة", en: "Fayoum El Gedida" },
+      { id: "fayoum__tamiya", ar: "طامية", en: "Tamiya" },
+      { id: "fayoum__snores", ar: "سنورس", en: "Snores" },
+      { id: "fayoum__etsa", ar: "إطسا", en: "Etsa" },
+      { id: "fayoum__epschway", ar: "إبشواي", en: "Epschway" },
+      { id: "fayoum__yusuf_el_sediaq", ar: "يوسف الصديق", en: "Yusuf El Sediaq" },
+      { id: "fayoum__hadqa", ar: "الحادقة", en: "Hadqa" },
+      { id: "fayoum__atsa", ar: "اطسا", en: "Atsa" },
+      { id: "fayoum__algamaa", ar: "الجامعة", en: "Algamaa" },
+      { id: "fayoum__sayala", ar: "السيالة", en: "Sayala" },
     ],
   },
-
-  // ─── مطروح — Matrouh ─────────────────────────────────────────────────
   {
-    id: "matrouh",
-    ar: "مطروح",
-    en: "Matrouh",
+    id: "gharbiya",
+    ar: "الغربية",
+    en: "Gharbiya",
     areas: [
-      {
-        id: "marsa_matrouh",
-        ar: "مرسى مطروح",
-        en: "Marsa Matrouh",
-        neighborhoods: [
-          { id: "matrouh_c",  ar: "وسط مطروح",   en: "Matrouh Center" },
-          { id: "siwa",       ar: "سيوة",         en: "Siwa Oasis"     },
-          { id: "sallum",     ar: "السلوم",       en: "Sallum"         },
-        ],
-      },
+      { id: "gharbiya__tanta", ar: "طنطا", en: "Tanta" },
+      { id: "gharbiya__al_mahalla_al_kobra", ar: "المحلة الكبرى", en: "Al Mahalla Al Kobra" },
+      { id: "gharbiya__kafr_el_zayat", ar: "كفر الزيات", en: "Kafr El Zayat" },
+      { id: "gharbiya__zefta", ar: "زفتى", en: "Zefta" },
+      { id: "gharbiya__el_santa", ar: "السنطة", en: "El Santa" },
+      { id: "gharbiya__qutour", ar: "قطور", en: "Qutour" },
+      { id: "gharbiya__basion", ar: "بسيون", en: "Basion" },
+      { id: "gharbiya__samannoud", ar: "سمنود", en: "Samannoud" },
     ],
   },
-
-  // ─── الوادي الجديد — New Valley ──────────────────────────────────────
+  {
+    id: "ismailia",
+    ar: "الإسماعلية",
+    en: "Ismailia",
+    areas: [
+      { id: "ismailia__ismailia", ar: "الإسماعيلية", en: "Ismailia" },
+      { id: "ismailia__fayed", ar: "فايد", en: "Fayed" },
+      { id: "ismailia__qantara_sharq", ar: "القنطرة شرق", en: "Qantara Sharq" },
+      { id: "ismailia__qantara_gharb", ar: "القنطرة غرب", en: "Qantara Gharb" },
+      { id: "ismailia__el_tal_el_kabier", ar: "التل الكبير", en: "El Tal El Kabier" },
+      { id: "ismailia__abu_sawir", ar: "أبو صوير", en: "Abu Sawir" },
+      { id: "ismailia__kasasien_el_gedida", ar: "القصاصين الجديدة", en: "Kasasien El Gedida" },
+      { id: "ismailia__nefesha", ar: "نفيشة", en: "Nefesha" },
+      { id: "ismailia__sheikh_zayed", ar: "الشيخ زايد", en: "Sheikh Zayed" },
+    ],
+  },
+  {
+    id: "menofia",
+    ar: "المنوفية",
+    en: "Menofia",
+    areas: [
+      { id: "menofia__shbeen_el_koom", ar: "شبين الكوم", en: "Shbeen El Koom" },
+      { id: "menofia__sadat_city", ar: "مدينة السادات", en: "Sadat City" },
+      { id: "menofia__menouf", ar: "منوف", en: "Menouf" },
+      { id: "menofia__sars_ellayan", ar: "سرس الليان", en: "Sars El-Layan" },
+      { id: "menofia__ashmon", ar: "أشمون", en: "Ashmon" },
+      { id: "menofia__al_bagor", ar: "الباجور", en: "Al Bagor" },
+      { id: "menofia__quesna", ar: "قويسنا", en: "Quesna" },
+      { id: "menofia__berkat_el_saba", ar: "بركة السبع", en: "Berkat El Saba" },
+      { id: "menofia__tala", ar: "تلا", en: "Tala" },
+      { id: "menofia__al_shohada", ar: "الشهداء", en: "Al Shohada" },
+    ],
+  },
+  {
+    id: "minya",
+    ar: "المنيا",
+    en: "Minya",
+    areas: [
+      { id: "minya__minya", ar: "المنيا", en: "Minya" },
+      { id: "minya__minya_el_gedida", ar: "المنيا الجديدة", en: "Minya El Gedida" },
+      { id: "minya__el_adwa", ar: "العدوة", en: "El Adwa" },
+      { id: "minya__magagha", ar: "مغاغة", en: "Magagha" },
+      { id: "minya__bani_mazar", ar: "بني مزار", en: "Bani Mazar" },
+      { id: "minya__mattay", ar: "مطاي", en: "Mattay" },
+      { id: "minya__samalut", ar: "سمالوط", en: "Samalut" },
+      { id: "minya__madinat_el_fekria", ar: "المدينة الفكرية", en: "Madinat El Fekria" },
+      { id: "minya__meloy", ar: "ملوي", en: "Meloy" },
+      { id: "minya__deir_mawas", ar: "دير مواس", en: "Deir Mawas" },
+      { id: "minya__abu_qurqas", ar: "ابو قرقاص", en: "Abu Qurqas" },
+      { id: "minya__ard_sultan", ar: "ارض سلطان", en: "Ard Sultan" },
+    ],
+  },
+  {
+    id: "qaliubiya",
+    ar: "القليوبية",
+    en: "Qaliubiya",
+    areas: [
+      { id: "qaliubiya__banha", ar: "بنها", en: "Banha" },
+      { id: "qaliubiya__qalyub", ar: "قليوب", en: "Qalyub" },
+      { id: "qaliubiya__shubra_al_khaimah", ar: "شبرا الخيمة", en: "Shubra Al Khaimah" },
+      { id: "qaliubiya__al_qanater_charity", ar: "القناطر الخيرية", en: "Al Qanater Charity" },
+      { id: "qaliubiya__khanka", ar: "الخانكة", en: "Khanka" },
+      { id: "qaliubiya__kafr_shukr", ar: "كفر شكر", en: "Kafr Shukr" },
+      { id: "qaliubiya__tukh", ar: "طوخ", en: "Tukh" },
+      { id: "qaliubiya__qaha", ar: "قها", en: "Qaha" },
+      { id: "qaliubiya__obour", ar: "العبور", en: "Obour" },
+      { id: "qaliubiya__khosous", ar: "الخصوص", en: "Khosous" },
+      { id: "qaliubiya__shibin_al_qanater", ar: "شبين القناطر", en: "Shibin Al Qanater" },
+      { id: "qaliubiya__mostorod", ar: "مسطرد", en: "Mostorod" },
+    ],
+  },
   {
     id: "new_valley",
     ar: "الوادي الجديد",
     en: "New Valley",
     areas: [
-      {
-        id: "kharga",
-        ar: "الخارجة",
-        en: "Al Kharga",
-        neighborhoods: [
-          { id: "kharga_c",  ar: "مدينة الخارجة", en: "Kharga City"   },
-          { id: "dakhla",    ar: "الداخلة",       en: "Dakhla"        },
-          { id: "farafra",   ar: "الفرافرة",      en: "Farafra"       },
-        ],
-      },
+      { id: "new_valley__el_kharga", ar: "الخارجة", en: "El Kharga" },
+      { id: "new_valley__paris", ar: "باريس", en: "Paris" },
+      { id: "new_valley__mout", ar: "موط", en: "Mout" },
+      { id: "new_valley__farafra", ar: "الفرافرة", en: "Farafra" },
+      { id: "new_valley__balat", ar: "بلاط", en: "Balat" },
+      { id: "new_valley__dakhla", ar: "الداخلة", en: "Dakhla" },
     ],
   },
-
-  // ─── دمياط — Damietta ────────────────────────────────────────────────
+  {
+    id: "suez",
+    ar: "السويس",
+    en: "Suez",
+    areas: [
+      { id: "suez__suez", ar: "السويس", en: "Suez" },
+      { id: "suez__alganayen", ar: "الجناين", en: "Alganayen" },
+      { id: "suez__ataqah", ar: "عتاقة", en: "Ataqah" },
+      { id: "suez__ain_sokhna", ar: "العين السخنة", en: "Ain Sokhna" },
+      { id: "suez__faysal", ar: "فيصل", en: "Faysal" },
+    ],
+  },
+  {
+    id: "aswan",
+    ar: "اسوان",
+    en: "Aswan",
+    areas: [
+      { id: "aswan__aswan", ar: "أسوان", en: "Aswan" },
+      { id: "aswan__aswan_el_gedida", ar: "أسوان الجديدة", en: "Aswan El Gedida" },
+      { id: "aswan__drau", ar: "دراو", en: "Drau" },
+      { id: "aswan__kom_ombo", ar: "كوم أمبو", en: "Kom Ombo" },
+      { id: "aswan__nasr_al_nuba", ar: "نصر النوبة", en: "Nasr Al Nuba" },
+      { id: "aswan__kalabsha", ar: "كلابشة", en: "Kalabsha" },
+      { id: "aswan__edfu", ar: "إدفو", en: "Edfu" },
+      { id: "aswan__alradisiyah", ar: "الرديسية", en: "Al-Radisiyah" },
+      { id: "aswan__al_basilia", ar: "البصيلية", en: "Al Basilia" },
+      { id: "aswan__al_sibaeia", ar: "السباعية", en: "Al Sibaeia" },
+      { id: "aswan__abo_simbl_al_siyahia", ar: "ابوسمبل السياحية", en: "Abo Simbl Al Siyahia" },
+      { id: "aswan__marsa_alam", ar: "مرسى علم", en: "Marsa Alam" },
+    ],
+  },
+  {
+    id: "assiut",
+    ar: "اسيوط",
+    en: "Assiut",
+    areas: [
+      { id: "assiut__assiut", ar: "أسيوط", en: "Assiut" },
+      { id: "assiut__assiut_el_gedida", ar: "أسيوط الجديدة", en: "Assiut El Gedida" },
+      { id: "assiut__dayrout", ar: "ديروط", en: "Dayrout" },
+      { id: "assiut__manfalut", ar: "منفلوط", en: "Manfalut" },
+      { id: "assiut__qusiya", ar: "القوصية", en: "Qusiya" },
+      { id: "assiut__abnoub", ar: "أبنوب", en: "Abnoub" },
+      { id: "assiut__abu_tig", ar: "أبو تيج", en: "Abu Tig" },
+      { id: "assiut__el_ghanaim", ar: "الغنايم", en: "El Ghanaim" },
+      { id: "assiut__sahel_selim", ar: "ساحل سليم", en: "Sahel Selim" },
+      { id: "assiut__el_badari", ar: "البداري", en: "El Badari" },
+      { id: "assiut__sidfa", ar: "صدفا", en: "Sidfa" },
+    ],
+  },
+  {
+    id: "beni_suef",
+    ar: "بني سويف",
+    en: "Beni Suef",
+    areas: [
+      { id: "beni_suef__bani_sweif", ar: "بني سويف", en: "Bani Sweif" },
+      { id: "beni_suef__beni_suef_el_gedida", ar: "بني سويف الجديدة", en: "Beni Suef El Gedida" },
+      { id: "beni_suef__al_wasta", ar: "الواسطى", en: "Al Wasta" },
+      { id: "beni_suef__naser", ar: "ناصر", en: "Naser" },
+      { id: "beni_suef__ehnasia", ar: "إهناسيا", en: "Ehnasia" },
+      { id: "beni_suef__beba", ar: "ببا", en: "beba" },
+      { id: "beni_suef__fashn", ar: "الفشن", en: "Fashn" },
+      { id: "beni_suef__somasta", ar: "سمسطا", en: "Somasta" },
+      { id: "beni_suef__alabbaseri", ar: "الاباصيرى", en: "Alabbaseri" },
+      { id: "beni_suef__mokbel", ar: "مقبل", en: "Mokbel" },
+    ],
+  },
+  {
+    id: "port_said",
+    ar: "بورسعيد",
+    en: "Port Said",
+    areas: [
+      { id: "port_said__porsaid", ar: "بورسعيد", en: "PorSaid" },
+      { id: "port_said__port_fouad", ar: "بورفؤاد", en: "Port Fouad" },
+      { id: "port_said__alarab", ar: "العرب", en: "Alarab" },
+      { id: "port_said__zohour", ar: "حى الزهور", en: "Zohour" },
+      { id: "port_said__alsharq", ar: "حى الشرق", en: "Alsharq" },
+      { id: "port_said__aldawahi", ar: "حى الضواحى", en: "Aldawahi" },
+      { id: "port_said__almanakh", ar: "حى المناخ", en: "Almanakh" },
+      { id: "port_said__mubarak", ar: "حى مبارك", en: "Mubarak" },
+    ],
+  },
   {
     id: "damietta",
     ar: "دمياط",
     en: "Damietta",
     areas: [
-      {
-        id: "damietta_c",
-        ar: "دمياط",
-        en: "Damietta City",
-        neighborhoods: [
-          { id: "damietta_center", ar: "وسط دمياط",  en: "Damietta Center" },
-          { id: "new_damietta",    ar: "دمياط الجديدة",en: "New Damietta"   },
-          { id: "faraskur",        ar: "فارسكور",     en: "Faraskur"        },
-          { id: "ras_el_bar",      ar: "رأس البر",    en: "Ras El Bar"      },
-        ],
-      },
+      { id: "damietta__damietta", ar: "دمياط", en: "Damietta" },
+      { id: "damietta__new_damietta", ar: "دمياط الجديدة", en: "New Damietta" },
+      { id: "damietta__ras_el_bar", ar: "رأس البر", en: "Ras El Bar" },
+      { id: "damietta__faraskour", ar: "فارسكور", en: "Faraskour" },
+      { id: "damietta__zarqa", ar: "الزرقا", en: "Zarqa" },
+      { id: "damietta__alsaru", ar: "السرو", en: "alsaru" },
+      { id: "damietta__alruwda", ar: "الروضة", en: "alruwda" },
+      { id: "damietta__kafr_elbatikh", ar: "كفر البطيخ", en: "Kafr El-Batikh" },
+      { id: "damietta__azbet_al_burg", ar: "عزبة البرج", en: "Azbet Al Burg" },
+      { id: "damietta__meet_abou_ghalib", ar: "ميت أبو غالب", en: "Meet Abou Ghalib" },
+      { id: "damietta__kafr_saad", ar: "كفر سعد", en: "Kafr Saad" },
     ],
   },
-
-  // ─── كفر الشيخ — already included above ─────────────────────────────
-
-  // ─── الغربية — already included above ────────────────────────────────
+  {
+    id: "sharkia",
+    ar: "الشرقية",
+    en: "Sharkia",
+    areas: [
+      { id: "sharkia__zagazig", ar: "الزقازيق", en: "Zagazig" },
+      { id: "sharkia__al_ashr_men_ramadan", ar: "العاشر من رمضان", en: "Al Ashr Men Ramadan" },
+      { id: "sharkia__minya_al_qamh", ar: "منيا القمح", en: "Minya Al Qamh" },
+      { id: "sharkia__belbeis", ar: "بلبيس", en: "Belbeis" },
+      { id: "sharkia__mashtoul_el_souq", ar: "مشتول السوق", en: "Mashtoul El Souq" },
+      { id: "sharkia__qenaiat", ar: "القنايات", en: "Qenaiat" },
+      { id: "sharkia__abu_hammad", ar: "أبو حماد", en: "Abu Hammad" },
+      { id: "sharkia__el_qurain", ar: "القرين", en: "El Qurain" },
+      { id: "sharkia__hehia", ar: "ههيا", en: "Hehia" },
+      { id: "sharkia__abu_kabir", ar: "أبو كبير", en: "Abu Kabir" },
+      { id: "sharkia__faccus", ar: "فاقوس", en: "Faccus" },
+      { id: "sharkia__el_salihia_el_gedida", ar: "الصالحية الجديدة", en: "El Salihia El Gedida" },
+      { id: "sharkia__al_ibrahimiyah", ar: "الإبراهيمية", en: "Al Ibrahimiyah" },
+      { id: "sharkia__deirb_negm", ar: "ديرب نجم", en: "Deirb Negm" },
+      { id: "sharkia__kafr_saqr", ar: "كفر صقر", en: "Kafr Saqr" },
+      { id: "sharkia__awlad_saqr", ar: "أولاد صقر", en: "Awlad Saqr" },
+      { id: "sharkia__husseiniya", ar: "الحسينية", en: "Husseiniya" },
+      { id: "sharkia__san_alhajar_alqablia", ar: "صان الحجر القبلية", en: "san alhajar alqablia" },
+      { id: "sharkia__manshayat_abu_omar", ar: "منشأة أبو عمر", en: "Manshayat Abu Omar" },
+    ],
+  },
+  {
+    id: "south_sinai",
+    ar: "جنوب سيناء",
+    en: "South Sinai",
+    areas: [
+      { id: "south_sinai__al_toor", ar: "الطور", en: "Al Toor" },
+      { id: "south_sinai__sharm_elshaikh", ar: "شرم الشيخ", en: "Sharm El-Shaikh" },
+      { id: "south_sinai__dahab", ar: "دهب", en: "Dahab" },
+      { id: "south_sinai__nuweiba", ar: "نويبع", en: "Nuweiba" },
+      { id: "south_sinai__taba", ar: "طابا", en: "Taba" },
+      { id: "south_sinai__saint_catherine", ar: "سانت كاترين", en: "Saint Catherine" },
+      { id: "south_sinai__abu_redis", ar: "أبو رديس", en: "Abu Redis" },
+      { id: "south_sinai__abu_zenaima", ar: "أبو زنيمة", en: "Abu Zenaima" },
+      { id: "south_sinai__ras_sidr", ar: "رأس سدر", en: "Ras Sidr" },
+    ],
+  },
+  {
+    id: "kafr_al_sheikh",
+    ar: "كفر الشيخ",
+    en: "Kafr Al sheikh",
+    areas: [
+      { id: "kafr_al_sheikh__kafr_el_sheikh", ar: "كفر الشيخ", en: "Kafr El Sheikh" },
+      { id: "kafr_al_sheikh__kafr_el_sheikh_downtown", ar: "وسط البلد كفر الشيخ", en: "Kafr El Sheikh Downtown" },
+      { id: "kafr_al_sheikh__desouq", ar: "دسوق", en: "Desouq" },
+      { id: "kafr_al_sheikh__fooh", ar: "فوه", en: "Fooh" },
+      { id: "kafr_al_sheikh__metobas", ar: "مطوبس", en: "Metobas" },
+      { id: "kafr_al_sheikh__burg_al_burullus", ar: "برج البرلس", en: "Burg Al Burullus" },
+      { id: "kafr_al_sheikh__baltim", ar: "بلطيم", en: "Baltim" },
+      { id: "kafr_al_sheikh__masief_baltim", ar: "مصيف بلطيم", en: "Masief Baltim" },
+      { id: "kafr_al_sheikh__hamol", ar: "الحامول", en: "Hamol" },
+      { id: "kafr_al_sheikh__bella", ar: "بيلا", en: "Bella" },
+      { id: "kafr_al_sheikh__riyadh", ar: "الرياض", en: "Riyadh" },
+      { id: "kafr_al_sheikh__sidi_salm", ar: "سيدي سالم", en: "Sidi Salm" },
+      { id: "kafr_al_sheikh__qellen", ar: "قلين", en: "Qellen" },
+      { id: "kafr_al_sheikh__sidi_ghazi", ar: "سيدي غازي", en: "Sidi Ghazi" },
+    ],
+  },
+  {
+    id: "matrouh",
+    ar: "مطروح",
+    en: "Matrouh",
+    areas: [
+      { id: "matrouh__marsa_matrouh", ar: "مرسى مطروح", en: "Marsa Matrouh" },
+      { id: "matrouh__el_hamam", ar: "الحمام", en: "El Hamam" },
+      { id: "matrouh__alamein", ar: "العلمين", en: "Alamein" },
+      { id: "matrouh__dabaa", ar: "الضبعة", en: "Dabaa" },
+      { id: "matrouh__alnagila", ar: "النجيلة", en: "Al-Nagila" },
+      { id: "matrouh__sidi_brani", ar: "سيدي براني", en: "Sidi Brani" },
+      { id: "matrouh__salloum", ar: "السلوم", en: "Salloum" },
+      { id: "matrouh__siwa", ar: "سيوة", en: "Siwa" },
+      { id: "matrouh__marina", ar: "مارينا", en: "Marina" },
+      { id: "matrouh__north_coast", ar: "الساحل الشمالى", en: "North Coast" },
+    ],
+  },
+  {
+    id: "luxor",
+    ar: "الأقصر",
+    en: "Luxor",
+    areas: [
+      { id: "luxor__luxor", ar: "الأقصر", en: "Luxor" },
+      { id: "luxor__new_luxor", ar: "الأقصر الجديدة", en: "New Luxor" },
+      { id: "luxor__esna", ar: "إسنا", en: "Esna" },
+      { id: "luxor__new_tiba", ar: "طيبة الجديدة", en: "New Tiba" },
+      { id: "luxor__al_ziynia", ar: "الزينية", en: "Al ziynia" },
+      { id: "luxor__al_bayadieh", ar: "البياضية", en: "Al Bayadieh" },
+      { id: "luxor__al_qarna", ar: "القرنة", en: "Al Qarna" },
+      { id: "luxor__armant", ar: "أرمنت", en: "Armant" },
+      { id: "luxor__al_tud", ar: "الطود", en: "Al Tud" },
+    ],
+  },
+  {
+    id: "qena",
+    ar: "قنا",
+    en: "Qena",
+    areas: [
+      { id: "qena__qena", ar: "قنا", en: "Qena" },
+      { id: "qena__new_qena", ar: "قنا الجديدة", en: "New Qena" },
+      { id: "qena__abu_tesht", ar: "ابو طشت", en: "Abu Tesht" },
+      { id: "qena__nag_hammadi", ar: "نجع حمادي", en: "Nag Hammadi" },
+      { id: "qena__deshna", ar: "دشنا", en: "Deshna" },
+      { id: "qena__alwaqf", ar: "الوقف", en: "Alwaqf" },
+      { id: "qena__qaft", ar: "قفط", en: "Qaft" },
+      { id: "qena__naqada", ar: "نقادة", en: "Naqada" },
+      { id: "qena__farshout", ar: "فرشوط", en: "Farshout" },
+      { id: "qena__quos", ar: "قوص", en: "Quos" },
+    ],
+  },
+  {
+    id: "north_sinai",
+    ar: "شمال سيناء",
+    en: "North Sinai",
+    areas: [
+      { id: "north_sinai__arish", ar: "العريش", en: "Arish" },
+      { id: "north_sinai__sheikh_zowaid", ar: "الشيخ زويد", en: "Sheikh Zowaid" },
+      { id: "north_sinai__nakhl", ar: "نخل", en: "Nakhl" },
+      { id: "north_sinai__rafah", ar: "رفح", en: "Rafah" },
+      { id: "north_sinai__bir_alabed", ar: "بئر العبد", en: "Bir al-Abed" },
+      { id: "north_sinai__al_hasana", ar: "الحسنة", en: "Al Hasana" },
+    ],
+  },
+  {
+    id: "sohag",
+    ar: "سوهاج",
+    en: "Sohag",
+    areas: [
+      { id: "sohag__sohag", ar: "سوهاج", en: "Sohag" },
+      { id: "sohag__sohag_el_gedida", ar: "سوهاج الجديدة", en: "Sohag El Gedida" },
+      { id: "sohag__akhmeem", ar: "أخميم", en: "Akhmeem" },
+      { id: "sohag__akhmim_el_gedida", ar: "أخميم الجديدة", en: "Akhmim El Gedida" },
+      { id: "sohag__albalina", ar: "البلينا", en: "Albalina" },
+      { id: "sohag__el_maragha", ar: "المراغة", en: "El Maragha" },
+      { id: "sohag__almunshaa", ar: "المنشأة", en: "almunsha'a" },
+      { id: "sohag__dar_aisalaam", ar: "دار السلام", en: "Dar AISalaam" },
+      { id: "sohag__gerga", ar: "جرجا", en: "Gerga" },
+      { id: "sohag__jahina_al_gharbia", ar: "جهينة الغربية", en: "Jahina Al Gharbia" },
+      { id: "sohag__saqilatuh", ar: "ساقلته", en: "Saqilatuh" },
+      { id: "sohag__tama", ar: "طما", en: "Tama" },
+      { id: "sohag__tahta", ar: "طهطا", en: "Tahta" },
+      { id: "sohag__alkawthar", ar: "الكوثر", en: "Alkawthar" },
+    ],
+  },
 ];
-
-/** Returns governorate by id */
-export function getGovernorate(govId: string): Governorate | undefined {
-  return EGYPT_LOCATIONS.find((g) => g.id === govId);
-}
-
-/** Returns areas for a governorate */
-export function getAreas(govId: string): Area[] {
-  return getGovernorate(govId)?.areas ?? [];
-}
-
-/** Returns neighborhoods for an area */
-export function getNeighborhoods(govId: string, areaId: string): Neighborhood[] {
-  return getAreas(govId).find((a) => a.id === areaId)?.neighborhoods ?? [];
-}
-
-/** Default to Alexandria */
-export const DEFAULT_GOVERNORATE = "alexandria";
-export const DEFAULT_AREA = "alex_east";
-
-/** Map center coordinates for each governorate (lat, lng) */
-export const GOV_COORDINATES: Record<string, { lat: number; lng: number; zoom: number }> = {
-  alexandria: { lat: 31.2001,  lng: 29.9187, zoom: 12 },
-  cairo:      { lat: 30.0444,  lng: 31.2357, zoom: 11 },
-  giza:       { lat: 30.0131,  lng: 31.2089, zoom: 11 },
-  beheira:    { lat: 30.8480,  lng: 30.3375, zoom: 10 },
-  gharbia:    { lat: 30.7865,  lng: 31.0000, zoom: 10 },
-  monufia:    { lat: 30.5977,  lng: 30.9876, zoom: 10 },
-  dakahlia:   { lat: 31.0400,  lng: 31.3800, zoom: 10 },
-  sharqia:    { lat: 30.5877,  lng: 31.5021, zoom: 10 },
-  qalyubia:   { lat: 30.3317,  lng: 31.2156, zoom: 10 },
-  kafr_el_sheikh: { lat: 31.1107, lng: 30.9388, zoom: 10 },
-  ismailia:   { lat: 30.5965,  lng: 32.2715, zoom: 10 },
-  port_said:  { lat: 31.2653,  lng: 32.3019, zoom: 11 },
-  suez:       { lat: 29.9668,  lng: 32.5498, zoom: 11 },
-  damietta:   { lat: 31.4165,  lng: 31.8133, zoom: 11 },
-  fayoum:     { lat: 29.3084,  lng: 30.8428, zoom: 10 },
-  beni_suef:  { lat: 29.0744,  lng: 31.0994, zoom: 10 },
-  minya:      { lat: 28.0871,  lng: 30.7618, zoom: 9  },
-  assiut:     { lat: 27.1783,  lng: 31.1859, zoom: 10 },
-  sohag:      { lat: 26.5590,  lng: 31.6948, zoom: 9  },
-  qena:       { lat: 26.1551,  lng: 32.7160, zoom: 9  },
-  luxor:      { lat: 25.6872,  lng: 32.6396, zoom: 10 },
-  aswan:      { lat: 24.0889,  lng: 32.8998, zoom: 10 },
-  red_sea:    { lat: 27.2579,  lng: 33.8116, zoom: 8  },
-  north_sinai:{ lat: 30.8650,  lng: 33.6243, zoom: 9  },
-  south_sinai:{ lat: 27.9158,  lng: 34.3300, zoom: 9  },
-  matrouh:    { lat: 31.3525,  lng: 27.2453, zoom: 8  },
-  new_valley: { lat: 25.4464,  lng: 30.5584, zoom: 7  },
-};

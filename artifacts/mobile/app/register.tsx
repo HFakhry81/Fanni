@@ -73,7 +73,6 @@ export default function RegisterScreen() {
   // ── Location (shared) ──────────────────────────────────────────────────────
   const [governorateId, setGovernorateId] = useState(DEFAULT_GOVERNORATE);
   const [areaId, setAreaId] = useState("");
-  const [neighborhoodId, setNeighborhoodId] = useState("");
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");
   const [floor, setFloor] = useState("");
@@ -654,10 +653,8 @@ export default function RegisterScreen() {
       <LocationPicker
         governorateId={governorateId}
         areaId={areaId}
-        neighborhoodId={neighborhoodId}
         onGovernorateChange={setGovernorateId}
         onAreaChange={(id) => { setAreaId(id); if (id) setErrors((e) => ({ ...e, area: undefined })); }}
-        onNeighborhoodChange={setNeighborhoodId}
         street={street}
         onStreetChange={setStreet}
         building={building}
@@ -756,10 +753,8 @@ export default function RegisterScreen() {
       <LocationPicker
         governorateId={governorateId}
         areaId={areaId}
-        neighborhoodId={neighborhoodId}
         onGovernorateChange={setGovernorateId}
         onAreaChange={(id) => { setAreaId(id); if (id) setErrors((e) => ({ ...e, area: undefined })); }}
-        onNeighborhoodChange={setNeighborhoodId}
         street={street}
         onStreetChange={setStreet}
         building={building}

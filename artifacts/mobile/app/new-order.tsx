@@ -62,10 +62,8 @@ export default function NewOrderScreen() {
   // ── Step 2 – Location ───────────────────────────────────────────────────────
   const [governorateId, setGovernorateId] = useState("");
   const [areaId, setAreaId] = useState("");
-  const [neighborhoodId, setNeighborhoodId] = useState("");
   const [govOpt, setGovOpt] = useState<LocationOption | null>(null);
   const [areaOpt, setAreaOpt] = useState<LocationOption | null>(null);
-  const [nbhOpt, setNbhOpt] = useState<LocationOption | null>(null);
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");
   const [floor, setFloor] = useState("");
@@ -108,10 +106,8 @@ export default function NewOrderScreen() {
       if (draft.deviceType)     setDeviceType(draft.deviceType as string);
       if (draft.governorateId)  setGovernorateId(draft.governorateId as string);
       if (draft.areaId)         setAreaId(draft.areaId as string);
-      if (draft.neighborhoodId) setNeighborhoodId(draft.neighborhoodId as string);
       if (draft.govOpt)         setGovOpt(draft.govOpt as LocationOption);
       if (draft.areaOpt)        setAreaOpt(draft.areaOpt as LocationOption);
-      if (draft.nbhOpt)         setNbhOpt(draft.nbhOpt as LocationOption);
       if (draft.street)         setStreet(draft.street as string);
       if (draft.building)       setBuilding(draft.building as string);
       if (draft.floor)          setFloor(draft.floor as string);
@@ -131,8 +127,8 @@ export default function NewOrderScreen() {
     const draft = {
       category, subCategory,
       problemDesc, deviceType,
-      governorateId, areaId, neighborhoodId,
-      govOpt, areaOpt, nbhOpt,
+      governorateId, areaId,
+      govOpt, areaOpt,
       street, building, floor, apartment, landmark,
       latitude, longitude,
       visitDate, visitTime,
@@ -156,7 +152,6 @@ export default function NewOrderScreen() {
     const fullAddress = [
       govOpt  ? (isRTL ? govOpt.ar  : govOpt.en)  : "",
       areaOpt ? (isRTL ? areaOpt.ar : areaOpt.en) : "",
-      nbhOpt  ? (isRTL ? nbhOpt.ar  : nbhOpt.en)  : "",
       street,
     ].filter(Boolean).join(isRTL ? "، " : ", ");
 
@@ -267,13 +262,10 @@ export default function NewOrderScreen() {
       <LocationPicker
         governorateId={governorateId}
         areaId={areaId}
-        neighborhoodId={neighborhoodId}
-        onGovernorateChange={(id) => { setGovernorateId(id); if (!id) { setGovOpt(null); setAreaOpt(null); setNbhOpt(null); } }}
-        onAreaChange={(id) => { setAreaId(id); if (!id) { setAreaOpt(null); setNbhOpt(null); } }}
-        onNeighborhoodChange={(id) => { setNeighborhoodId(id); if (!id) setNbhOpt(null); }}
-        onGovernorateSelect={(opt) => { setGovOpt(opt); setAreaOpt(null); setNbhOpt(null); }}
-        onAreaSelect={(opt) => { setAreaOpt(opt); setNbhOpt(null); }}
-        onNeighborhoodSelect={(opt) => setNbhOpt(opt)}
+        onGovernorateChange={(id) => { setGovernorateId(id); if (!id) { setGovOpt(null); setAreaOpt(null); } }}
+        onAreaChange={(id) => { setAreaId(id); if (!id) setAreaOpt(null); }}
+        onGovernorateSelect={(opt) => { setGovOpt(opt); setAreaOpt(null); }}
+        onAreaSelect={(opt) => setAreaOpt(opt)}
         street={street}
         onStreetChange={setStreet}
         building={building}
@@ -327,7 +319,6 @@ export default function NewOrderScreen() {
       { label: t("order.deviceType"),                  value: deviceType || "—" },
       { label: isRTL ? "المحافظة" : "Governorate",    value: govOpt  ? (isRTL ? govOpt.ar  : govOpt.en)  : "—" },
       { label: isRTL ? "المنطقة" : "Area",            value: areaOpt ? (isRTL ? areaOpt.ar : areaOpt.en) : "—" },
-      { label: isRTL ? "الحي" : "Neighborhood",       value: nbhOpt  ? (isRTL ? nbhOpt.ar  : nbhOpt.en)  : "—" },
       { label: isRTL ? "الشارع" : "Street",           value: street || "—" },
       { label: t("order.visitDate"),                   value: visitDate || "—" },
       { label: t("order.visitTime"),                   value: visitTime || "—" },

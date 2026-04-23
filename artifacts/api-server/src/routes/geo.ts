@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, gt, sql } from "drizzle-orm";
-import { db, nominatimCacheTable } from "@workspace/db";
+import { db, nominatimCacheTable, locationsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -122,6 +122,83 @@ router.get("/geo/search", async (req, res) => {
     res.json({ results: data, cached: fromCache });
   } catch (err) {
     console.error("[geo/search] error:", err);
+    res.status(502).json({ error: "Geocoding service unavailable" });
+  }
+});
+
+// ─── GET /geo/streets?q=...&city_id=...&lang=ar ───────────────────────────────
+// Looks up the city by ID, calls Nominatim /search scoped to that city,
+// caches results 7 days, returns up to 8 { label, lat, lon } results.
+
+router.get("/geo/streets", async (req, res) => {
+  const q = (req.query.q as string | undefined)?.trim();
+  const cityId = (req.query.city_id as string | undefined)?.trim();
+  const rawLang = (req.query.lang as string | undefined)?.trim() ?? "ar";
+  const lang = rawLang === "en" ? "en" : "ar";
+
+  if (!q || q.length < 3) {
+    res.status(400).json({ error: "Query too short (min 3 chars)" });
+    return;
+  }
+
+  try {
+    let cityName = cityId ?? "";
+
+    if (cityId) {
+      const [loc] = await db
+        .select({ nameEn: locationsTable.nameEn, nameAr: locationsTable.nameAr })
+        .from(locationsTable)
+        .where(eq(locationsTable.id, cityId))
+        .limit(1);
+
+      if (loc) {
+        cityName = lang === "ar" ? loc.nameAr : loc.nameEn;
+      }
+    }
+
+    const searchQ = cityName ? `${q}, ${cityName}, Egypt` : `${q}, Egypt`;
+    const cacheKey = `streets:${lang}:${cityId ?? "all"}:${q.toLowerCase()}`;
+
+    const url =
+      `${NOMINATIM_BASE}/search` +
+      `?q=${encodeURIComponent(searchQ)}` +
+      `&countrycodes=eg` +
+      `&format=json` +
+      `&addressdetails=1` +
+      `&accept-language=${lang}` +
+      `&limit=8`;
+
+    const STREETS_CACHE_DAYS = 7;
+    const cached = await getCached(cacheKey);
+    if (cached) {
+      const arr = Array.isArray(cached) ? cached : [];
+      const results = arr.slice(0, 8).map((r: Record<string, unknown>) => ({
+        label: r.display_name,
+        lat: parseFloat(r.lat as string),
+        lon: parseFloat(r.lon as string),
+      }));
+      res.json({ results, cached: true });
+      return;
+    }
+
+    const data = await nominatimFetch(url) as Array<Record<string, unknown>>;
+    const expiresAt = new Date(Date.now() + STREETS_CACHE_DAYS * 24 * 60 * 60 * 1000);
+    await db
+      .insert(nominatimCacheTable)
+      .values({ cacheKey, lang, responseJson: data as Record<string, unknown>[], expiresAt })
+      .onConflictDoUpdate({
+        target: nominatimCacheTable.cacheKey,
+        set: { responseJson: data as Record<string, unknown>[], cachedAt: sql`now()`, expiresAt },
+      });
+
+    const results = (Array.isArray(data) ? data : []).slice(0, 8).map((r) => ({
+      label: r.display_name,
+      lat: parseFloat(r.lat as string),
+      lon: parseFloat(r.lon as string),
+    }));
+    res.json({ results, cached: false });
+  } catch (err) {
+    console.error("[geo/streets] error:", err);
     res.status(502).json({ error: "Geocoding service unavailable" });
   }
 });

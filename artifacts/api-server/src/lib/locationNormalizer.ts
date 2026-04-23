@@ -34,7 +34,8 @@ async function ensureFresh(): Promise<LocationRow[]> {
 
 function stripNoise(s: string): string {
   return s
-    .replace(/\s+(district|governorate|area|region|quarter|neighborhood|hay|حي|منطقة|محافظة)\s*$/i, "")
+    .replace(/\s+(district|governorate|area|region|quarter|neighborhood|hay|حي|منطقة|محافظة|مدينة|مركز)\s*$/i, "")
+    .replace(/^(مدينة|حي|مركز)\s+/u, "")
     .replace(/^(al-|el-|al |el )/i, "")
     .trim();
 }

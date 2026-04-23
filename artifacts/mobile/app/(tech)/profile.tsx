@@ -793,10 +793,8 @@ export default function TechProfileScreen() {
                 <LocationPicker
                   governorateId={editGov}
                   areaId={editArea}
-                  neighborhoodId={editDistrict}
                   onGovernorateChange={setEditGov}
                   onAreaChange={setEditArea}
-                  onNeighborhoodChange={setEditDistrict}
                   street={editStreet}
                   onStreetChange={setEditStreet}
                   showDetails={false}

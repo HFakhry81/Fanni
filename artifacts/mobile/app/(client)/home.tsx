@@ -122,13 +122,10 @@ export default function ClientHomeScreen() {
   const areaLabel = govLabel && user?.area
     ? govLabel.areas.find((a) => a.id === user.area)
     : null;
-  const neighborhoodLabel = areaLabel && user?.district
-    ? areaLabel.neighborhoods.find((n) => n.id === user.district)
-    : null;
   const locationText = govLabel
     ? isRTL
-      ? `${govLabel.ar}${neighborhoodLabel ? ` — ${neighborhoodLabel.ar}` : areaLabel ? ` — ${areaLabel.ar}` : ""}`
-      : `${govLabel.en}${neighborhoodLabel ? ` — ${neighborhoodLabel.en}` : areaLabel ? ` — ${areaLabel.en}` : ""}`
+      ? `${govLabel.ar}${areaLabel ? ` — ${areaLabel.ar}` : ""}`
+      : `${govLabel.en}${areaLabel ? ` — ${areaLabel.en}` : ""}`
     : isRTL ? "الإسكندرية — مصر" : "Alexandria — Egypt";
 
   return (

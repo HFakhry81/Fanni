@@ -53,32 +53,4 @@ router.get("/locations/:govId/areas", async (req, res) => {
   }
 });
 
-router.get("/locations/:areaId/neighborhoods", async (req, res) => {
-  const { areaId } = req.params;
-
-  try {
-    const rows = await db
-      .select({
-        id: locationsTable.id,
-        nameAr: locationsTable.nameAr,
-        nameEn: locationsTable.nameEn,
-        slug: locationsTable.slug,
-        parentId: locationsTable.parentId,
-      })
-      .from(locationsTable)
-      .where(
-        and(
-          eq(locationsTable.type, "neighborhood"),
-          eq(locationsTable.parentId, areaId),
-        ),
-      )
-      .orderBy(locationsTable.nameEn);
-
-    res.json({ neighborhoods: rows });
-  } catch (err) {
-    logger.error({ err, areaId }, "Failed to fetch neighborhoods for area");
-    res.status(500).json({ error: "Failed to fetch neighborhoods" });
-  }
-});
-
 export default router;
