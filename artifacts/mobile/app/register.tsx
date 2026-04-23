@@ -643,6 +643,7 @@ export default function RegisterScreen() {
             title={step < totalSteps ? t("common.next") : t("common.save")}
             onPress={handleNext}
             loading={loading}
+            disabled={step === 1 && !getPasswordStrength(password, isRTL).isStrong}
             style={{ flex: 1 }}
           />
         </View>
