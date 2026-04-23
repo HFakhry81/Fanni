@@ -231,6 +231,7 @@ export default function OrderTrackingScreen() {
   const [techLng, setTechLng] = useState(techStartLng);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const progressRef = useRef(0);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (!order) return;
@@ -246,6 +247,7 @@ export default function OrderTrackingScreen() {
     const interval = setInterval(() => {
       progressRef.current = Math.min(progressRef.current + 0.005, 0.95);
       const p = progressRef.current;
+      setProgress(p);
 
       if (routeData && routeData.coords.length > 1) {
         const pos = interpolateAlongRoute(routeData.coords, p);
@@ -274,9 +276,9 @@ export default function OrderTrackingScreen() {
   let eta: number;
   let remainingKm: number;
   if (routeData) {
-    const remaining = routeData.durationSec * (1 - progressRef.current);
+    const remaining = routeData.durationSec * (1 - progress);
     eta = Math.max(1, Math.round(remaining / 60));
-    remainingKm = Math.max(0, (routeData.distanceM * (1 - progressRef.current)) / 1000);
+    remainingKm = Math.max(0, (routeData.distanceM * (1 - progress)) / 1000);
   } else {
     eta = computeEtaFallback(techLat, techLng, clientLat, clientLng);
     remainingKm = haversineKm(techLat, techLng, clientLat, clientLng);
@@ -287,7 +289,7 @@ export default function OrderTrackingScreen() {
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const routeCoords = routeData
-    ? getRemainingRoute(routeData.coords, progressRef.current, techLat, techLng)
+    ? getRemainingRoute(routeData.coords, progress, techLat, techLng)
     : [];
   const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng, routeCoords };
 
