@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -12,9 +12,22 @@ export default function RegisterSuccessScreen() {
   const colors = useColors();
   const { t, isRTL } = useApp();
   const insets = useSafeAreaInsets();
+  const { name, role } = useLocalSearchParams<{ name: string; role: string }>();
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+
+  const isTech = role === "technician";
+  const firstName = name ? name.trim().split(/\s+/)[0] : "";
+  const nextSteps = isTech ? t("register.techNextSteps") : t("register.clientNextSteps");
+
+  const handleGetStarted = () => {
+    if (isTech) {
+      router.replace("/(tech)/map");
+    } else {
+      router.replace("/(client)/home");
+    }
+  };
 
   return (
     <View
@@ -40,19 +53,29 @@ export default function RegisterSuccessScreen() {
         >
           {t("register.success")}
         </Text>
+        {firstName ? (
+          <Text
+            style={[
+              styles.nameLabel,
+              { color: colors.primary, fontFamily: "Inter_700Bold", textAlign: "center" },
+            ]}
+          >
+            {t("register.welcomeName")} {firstName}!
+          </Text>
+        ) : null}
         <Text
           style={[
             styles.subtitle,
             { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center" },
           ]}
         >
-          {t("register.successMsg")}
+          {nextSteps}
         </Text>
       </View>
       <View style={[styles.btnArea, { paddingHorizontal: 24 }]}>
         <FanniButton
-          title={t("login.submit")}
-          onPress={() => router.replace("/welcome")}
+          title={t("register.goHome")}
+          onPress={handleGetStarted}
           fullWidth
         />
       </View>
@@ -75,7 +98,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 32,
   },
-  title: { fontSize: 26, marginBottom: 16 },
+  title: { fontSize: 26, marginBottom: 12 },
+  nameLabel: { fontSize: 20, marginBottom: 12 },
   subtitle: { fontSize: 16, lineHeight: 24 },
   btnArea: { paddingBottom: 16 },
 });

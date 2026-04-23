@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-zod";
 import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
 import { eq, and, gt, isNull } from "drizzle-orm";
-import { sendPasswordResetCode } from "../lib/email";
+import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import {
   clearSession,
   getOidcConfig,
@@ -572,6 +572,15 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   };
   const sid = await createSession(sessionData as Parameters<typeof createSession>[0]);
   req.log.info({ userId: newUser.id }, "New user registered");
+
+  if (newUser.email) {
+    sendWelcomeEmail({
+      to: newUser.email,
+      name: name.trim(),
+      role: (role as "client" | "technician") ?? "client",
+    }).catch((err) => req.log.warn({ err }, "Welcome email failed to send"));
+  }
+
   res.status(201).json({ token: sid, user: buildAuthUser(newUser) });
 });
 

@@ -219,11 +219,10 @@ export default function RegisterScreen() {
         if (data.token) {
           await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
           await refreshUser();
-          if (regType === "technician") {
-            router.replace("/(tech)/map");
-          } else {
-            router.replace("/(client)/home");
-          }
+          router.replace({
+            pathname: "/register-success",
+            params: { name: name.trim(), role: regType },
+          });
         } else {
           const msg = data.error ?? "Unknown error";
           if (msg.includes("Mobile number is already registered")) {

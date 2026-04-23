@@ -109,6 +109,10 @@ const translations: Record<string, Record<Language, string>> = {
   "register.instaPay": { ar: "انستا باي", en: "InstaPay" },
   "register.success": { ar: "تم التسجيل بنجاح!", en: "Registration Successful!" },
   "register.successMsg": { ar: "تم حفظ بياناتك بنجاح. يمكنك الآن تسجيل الدخول.", en: "Your details have been saved. You can now sign in." },
+  "register.welcomeName": { ar: "مرحباً،", en: "Welcome," },
+  "register.clientNextSteps": { ar: "يمكنك الآن تصفح الخدمات وطلب فني متخصص بنقرة واحدة.", en: "You can now browse services and book a specialist with just one tap." },
+  "register.techNextSteps": { ar: "أنت جاهز لاستقبال الطلبات. فعّل تواجدك لتبدأ العمل.", en: "You're ready to receive orders. Enable your availability to start working." },
+  "register.goHome": { ar: "ابدأ الآن", en: "Get Started" },
 
   // Navigation
   "nav.home": { ar: "الرئيسية", en: "Home" },
