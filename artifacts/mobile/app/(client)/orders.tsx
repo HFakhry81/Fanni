@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -103,19 +103,34 @@ export default function ClientOrdersScreen() {
             </Text>
           </View>
         )}
-        {item.technicianName && (
+        {(item.technicianName || item.technicianMobile) && (
           <View style={[styles.techRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
-              <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 12 }}>{item.technicianName[0]}</Text>
-            </View>
-            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0, textAlign: isRTL ? "right" : "left" }}>
-              {item.technicianName}
-            </Text>
+            {item.technicianName && (
+              <>
+                <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 12 }}>{item.technicianName[0]}</Text>
+                </View>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0, textAlign: isRTL ? "right" : "left" }}>
+                  {item.technicianName}
+                </Text>
+              </>
+            )}
+            {!item.technicianName && <View style={{ flex: 1 }} />}
             {item.technicianRating && (
               <View style={[styles.ratingChip, { backgroundColor: colors.accent, borderRadius: 8 }]}>
                 <Feather name="star" size={11} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 3 }}>{item.technicianRating}</Text>
               </View>
+            )}
+            {item.technicianMobile && ["pending", "accepted", "inProgress"].includes(item.status) && (
+              <TouchableOpacity
+                style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: 8, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}
+                onPress={(e) => { e.stopPropagation(); Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {}); }}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="phone" size={14} color="#FFF" />
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -199,6 +214,7 @@ const styles = StyleSheet.create({
   techRow: { alignItems: "center", marginTop: 10, borderTopWidth: 1, paddingTop: 10, gap: 0 },
   techAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   ratingChip: { flexDirection: "row", alignItems: "center", paddingVertical: 3, paddingHorizontal: 8 },
+  callBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
