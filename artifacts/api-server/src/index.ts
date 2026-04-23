@@ -53,7 +53,7 @@ async function seedDefaultAdmin(): Promise<void> {
       passwordHash,
     });
 
-    logger.info("Default admin seeded — identifier: admin, password: admin");
+    logger.info("Default admin seeded (email: admin@fanni.app, mobile: admin)");
   } catch (err) {
     logger.error({ err }, "Failed to seed default admin user");
   }
