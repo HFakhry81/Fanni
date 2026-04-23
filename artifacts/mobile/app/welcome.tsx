@@ -126,7 +126,7 @@ export default function WelcomeScreen() {
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
         </View>
 
-        <TouchableOpacity onPress={() => router.replace("/register")} activeOpacity={0.8}>
+        <TouchableOpacity onPress={() => router.push("/register")} activeOpacity={0.8}>
           <Text style={[styles.registerLink, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
             {t("welcome.register")}
           </Text>
