@@ -1,39 +1,6 @@
 import { db, locationsTable } from "@workspace/db";
 import { logger } from "./logger";
 
-/**
- * Legacy slug alias map — maps old single-word area/gov slugs (pre-v2 format)
- * to new canonical `{gov}__{city}` slugs. Used before fuzzy matching so old stored
- * values in user profiles or orders resolve deterministically to the current dataset.
- *
- * Old format: plain name or single-word slug (e.g. "smouha", "nasr_city")
- * New format: "gov__city" double-underscore slug (e.g. "alexandria__smouha")
- *
- * The fuzzy matcher already handles most old names via nameEn/nameAr matching at
- * score ≥ 95. This map covers edge cases where old slugs differ from current nameEn
- * or contain abbreviations not caught by stripNoise.
- */
-const LEGACY_SLUG_ALIASES: Record<string, string> = {
-  smouha: "alexandria__smouha",
-  ibrahimia: "alexandria__al_ibrahimeyah",
-  ibrahimeya: "alexandria__al_ibrahimeyah",
-  montaza: "alexandria__el_montaza",
-  mandara: "alexandria__al_mandara",
-  mamurah: "alexandria__al_mamurah",
-  agamy: "alexandria__agamy",
-  flemming: "alexandria__fleming",
-  "nasr city": "cairo__nasr_city",
-  nasr: "cairo__nasr_city",
-  maadi: "cairo__maadi",
-  zamalek: "cairo__zamalek",
-  heliopolis: "cairo__new_heliopolis",
-  mohandeseen: "giza__mohandessin",
-  mohandesen: "giza__mohandessin",
-  "october city": "giza__sixth_of_october",
-  "6 october": "giza__sixth_of_october",
-  "6th october": "giza__sixth_of_october",
-};
-
 interface LocationRow {
   id: string;
   slug: string;
@@ -47,11 +14,51 @@ let locationCache: LocationRow[] = [];
 let cacheLoadedAt = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+/**
+ * Legacy slug alias map — built dynamically from the location cache on each warm.
+ * Maps every pre-v2 slug format (plain city name, city-part slug, nameEn, nameAr)
+ * to the canonical new `{gov}__{city}` slug. Ensures existing user/order records with
+ * old single-word area slugs resolve correctly without manual enumeration.
+ *
+ * Priority lookup order in resolveSync:
+ *   1. Exact alias map hit (deterministic, O(1))
+ *   2. Fuzzy nameEn/nameAr/slug scoring (handles spacing / case variants)
+ *   3. City-part slug fragment matching (score 70)
+ */
+let legacyAliasMap: Record<string, string> = {};
+
+function buildLegacyAliasMap(cache: LocationRow[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const loc of cache) {
+    const en = loc.nameEn.toLowerCase().trim();
+    const ar = loc.nameAr.trim();
+    const slug = loc.slug.toLowerCase();
+
+    map[en] = loc.slug;
+    map[ar] = loc.slug;
+    map[slug] = loc.slug;
+    map[slug.replace(/[_]/g, " ")] = loc.slug;
+
+    if (loc.type === "area" && loc.slug.includes("__")) {
+      const cityPart = loc.slug.split("__")[1];
+      const cityPartSpaced = cityPart.replace(/_/g, " ");
+      map[cityPart] = loc.slug;
+      map[cityPartSpaced] = loc.slug;
+      map[stripNoise(cityPartSpaced)] = loc.slug;
+      map[stripNoise(en)] = loc.slug;
+    } else if (loc.type === "governorate") {
+      map[stripNoise(en)] = loc.slug;
+    }
+  }
+  return map;
+}
+
 export async function warmLocationCache(): Promise<void> {
   try {
     const rows = await db.select().from(locationsTable);
     locationCache = rows as LocationRow[];
     cacheLoadedAt = Date.now();
+    legacyAliasMap = buildLegacyAliasMap(locationCache);
     logger.info({ count: locationCache.length }, "Location cache warmed");
   } catch (err) {
     logger.warn({ err }, "Failed to warm location cache — slug matching will use raw values");
@@ -112,10 +119,12 @@ function resolveSync(raw: string, cache: LocationRow[], type?: LocationType): st
   if (!cache.length) return raw.toLowerCase();
 
   const rawKey = raw.toLowerCase().trim().replace(/[_]/g, " ");
-  if (LEGACY_SLUG_ALIASES[rawKey]) {
-    const alias = LEGACY_SLUG_ALIASES[rawKey];
-    const found = cache.find((l) => l.slug === alias);
-    if (found) return found.slug;
+
+  const aliasHit = legacyAliasMap[rawKey] ?? legacyAliasMap[stripNoise(rawKey)];
+  if (aliasHit) {
+    if (!type || cache.find((l) => l.slug === aliasHit && l.type === type)) {
+      return aliasHit;
+    }
   }
 
   const filtered = type ? cache.filter((l) => l.type === type) : cache;
@@ -171,4 +180,5 @@ export async function locationsMatch(a: string | null | undefined, b: string | n
 export function invalidateLocationCache(): void {
   locationCache = [];
   cacheLoadedAt = 0;
+  legacyAliasMap = {};
 }
