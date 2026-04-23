@@ -36,6 +36,7 @@ interface AppContextType {
   isOnline: boolean;
   setIsOnline: (value: boolean, sessionToken?: string) => Promise<void>;
   isAvailabilityHydrated: boolean;
+  syncAvailabilityFromServer: (sessionToken: string) => Promise<void>;
 }
 
 const translations: Record<string, Record<Language, string>> = {
@@ -369,6 +370,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   };
 
+  const syncAvailabilityFromServer = async (sessionToken: string): Promise<void> => {
+    try {
+      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+      const apiBase = domain ? `https://${domain}` : "";
+      if (!apiBase) return;
+      const res = await fetch(`${apiBase}/api/auth/user`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { user?: { isAvailable?: boolean | null } | null };
+      const serverIsAvailable = data?.user?.isAvailable;
+      const resolvedValue = typeof serverIsAvailable === "boolean" ? serverIsAvailable : false;
+      setIsOnlineState(resolvedValue);
+      try {
+        await AsyncStorage.setItem("techIsOnline", String(resolvedValue));
+      } catch (_) {}
+    } catch (_) {}
+  };
+
   const setIsOnline = async (value: boolean, sessionToken?: string) => {
     setIsOnlineState(value);
     try {
@@ -415,6 +435,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isOnline,
         setIsOnline,
         isAvailabilityHydrated,
+        syncAvailabilityFromServer,
       }}
     >
       {children}

@@ -127,6 +127,7 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
     profession: dbUser.profession ?? null,
     specialty: dbUser.specialty ?? null,
     serviceCategories: (dbUser.serviceCategories as string[] | null) ?? null,
+    isAvailable: dbUser.isAvailable ?? null,
   };
 }
 

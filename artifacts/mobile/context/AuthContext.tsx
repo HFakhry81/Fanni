@@ -29,6 +29,7 @@ export interface AuthUser {
   profession: string | null;
   specialty: string | null;
   serviceCategories?: string[] | null;
+  isAvailable?: boolean | null;
 }
 
 interface AuthContextValue {

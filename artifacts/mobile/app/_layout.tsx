@@ -25,7 +25,7 @@ const queryClient = new QueryClient();
 
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const { user: authUser, sessionToken } = useAuth();
-  const { user: appUser, setUser, isOnline, setIsOnline, isAvailabilityHydrated } = useApp();
+  const { user: appUser, setUser, syncAvailabilityFromServer, isAvailabilityHydrated } = useApp();
   const hasSynced = React.useRef(false);
 
   useEffect(() => {
@@ -61,27 +61,10 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       authUser?.id &&
       sessionToken
     ) {
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `https://${domain}` : "";
-      if (!apiBase) return;
-      const techId = authUser.id;
-      const token = sessionToken;
-      fetch(`${apiBase}/api/technicians/${techId}/availability`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ isAvailable: isOnline }),
-      })
-        .then((res) => {
-          if (res.ok) {
-            hasSynced.current = true;
-          }
-        })
-        .catch(() => {});
+      hasSynced.current = true;
+      syncAvailabilityFromServer(sessionToken);
     }
-  }, [isAvailabilityHydrated, authUser, sessionToken, isOnline]);
+  }, [isAvailabilityHydrated, authUser, sessionToken]);
 
   return <>{children}</>;
 }

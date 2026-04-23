@@ -38,6 +38,7 @@ export const GetCurrentAuthUserResponse = zod.object({
       profession: zod.string().nullish(),
       specialty: zod.string().nullish(),
       serviceCategories: zod.array(zod.string()).nullish(),
+      isAvailable: zod.boolean().nullish(),
     })
     .nullable(),
 });
