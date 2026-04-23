@@ -8,7 +8,7 @@ import {
   LogoutMobileSessionResponse,
   SetUserRoleBody,
 } from "@workspace/api-zod";
-import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
+import { db, usersTable, adminsTable, passwordResetTokensTable } from "@workspace/db";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import {
@@ -128,11 +128,33 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
   };
 }
 
+function buildAdminUser(admin: typeof adminsTable.$inferSelect) {
+  return {
+    id: admin.id,
+    email: admin.email ?? null,
+    firstName: admin.firstName ?? null,
+    lastName: admin.lastName ?? null,
+    profileImageUrl: null,
+    role: "admin" as const,
+    mobile: admin.mobile ?? null,
+    governorate: null,
+    area: null,
+    district: null,
+    profession: null,
+    specialty: null,
+  };
+}
+
 // PUBLIC: Returns the current user if authenticated, or { user: null } if not.
 // Intentionally allows unauthenticated access so clients can check login state.
 router.get("/auth/user", async (req: Request, res: Response) => {
   if (!req.isAuthenticated()) {
     res.json(GetCurrentAuthUserResponse.parse({ user: null }));
+    return;
+  }
+  if (req.user.role === "admin") {
+    const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, req.user.id));
+    res.json(GetCurrentAuthUserResponse.parse({ user: admin ? buildAdminUser(admin) : null }));
     return;
   }
   const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user.id));
@@ -457,13 +479,20 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
     const mobileDigits = mobile.trim().replace(/\s|-/g, "");
     const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
     const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
-    const [existing] = await db.select().from(usersTable).where(eq(usersTable.mobile, normalizedMobile));
-    result.mobileTaken = !!existing;
+    const [[existingUser], [existingAdmin]] = await Promise.all([
+      db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.mobile, normalizedMobile)),
+      db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.mobile, normalizedMobile)),
+    ]);
+    result.mobileTaken = !!(existingUser || existingAdmin);
   }
 
   if (email && email.trim()) {
-    const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
-    result.emailTaken = !!existing;
+    const normalizedEmail = email.trim().toLowerCase();
+    const [[existingUser], [existingAdmin]] = await Promise.all([
+      db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, normalizedEmail)),
+      db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.email, normalizedEmail)),
+    ]);
+    result.emailTaken = !!(existingUser || existingAdmin);
   }
 
   res.json(result);
@@ -523,15 +552,22 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
   const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
 
-  const [existingMobile] = await db.select().from(usersTable).where(eq(usersTable.mobile, normalizedMobile));
-  if (existingMobile) {
+  const [[existingUserMobile], [existingAdminMobile]] = await Promise.all([
+    db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.mobile, normalizedMobile)),
+    db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.mobile, normalizedMobile)),
+  ]);
+  if (existingUserMobile || existingAdminMobile) {
     res.status(409).json({ error: "Mobile number is already registered" });
     return;
   }
 
   if (email && email.trim()) {
-    const [existingEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
-    if (existingEmail) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const [[existingUserEmail], [existingAdminEmail]] = await Promise.all([
+      db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, normalizedEmail)),
+      db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.email, normalizedEmail)),
+    ]);
+    if (existingUserEmail || existingAdminEmail) {
       res.status(409).json({ error: "Email address is already registered" });
       return;
     }
@@ -585,6 +621,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 });
 
 // PUBLIC: Authenticates with mobile/email + password credentials. No auth required.
+// Checks the admins table first, then falls through to users.
 router.post("/auth/login-with-password", async (req: Request, res: Response) => {
   const { identifier, password } = req.body as {
     identifier?: string;
@@ -603,6 +640,38 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     res.status(429).json({ error: "Too many login attempts. Please wait before trying again." });
     return;
   }
+
+  // Check admins table first
+  const [admin] = await db
+    .select()
+    .from(adminsTable)
+    .where(
+      needle.includes("@") ? eq(adminsTable.email, needle) : eq(adminsTable.mobile, needle),
+    );
+
+  if (admin) {
+    if (!admin.passwordHash || !verifyPassword(password, admin.passwordHash)) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+    if (!admin.isActive) {
+      res.status(403).json({ error: "Account is suspended" });
+      return;
+    }
+    const authUser = buildAdminUser(admin);
+    const sessionData = {
+      user: authUser,
+      access_token: "",
+      refresh_token: undefined,
+      expires_at: undefined,
+    };
+    const sid = await createSession(sessionData as Parameters<typeof createSession>[0]);
+    req.log.info({ adminId: admin.id }, "Admin signed in with password");
+    res.json({ token: sid, user: authUser });
+    return;
+  }
+
+  // Fall through to users table
   const [user] = await db
     .select()
     .from(usersTable)
@@ -618,6 +687,11 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
   const valid = verifyPassword(password, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  if (!user.isActive) {
+    res.status(403).json({ error: "Account is suspended" });
     return;
   }
 
@@ -640,42 +714,83 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     email?: string;
   };
 
-  const updates: Partial<typeof usersTable.$inferInsert> & { updatedAt: Date } = {
-    updatedAt: new Date(),
-  };
+  const now = new Date();
+
+  // Validate common fields
+  let firstNameVal: string | undefined;
+  let lastNameVal: string | null | undefined;
+  let emailVal: string | null | undefined;
 
   if (firstName !== undefined) {
     if (typeof firstName !== "string" || !firstName.trim()) {
       res.status(400).json({ error: "firstName cannot be empty" });
       return;
     }
-    updates.firstName = firstName.trim();
+    firstNameVal = firstName.trim();
   }
 
   if (lastName !== undefined) {
-    updates.lastName = lastName === null || lastName === "" ? null : String(lastName).trim() || null;
+    lastNameVal = lastName === null || lastName === "" ? null : String(lastName).trim() || null;
   }
 
   if (email !== undefined) {
     if (email === null || email === "") {
-      updates.email = null;
+      emailVal = null;
     } else {
       const normalizedEmail = String(email).trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
         res.status(400).json({ error: "Invalid email address" });
         return;
       }
+      emailVal = normalizedEmail;
+    }
+  }
+
+  // Route update to the correct table
+  if (req.user!.role === "admin") {
+    // Check email uniqueness in admins table
+    if (emailVal) {
       const [existing] = await db
         .select()
-        .from(usersTable)
-        .where(eq(usersTable.email, normalizedEmail));
+        .from(adminsTable)
+        .where(eq(adminsTable.email, emailVal));
       if (existing && existing.id !== req.user!.id) {
         res.status(409).json({ error: "Email address is already in use" });
         return;
       }
-      updates.email = normalizedEmail;
+    }
+
+    const adminUpdates: Partial<typeof adminsTable.$inferInsert> & { updatedAt: Date } = { updatedAt: now };
+    if (firstNameVal !== undefined) adminUpdates.firstName = firstNameVal;
+    if (lastNameVal !== undefined) adminUpdates.lastName = lastNameVal;
+    if (emailVal !== undefined) adminUpdates.email = emailVal;
+
+    const [updatedAdmin] = await db
+      .update(adminsTable)
+      .set(adminUpdates)
+      .where(eq(adminsTable.id, req.user!.id))
+      .returning();
+
+    res.json({ user: buildAdminUser(updatedAdmin) });
+    return;
+  }
+
+  // Regular user update
+  if (emailVal) {
+    const [existing] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, emailVal));
+    if (existing && existing.id !== req.user!.id) {
+      res.status(409).json({ error: "Email address is already in use" });
+      return;
     }
   }
+
+  const updates: Partial<typeof usersTable.$inferInsert> & { updatedAt: Date } = { updatedAt: now };
+  if (firstNameVal !== undefined) updates.firstName = firstNameVal;
+  if (lastNameVal !== undefined) updates.lastName = lastNameVal;
+  if (emailVal !== undefined) updates.email = emailVal;
 
   const [updatedUser] = await db
     .update(usersTable)

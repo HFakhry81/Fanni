@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, adminsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -72,15 +72,19 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
   const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
   const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
 
-  const [existingMobile] = await db.select().from(usersTable).where(eq(usersTable.mobile, normalizedMobile));
-  if (existingMobile) {
+  // Check uniqueness in both admins and users tables
+  const [existingAdminMobile] = await db.select().from(adminsTable).where(eq(adminsTable.mobile, normalizedMobile));
+  const [existingUserMobile] = await db.select().from(usersTable).where(eq(usersTable.mobile, normalizedMobile));
+  if (existingAdminMobile || existingUserMobile) {
     res.status(409).json({ error: "Mobile number is already registered" });
     return;
   }
 
-  if (email && email.trim()) {
-    const [existingEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
-    if (existingEmail) {
+  const normalizedEmail = email ? email.trim().toLowerCase() : null;
+  if (normalizedEmail) {
+    const [existingAdminEmail] = await db.select().from(adminsTable).where(eq(adminsTable.email, normalizedEmail));
+    const [existingUserEmail] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
+    if (existingAdminEmail || existingUserEmail) {
       res.status(409).json({ error: "Email address is already registered" });
       return;
     }
@@ -95,13 +99,12 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
   const lastName = nameParts.slice(1).join(" ") || null;
 
   const [newAdmin] = await db
-    .insert(usersTable)
+    .insert(adminsTable)
     .values({
-      email: email ? email.trim().toLowerCase() : null,
+      email: normalizedEmail,
       firstName,
       lastName,
       mobile: normalizedMobile,
-      role: "admin",
       passwordHash,
     })
     .returning();
@@ -121,9 +124,41 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   const role = req.query.role as string | undefined;
   const offset = (page - 1) * limit;
 
+  // Admins are now in a separate table; only list clients and technicians here.
+  // If caller explicitly requests role=admin, return admin list from admins table instead.
+  if (role === "admin") {
+    const admins = await db
+      .select({
+        id: adminsTable.id,
+        firstName: adminsTable.firstName,
+        lastName: adminsTable.lastName,
+        email: adminsTable.email,
+        mobile: adminsTable.mobile,
+        role: sql<string>`'admin'`,
+        isActive: adminsTable.isActive,
+        area: sql<null>`null`,
+        governorate: sql<null>`null`,
+        specialty: sql<null>`null`,
+        profession: sql<null>`null`,
+        createdAt: adminsTable.createdAt,
+      })
+      .from(adminsTable)
+      .orderBy(desc(adminsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(adminsTable);
+    const total = countResult?.count ?? 0;
+
+    return res.json({
+      users: admins,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  }
+
   const conditions = [];
-  if (role && ["client", "technician", "admin"].includes(role)) {
-    conditions.push(eq(usersTable.role, role as "client" | "technician" | "admin"));
+  if (role && ["client", "technician"].includes(role)) {
+    conditions.push(eq(usersTable.role, role as "client" | "technician"));
   }
 
   const baseQuery = db
@@ -154,7 +189,7 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
 
   const total = countResult[0]?.count ?? 0;
 
-  res.json({
+  return res.json({
     users: rows,
     pagination: {
       page,
@@ -174,6 +209,13 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, asyn
     return;
   }
 
+  // Prevent modifying other admins through this endpoint (admins have their own table)
+  const [existingAdmin] = await db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.id, id));
+  if (existingAdmin) {
+    res.status(400).json({ error: "Admin accounts cannot be modified through this endpoint" });
+    return;
+  }
+
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   if (!existing) {
     res.status(404).json({ error: "User not found" });
@@ -185,14 +227,14 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, asyn
     return;
   }
 
-  const updates: Partial<{ role: "client" | "technician" | "admin"; isActive: boolean }> = {};
+  const updates: Partial<{ role: "client" | "technician"; isActive: boolean }> = {};
 
   if (role !== undefined) {
-    if (!["client", "technician", "admin"].includes(role)) {
-      res.status(400).json({ error: "Invalid role" });
+    if (!["client", "technician"].includes(role)) {
+      res.status(400).json({ error: "Invalid role. Only client and technician are allowed." });
       return;
     }
-    updates.role = role as "client" | "technician" | "admin";
+    updates.role = role as "client" | "technician";
   }
 
   if (isActive !== undefined) {

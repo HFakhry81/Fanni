@@ -46,6 +46,20 @@ export const passwordResetTokensTable = pgTable(
   (table) => [index("IDX_reset_token_user").on(table.userId)],
 );
 
+export const adminsTable = pgTable("admins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  mobile: varchar("mobile", { length: 20 }).unique(),
+  passwordHash: varchar("password_hash"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export type UpsertUser = typeof usersTable.$inferInsert;
 export type User = typeof usersTable.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokensTable.$inferSelect;
+export type Admin = typeof adminsTable.$inferSelect;
+export type UpsertAdmin = typeof adminsTable.$inferInsert;

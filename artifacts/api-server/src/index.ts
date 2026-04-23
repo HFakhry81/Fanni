@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import app from "./app";
 import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
-import { db, usersTable } from "@workspace/db";
+import { db, adminsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
@@ -31,12 +31,12 @@ function generateSalt(): string {
 async function seedDefaultAdmin(): Promise<void> {
   try {
     const [existing] = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(eq(usersTable.email, "admin@fanni.app"));
+      .select({ id: adminsTable.id })
+      .from(adminsTable)
+      .where(eq(adminsTable.email, "admin@fanni.app"));
 
     if (existing) {
-      logger.info("Default admin already exists, skipping seed");
+      logger.info("Default admin already exists in admins table, skipping seed");
       return;
     }
 
@@ -44,16 +44,15 @@ async function seedDefaultAdmin(): Promise<void> {
     const hash = hashPassword("admin", salt);
     const passwordHash = `${salt}:${hash}`;
 
-    await db.insert(usersTable).values({
+    await db.insert(adminsTable).values({
       email: "admin@fanni.app",
       mobile: "admin",
       firstName: "Admin",
       lastName: null,
-      role: "admin",
       passwordHash,
     });
 
-    logger.info("Default admin seeded (email: admin@fanni.app, mobile: admin)");
+    logger.info("Default admin seeded in admins table (email: admin@fanni.app, mobile: admin)");
   } catch (err) {
     logger.error({ err }, "Failed to seed default admin user");
   }
