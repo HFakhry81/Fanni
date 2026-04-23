@@ -145,6 +145,7 @@ function buildAdminUser(admin: typeof adminsTable.$inferSelect) {
     district: null,
     profession: null,
     specialty: null,
+    mustChangePassword: admin.mustChangePassword ?? false,
   };
 }
 
@@ -976,6 +977,72 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     .where(eq(usersTable.id, req.user!.id))
     .returning();
 
+  res.json({ user: buildAuthUser(updatedUser) });
+});
+
+// PROTECTED: Change own password (admin only for now, but works for any session).
+router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string;
+    newPassword?: string;
+  };
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "currentPassword and newPassword are required" });
+    return;
+  }
+
+  if (
+    typeof newPassword !== "string" ||
+    newPassword.length < 8 ||
+    !/[a-z]/.test(newPassword) ||
+    !/[A-Z]/.test(newPassword) ||
+    !/[0-9]/.test(newPassword) ||
+    !/[^A-Za-z0-9]/.test(newPassword)
+  ) {
+    res.status(400).json({ error: "New password must be at least 8 characters and include uppercase, lowercase, a number, and a special character" });
+    return;
+  }
+
+  if (req.sessionSource === "admin") {
+    const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, req.user!.id));
+    if (!admin || !admin.passwordHash) {
+      res.status(404).json({ error: "Admin not found" });
+      return;
+    }
+    if (!verifyPassword(currentPassword, admin.passwordHash)) {
+      res.status(401).json({ error: "Current password is incorrect" });
+      return;
+    }
+    const salt = crypto.randomBytes(16).toString("hex");
+    const newHash = crypto.pbkdf2Sync(newPassword, salt, 100_000, 64, "sha512").toString("hex");
+    const passwordHash = `${salt}:${newHash}`;
+    const [updated] = await db
+      .update(adminsTable)
+      .set({ passwordHash, mustChangePassword: false, updatedAt: new Date() })
+      .where(eq(adminsTable.id, req.user!.id))
+      .returning();
+    res.json({ user: buildAdminUser(updated) });
+    return;
+  }
+
+  const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.id));
+  if (!dbUser || !dbUser.passwordHash) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (!verifyPassword(currentPassword, dbUser.passwordHash)) {
+    res.status(401).json({ error: "Current password is incorrect" });
+    return;
+  }
+  const salt = crypto.randomBytes(16).toString("hex");
+  const newHash = crypto.pbkdf2Sync(newPassword, salt, 100_000, 64, "sha512").toString("hex");
+  const passwordHash = `${salt}:${newHash}`;
+  const [updatedUser] = await db
+    .update(usersTable)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(usersTable.id, req.user!.id))
+    .returning();
   res.json({ user: buildAuthUser(updatedUser) });
 });
 

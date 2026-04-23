@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
+import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -18,6 +19,7 @@ import AppHeader from "@/components/AppHeader";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import Toast from "@/components/Toast";
+import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -28,9 +30,10 @@ function getApiBaseUrl(): string {
 
 export default function AdminProfileScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
-  const { logout } = useAuth();
+  const { logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -38,6 +41,23 @@ export default function AdminProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  const [changePwMode, setChangePwMode] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changePwErrors, setChangePwErrors] = useState<{ currentPassword?: string; newPassword?: string; confirmPassword?: string }>({});
+  const [changingPw, setChangingPw] = useState(false);
+
+  useEffect(() => {
+    if (mode === "change-password" && !changePwMode) {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setChangePwErrors({});
+      setChangePwMode(true);
+    }
+  }, [mode]);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -127,6 +147,65 @@ export default function AdminProfileScreen() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openChangePw = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setChangePwErrors({});
+    setChangePwMode(true);
+  };
+
+  const cancelChangePw = () => {
+    setChangePwMode(false);
+    setChangePwErrors({});
+  };
+
+  const handleChangePassword = async () => {
+    const errs: typeof changePwErrors = {};
+    if (!currentPassword) errs.currentPassword = isRTL ? "مطلوب" : "Required";
+    const pwStrength = getPasswordStrength(newPassword, isRTL);
+    if (!newPassword || !pwStrength.isStrong)
+      errs.newPassword = isRTL ? "كلمة المرور ضعيفة — استوفِ جميع المتطلبات" : "Password is too weak — meet all requirements";
+    if (newPassword !== confirmPassword)
+      errs.confirmPassword = isRTL ? "كلمتا المرور غير متطابقتين" : "Passwords do not match";
+    if (Object.keys(errs).length > 0) {
+      setChangePwErrors(errs);
+      return;
+    }
+    setChangingPw(true);
+    try {
+      const apiBase = getApiBaseUrl();
+      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+      if (!apiBase || !token) throw new Error(t("profile.noServer"));
+      const res = await fetch(`${apiBase}/api/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          setChangePwErrors({ currentPassword: t("profile.wrongCurrentPassword") });
+        } else {
+          throw new Error(data.error ?? t("profile.saveFailed"));
+        }
+        return;
+      }
+      await refreshUser();
+      setChangePwMode(false);
+      setToastMessage(t("profile.passwordUpdated"));
+      setToastVisible(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert(t("common.error"), msg || t("profile.saveFailed"));
+    } finally {
+      setChangingPw(false);
     }
   };
 
@@ -292,6 +371,68 @@ export default function AdminProfileScreen() {
           </View>
         )}
 
+        {/* Change Password */}
+        {changePwMode ? (
+          <View style={[styles.editSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+              {t("profile.changePassword")}
+            </Text>
+            <FanniInput
+              label={t("profile.currentPassword")}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              secureTextEntry
+              error={changePwErrors.currentPassword}
+              required
+            />
+            <FanniInput
+              label={t("profile.newPassword")}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              error={changePwErrors.newPassword}
+              required
+            />
+            {!!newPassword && <PasswordStrengthBar password={newPassword} />}
+            <FanniInput
+              label={t("profile.confirmPassword")}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              error={changePwErrors.confirmPassword}
+              required
+            />
+            <View style={[styles.btnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <FanniButton
+                title={t("common.cancel")}
+                onPress={cancelChangePw}
+                variant="outline"
+                style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
+              />
+              <FanniButton
+                title={changingPw ? t("profile.passwordChanging") : t("common.save")}
+                onPress={handleChangePassword}
+                loading={changingPw}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.changePwBtn, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={openChangePw}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.changePwIcon, { backgroundColor: colors.accentBlue ?? "#EBF5FF", borderRadius: 10 }]}>
+              <Feather name="lock" size={20} color={colors.secondary ?? "#3B82F6"} />
+            </View>
+            <Text style={[styles.changePwText, { color: colors.foreground, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }]}>
+              {t("profile.changePassword")}
+            </Text>
+            <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
+          </TouchableOpacity>
+        )}
+
         {/* Logout */}
         <TouchableOpacity
           style={[styles.logoutBtn, { backgroundColor: colors.card, borderColor: "#FFCCCC", borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
@@ -455,6 +596,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
+  changePwBtn: {
+    padding: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  changePwIcon: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  changePwText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    flex: 1,
+  },
   logoutBtn: {
     padding: 14,
     borderWidth: 1,

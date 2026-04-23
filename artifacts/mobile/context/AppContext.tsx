@@ -251,6 +251,8 @@ const translations: Record<string, Record<Language, string>> = {
   "admin.registeredTechs": { ar: "الفنيون المسجلون", en: "Registered Technicians" },
   "admin.totalClients": { ar: "إجمالي العملاء", en: "Total Clients" },
   "admin.profile": { ar: "الملف الشخصي", en: "Profile" },
+  "admin.defaultPasswordBanner": { ar: "أنت تستخدم كلمة المرور الافتراضية. يرجى تغييرها فوراً.", en: "You are using the default password. Please change it immediately." },
+  "admin.changePasswordNow": { ar: "تغيير الآن", en: "Change it now" },
 
   // Profile
   "profile.firstName": { ar: "الاسم الأول", en: "First Name" },
@@ -276,6 +278,8 @@ const translations: Record<string, Record<Language, string>> = {
   "profile.newPassword": { ar: "كلمة المرور الجديدة", en: "New Password" },
   "profile.confirmPassword": { ar: "تأكيد كلمة المرور", en: "Confirm New Password" },
   "profile.passwordUpdated": { ar: "تم تحديث كلمة المرور بنجاح", en: "Password updated successfully" },
+  "profile.wrongCurrentPassword": { ar: "كلمة المرور الحالية غير صحيحة", en: "Current password is incorrect" },
+  "profile.passwordChanging": { ar: "جاري التغيير...", en: "Changing..." },
 
   // Common
   "common.next": { ar: "التالي", en: "Next" },

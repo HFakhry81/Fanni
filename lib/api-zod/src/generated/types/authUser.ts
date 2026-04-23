@@ -21,4 +21,5 @@ export interface AuthUser {
   profession?: string | null;
   specialty?: string | null;
   serviceCategories?: string[] | null;
+  mustChangePassword?: boolean | null;
 }

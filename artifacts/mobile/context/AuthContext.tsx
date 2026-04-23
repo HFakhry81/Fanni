@@ -30,6 +30,7 @@ export interface AuthUser {
   specialty: string | null;
   serviceCategories?: string[] | null;
   isAvailable?: boolean | null;
+  mustChangePassword?: boolean | null;
 }
 
 interface AuthContextValue {

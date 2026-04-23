@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import app from "./app";
 import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
-import { db, adminsTable } from "@workspace/db";
+import { db, adminsTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
@@ -28,15 +28,41 @@ function generateSalt(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
+async function runMigrations(): Promise<void> {
+  try {
+    await pool.query(
+      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`
+    );
+    logger.info("DB migration: admins.must_change_password ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for admins.must_change_password");
+  }
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  const [salt, hash] = storedHash.split(":");
+  if (!salt || !hash) return false;
+  const candidate = hashPassword(password, salt);
+  return crypto.timingSafeEqual(Buffer.from(candidate, "hex"), Buffer.from(hash, "hex"));
+}
+
 async function seedDefaultAdmin(): Promise<void> {
   try {
     const [existing] = await db
-      .select({ id: adminsTable.id })
+      .select()
       .from(adminsTable)
       .where(eq(adminsTable.email, "admin@fanni.app"));
 
     if (existing) {
-      logger.info("Default admin already exists in admins table, skipping seed");
+      if (!existing.mustChangePassword && existing.passwordHash && verifyPassword("admin", existing.passwordHash)) {
+        await db
+          .update(adminsTable)
+          .set({ mustChangePassword: true })
+          .where(eq(adminsTable.id, existing.id));
+        logger.info("Default admin still using default password — flagged mustChangePassword=true");
+      } else {
+        logger.info("Default admin already exists in admins table, skipping seed");
+      }
       return;
     }
 
@@ -50,6 +76,7 @@ async function seedDefaultAdmin(): Promise<void> {
       firstName: "Admin",
       lastName: null,
       passwordHash,
+      mustChangePassword: true,
     });
 
     logger.info("Default admin seeded in admins table (email: admin@fanni.app, mobile: admin)");
@@ -71,12 +98,16 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
-server.listen(port, () => {
-  logger.info({ port }, "Server listening");
-  recoverPendingOrders().catch((err) => {
-    logger.error({ err }, "Startup order recovery failed");
+runMigrations()
+  .then(() => seedDefaultAdmin())
+  .catch((err) => {
+    logger.error({ err }, "Startup migration/seed failed — server will still start");
+  })
+  .finally(() => {
+    server.listen(port, () => {
+      logger.info({ port }, "Server listening");
+      recoverPendingOrders().catch((err) => {
+        logger.error({ err }, "Startup order recovery failed");
+      });
+    });
   });
-  seedDefaultAdmin().catch((err) => {
-    logger.error({ err }, "Startup admin seed failed");
-  });
-});
