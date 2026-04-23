@@ -10,6 +10,7 @@ import {
   Linking,
   Animated,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -28,6 +29,33 @@ interface RouteData {
 }
 
 const ROUTE_CACHE = new Map<string, RouteData | null>();
+const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const ROUTE_CACHE_KEY_PREFIX = "route_cache:";
+
+async function readPersistedRoute(key: string): Promise<RouteData | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ROUTE_CACHE_KEY_PREFIX + key);
+    if (!raw) return null;
+    const parsed: { data: RouteData; cachedAt: number } = JSON.parse(raw);
+    if (Date.now() - parsed.cachedAt > ROUTE_CACHE_TTL_MS) {
+      await AsyncStorage.removeItem(ROUTE_CACHE_KEY_PREFIX + key);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+async function writePersistedRoute(key: string, data: RouteData): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      ROUTE_CACHE_KEY_PREFIX + key,
+      JSON.stringify({ data, cachedAt: Date.now() })
+    );
+  } catch {
+  }
+}
 
 let _savedWebMapState: { zoom: number; cx: number; cy: number } | null = null;
 let _savedNativeRegion: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null = null;
@@ -52,6 +80,11 @@ async function fetchOSRMRoute(
   if (ROUTE_CACHE.has(key)) {
     return ROUTE_CACHE.get(key) ?? null;
   }
+  const persisted = await readPersistedRoute(key);
+  if (persisted) {
+    ROUTE_CACHE.set(key, persisted);
+    return persisted;
+  }
   try {
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
@@ -74,6 +107,7 @@ async function fetchOSRMRoute(
     );
     const result: RouteData = { coords, durationSec: route.duration, distanceM: route.distance };
     ROUTE_CACHE.set(key, result);
+    writePersistedRoute(key, result);
     return result;
   } catch {
     return null;
