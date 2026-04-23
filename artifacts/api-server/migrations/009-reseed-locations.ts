@@ -29,6 +29,10 @@ async function run() {
   try {
     await client.query("BEGIN");
 
+    await client.query(`DELETE FROM locations WHERE type = 'neighborhood'`);
+    await client.query(`DELETE FROM locations WHERE type = 'area'`);
+    await client.query(`DELETE FROM locations WHERE type = 'governorate'`);
+
     let govCount = 0;
     let areaCount = 0;
 
@@ -60,7 +64,7 @@ async function run() {
     }
 
     await client.query("COMMIT");
-    console.log(`Reseeded: ${govCount} governorates, ${areaCount} areas.`);
+    console.log(`Reseeded: ${govCount} governorates, ${areaCount} areas (old neighborhoods removed).`);
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Seed failed:", err);

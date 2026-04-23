@@ -165,6 +165,7 @@ router.get("/geo/streets", async (req, res) => {
       `&countrycodes=eg` +
       `&format=json` +
       `&addressdetails=1` +
+      `&featuretype=street` +
       `&accept-language=${lang}` +
       `&limit=8`;
 

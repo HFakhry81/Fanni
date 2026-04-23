@@ -13,6 +13,7 @@ router.get("/locations/governorates", async (_req, res) => {
         nameAr: locationsTable.nameAr,
         nameEn: locationsTable.nameEn,
         slug: locationsTable.slug,
+        centroid: locationsTable.centroid,
       })
       .from(locationsTable)
       .where(eq(locationsTable.type, "governorate"))
@@ -36,6 +37,7 @@ router.get("/locations/:govId/areas", async (req, res) => {
         nameEn: locationsTable.nameEn,
         slug: locationsTable.slug,
         parentId: locationsTable.parentId,
+        centroid: locationsTable.centroid,
       })
       .from(locationsTable)
       .where(

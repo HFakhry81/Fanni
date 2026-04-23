@@ -365,11 +365,7 @@ function StreetAutocomplete({
           <TextInput
             value={value}
             onChangeText={onChangeText}
-            placeholder={
-              cityId
-                ? (isRTL ? "ابحث عن شارع..." : "Search for a street...")
-                : (isRTL ? "اختر المنطقة أولاً" : "Select area first")
-            }
+            placeholder={isRTL ? "ابحث عن شارع أو اكتب العنوان..." : "Search or type street address..."}
             placeholderTextColor={colors.mutedForeground}
             style={[
               styles.streetInput,
@@ -378,7 +374,6 @@ function StreetAutocomplete({
                 textAlign: isRTL ? "right" : "left",
               },
             ]}
-            editable={!!cityId}
           />
           {loading && (
             <ActivityIndicator size="small" color={colors.primary} style={{ marginHorizontal: 8 }} />
