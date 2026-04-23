@@ -274,6 +274,12 @@ const translations: Record<string, Record<Language, string>> = {
   "common.stars": { ar: "نجوم", en: "Stars" },
   "common.sendOrder": { ar: "إرسال الطلب", en: "Submit Request" },
   "common.getLocation": { ar: "تحديد الموقع", en: "Get Location" },
+
+  // Service area
+  "tech.serviceArea": { ar: "منطقة الخدمة النشطة", en: "Active Service Area" },
+  "tech.noServiceArea": { ar: "لم يتم تحديد منطقة خدمة بعد", en: "No service area set yet" },
+  "tech.updateProfile": { ar: "تحديث ملفك الشخصي", en: "Update your profile" },
+  "tech.toReceiveOrders": { ar: "لتلقي الطلبات في منطقتك", en: "to receive orders in your area" },
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);

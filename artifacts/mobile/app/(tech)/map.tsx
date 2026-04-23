@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
@@ -29,6 +30,13 @@ export default function TechMapScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const autoShownRef = useRef<Set<string>>(new Set());
+
+  const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
+  const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
+  const govLabel = govData ? (isRTL ? govData.ar : govData.en) : (user?.governorate ?? null);
+  const areaLabel = areaData ? (isRTL ? areaData.ar : areaData.en) : (user?.area ?? null);
+  const hasServiceArea = !!(govLabel && areaLabel);
+  const serviceAreaDisplay = [govLabel, areaLabel].filter(Boolean).join(" — ");
 
   useOrderNotifications(isOnline, user);
 
@@ -209,6 +217,43 @@ export default function TechMapScreen() {
           </Text>
         </View>
       </View>
+
+      {/* Service Area Banner */}
+      {hasServiceArea ? (
+        <View style={[styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <View style={[styles.serviceAreaIcon, { backgroundColor: colors.primary + "15" }]}>
+            <Feather name="map-pin" size={14} color={colors.primary} />
+          </View>
+          <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
+              {t("tech.serviceArea")}
+            </Text>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginTop: 1 }}>
+              {serviceAreaDisplay}
+            </Text>
+          </View>
+          <View style={[styles.serviceAreaActiveDot, { backgroundColor: "#22A36B" }]} />
+        </View>
+      ) : (
+        <Pressable
+          style={[styles.serviceAreaBanner, styles.serviceAreaWarning, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A", flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={() => router.push("/(tech)/profile")}
+        >
+          <View style={[styles.serviceAreaIcon, { backgroundColor: "#FEF3C7" }]}>
+            <Feather name="alert-circle" size={14} color="#D97706" />
+          </View>
+          <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
+            <Text style={{ color: "#92400E", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+              {t("tech.noServiceArea")}
+            </Text>
+            <Text style={{ color: "#B45309", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
+              <Text style={{ fontFamily: "Inter_600SemiBold", textDecorationLine: "underline" }}>{t("tech.updateProfile")}</Text>
+              {" "}{t("tech.toReceiveOrders")}
+            </Text>
+          </View>
+          <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />
+        </Pressable>
+      )}
 
       {/* Orders list */}
       <View style={[styles.ordersSection, { backgroundColor: colors.background }]}>
@@ -407,4 +452,9 @@ const styles = StyleSheet.create({
   modalBtns: { marginTop: 20, gap: 10 },
   liveTag: { flexDirection: "row", alignItems: "center", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 10, gap: 4 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#FFF" },
+  serviceAreaBanner: { marginHorizontal: 16, marginTop: 12, marginBottom: 2, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", gap: 10 },
+  serviceAreaWarning: { alignItems: "center" },
+  serviceAreaIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  serviceAreaText: { flex: 1 },
+  serviceAreaActiveDot: { width: 8, height: 8, borderRadius: 4, marginLeft: "auto" },
 });
