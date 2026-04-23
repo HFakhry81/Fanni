@@ -289,6 +289,14 @@ const translations: Record<string, Record<Language, string>> = {
   "common.sendOrder": { ar: "إرسال الطلب", en: "Submit Request" },
   "common.getLocation": { ar: "تحديد الموقع", en: "Get Location" },
 
+  // OTP verification
+  "otp.title": { ar: "التحقق من الهاتف", en: "Phone Verification" },
+  "otp.heading": { ar: "أدخل رمز التحقق", en: "Enter verification code" },
+  "otp.sent": { ar: "تم إرسال رمز مكون من 6 أرقام إلى", en: "We sent a 6-digit code to" },
+  "otp.verify": { ar: "تحقق", en: "Verify" },
+  "otp.noCode": { ar: "لم يصلك الرمز؟", en: "Didn't receive the code?" },
+  "otp.resend": { ar: "إعادة الإرسال", en: "Resend" },
+
   // Service area
   "tech.serviceArea": { ar: "منطقة الخدمة النشطة", en: "Active Service Area" },
   "tech.noServiceArea": { ar: "لم يتم تحديد منطقة خدمة بعد", en: "No service area set yet" },

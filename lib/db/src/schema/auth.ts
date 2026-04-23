@@ -58,8 +58,22 @@ export const adminsTable = pgTable("admins", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const phoneVerificationsTable = pgTable(
+  "phone_verifications",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    mobile: varchar("mobile", { length: 20 }).notNull(),
+    codeHash: varchar("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("IDX_phone_verif_mobile").on(table.mobile)],
+);
+
 export type UpsertUser = typeof usersTable.$inferInsert;
 export type User = typeof usersTable.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokensTable.$inferSelect;
 export type Admin = typeof adminsTable.$inferSelect;
 export type UpsertAdmin = typeof adminsTable.$inferInsert;
+export type PhoneVerification = typeof phoneVerificationsTable.$inferSelect;

@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Platform,
+  TouchableOpacity, Platform, TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +16,9 @@ import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import { DEFAULT_GOVERNORATE } from "@/constants/egyptLocations";
+
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN = 60;
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -68,6 +71,110 @@ export default function RegisterScreen() {
   // ── Technician service hours ───────────────────────────────────────────────
   const [serviceStart, setServiceStart] = useState("08:00");
   const [serviceEnd, setServiceEnd] = useState("22:00");
+
+  // ── OTP verification state ─────────────────────────────────────────────────
+  const [otpMode, setOtpMode] = useState(false);
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const [otpError, setOtpError] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [verificationToken, setVerificationToken] = useState("");
+  const otpInputRefs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    if (otpCountdown <= 0) return;
+    const id = setInterval(() => setOtpCountdown((c) => { if (c <= 1) { clearInterval(id); return 0; } return c - 1; }), 1000);
+    return () => clearInterval(id);
+  }, [otpCountdown]);
+
+  const normalizedMobile = useCallback((): string => {
+    const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+    const m = mobileDigits.match(EGYPT_MOBILE_RE);
+    return m ? `0${m[2]}` : mobileDigits;
+  }, [mobile]);
+
+  const sendOtp = useCallback(async () => {
+    setOtpSending(true);
+    setOtpError("");
+    try {
+      const res = await fetch(`${getApiBase()}/api/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile: normalizedMobile() }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) {
+        setOtpError(data.error ?? (isRTL ? "تعذّر إرسال الرمز" : "Failed to send code"));
+      } else {
+        setOtpCountdown(RESEND_COOLDOWN);
+      }
+    } catch {
+      setOtpError(isRTL ? "تعذّر الاتصال بالخادم" : "Could not connect to server");
+    } finally {
+      setOtpSending(false);
+    }
+  }, [normalizedMobile, isRTL]);
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const clean = value.replace(/\D/g, "");
+    if (!clean && !value) {
+      const d = [...otpDigits]; d[index] = "";
+      setOtpDigits(d);
+      if (index > 0) otpInputRefs.current[index - 1]?.focus();
+      return;
+    }
+    if (clean.length > 1) {
+      const pasted = clean.slice(0, OTP_LENGTH);
+      const d = Array(OTP_LENGTH).fill("");
+      for (let i = 0; i < pasted.length; i++) d[i] = pasted[i];
+      setOtpDigits(d);
+      otpInputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
+      return;
+    }
+    if (clean) {
+      const d = [...otpDigits]; d[index] = clean;
+      setOtpDigits(d);
+      if (index < OTP_LENGTH - 1) otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyPress = (index: number, key: string) => {
+    if (key === "Backspace" && !otpDigits[index] && index > 0) {
+      const d = [...otpDigits]; d[index - 1] = "";
+      setOtpDigits(d);
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpVerify = async () => {
+    const code = otpDigits.join("");
+    if (code.length < OTP_LENGTH) {
+      setOtpError(isRTL ? "يرجى إدخال الرمز المكون من 6 أرقام" : "Please enter the 6-digit code");
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError("");
+    try {
+      const res = await fetch(`${getApiBase()}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile: normalizedMobile(), code }),
+      });
+      const data = await res.json() as { verificationToken?: string; error?: string };
+      if (!res.ok || !data.verificationToken) {
+        setOtpError(data.error ?? (isRTL ? "الرمز غير صحيح أو منتهي الصلاحية" : "Invalid or expired code"));
+        return;
+      }
+      setVerificationToken(data.verificationToken);
+      setOtpMode(false);
+      setStep(2);
+    } catch {
+      setOtpError(isRTL ? "تعذّر الاتصال بالخادم" : "Could not connect to server");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   // ── API error ─────────────────────────────────────────────────────────────
   const [apiError, setApiError] = useState("");
@@ -154,10 +261,7 @@ export default function RegisterScreen() {
     if (!validateCurrentStep()) return;
 
     if (step === 1) {
-      const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-      const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-      const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
-
+      const nm = normalizedMobile();
       setLoading(true);
       try {
         const apiBase = getApiBase();
@@ -165,7 +269,7 @@ export default function RegisterScreen() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            mobile: normalizedMobile,
+            mobile: nm,
             email: email.trim() || undefined,
           }),
         });
@@ -181,7 +285,11 @@ export default function RegisterScreen() {
           setErrors(availabilityErrors);
           return;
         }
-        setStep(step + 1);
+        // Enter OTP verification mode
+        setOtpDigits(Array(OTP_LENGTH).fill(""));
+        setOtpError("");
+        setOtpMode(true);
+        await sendOtp();
       } catch {
         setApiError(isRTL ? "تعذّر الاتصال بالخادم" : "Could not connect to server");
       } finally {
@@ -193,10 +301,6 @@ export default function RegisterScreen() {
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
-      const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-      const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-      const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
-
       setApiError("");
       setLoading(true);
       try {
@@ -207,12 +311,13 @@ export default function RegisterScreen() {
           body: JSON.stringify({
             name: name.trim(),
             email: email.trim() || undefined,
-            mobile: normalizedMobile,
+            mobile: normalizedMobile(),
             password,
             role: regType,
             nationalId: nationalId.trim() || undefined,
             governorateId: governorateId || undefined,
             areaId: areaId || undefined,
+            verificationToken: verificationToken || undefined,
           }),
         });
         const data = await res.json();
@@ -244,6 +349,7 @@ export default function RegisterScreen() {
   };
 
   const handleBack = () => {
+    if (otpMode) { setOtpMode(false); return; }
     if (step > 1) setStep(step - 1);
     else router.back();
   };
@@ -577,6 +683,84 @@ export default function RegisterScreen() {
     </View>
   );
 
+  // ── OTP inline step ────────────────────────────────────────────────────────
+  const renderOtpStep = () => {
+    const maskedMobile = normalizedMobile().replace(/^(0\d{2})(\d+)(\d{2})$/, "$1****$3");
+    return (
+      <View>
+        <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
+            <Feather name="smartphone" size={20} color={colors.primary} />
+          </View>
+          <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+            {t("otp.heading")}
+          </Text>
+        </View>
+
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 24, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>
+          {t("otp.sent")} {maskedMobile}
+        </Text>
+
+        <View style={[styles.otpRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          {Array.from({ length: OTP_LENGTH }, (_, i) => (
+            <TextInput
+              key={i}
+              ref={(r) => { otpInputRefs.current[i] = r; }}
+              style={[
+                styles.digitBox,
+                {
+                  borderColor: otpDigits[i] ? colors.primary : colors.border,
+                  backgroundColor: otpDigits[i] ? colors.accent : colors.card,
+                  color: colors.foreground,
+                },
+              ]}
+              value={otpDigits[i]}
+              onChangeText={(v) => handleOtpDigitChange(i, v)}
+              onKeyPress={({ nativeEvent }) => handleOtpKeyPress(i, nativeEvent.key)}
+              keyboardType="number-pad"
+              maxLength={OTP_LENGTH}
+              textAlign="center"
+              selectTextOnFocus
+              returnKeyType="done"
+              onSubmitEditing={handleOtpVerify}
+            />
+          ))}
+        </View>
+
+        {!!otpError && (
+          <View style={[styles.otpErrorBox, { backgroundColor: "#FEE2E2", borderColor: "#F87171" }]}>
+            <Feather name="alert-circle" size={14} color="#DC2626" />
+            <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#DC2626", textAlign: isRTL ? "right" : "left" }}>{otpError}</Text>
+          </View>
+        )}
+
+        <FanniButton
+          title={otpLoading ? (isRTL ? "جاري التحقق..." : "Verifying...") : t("otp.verify")}
+          onPress={handleOtpVerify}
+          disabled={otpLoading || otpDigits.join("").length < OTP_LENGTH}
+          style={{ marginTop: 20 }}
+        />
+
+        <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "center", alignItems: "center", gap: 6, marginTop: 16 }]}>
+          <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_400Regular" }}>
+            {t("otp.noCode")}
+          </Text>
+          {otpCountdown > 0 ? (
+            <Text style={{ color: colors.secondary, fontSize: 13, fontFamily: "Inter_500Medium" }}>
+              {isRTL ? `إعادة إرسال بعد ${otpCountdown}ث` : `Resend in ${otpCountdown}s`}
+            </Text>
+          ) : (
+            <TouchableOpacity onPress={sendOtp} disabled={otpSending}>
+              <Text style={{ color: otpSending ? colors.mutedForeground : colors.primary, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>
+                {otpSending ? (isRTL ? "جاري الإرسال..." : "Sending...") : t("otp.resend")}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   const renderCurrentStep = () => {
     if (regType === "client") {
       if (step === 1) return renderStep1();
@@ -615,13 +799,13 @@ export default function RegisterScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
-        {renderStepIndicator()}
+        {!otpMode && renderStepIndicator()}
 
         <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
-          {renderCurrentStep()}
+          {otpMode ? renderOtpStep() : renderCurrentStep()}
         </View>
 
-        {!!apiError && step === totalSteps && (
+        {!!apiError && step === totalSteps && !otpMode && (
           <View style={[styles.apiErrorBox, { backgroundColor: "#FEE2E2", borderColor: "#EF4444", borderRadius: colors.radius }]}>
             <Feather name="alert-circle" size={14} color="#EF4444" style={{ marginRight: isRTL ? 0 : 6, marginLeft: isRTL ? 6 : 0 }} />
             <Text style={{ color: "#EF4444", fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }}>
@@ -629,23 +813,35 @@ export default function RegisterScreen() {
             </Text>
           </View>
         )}
-        <View style={[styles.navBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          {step > 1 && (
+        {!otpMode && (
+          <View style={[styles.navBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            {step > 1 && (
+              <FanniButton
+                title={t("common.back")}
+                onPress={handleBack}
+                variant="outline"
+                style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
+              />
+            )}
+            <FanniButton
+              title={step < totalSteps ? t("common.next") : t("common.save")}
+              onPress={handleNext}
+              loading={loading}
+              disabled={step === 1 && !getPasswordStrength(password, isRTL).isStrong}
+              style={{ flex: 1 }}
+            />
+          </View>
+        )}
+        {otpMode && (
+          <View style={[styles.navBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <FanniButton
               title={t("common.back")}
               onPress={handleBack}
               variant="outline"
-              style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
+              style={{ flex: 1 }}
             />
-          )}
-          <FanniButton
-            title={step < totalSteps ? t("common.next") : t("common.save")}
-            onPress={handleNext}
-            loading={loading}
-            disabled={step === 1 && !getPasswordStrength(password, isRTL).isStrong}
-            style={{ flex: 1 }}
-          />
-        </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -672,4 +868,7 @@ const styles = StyleSheet.create({
   egyptBadge: { padding: 12, borderWidth: 1.5, borderRadius: 12, alignItems: "center", marginBottom: 16 },
   navBtns: { gap: 8, marginBottom: 8 },
   apiErrorBox: { flexDirection: "row", alignItems: "center", borderWidth: 1, padding: 12, marginBottom: 12 },
+  otpRow: { gap: 10, justifyContent: "center", marginBottom: 8 },
+  digitBox: { flex: 1, aspectRatio: 1, maxWidth: 50, borderWidth: 2, borderRadius: 12, fontSize: 22, fontFamily: "Inter_700Bold" },
+  otpErrorBox: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, marginTop: 12 },
 });

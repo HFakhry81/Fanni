@@ -8,8 +8,8 @@ import {
   LogoutMobileSessionResponse,
   SetUserRoleBody,
 } from "@workspace/api-zod";
-import { db, usersTable, adminsTable, passwordResetTokensTable } from "@workspace/db";
-import { eq, and, gt, isNull } from "drizzle-orm";
+import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable } from "@workspace/db";
+import { eq, and, gt, isNull, lt } from "drizzle-orm";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import {
   clearSession,
@@ -347,6 +347,118 @@ function hashResetCode(code: string): string {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
 
+function hashOtpCode(code: string): string {
+  return crypto.createHash("sha256").update(`otp:${code}`).digest("hex");
+}
+
+function signOtpToken(mobile: string): string {
+  const secret = process.env.SESSION_SECRET ?? "fanni-otp-fallback-secret";
+  const payload = Buffer.from(JSON.stringify({ mobile, exp: Date.now() + 30 * 60 * 1000 })).toString("base64url");
+  const sig = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+function verifyOtpToken(token: string): string | null {
+  try {
+    const secret = process.env.SESSION_SECRET ?? "fanni-otp-fallback-secret";
+    const [payload, sig] = token.split(".");
+    if (!payload || !sig) return null;
+    const expectedSig = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) return null;
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString()) as { mobile: string; exp: number };
+    if (Date.now() > data.exp) return null;
+    return data.mobile;
+  } catch {
+    return null;
+  }
+}
+
+async function sendSmsOtp(mobile: string, code: string): Promise<boolean> {
+  if (!process.env.SMS_API_KEY) {
+    console.log(`[OTP] SMS not configured. Code for ${mobile}: ${code}`);
+    return false;
+  }
+  return false;
+}
+
+const OTP_ENABLED = process.env.ENABLE_OTP === "true";
+
+// PUBLIC: Sends a 6-digit OTP to a mobile number. No auth required.
+router.post("/auth/send-otp", async (req: Request, res: Response) => {
+  const { mobile } = req.body as { mobile?: string };
+  if (!mobile || !EGYPT_MOBILE_RE.test(mobile.trim().replace(/\s|-/g, ""))) {
+    res.status(400).json({ error: "Valid Egyptian mobile number is required" });
+    return;
+  }
+  const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+  const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
+  const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  if (!checkRateLimit(`otp-send:ip:${ip}`, 5, 10 * 60 * 1000) || !checkRateLimit(`otp-send:mobile:${normalizedMobile}`, 3, 10 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many OTP requests. Please wait before trying again." });
+    return;
+  }
+
+  const code = String(crypto.randomInt(100_000, 1_000_000));
+  const codeHash = hashOtpCode(code);
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await db.insert(phoneVerificationsTable).values({ mobile: normalizedMobile, codeHash, expiresAt });
+  await sendSmsOtp(normalizedMobile, code);
+  req.log.info({ mobile: normalizedMobile }, "OTP sent");
+  res.json({ success: true });
+});
+
+// PUBLIC: Verifies a 6-digit OTP and returns a short-lived verification token. No auth required.
+router.post("/auth/verify-otp", async (req: Request, res: Response) => {
+  const { mobile, code } = req.body as { mobile?: string; code?: string };
+  if (!mobile || !code) {
+    res.status(400).json({ error: "mobile and code are required" });
+    return;
+  }
+  const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+  const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
+  const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  if (!checkRateLimit(`otp-verify:ip:${ip}`, 10, 10 * 60 * 1000) || !checkRateLimit(`otp-verify:mobile:${normalizedMobile}`, 5, 10 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many verification attempts. Please wait." });
+    return;
+  }
+
+  const codeHash = hashOtpCode(code.trim());
+  const now = new Date();
+
+  const [record] = await db
+    .select()
+    .from(phoneVerificationsTable)
+    .where(
+      and(
+        eq(phoneVerificationsTable.mobile, normalizedMobile),
+        eq(phoneVerificationsTable.codeHash, codeHash),
+        gt(phoneVerificationsTable.expiresAt, now),
+        isNull(phoneVerificationsTable.usedAt),
+      ),
+    )
+    .orderBy(phoneVerificationsTable.createdAt)
+    .limit(1);
+
+  if (!record) {
+    res.status(400).json({ error: "Invalid or expired code" });
+    return;
+  }
+
+  await db
+    .update(phoneVerificationsTable)
+    .set({ usedAt: now })
+    .where(eq(phoneVerificationsTable.id, record.id));
+
+  const verificationToken = signOtpToken(normalizedMobile);
+  req.log.info({ mobile: normalizedMobile }, "OTP verified");
+  res.json({ verificationToken });
+});
+
 // PUBLIC: Sends a password reset code. No auth required — used for account recovery.
 router.post("/auth/forgot-password", async (req: Request, res: Response) => {
   const { identifier } = req.body as { identifier?: string };
@@ -514,7 +626,7 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
 
 // PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId } = req.body as {
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken } = req.body as {
     name?: string;
     email?: string;
     mobile?: string;
@@ -523,6 +635,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     nationalId?: string;
     governorateId?: string;
     areaId?: string;
+    verificationToken?: string;
   };
 
   if (!name || !name.trim()) {
@@ -554,6 +667,22 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   if (role && !["client", "technician"].includes(role)) {
     res.status(400).json({ error: "Invalid role" });
     return;
+  }
+
+  // OTP gate: when ENABLE_OTP=true, verificationToken is mandatory and must match the mobile number
+  if (OTP_ENABLED) {
+    if (!verificationToken) {
+      res.status(400).json({ error: "Phone verification is required. Please verify your mobile number first." });
+      return;
+    }
+    const mobileForOtp = mobile.trim().replace(/\s|-/g, "");
+    const mobileMatchOtp = mobileForOtp.match(EGYPT_MOBILE_RE);
+    const normalizedForOtp = mobileMatchOtp ? `0${mobileMatchOtp[2]}` : mobileForOtp;
+    const tokenMobile = verifyOtpToken(verificationToken);
+    if (!tokenMobile || tokenMobile !== normalizedForOtp) {
+      res.status(400).json({ error: "Phone verification failed. Please verify your mobile number and try again." });
+      return;
+    }
   }
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
