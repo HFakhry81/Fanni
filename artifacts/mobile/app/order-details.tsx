@@ -345,6 +345,23 @@ export default function OrderDetailsScreen() {
                 #{order.invoice.invoiceNumber}
               </Text>
             </View>
+            {/* Technician info row */}
+            {(order.technicianName || order.technicianMobile) && (
+              <View style={[styles.invoiceTechRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+                <Feather name="user" size={14} color={colors.mutedForeground} style={{ marginTop: 1 }} />
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0, flex: 1, textAlign: isRTL ? "right" : "left" }}>
+                  {order.technicianName}
+                </Text>
+                {order.technicianMobile && (
+                  <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }]}>
+                    <Feather name="phone" size={13} color={colors.mutedForeground} />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}>
+                      {order.technicianMobile}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
               {t("invoice.title")} #{order.invoice.invoiceNumber}
             </Text>
@@ -447,6 +464,7 @@ const styles = StyleSheet.create({
   completionOption: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center", gap: 10 },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2 },
   invoiceLogoRow: { alignItems: "center", marginBottom: 14, paddingBottom: 14, borderBottomWidth: 1 },
+  invoiceTechRow: { alignItems: "center", paddingVertical: 10, marginBottom: 14, borderBottomWidth: 1 },
   invoiceLogo: { width: 40, height: 40, borderRadius: 8 },
   invoiceRow: { paddingVertical: 10, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
   invoiceTotalRow: { padding: 14, marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
