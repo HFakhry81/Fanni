@@ -30,8 +30,6 @@ async function run() {
     await client.query("BEGIN");
 
     await client.query(`DELETE FROM locations WHERE type = 'neighborhood'`);
-    await client.query(`DELETE FROM locations WHERE type = 'area'`);
-    await client.query(`DELETE FROM locations WHERE type = 'governorate'`);
 
     let govCount = 0;
     let areaCount = 0;
@@ -41,9 +39,11 @@ async function run() {
         `INSERT INTO locations (id, type, name_ar, name_en, parent_id, slug)
          VALUES ($1, 'governorate', $2, $3, NULL, $4)
          ON CONFLICT (id) DO UPDATE
-           SET name_ar = EXCLUDED.name_ar,
+           SET type    = 'governorate',
+               name_ar = EXCLUDED.name_ar,
                name_en = EXCLUDED.name_en,
-               slug    = EXCLUDED.slug`,
+               slug    = EXCLUDED.slug,
+               parent_id = NULL`,
         [gov.id, gov.ar, gov.en, gov.id],
       );
       govCount++;
@@ -53,7 +53,8 @@ async function run() {
           `INSERT INTO locations (id, type, name_ar, name_en, parent_id, slug)
            VALUES ($1, 'area', $2, $3, $4, $5)
            ON CONFLICT (id) DO UPDATE
-             SET name_ar   = EXCLUDED.name_ar,
+             SET type      = 'area',
+                 name_ar   = EXCLUDED.name_ar,
                  name_en   = EXCLUDED.name_en,
                  parent_id = EXCLUDED.parent_id,
                  slug      = EXCLUDED.slug`,
@@ -64,7 +65,10 @@ async function run() {
     }
 
     await client.query("COMMIT");
-    console.log(`Reseeded: ${govCount} governorates, ${areaCount} areas (old neighborhoods removed).`);
+    console.log(
+      `Reseeded: ${govCount} governorates, ${areaCount} areas. Old neighborhood rows removed; ` +
+      `legacy area/gov rows preserved for backward compat.`,
+    );
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Seed failed:", err);

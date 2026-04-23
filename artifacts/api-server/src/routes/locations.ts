@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, locationsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
 
@@ -13,7 +13,7 @@ router.get("/locations/governorates", async (_req, res) => {
         nameAr: locationsTable.nameAr,
         nameEn: locationsTable.nameEn,
         slug: locationsTable.slug,
-        centroid: locationsTable.centroid,
+        centroid: sql<string | null>`ST_AsGeoJSON(centroid)`.as("centroid"),
       })
       .from(locationsTable)
       .where(eq(locationsTable.type, "governorate"))
@@ -37,7 +37,7 @@ router.get("/locations/:govId/areas", async (req, res) => {
         nameEn: locationsTable.nameEn,
         slug: locationsTable.slug,
         parentId: locationsTable.parentId,
-        centroid: locationsTable.centroid,
+        centroid: sql<string | null>`ST_AsGeoJSON(centroid)`.as("centroid"),
       })
       .from(locationsTable)
       .where(

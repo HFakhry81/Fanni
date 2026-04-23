@@ -1,11 +1,5 @@
 import { sql } from "drizzle-orm";
-import { customType, index, jsonb, pgEnum, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
-
-const geography = customType<{ data: string | null; notNull: false }>({
-  dataType() {
-    return "GEOGRAPHY(POINT, 4326)";
-  },
-});
+import { index, jsonb, pgEnum, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const locationTypeEnum = pgEnum("location_type", [
   "governorate",
@@ -22,7 +16,6 @@ export const locationsTable = pgTable(
     nameEn: varchar("name_en", { length: 200 }).notNull(),
     parentId: varchar("parent_id"),
     slug: varchar("slug", { length: 200 }).notNull(),
-    centroid: geography("centroid"),
   },
   (table) => [
     index("IDX_locations_type").on(table.type),

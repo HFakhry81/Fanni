@@ -61,6 +61,15 @@ function scoreMatch(raw: string, loc: LocationRow): number {
   if (nameEnLower.includes(rawLower) || rawLower.includes(nameEnLower)) return 60;
   if (nameArTrimmed.includes(rawLower) || rawLower.includes(nameArTrimmed)) return 55;
 
+  const slugCityPart = loc.slug.includes("__")
+    ? loc.slug.split("__")[1].replace(/_/g, " ")
+    : null;
+  if (slugCityPart) {
+    const rawNormNSep = rawLower.replace(/__/g, " ");
+    if (rawNormNSep === slugCityPart) return 70;
+    if (stripNoise(rawNormNSep) === stripNoise(slugCityPart)) return 65;
+  }
+
   return 0;
 }
 
