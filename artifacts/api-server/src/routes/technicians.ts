@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, pool } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, SQL } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -44,6 +44,8 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
   const lon = parseFloat(req.query.lon as string);
   const radiusKm = parseFloat((req.query.radiusKm as string) ?? "15");
   const hasSpatial = !isNaN(lat) && !isNaN(lon);
+  const govFilter = (req.query.governorate as string | undefined)?.trim() ?? null;
+  const areaFilter = (req.query.area as string | undefined)?.trim() ?? null;
 
   if (hasSpatial) {
     try {
@@ -113,6 +115,15 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
     }
   }
 
+  // Text-based fallback: filter by governorate + area if provided,
+  // otherwise return all available technicians.
+  const conditions: SQL[] = [
+    eq(usersTable.role, "technician"),
+    eq(usersTable.isAvailable, true),
+  ];
+  if (govFilter) conditions.push(eq(usersTable.governorate, govFilter));
+  if (areaFilter) conditions.push(eq(usersTable.area, areaFilter));
+
   const technicians = await db
     .select({
       id: usersTable.id,
@@ -126,9 +137,9 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
       isAvailable: usersTable.isAvailable,
     })
     .from(usersTable)
-    .where(and(eq(usersTable.role, "technician"), eq(usersTable.isAvailable, true)));
+    .where(and(...conditions));
 
-  res.json({ technicians, spatialFilter: false });
+  res.json({ technicians, spatialFilter: false, governorateFilter: govFilter, areaFilter });
 });
 
 export default router;

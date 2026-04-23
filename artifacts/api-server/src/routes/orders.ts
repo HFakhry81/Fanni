@@ -268,6 +268,52 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, re
   }
 });
 
+router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { latitude, longitude } = req.body as { latitude?: unknown; longitude?: unknown };
+  const lat = parseFloat(String(latitude));
+  const lon = parseFloat(String(longitude));
+
+  if (isNaN(lat) || isNaN(lon)) {
+    res.status(400).json({ error: "latitude and longitude are required numbers" });
+    return;
+  }
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    res.status(400).json({ error: "Coordinates out of range" });
+    return;
+  }
+
+  try {
+    await db
+      .update(ordersTable)
+      .set({
+        updatedAt: new Date(),
+        data: sql`${ordersTable.data} || ${JSON.stringify({ latitude: lat, longitude: lon })}::jsonb`,
+      })
+      .where(eq(ordersTable.id, id));
+
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query(
+          `UPDATE orders SET location = ST_SetSRID(ST_MakePoint($1,$2),4326)::geography WHERE id = $3`,
+          [lon, lat, id],
+        );
+      } finally {
+        client.release();
+      }
+    } catch {
+      logger.warn({ orderId: id }, "PostGIS location update skipped on order location patch");
+    }
+
+    logger.info({ id, lat, lon }, "Order location updated");
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to update order location");
+    res.status(500).json({ error: "Failed to update order location" });
+  }
+});
+
 router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
