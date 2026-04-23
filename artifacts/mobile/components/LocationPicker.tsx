@@ -65,7 +65,7 @@ async function fetchNeighborhoods(areaId: string): Promise<LocationRow[]> {
 
 type PickerType = "governorate" | "area" | "neighborhood";
 
-interface Option { id: string; ar: string; en: string; }
+export interface LocationOption { id: string; ar: string; en: string; }
 
 interface LocationPickerProps {
   governorateId: string;
@@ -74,6 +74,9 @@ interface LocationPickerProps {
   onGovernorateChange: (id: string) => void;
   onAreaChange: (id: string) => void;
   onNeighborhoodChange: (id: string) => void;
+  onGovernorateSelect?: (opt: LocationOption) => void;
+  onAreaSelect?: (opt: LocationOption) => void;
+  onNeighborhoodSelect?: (opt: LocationOption) => void;
   street: string;
   onStreetChange: (v: string) => void;
   building?: string;
@@ -90,8 +93,17 @@ interface LocationPickerProps {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function rowToOption(r: LocationRow): Option {
+function rowToOption(r: LocationRow): LocationOption {
   return { id: r.id, ar: r.nameAr, en: r.nameEn };
+}
+
+function normalise(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, "");
+}
+
+function optionMatches(opt: LocationOption, term: string): boolean {
+  const t = normalise(term);
+  return normalise(opt.en).includes(t) || normalise(opt.ar).includes(t);
 }
 
 // ─── Single dropdown ──────────────────────────────────────────────────────────
@@ -154,8 +166,8 @@ function Dropdown({
 function ModalPicker({
   visible, title, options, selectedId, onSelect, onClose, loading,
 }: {
-  visible: boolean; title: string; options: Option[]; selectedId: string;
-  onSelect: (opt: Option) => void; onClose: () => void; loading?: boolean;
+  visible: boolean; title: string; options: LocationOption[]; selectedId: string;
+  onSelect: (opt: LocationOption) => void; onClose: () => void; loading?: boolean;
 }) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -283,6 +295,7 @@ function InlineInput({
 export default function LocationPicker({
   governorateId, areaId, neighborhoodId,
   onGovernorateChange, onAreaChange, onNeighborhoodChange,
+  onGovernorateSelect, onAreaSelect, onNeighborhoodSelect,
   street, onStreetChange,
   building = "", onBuildingChange,
   floor = "", onFloorChange,
@@ -296,10 +309,9 @@ export default function LocationPicker({
   const [modalType, setModalType] = useState<PickerType | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
 
-  // DB-backed location lists
-  const [govOptions, setGovOptions] = useState<Option[]>([]);
-  const [areaOptions, setAreaOptions] = useState<Option[]>([]);
-  const [nbhOptions, setNbhOptions] = useState<Option[]>([]);
+  const [govOptions, setGovOptions] = useState<LocationOption[]>([]);
+  const [areaOptions, setAreaOptions] = useState<LocationOption[]>([]);
+  const [nbhOptions, setNbhOptions] = useState<LocationOption[]>([]);
   const [govLoading, setGovLoading] = useState(false);
   const [areaLoading, setAreaLoading] = useState(false);
   const [nbhLoading, setNbhLoading] = useState(false);
@@ -319,10 +331,10 @@ export default function LocationPicker({
     setAreaLoading(false);
   }, []);
 
-  const loadNeighborhoods = useCallback(async (areaId: string) => {
-    if (!areaId) { setNbhOptions([]); return; }
+  const loadNeighborhoods = useCallback(async (aId: string) => {
+    if (!aId) { setNbhOptions([]); return; }
     setNbhLoading(true);
-    const rows = await fetchNeighborhoods(areaId);
+    const rows = await fetchNeighborhoods(aId);
     setNbhOptions(rows.map(rowToOption));
     setNbhLoading(false);
   }, []);
@@ -335,7 +347,7 @@ export default function LocationPicker({
   const areaLabel = areaOptions.find((a) => a.id === areaId);
   const nbhLabel = nbhOptions.find((n) => n.id === neighborhoodId);
 
-  const getModalOptions = (): Option[] => {
+  const getModalOptions = (): LocationOption[] => {
     if (modalType === "governorate") return govOptions;
     if (modalType === "area") return areaOptions;
     if (modalType === "neighborhood") return nbhOptions;
@@ -354,24 +366,67 @@ export default function LocationPicker({
     return nbhLoading;
   };
 
-  const handleSelect = (opt: Option) => {
+  const handleSelect = (opt: LocationOption) => {
     if (modalType === "governorate") {
       onGovernorateChange(opt.id);
+      onGovernorateSelect?.(opt);
       onAreaChange("");
       onNeighborhoodChange("");
     } else if (modalType === "area") {
       onAreaChange(opt.id);
+      onAreaSelect?.(opt);
       onNeighborhoodChange("");
     } else {
       onNeighborhoodChange(opt.id);
+      onNeighborhoodSelect?.(opt);
     }
   };
 
-  const handleMapConfirm = (loc: PickedLocation) => {
+  const handleMapConfirm = async (loc: PickedLocation) => {
     setShowMapPicker(false);
     onCoordsChange?.(loc.latitude, loc.longitude);
+
     if (loc.street && !street) {
       onStreetChange(loc.street);
+    }
+
+    const cityEn = loc.cityEn ?? "";
+    const suburbEn = loc.suburbEn ?? "";
+    const cityAr = loc.cityAr ?? "";
+    const suburbAr = loc.suburbAr ?? "";
+
+    if (govOptions.length > 0) {
+      const govMatch = govOptions.find(
+        (g) => optionMatches(g, cityEn) || optionMatches(g, cityAr),
+      );
+      if (govMatch && govMatch.id !== governorateId) {
+        onGovernorateChange(govMatch.id);
+        onGovernorateSelect?.(govMatch);
+        onAreaChange("");
+        onNeighborhoodChange("");
+
+        const areaRows = await fetchAreas(govMatch.id);
+        const areaOpts = areaRows.map(rowToOption);
+        setAreaOptions(areaOpts);
+
+        const areaMatch = areaOpts.find(
+          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
+                 optionMatches(a, cityEn)   || optionMatches(a, cityAr),
+        );
+        if (areaMatch) {
+          onAreaChange(areaMatch.id);
+          onAreaSelect?.(areaMatch);
+        }
+      } else if (areaOptions.length > 0) {
+        const areaMatch = areaOptions.find(
+          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr),
+        );
+        if (areaMatch && areaMatch.id !== areaId) {
+          onAreaChange(areaMatch.id);
+          onAreaSelect?.(areaMatch);
+          onNeighborhoodChange("");
+        }
+      }
     }
   };
 
@@ -379,7 +434,6 @@ export default function LocationPicker({
 
   return (
     <View>
-      {/* Governorate */}
       <Dropdown
         label={isRTL ? "المحافظة" : "Governorate"}
         value={govLabel ? (isRTL ? govLabel.ar : govLabel.en) : ""}
@@ -389,7 +443,6 @@ export default function LocationPicker({
         required
       />
 
-      {/* Area */}
       <Dropdown
         label={isRTL ? "المنطقة / الحي الرئيسي" : "Area / District"}
         value={areaLabel ? (isRTL ? areaLabel.ar : areaLabel.en) : ""}
@@ -399,7 +452,6 @@ export default function LocationPicker({
         required
       />
 
-      {/* Neighborhood */}
       <Dropdown
         label={isRTL ? "الحي / الحارة" : "Neighborhood"}
         value={nbhLabel ? (isRTL ? nbhLabel.ar : nbhLabel.en) : ""}
@@ -408,7 +460,6 @@ export default function LocationPicker({
         loading={nbhLoading}
       />
 
-      {/* Street */}
       <InlineInput
         label={isRTL ? "اسم الشارع" : "Street Name"}
         value={street}
@@ -416,7 +467,6 @@ export default function LocationPicker({
         placeholder={isRTL ? "مثال: شارع النصر" : "e.g. Al Nasr Street"}
       />
 
-      {/* Building / Floor / Apt */}
       {showDetails && (
         <View style={[styles.detailRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={{ flex: 1 }}>
@@ -433,7 +483,6 @@ export default function LocationPicker({
         </View>
       )}
 
-      {/* Map pin button */}
       <TouchableOpacity
         style={[
           styles.mapPlaceholder,
@@ -467,7 +516,6 @@ export default function LocationPicker({
         )}
       </TouchableOpacity>
 
-      {/* Picker Modal */}
       <ModalPicker
         visible={modalType !== null}
         title={getModalTitle()}
@@ -481,7 +529,6 @@ export default function LocationPicker({
         loading={getModalLoading()}
       />
 
-      {/* Map Picker Modal */}
       <MapPickerModal
         visible={showMapPicker}
         initialCoords={hasPinnedLocation ? { latitude: latitude!, longitude: longitude! } : null}

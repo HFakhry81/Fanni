@@ -14,7 +14,7 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
-import { DEFAULT_GOVERNORATE, EGYPT_LOCATIONS, getAreas, getNeighborhoods } from "@/constants/egyptLocations";
+import type { LocationOption } from "@/components/LocationPicker";
 
 type OrderStep = 1 | 2 | 3;
 
@@ -35,9 +35,12 @@ export default function NewOrderScreen() {
   const [deviceType, setDeviceType] = useState("");
 
   // ── Step 2 – Location ───────────────────────────────────────────────────────
-  const [governorateId, setGovernorateId] = useState(DEFAULT_GOVERNORATE);
+  const [governorateId, setGovernorateId] = useState("");
   const [areaId, setAreaId] = useState("");
   const [neighborhoodId, setNeighborhoodId] = useState("");
+  const [govOpt, setGovOpt] = useState<LocationOption | null>(null);
+  const [areaOpt, setAreaOpt] = useState<LocationOption | null>(null);
+  const [nbhOpt, setNbhOpt] = useState<LocationOption | null>(null);
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");
   const [floor, setFloor] = useState("");
@@ -68,14 +71,10 @@ export default function NewOrderScreen() {
     const orderId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
     const orderNumber = `ORD-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000) + 1000}`;
 
-    const gov = EGYPT_LOCATIONS.find((g) => g.id === governorateId);
-    const area = getAreas(governorateId).find((a) => a.id === areaId);
-    const nbh  = getNeighborhoods(governorateId, areaId).find((n) => n.id === neighborhoodId);
-
     const fullAddress = [
-      gov  ? (isRTL ? gov.ar  : gov.en)  : "",
-      area ? (isRTL ? area.ar : area.en) : "",
-      nbh  ? (isRTL ? nbh.ar  : nbh.en)  : "",
+      govOpt  ? (isRTL ? govOpt.ar  : govOpt.en)  : "",
+      areaOpt ? (isRTL ? areaOpt.ar : areaOpt.en) : "",
+      nbhOpt  ? (isRTL ? nbhOpt.ar  : nbhOpt.en)  : "",
       street,
     ].filter(Boolean).join(isRTL ? "، " : ", ");
 
@@ -92,8 +91,8 @@ export default function NewOrderScreen() {
       photos: [],
       street: fullAddress,
       building, floor, apartment, landmark,
-      governorate: gov ? gov.en.toLowerCase() : undefined,
-      area: area ? area.en.toLowerCase() : undefined,
+      governorate: govOpt ? govOpt.en.toLowerCase() : undefined,
+      area: areaOpt ? areaOpt.en.toLowerCase() : undefined,
       latitude:  latitude  ?? undefined,
       longitude: longitude ?? undefined,
       visitDate, visitTime,
@@ -186,9 +185,12 @@ export default function NewOrderScreen() {
         governorateId={governorateId}
         areaId={areaId}
         neighborhoodId={neighborhoodId}
-        onGovernorateChange={setGovernorateId}
-        onAreaChange={setAreaId}
-        onNeighborhoodChange={setNeighborhoodId}
+        onGovernorateChange={(id) => { setGovernorateId(id); if (!id) { setGovOpt(null); setAreaOpt(null); setNbhOpt(null); } }}
+        onAreaChange={(id) => { setAreaId(id); if (!id) { setAreaOpt(null); setNbhOpt(null); } }}
+        onNeighborhoodChange={(id) => { setNeighborhoodId(id); if (!id) setNbhOpt(null); }}
+        onGovernorateSelect={(opt) => { setGovOpt(opt); setAreaOpt(null); setNbhOpt(null); }}
+        onAreaSelect={(opt) => { setAreaOpt(opt); setNbhOpt(null); }}
+        onNeighborhoodSelect={(opt) => setNbhOpt(opt)}
         street={street}
         onStreetChange={setStreet}
         building={building}
@@ -236,17 +238,13 @@ export default function NewOrderScreen() {
 
   // ── Step 3: Confirm ─────────────────────────────────────────────────────────
   const renderStep3 = () => {
-    const gov  = EGYPT_LOCATIONS.find((g) => g.id === governorateId);
-    const area = getAreas(governorateId).find((a) => a.id === areaId);
-    const nbh  = getNeighborhoods(governorateId, areaId).find((n) => n.id === neighborhoodId);
-
     const rows = [
       { label: isRTL ? "نوع الخدمة" : "Service",     value: `${t(`cat.${category}`)} — ${subCategory}` },
       { label: t("order.problemDesc"),                 value: problemDesc || "—" },
       { label: t("order.deviceType"),                  value: deviceType || "—" },
-      { label: isRTL ? "المحافظة" : "Governorate",    value: gov  ? (isRTL ? gov.ar  : gov.en)  : "—" },
-      { label: isRTL ? "المنطقة" : "Area",            value: area ? (isRTL ? area.ar : area.en) : "—" },
-      { label: isRTL ? "الحي" : "Neighborhood",       value: nbh  ? (isRTL ? nbh.ar  : nbh.en)  : "—" },
+      { label: isRTL ? "المحافظة" : "Governorate",    value: govOpt  ? (isRTL ? govOpt.ar  : govOpt.en)  : "—" },
+      { label: isRTL ? "المنطقة" : "Area",            value: areaOpt ? (isRTL ? areaOpt.ar : areaOpt.en) : "—" },
+      { label: isRTL ? "الحي" : "Neighborhood",       value: nbhOpt  ? (isRTL ? nbhOpt.ar  : nbhOpt.en)  : "—" },
       { label: isRTL ? "الشارع" : "Street",           value: street || "—" },
       { label: t("order.visitDate"),                   value: visitDate || "—" },
       { label: t("order.visitTime"),                   value: visitTime || "—" },

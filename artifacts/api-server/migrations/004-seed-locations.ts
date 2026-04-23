@@ -16,7 +16,7 @@ import pg from "pg";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const { EGYPT_LOCATIONS } = await import(
-  path.resolve(__dirname, "../../artifacts/mobile/constants/egyptLocations.ts")
+  path.resolve(__dirname, "../../../artifacts/mobile/constants/egyptLocations.ts")
 );
 
 const { Pool } = pg;

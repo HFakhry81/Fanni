@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, jsonb, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, customType, index, jsonb, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+
+const geography = customType<{ data: string }>({
+  dataType() {
+    return "geography(POINT, 4326)";
+  },
+});
 
 export const userRoleEnum = pgEnum("user_role", ["client", "technician"]);
 
@@ -28,6 +34,7 @@ export const usersTable = pgTable("users", {
   specialty: varchar("specialty", { length: 100 }),
   isAvailable: boolean("is_available").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
+  location: geography("location"),
   passwordHash: varchar("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

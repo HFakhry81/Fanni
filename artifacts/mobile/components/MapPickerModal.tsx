@@ -20,9 +20,12 @@ function getApiBase(): string {
 export interface PickedLocation {
   latitude: number;
   longitude: number;
-  displayName?: string;
-  suburb?: string;
-  city?: string;
+  displayNameAr?: string;
+  displayNameEn?: string;
+  suburbAr?: string;
+  suburbEn?: string;
+  cityAr?: string;
+  cityEn?: string;
   street?: string;
 }
 
@@ -44,7 +47,57 @@ interface SearchResult {
   display_name: string;
   lat: string;
   lon: string;
-  address?: { suburb?: string; city?: string; road?: string };
+  address?: { suburb?: string; city?: string; town?: string; road?: string; neighbourhood?: string };
+}
+
+interface BilingualGeo {
+  displayNameAr: string;
+  displayNameEn: string;
+  suburbAr?: string;
+  suburbEn?: string;
+  cityAr?: string;
+  cityEn?: string;
+  street?: string;
+}
+
+async function reverseGeocodeBilingual(lat: number, lon: number): Promise<BilingualGeo> {
+  const base = getApiBase();
+  const empty: BilingualGeo = { displayNameAr: "", displayNameEn: "" };
+  if (!base) return empty;
+
+  try {
+    const [resAr, resEn] = await Promise.all([
+      fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}&lang=ar`),
+      fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}&lang=en`),
+    ]);
+
+    let ar: Record<string, unknown> = {};
+    let en: Record<string, unknown> = {};
+
+    if (resAr.ok) {
+      const j = await resAr.json();
+      ar = (j.result ?? {}) as Record<string, unknown>;
+    }
+    if (resEn.ok) {
+      const j = await resEn.json();
+      en = (j.result ?? {}) as Record<string, unknown>;
+    }
+
+    const addr = (ar.address ?? en.address ?? {}) as Record<string, string>;
+    const addrEn = (en.address ?? ar.address ?? {}) as Record<string, string>;
+
+    return {
+      displayNameAr: (ar.display_name as string) ?? "",
+      displayNameEn: (en.display_name as string) ?? "",
+      suburbAr: addr.suburb ?? addr.neighbourhood,
+      suburbEn: addrEn.suburb ?? addrEn.neighbourhood,
+      cityAr:  addr.city ?? addr.town,
+      cityEn:  addrEn.city ?? addrEn.town,
+      street:  addrEn.road ?? addr.road,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 export default function MapPickerModal({
@@ -56,34 +109,22 @@ export default function MapPickerModal({
   const [components, setComponents] = useState<MapComponents | null>(null);
   const mapRef = useRef<import("react-native-maps").default | null>(null);
 
-  const [markerCoords, setMarkerCoords] = useState(
-    initialCoords ?? ALEX_COORDS,
-  );
-  const [regionCoords, setRegionCoords] = useState(
-    initialCoords ?? ALEX_COORDS,
-  );
+  const [markerCoords, setMarkerCoords] = useState(initialCoords ?? ALEX_COORDS);
+  const [regionCoords, setRegionCoords] = useState(initialCoords ?? ALEX_COORDS);
+  const [geoData, setGeoData] = useState<BilingualGeo | null>(null);
+  const [reverseLoading, setReverseLoading] = useState(false);
 
   const [searchQ, setSearchQ] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [reverseLoading, setReverseLoading] = useState(false);
-  const [displayName, setDisplayName] = useState<string>("");
-  const [reverseData, setReverseData] = useState<{
-    suburb?: string; city?: string; street?: string;
-  }>({});
-
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
     import("react-native-maps").then((mod) => {
       if (!cancelled) {
-        setComponents({
-          MapView: mod.default,
-          Marker: mod.Marker,
-          UrlTile: mod.UrlTile,
-        });
+        setComponents({ MapView: mod.default, Marker: mod.Marker, UrlTile: mod.UrlTile });
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -96,33 +137,18 @@ export default function MapPickerModal({
     setRegionCoords(c);
     setSearchQ("");
     setSearchResults([]);
-    setDisplayName("");
-    setReverseData({});
+    setGeoData(null);
   }, [visible, initialCoords]);
 
   const reverseGeocode = useCallback(async (lat: number, lon: number) => {
-    const base = getApiBase();
-    if (!base) return;
     setReverseLoading(true);
     try {
-      const lang = isRTL ? "ar" : "en";
-      const res = await fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}&lang=${lang}`);
-      if (!res.ok) return;
-      const json = await res.json();
-      const r = json.result;
-      if (r) {
-        setDisplayName(r.display_name ?? "");
-        setReverseData({
-          suburb: r.address?.suburb ?? r.address?.neighbourhood,
-          city: r.address?.city ?? r.address?.town,
-          street: r.address?.road,
-        });
-      }
-    } catch {
+      const data = await reverseGeocodeBilingual(lat, lon);
+      setGeoData(data);
     } finally {
       setReverseLoading(false);
     }
-  }, [isRTL]);
+  }, []);
 
   const searchGeo = useCallback(async (q: string) => {
     const base = getApiBase();
@@ -130,9 +156,7 @@ export default function MapPickerModal({
     setSearchLoading(true);
     try {
       const lang = isRTL ? "ar" : "en";
-      const res = await fetch(
-        `${base}/api/geo/search?q=${encodeURIComponent(q)}&lang=${lang}&limit=5`,
-      );
+      const res = await fetch(`${base}/api/geo/search?q=${encodeURIComponent(q)}&lang=${lang}&limit=5`);
       if (!res.ok) return;
       const json = await res.json();
       setSearchResults(json.results ?? []);
@@ -148,24 +172,25 @@ export default function MapPickerModal({
     searchTimer.current = setTimeout(() => searchGeo(text), 600);
   };
 
-  const selectSearchResult = (r: SearchResult) => {
+  const selectSearchResult = async (r: SearchResult) => {
     const lat = parseFloat(r.lat);
     const lon = parseFloat(r.lon);
     const coords = { latitude: lat, longitude: lon };
     setMarkerCoords(coords);
     setRegionCoords(coords);
-    setDisplayName(r.display_name);
-    setReverseData({
-      suburb: r.address?.suburb,
-      city: r.address?.city,
-      street: r.address?.road,
-    });
     setSearchQ("");
     setSearchResults([]);
     mapRef.current?.animateToRegion({ ...coords, ...DEFAULT_DELTA }, 500);
+    await reverseGeocode(lat, lon);
   };
 
   const onMarkerDragEnd = async (e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    setMarkerCoords({ latitude, longitude });
+    await reverseGeocode(latitude, longitude);
+  };
+
+  const handleMapPress = async (e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setMarkerCoords({ latitude, longitude });
     await reverseGeocode(latitude, longitude);
@@ -175,13 +200,17 @@ export default function MapPickerModal({
     onConfirm({
       latitude: markerCoords.latitude,
       longitude: markerCoords.longitude,
-      displayName,
-      suburb: reverseData.suburb,
-      city: reverseData.city,
-      street: reverseData.street,
+      displayNameAr: geoData?.displayNameAr,
+      displayNameEn: geoData?.displayNameEn,
+      suburbAr: geoData?.suburbAr,
+      suburbEn: geoData?.suburbEn,
+      cityAr:   geoData?.cityAr,
+      cityEn:   geoData?.cityEn,
+      street:   geoData?.street,
     });
   };
 
+  const displayName = isRTL ? (geoData?.displayNameAr ?? "") : (geoData?.displayNameEn ?? "");
   const isWeb = Platform.OS === "web";
 
   return (
@@ -197,7 +226,7 @@ export default function MapPickerModal({
           </Text>
           <TouchableOpacity
             onPress={handleConfirm}
-            style={[styles.headerBtn, styles.confirmBtn, { backgroundColor: colors.primary }]}
+            style={[styles.headerBtn, { backgroundColor: colors.primary, borderRadius: 10 }]}
           >
             <Feather name="check" size={20} color="#fff" />
           </TouchableOpacity>
@@ -216,7 +245,7 @@ export default function MapPickerModal({
           {searchLoading && <ActivityIndicator size="small" color={colors.primary} />}
         </View>
 
-        {/* Search results dropdown */}
+        {/* Search results */}
         {searchResults.length > 0 && (
           <View style={[styles.searchDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <FlatList
@@ -229,10 +258,7 @@ export default function MapPickerModal({
                   onPress={() => selectSearchResult(item)}
                 >
                   <Feather name="map-pin" size={14} color={colors.primary} style={{ marginRight: 8 }} />
-                  <Text
-                    style={{ color: colors.foreground, fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }}
-                    numberOfLines={2}
-                  >
+                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
                     {item.display_name}
                   </Text>
                 </TouchableOpacity>
@@ -247,10 +273,10 @@ export default function MapPickerModal({
             <View style={[styles.webFallback, { backgroundColor: colors.muted }]}>
               <Feather name="map" size={48} color={colors.border} />
               <Text style={{ color: colors.mutedForeground, marginTop: 12, fontSize: 14, textAlign: "center" }}>
-                {isRTL ? "خريطة التفاعلية متاحة على التطبيق فقط" : "Interactive map is available on the mobile app"}
+                {isRTL ? "الخريطة التفاعلية متاحة على تطبيق الهاتف فقط" : "Interactive map is available on the mobile app"}
               </Text>
               {displayName ? (
-                <Text style={{ color: colors.foreground, marginTop: 8, fontSize: 13, textAlign: "center", paddingHorizontal: 20 }}>
+                <Text style={{ color: colors.foreground, marginTop: 8, fontSize: 12, textAlign: "center", paddingHorizontal: 24 }}>
                   {displayName}
                 </Text>
               ) : null}
@@ -260,11 +286,7 @@ export default function MapPickerModal({
               ref={mapRef}
               style={styles.map}
               initialRegion={{ ...regionCoords, ...DEFAULT_DELTA }}
-              onPress={(e) => {
-                const { latitude, longitude } = e.nativeEvent.coordinate;
-                setMarkerCoords({ latitude, longitude });
-                reverseGeocode(latitude, longitude);
-              }}
+              onPress={handleMapPress}
             >
               <components.UrlTile
                 urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -295,15 +317,12 @@ export default function MapPickerModal({
             {reverseLoading && <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 6 }} />}
           </View>
           {displayName ? (
-            <Text
-              style={[styles.displayName, { color: colors.foreground }]}
-              numberOfLines={2}
-            >
+            <Text style={[styles.displayName, { color: colors.foreground }]} numberOfLines={2}>
               {displayName}
             </Text>
           ) : (
             <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
-              {isRTL ? "اسحب الدبوس لضبط الموقع بدقة" : "Drag the pin or tap to set exact location"}
+              {isRTL ? "اسحب الدبوس أو انقر على الخريطة لتحديد الموقع" : "Drag the pin or tap to set exact location"}
             </Text>
           )}
           <TouchableOpacity
@@ -332,13 +351,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontFamily: "Inter_600SemiBold", fontSize: 16 },
   headerBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 36, height: 36,
+    alignItems: "center", justifyContent: "center",
     borderRadius: 10,
   },
-  confirmBtn: {},
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -371,11 +387,7 @@ const styles = StyleSheet.create({
   },
   mapWrap: { flex: 1 },
   map: { flex: 1 },
-  webFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  webFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
   infoBar: {
     borderTopWidth: 1,
     paddingHorizontal: 16,
@@ -392,9 +404,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  confirmBarText: {
-    color: "#fff",
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-  },
+  confirmBarText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 15 },
 });
