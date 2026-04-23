@@ -67,12 +67,13 @@ async function getCached(cacheKey: string): Promise<unknown | null> {
 
 async function setCache(cacheKey: string, lang: string, data: unknown) {
   const expiresAt = new Date(Date.now() + CACHE_DAYS * 24 * 60 * 60 * 1000);
+  const responseJson = data as Record<string, unknown>;
   await db
     .insert(nominatimCacheTable)
-    .values({ cacheKey, lang, responseJson: data as never, expiresAt })
+    .values({ cacheKey, lang, responseJson, expiresAt })
     .onConflictDoUpdate({
       target: nominatimCacheTable.cacheKey,
-      set: { responseJson: data as never, cachedAt: sql`now()`, expiresAt },
+      set: { responseJson, cachedAt: sql`now()`, expiresAt },
     });
 }
 
@@ -95,15 +96,17 @@ async function cachedNominatim(
 
 router.get("/geo/search", async (req, res) => {
   const q = (req.query.q as string | undefined)?.trim();
-  const lang = ((req.query.lang as string | undefined) ?? "ar").trim();
-  const limit = Math.min(parseInt((req.query.limit as string) ?? "5", 10), 10);
+  const rawLang = (req.query.lang as string | undefined)?.trim() ?? "ar";
+  const lang = rawLang === "en" ? "en" : "ar";
+  const limitRaw = parseInt((req.query.limit as string) ?? "5", 10);
+  const limit = Math.min(Math.max(1, isNaN(limitRaw) ? 5 : limitRaw), 10);
 
   if (!q || q.length < 2) {
     res.status(400).json({ error: "Query too short (min 2 chars)" });
     return;
   }
 
-  const cacheKey = `search:${lang}:${q.toLowerCase()}`;
+  const cacheKey = `search:${lang}:${limit}:${q.toLowerCase()}`;
 
   try {
     const url =
