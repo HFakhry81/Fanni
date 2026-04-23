@@ -17,9 +17,18 @@ function generateSalt(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (!req.user || req.user.role !== "admin" || req.sessionSource !== "admin") {
     res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+  // Live check: verify admin still exists and is active in the admins table
+  const [adminRecord] = await db
+    .select({ id: adminsTable.id, isActive: adminsTable.isActive })
+    .from(adminsTable)
+    .where(eq(adminsTable.id, req.user.id));
+  if (!adminRecord || !adminRecord.isActive) {
+    res.status(403).json({ error: "Admin account not found or suspended" });
     return;
   }
   next();

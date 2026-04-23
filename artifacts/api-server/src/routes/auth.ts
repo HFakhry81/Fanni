@@ -152,7 +152,7 @@ router.get("/auth/user", async (req: Request, res: Response) => {
     res.json(GetCurrentAuthUserResponse.parse({ user: null }));
     return;
   }
-  if (req.user.role === "admin") {
+  if (req.sessionSource === "admin") {
     const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, req.user.id));
     res.json(GetCurrentAuthUserResponse.parse({ user: admin ? buildAdminUser(admin) : null }));
     return;
@@ -754,8 +754,8 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     }
   }
 
-  // Route update to the correct table
-  if (req.user!.role === "admin") {
+  // Route update to the correct table using session source (not role claim alone)
+  if (req.sessionSource === "admin") {
     // Check email uniqueness in admins table
     if (emailVal) {
       const [existing] = await db
