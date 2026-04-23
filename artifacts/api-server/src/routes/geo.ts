@@ -78,13 +78,17 @@ async function setCache(cacheKey: string, lang: string, data: unknown) {
 
 // ─── Cached Nominatim call (check cache → queue → store) ──────────────────────
 
-async function cachedNominatim(url: string, cacheKey: string, lang: string): Promise<unknown> {
+async function cachedNominatim(
+  url: string,
+  cacheKey: string,
+  lang: string,
+): Promise<{ data: unknown; fromCache: boolean }> {
   const cached = await getCached(cacheKey);
-  if (cached) return cached;
+  if (cached) return { data: cached, fromCache: true };
 
   const data = await nominatimFetch(url);
   await setCache(cacheKey, lang, data);
-  return data;
+  return { data, fromCache: false };
 }
 
 // ─── GET /geo/search?q=...&lang=ar ────────────────────────────────────────────
@@ -111,8 +115,8 @@ router.get("/geo/search", async (req, res) => {
       `&accept-language=${lang}` +
       `&limit=${limit}`;
 
-    const data = await cachedNominatim(url, cacheKey, lang);
-    res.json({ results: data, cached: false });
+    const { data, fromCache } = await cachedNominatim(url, cacheKey, lang);
+    res.json({ results: data, cached: fromCache });
   } catch (err) {
     console.error("[geo/search] error:", err);
     res.status(502).json({ error: "Geocoding service unavailable" });
@@ -149,12 +153,12 @@ router.get("/geo/reverse", async (req, res) => {
       `${NOMINATIM_BASE}/reverse` +
       `?lat=${latR}&lon=${lonR}&format=json&addressdetails=1&accept-language=${l}`;
 
-    const [resultAr, resultEn] = await Promise.all([
+    const [ar, en] = await Promise.all([
       cachedNominatim(buildUrl("ar"), cacheKeyAr, "ar"),
       cachedNominatim(buildUrl("en"), cacheKeyEn, "en"),
     ]);
 
-    res.json({ resultAr, resultEn, cached: false });
+    res.json({ resultAr: ar.data, resultEn: en.data, cached: ar.fromCache && en.fromCache });
   } catch (err) {
     console.error("[geo/reverse] error:", err);
     res.status(502).json({ error: "Geocoding service unavailable" });

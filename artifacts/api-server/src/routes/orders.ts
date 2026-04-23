@@ -270,6 +270,7 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, re
 
 router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, res) => {
   const { id } = req.params;
+  const user = req.user!;
   const { latitude, longitude } = req.body as { latitude?: unknown; longitude?: unknown };
   const lat = parseFloat(String(latitude));
   const lon = parseFloat(String(longitude));
@@ -284,6 +285,23 @@ router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, re
   }
 
   try {
+    const [existing] = await db
+      .select({ clientId: ordersTable.clientId, technicianId: ordersTable.technicianId })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+
+    const isOwner = existing.clientId === user.id || existing.technicianId === user.id;
+    if (user.role !== "admin" && !isOwner) {
+      res.status(403).json({ error: "Forbidden: only the order owner or an admin can update this order's location" });
+      return;
+    }
+
     await db
       .update(ordersTable)
       .set({

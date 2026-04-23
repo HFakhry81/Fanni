@@ -102,7 +102,9 @@ function normalise(s: string): string {
 }
 
 function optionMatches(opt: LocationOption, term: string): boolean {
+  if (!term) return false;
   const t = normalise(term);
+  if (t.length < 2) return false;
   return normalise(opt.en).includes(t) || normalise(opt.ar).includes(t);
 }
 
