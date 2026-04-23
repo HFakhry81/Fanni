@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -83,7 +82,7 @@ export default function AdminProfileScreen() {
       const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
 
       if (!apiBase || !token) {
-        throw new Error(isRTL ? "تعذر الاتصال بالخادم" : "Unable to reach server");
+        throw new Error(t("profile.noServer"));
       }
 
       const res = await fetch(`${apiBase}/api/auth/me`, {
@@ -101,7 +100,7 @@ export default function AdminProfileScreen() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? (isRTL ? "فشل الحفظ" : "Failed to save"));
+        throw new Error(data.error ?? t("profile.saveFailed"));
       }
 
       const data = await res.json();
@@ -123,8 +122,8 @@ export default function AdminProfileScreen() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       Alert.alert(
-        isRTL ? "خطأ" : "Error",
-        msg || (isRTL ? "حدث خطأ أثناء الحفظ" : "Failed to save changes")
+        t("common.error"),
+        msg || t("profile.saveFailed")
       );
     } finally {
       setSaving(false);
@@ -171,7 +170,7 @@ export default function AdminProfileScreen() {
           <Text style={styles.heroName}>{user?.name ?? ""}</Text>
           <View style={[styles.roleBadge, { backgroundColor: "rgba(245,166,35,0.2)", borderColor: colors.primary }]}>
             <Text style={[styles.roleText, { color: colors.primary }]}>
-              {isRTL ? "مسئول النظام" : "System Admin"}
+              {t("profile.adminRole")}
             </Text>
           </View>
           {user?.email ? (
@@ -241,7 +240,7 @@ export default function AdminProfileScreen() {
                 </Text>
               </View>
               <Text style={[styles.hint, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
-                {isRTL ? "رقم الجوال لا يمكن تغييره" : "Mobile number cannot be changed"}
+                {t("profile.mobileReadOnly")}
               </Text>
             </View>
 
@@ -253,7 +252,7 @@ export default function AdminProfileScreen() {
                 style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
               />
               <FanniButton
-                title={saving ? (isRTL ? "جاري الحفظ..." : "Saving...") : t("common.save")}
+                title={saving ? t("profile.saving") : t("common.save")}
                 onPress={handleSave}
                 loading={saving}
                 style={{ flex: 1 }}

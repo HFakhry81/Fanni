@@ -106,7 +106,7 @@ function ClassicAdminTabs() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: t("admin.profile"),
+          title: t("nav.profile"),
           tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>👤</Text>,
         }}
       />
