@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { I18nManager } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp, type UserType } from "@/context/AppContext";
@@ -27,6 +28,17 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const { user: authUser, sessionToken } = useAuth();
   const { user: appUser, setUser, syncAvailabilityFromServer, isAvailabilityHydrated } = useApp();
   const hasSynced = React.useRef(false);
+  const needsRetry = React.useRef(false);
+  const sessionTokenRef = React.useRef<string | null | undefined>(null);
+  const authUserRef = React.useRef<typeof authUser>(null);
+
+  useEffect(() => {
+    sessionTokenRef.current = sessionToken;
+  }, [sessionToken]);
+
+  useEffect(() => {
+    authUserRef.current = authUser;
+  }, [authUser]);
 
   useEffect(() => {
     if (!isAvailabilityHydrated) return;
@@ -50,6 +62,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
     } else {
       setUser(null);
       hasSynced.current = false;
+      needsRetry.current = false;
     }
   }, [authUser, isAvailabilityHydrated]);
 
@@ -62,9 +75,28 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       sessionToken
     ) {
       hasSynced.current = true;
-      syncAvailabilityFromServer(sessionToken);
+      syncAvailabilityFromServer(sessionToken)
+        .then(() => {})
+        .catch(() => {
+          needsRetry.current = true;
+        });
     }
   }, [isAvailabilityHydrated, authUser, sessionToken]);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      if (
+        state.isConnected &&
+        needsRetry.current &&
+        authUserRef.current?.role === "technician" &&
+        sessionTokenRef.current
+      ) {
+        needsRetry.current = false;
+        syncAvailabilityFromServer(sessionTokenRef.current).catch(() => {});
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   return <>{children}</>;
 }

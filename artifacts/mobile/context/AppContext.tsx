@@ -36,7 +36,7 @@ interface AppContextType {
   isOnline: boolean;
   setIsOnline: (value: boolean, sessionToken?: string) => Promise<void>;
   isAvailabilityHydrated: boolean;
-  syncAvailabilityFromServer: (sessionToken: string) => Promise<void>;
+  syncAvailabilityFromServer: (sessionToken: string) => Promise<boolean>;
 }
 
 const translations: Record<string, Record<Language, string>> = {
@@ -370,15 +370,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   };
 
-  const syncAvailabilityFromServer = async (sessionToken: string): Promise<void> => {
+  const syncAvailabilityFromServer = async (sessionToken: string): Promise<boolean> => {
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+    const apiBase = domain ? `https://${domain}` : "";
+    if (!apiBase) return false;
+    let res: Response;
     try {
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `https://${domain}` : "";
-      if (!apiBase) return;
-      const res = await fetch(`${apiBase}/api/auth/user`, {
+      res = await fetch(`${apiBase}/api/auth/user`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
-      if (!res.ok) return;
+    } catch (networkErr) {
+      throw networkErr;
+    }
+    if (!res.ok) return false;
+    try {
       const data = await res.json() as { user?: { isAvailable?: boolean | null } | null };
       const serverIsAvailable = data?.user?.isAvailable;
       const resolvedValue = typeof serverIsAvailable === "boolean" ? serverIsAvailable : false;
@@ -386,7 +391,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         await AsyncStorage.setItem("techIsOnline", String(resolvedValue));
       } catch (_) {}
-    } catch (_) {}
+      return true;
+    } catch (_) {
+      return false;
+    }
   };
 
   const setIsOnline = async (value: boolean, sessionToken?: string) => {
