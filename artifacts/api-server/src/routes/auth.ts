@@ -623,4 +623,58 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
   res.json({ token: sid, user: buildAuthUser(user) });
 });
 
+// PROTECTED: Updates the current user's profile (firstName, lastName, email). Mobile and role are immutable.
+router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  const { firstName, lastName, email } = req.body as {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+
+  const updates: Partial<typeof usersTable.$inferInsert> & { updatedAt: Date } = {
+    updatedAt: new Date(),
+  };
+
+  if (firstName !== undefined) {
+    if (typeof firstName !== "string" || !firstName.trim()) {
+      res.status(400).json({ error: "firstName cannot be empty" });
+      return;
+    }
+    updates.firstName = firstName.trim();
+  }
+
+  if (lastName !== undefined) {
+    updates.lastName = lastName === null || lastName === "" ? null : String(lastName).trim() || null;
+  }
+
+  if (email !== undefined) {
+    if (email === null || email === "") {
+      updates.email = null;
+    } else {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        res.status(400).json({ error: "Invalid email address" });
+        return;
+      }
+      const [existing] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, normalizedEmail));
+      if (existing && existing.id !== req.user!.id) {
+        res.status(409).json({ error: "Email address is already in use" });
+        return;
+      }
+      updates.email = normalizedEmail;
+    }
+  }
+
+  const [updatedUser] = await db
+    .update(usersTable)
+    .set(updates)
+    .where(eq(usersTable.id, req.user!.id))
+    .returning();
+
+  res.json({ user: buildAuthUser(updatedUser) });
+});
+
 export default router;

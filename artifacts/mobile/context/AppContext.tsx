@@ -229,8 +229,13 @@ const translations: Record<string, Record<Language, string>> = {
   "admin.activeOrders": { ar: "الطلبات النشطة", en: "Active Orders" },
   "admin.registeredTechs": { ar: "الفنيون المسجلون", en: "Registered Technicians" },
   "admin.totalClients": { ar: "إجمالي العملاء", en: "Total Clients" },
+  "admin.profile": { ar: "الملف الشخصي", en: "Profile" },
 
   // Profile
+  "profile.firstName": { ar: "الاسم الأول", en: "First Name" },
+  "profile.lastName": { ar: "اسم العائلة", en: "Last Name" },
+  "profile.saveSuccess": { ar: "تم حفظ التغييرات بنجاح", en: "Changes saved successfully" },
+  "profile.logoutConfirm": { ar: "هل أنت متأكد أنك تريد تسجيل الخروج؟", en: "Are you sure you want to log out?" },
   "profile.title": { ar: "الملف الشخصي", en: "My Profile" },
   "profile.edit": { ar: "تعديل البيانات", en: "Edit Profile" },
   "profile.logout": { ar: "تسجيل الخروج", en: "Logout" },
