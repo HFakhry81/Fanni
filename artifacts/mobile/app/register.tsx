@@ -22,6 +22,17 @@ const RESEND_COOLDOWN = 60;
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
+const SERVICE_CATEGORIES = [
+  { key: "electricity", ar: "كهرباء", en: "Electricity" },
+  { key: "plumbing", ar: "سباكة", en: "Plumbing" },
+  { key: "ac", ar: "تكييف", en: "Air Conditioning" },
+  { key: "carpentry", ar: "نجارة", en: "Carpentry" },
+  { key: "appliances", ar: "أجهزة منزلية", en: "Appliances" },
+  { key: "painting", ar: "دهانات", en: "Painting" },
+  { key: "pest", ar: "مكافحة حشرات", en: "Pest Control" },
+  { key: "flooring", ar: "أرضيات", en: "Flooring" },
+] as const;
+
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
   return domain ? `https://${domain}` : "";
@@ -33,7 +44,7 @@ type PaymentMethod = "bank" | "ewallet" | "instapay";
 export default function RegisterScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { t, isRTL, setUser } = useApp();
   const { refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
 
@@ -185,6 +196,9 @@ export default function RegisterScreen() {
     }
   };
 
+  // ── Technician service categories ─────────────────────────────────────────
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
   // ── API error ─────────────────────────────────────────────────────────────
   const [apiError, setApiError] = useState("");
 
@@ -205,7 +219,13 @@ export default function RegisterScreen() {
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
-  const totalSteps = 3;
+  const totalSteps = regType === "technician" ? 4 : 3;
+
+  const toggleCategory = (key: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key],
+    );
+  };
 
   const validateCurrentStep = (): boolean => {
     const newErrors: typeof errors = {};
@@ -329,10 +349,23 @@ export default function RegisterScreen() {
             verificationToken: verificationToken || undefined,
           }),
         });
-        const data = await res.json();
+        const data = await res.json() as { token?: string; user?: { id: string; firstName?: string; lastName?: string; email?: string; mobile?: string; role?: string; governorate?: string; area?: string }; error?: string };
         if (data.token) {
           await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
           await refreshUser();
+          if (regType === "technician" && data.user) {
+            const apiUser = data.user;
+            await setUser({
+              id: apiUser.id,
+              type: "technician",
+              name: name.trim(),
+              mobile: normalizedMobile,
+              email: email.trim() || "",
+              governorate: governorateId || undefined,
+              area: areaId || undefined,
+              serviceCategories: selectedCategories.length > 0 ? selectedCategories : undefined,
+            });
+          }
           router.replace({
             pathname: "/register-success",
             params: { name: name.trim(), role: regType },
@@ -642,8 +675,60 @@ export default function RegisterScreen() {
     </View>
   );
 
-  // ── Step 3 Tech: Location ──────────────────────────────────────────────────
+  // ── Step 3 Tech: Service Categories ───────────────────────────────────────
   const renderStep3Tech = () => (
+    <View>
+      <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
+          <Feather name="grid" size={20} color={colors.primary} />
+        </View>
+        <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+          {isRTL ? "تخصصات الخدمة" : "Service Categories"}
+        </Text>
+      </View>
+
+      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+        {isRTL ? "اختر تخصصاتك حتى يتمكن العملاء من إيجادك — يمكنك تغييرها لاحقاً من ملفك الشخصي" : "Pick your specialties so clients can find you — you can update them later from your profile"}
+      </Text>
+
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 10 }}>
+        {SERVICE_CATEGORIES.map((cat) => {
+          const selected = selectedCategories.includes(cat.key);
+          return (
+            <TouchableOpacity
+              key={cat.key}
+              onPress={() => toggleCategory(cat.key)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: colors.radius,
+                borderWidth: 1.5,
+                borderColor: selected ? colors.primary : colors.border,
+                backgroundColor: selected ? colors.accent : colors.card,
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {selected && <Feather name="check" size={13} color={colors.primary} />}
+              <Text style={{ color: selected ? colors.primary : colors.foreground, fontFamily: selected ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 13 }}>
+                {isRTL ? cat.ar : cat.en}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {selectedCategories.length === 0 && (
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 14, textAlign: isRTL ? "right" : "left" }}>
+          {isRTL ? "يمكنك المتابعة بدون اختيار تخصص الآن" : "You can continue without selecting a category for now"}
+        </Text>
+      )}
+    </View>
+  );
+
+  // ── Step 4 Tech: Location ──────────────────────────────────────────────────
+  const renderStep4Tech = () => (
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accentBlue }]}>
@@ -790,6 +875,7 @@ export default function RegisterScreen() {
       if (step === 1) return renderStep1();
       if (step === 2) return renderStep2Tech();
       if (step === 3) return renderStep3Tech();
+      if (step === 4) return renderStep4Tech();
     }
     return null;
   };
@@ -804,7 +890,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             key={rt}
             style={[styles.typeBtn, { backgroundColor: regType === rt ? colors.primary : "transparent", borderRadius: colors.radius - 4 }]}
-            onPress={() => { setRegType(rt); setStep(1); setErrors({}); }}
+            onPress={() => { setRegType(rt); setStep(1); setErrors({}); setSelectedCategories([]); }}
           >
             <Feather name={rt === "client" ? "home" : "tool"} size={14} color={regType === rt ? "#FFF" : colors.mutedForeground} />
             <Text style={{ color: regType === rt ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>

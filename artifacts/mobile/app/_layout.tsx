@@ -25,10 +25,11 @@ const queryClient = new QueryClient();
 
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const { user: authUser, sessionToken } = useAuth();
-  const { setUser, isOnline, setIsOnline, isAvailabilityHydrated } = useApp();
+  const { user: appUser, setUser, isOnline, setIsOnline, isAvailabilityHydrated } = useApp();
   const hasSynced = React.useRef(false);
 
   useEffect(() => {
+    if (!isAvailabilityHydrated) return;
     if (authUser) {
       const displayName = [authUser.firstName, authUser.lastName]
         .filter(Boolean)
@@ -44,12 +45,13 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         district: authUser.district ?? undefined,
         profession: authUser.profession ?? undefined,
         specialty: authUser.specialty ?? undefined,
+        serviceCategories: appUser?.id === authUser.id ? appUser?.serviceCategories : undefined,
       });
     } else {
       setUser(null);
       hasSynced.current = false;
     }
-  }, [authUser]);
+  }, [authUser, isAvailabilityHydrated]);
 
   useEffect(() => {
     if (
