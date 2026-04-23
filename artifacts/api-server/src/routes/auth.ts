@@ -1,6 +1,7 @@
 import * as oidc from "openid-client";
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
+import { signOtpToken, verifyOtpToken, OTP_ENABLED } from "../lib/otp";
 import {
   GetCurrentAuthUserResponse,
   ExchangeMobileAuthorizationCodeBody,
@@ -351,30 +352,6 @@ function hashOtpCode(code: string): string {
   return crypto.createHash("sha256").update(`otp:${code}`).digest("hex");
 }
 
-function signOtpToken(mobile: string): string {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) throw new Error("SESSION_SECRET environment variable is not set");
-  const payload = Buffer.from(JSON.stringify({ mobile, exp: Date.now() + 30 * 60 * 1000 })).toString("base64url");
-  const sig = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
-  return `${payload}.${sig}`;
-}
-
-function verifyOtpToken(token: string): string | null {
-  try {
-    const secret = process.env.SESSION_SECRET;
-    if (!secret) return null;
-    const [payload, sig] = token.split(".");
-    if (!payload || !sig) return null;
-    const expectedSig = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
-    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) return null;
-    const data = JSON.parse(Buffer.from(payload, "base64url").toString()) as { mobile: string; exp: number };
-    if (Date.now() > data.exp) return null;
-    return data.mobile;
-  } catch {
-    return null;
-  }
-}
-
 async function sendSmsOtp(mobile: string, code: string): Promise<boolean> {
   if (!process.env.SMS_API_KEY) {
     console.log(`[OTP] SMS not configured. Code for ${mobile}: ${code}`);
@@ -382,8 +359,6 @@ async function sendSmsOtp(mobile: string, code: string): Promise<boolean> {
   }
   return false;
 }
-
-const OTP_ENABLED = process.env.ENABLE_OTP === "true";
 
 // PUBLIC: Returns feature flags relevant to the mobile client.
 router.get("/config", (_req: Request, res: Response) => {

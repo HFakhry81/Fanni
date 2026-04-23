@@ -4,6 +4,7 @@ import { db, usersTable, adminsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { verifyOtpToken, OTP_ENABLED } from "../lib/otp";
 
 const router: IRouter = Router();
 
@@ -35,11 +36,12 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
 }
 
 router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const { name, email, mobile, password } = req.body as {
+  const { name, email, mobile, password, verificationToken } = req.body as {
     name?: string;
     email?: string;
     mobile?: string;
     password?: string;
+    verificationToken?: string;
   };
 
   if (!name || !name.trim()) {
@@ -80,6 +82,19 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
   const mobileDigits = mobile.trim().replace(/\s|-/g, "");
   const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
   const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+
+  // Gate on OTP verification when enabled
+  if (OTP_ENABLED) {
+    if (!verificationToken) {
+      res.status(400).json({ error: "Phone verification is required" });
+      return;
+    }
+    const verifiedMobile = verifyOtpToken(verificationToken);
+    if (verifiedMobile !== normalizedMobile) {
+      res.status(400).json({ error: "Phone verification token is invalid or expired" });
+      return;
+    }
+  }
 
   // Check uniqueness in both admins and users tables
   const [existingAdminMobile] = await db.select().from(adminsTable).where(eq(adminsTable.mobile, normalizedMobile));
