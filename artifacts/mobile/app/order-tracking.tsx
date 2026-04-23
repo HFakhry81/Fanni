@@ -24,6 +24,7 @@ const TECH_START_OFFSET = 0.018;
 interface RouteData {
   coords: Array<{ lat: number; lng: number }>;
   durationSec: number;
+  distanceM: number;
 }
 
 const ROUTE_CACHE = new Map<string, RouteData | null>();
@@ -68,7 +69,7 @@ async function fetchOSRMRoute(
     const coords = (route.geometry.coordinates as [number, number][]).map(
       ([lng, lat]) => ({ lat, lng })
     );
-    const result: RouteData = { coords, durationSec: route.duration };
+    const result: RouteData = { coords, durationSec: route.duration, distanceM: route.distance };
     ROUTE_CACHE.set(key, result);
     return result;
   } catch {
@@ -134,16 +135,31 @@ function getRemainingRoute(
   return [{ lat: currentLat, lng: currentLng }];
 }
 
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function computeEtaFallback(
   techLat: number,
   techLng: number,
   clientLat: number,
   clientLng: number
 ): number {
-  const latDiff = clientLat - techLat;
-  const lngDiff = clientLng - techLng;
-  const distDeg = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
-  const distKm = distDeg * 111;
+  const distKm = haversineKm(techLat, techLng, clientLat, clientLng);
   const speedKmH = 20;
   const minutes = (distKm / speedKmH) * 60;
   return Math.max(1, Math.round(minutes));
@@ -219,12 +235,18 @@ export default function OrderTrackingScreen() {
   }
 
   let eta: number;
+  let remainingKm: number;
   if (routeData) {
     const remaining = routeData.durationSec * (1 - progressRef.current);
     eta = Math.max(1, Math.round(remaining / 60));
+    remainingKm = Math.max(0, (routeData.distanceM * (1 - progressRef.current)) / 1000);
   } else {
     eta = computeEtaFallback(techLat, techLng, clientLat, clientLng);
+    remainingKm = haversineKm(techLat, techLng, clientLat, clientLng);
   }
+  const distanceLabel = remainingKm >= 1
+    ? `${remainingKm.toFixed(1)} ${t("order.km")}`
+    : `${Math.round(remainingKm * 1000)} ${t("order.m")}`;
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const routeCoords = routeData
@@ -280,6 +302,11 @@ export default function OrderTrackingScreen() {
           <Feather name="clock" size={15} color={colors.primary} />
           <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
             {t("order.arrivingIn")}{eta} {t("order.minutes")}
+          </Text>
+          <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
+          <Feather name="map-pin" size={15} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
+            {distanceLabel}
           </Text>
         </View>
 
@@ -953,6 +980,13 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: "center",
     marginBottom: 12,
+    gap: 4,
+  },
+  etaDivider: {
+    width: 1,
+    height: 14,
+    opacity: 0.4,
+    marginHorizontal: 6,
   },
   techRow: {
     alignItems: "center",
