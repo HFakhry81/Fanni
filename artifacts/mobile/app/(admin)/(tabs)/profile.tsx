@@ -148,7 +148,7 @@ export default function AdminProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title={t("admin.profile")} showLogout onBack={() => router.replace("/(admin)/(tabs)/dashboard")} />
+      <AppHeader title={t("admin.profile")} showHome showLangToggle onBack={() => router.replace("/(admin)/(tabs)/dashboard")} />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Avatar hero */}
