@@ -42,8 +42,12 @@ router.patch(
 router.get("/technicians/available", authMiddleware, requireAuth, async (req, res) => {
   const lat = parseFloat(req.query.lat as string);
   const lon = parseFloat(req.query.lon as string);
-  const radiusKm = parseFloat((req.query.radiusKm as string) ?? "15");
-  const hasSpatial = !isNaN(lat) && !isNaN(lon);
+  const radiusKmRaw = parseFloat((req.query.radiusKm as string) ?? "15");
+  const radiusKm = isNaN(radiusKmRaw) || radiusKmRaw <= 0 ? 15 : Math.min(radiusKmRaw, 200);
+  const hasSpatial =
+    !isNaN(lat) && !isNaN(lon) &&
+    lat >= -90 && lat <= 90 &&
+    lon >= -180 && lon <= 180;
   const govFilter = (req.query.governorate as string | undefined)?.trim() ?? null;
   const areaFilter = (req.query.area as string | undefined)?.trim() ?? null;
 
