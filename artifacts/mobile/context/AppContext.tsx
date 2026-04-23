@@ -211,6 +211,8 @@ const translations: Record<string, Record<Language, string>> = {
   "invoice.vat": { ar: "القيمة المضافة (15%)", en: "VAT (15%)" },
   "invoice.total": { ar: "الإجمالي", en: "Total" },
   "invoice.download": { ar: "تحميل الفاتورة", en: "Download Invoice" },
+  "invoice.share": { ar: "مشاركة الفاتورة", en: "Share Invoice" },
+  "invoice.shareError": { ar: "تعذّر إنشاء ملف PDF", en: "Could not generate PDF" },
 
   // Admin
   "admin.dashboard": { ar: "لوحة التحكم", en: "Dashboard" },
