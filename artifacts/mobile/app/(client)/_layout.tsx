@@ -2,9 +2,8 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View, Text, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
@@ -69,32 +68,28 @@ function ClassicClientTabs() {
         name="home"
         options={{
           title: t("nav.home"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <Feather name="home" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🏠</Text>,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: t("nav.orders"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <Feather name="list" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📋</Text>,
         }}
       />
       <Tabs.Screen
         name="invoices"
         options={{
           title: t("nav.invoices"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <Feather name="file-text" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📄</Text>,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: t("nav.profile"),
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <Feather name="user" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>👤</Text>,
         }}
       />
     </Tabs>
@@ -105,3 +100,7 @@ export default function ClientLayout() {
   if (isLiquidGlassAvailable()) return <NativeClientTabs />;
   return <ClassicClientTabs />;
 }
+
+const styles = StyleSheet.create({
+  tabIcon: { fontSize: 22 },
+});

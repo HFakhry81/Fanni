@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
@@ -55,12 +54,12 @@ export default function AppHeader({
       <View style={[styles.side, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {showBack && (
           <TouchableOpacity style={styles.iconBtn} onPress={handleBack}>
-            <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={20} color="#FFF" />
+            <Text style={styles.arrowIcon}>{isRTL ? "→" : "←"}</Text>
           </TouchableOpacity>
         )}
         {showHome && (
           <TouchableOpacity style={[styles.iconBtn, { backgroundColor: "rgba(77,173,217,0.2)" }]} onPress={handleHome}>
-            <Feather name="home" size={18} color={colors.skyBlue} />
+            <Text style={styles.homeIcon}>🏠</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -92,7 +91,7 @@ export default function AppHeader({
         {rightElement}
         {showLogout && (
           <TouchableOpacity style={[styles.iconBtn, { backgroundColor: "rgba(229,62,62,0.15)" }]} onPress={handleLogout}>
-            <Feather name="log-out" size={18} color="#FF6B6B" />
+            <Text style={styles.logoutIcon}>⏻</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -121,6 +120,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.1)",
   },
+  arrowIcon: { fontSize: 18, color: "#FFFFFF", fontWeight: "700" },
+  homeIcon: { fontSize: 17 },
+  logoutIcon: { fontSize: 17, color: "#FF6B6B" },
   langBtn: {
     paddingVertical: 5,
     paddingHorizontal: 12,

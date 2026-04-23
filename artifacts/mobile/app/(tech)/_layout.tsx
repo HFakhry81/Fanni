@@ -2,9 +2,8 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
-import { Platform, StyleSheet, View, useColorScheme, Animated } from "react-native";
+import { Platform, StyleSheet, View, Text, useColorScheme, Animated } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
@@ -102,10 +101,10 @@ function ClassicTechTabs() {
         name="map"
         options={{
           title: t("nav.map"),
-          tabBarIcon: ({ color }) =>
+          tabBarIcon: () =>
             isIOS ? null : (
               <View>
-                <Feather name="map" size={22} color={hasNew ? colors.primary : color} />
+                <Text style={[styles.tabIcon, hasNew && { color: colors.primary }]}>🗺️</Text>
                 {hasNew && <PulsingBadge />}
               </View>
             ),
@@ -115,21 +114,21 @@ function ClassicTechTabs() {
         name="orders"
         options={{
           title: t("nav.orders"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="list" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📋</Text>,
         }}
       />
       <Tabs.Screen
         name="invoices"
         options={{
           title: t("nav.invoices"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="file-text" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📄</Text>,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: t("nav.profile"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="user" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>👤</Text>,
         }}
       />
     </Tabs>
@@ -144,6 +143,7 @@ export default function TechLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabIcon: { fontSize: 22 },
   badgeWrapper: {
     position: "absolute",
     top: -4,

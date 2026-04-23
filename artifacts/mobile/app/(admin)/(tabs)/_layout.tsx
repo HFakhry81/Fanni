@@ -2,9 +2,8 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View, Text, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
@@ -69,35 +68,35 @@ function ClassicAdminTabs() {
         name="dashboard"
         options={{
           title: t("admin.dashboard"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="grid" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>⊞</Text>,
         }}
       />
       <Tabs.Screen
         name="users"
         options={{
           title: t("admin.users"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="users" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>👥</Text>,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: t("admin.orders"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="list" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📋</Text>,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: t("admin.stats"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="bar-chart-2" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📈</Text>,
         }}
       />
       <Tabs.Screen
         name="permissions"
         options={{
           title: t("admin.permissions"),
-          tabBarIcon: ({ color }) => isIOS ? null : <Feather name="shield" size={22} color={color} />,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🛡️</Text>,
         }}
       />
     </Tabs>
@@ -108,3 +107,7 @@ export default function AdminTabsLayout() {
   if (isLiquidGlassAvailable()) return <NativeAdminTabs />;
   return <ClassicAdminTabs />;
 }
+
+const styles = StyleSheet.create({
+  tabIcon: { fontSize: 22 },
+});
