@@ -1,12 +1,13 @@
 /**
- * Migration / Seed: 004-seed-locations
+ * Migration / Seed: 005-seed-locations
  *
  * Seeds the `locations` table with Egypt governorates, areas, and neighborhoods
  * sourced from the mobile app's egyptLocations.ts constants file.
+ * Requires 004-create-locations-tables to have been run first.
  *
  * Idempotent — uses INSERT … ON CONFLICT DO NOTHING so it is safe to re-run.
  *
- * Usage: pnpm tsx artifacts/api-server/migrations/004-seed-locations.ts
+ * Usage: pnpm tsx artifacts/api-server/migrations/005-seed-locations.ts
  */
 
 import path from "path";

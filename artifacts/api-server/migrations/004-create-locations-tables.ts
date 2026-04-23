@@ -1,18 +1,18 @@
 /**
- * Migration: 005-create-locations-tables
+ * Migration: 004-create-locations-tables
  *
  * Creates the `locations` and `nominatim_cache` tables needed by the
- * geolocation API routes.
+ * geolocation API routes.  Run BEFORE 005-seed-locations.
  *
  * - `locations` stores the Egypt administrative hierarchy
- *   (governorates → areas → neighborhoods) seeded from migration 004.
+ *   (governorates → areas → neighborhoods) seeded by migration 005.
  * - `nominatim_cache` stores reverse/forward geocode responses so the app
  *   respects Nominatim's 1 req/sec rate limit.
  *
  * This migration is idempotent (uses IF NOT EXISTS) and safe to re-run.
  * The development database already has these tables from `drizzle-kit push`.
  *
- * Usage: pnpm tsx artifacts/api-server/migrations/005-create-locations-tables.ts
+ * Usage: pnpm tsx artifacts/api-server/migrations/004-create-locations-tables.ts
  */
 
 import pg from "pg";
