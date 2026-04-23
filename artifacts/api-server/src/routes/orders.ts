@@ -151,7 +151,7 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
 
 router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   if (user.role !== "technician" && user.role !== "admin") {
     res.status(403).json({ error: "Only technicians can acknowledge orders" });
@@ -202,7 +202,7 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req,
 
 router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   if (user.role !== "technician" && user.role !== "admin") {
     res.status(403).json({ error: "Only technicians can start orders" });
@@ -229,7 +229,7 @@ router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req, res) 
 
 router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   if (user.role !== "technician" && user.role !== "admin") {
     res.status(403).json({ error: "Only technicians can complete orders" });
@@ -269,7 +269,7 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, re
 });
 
 router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const user = req.user!;
   const { latitude, longitude } = req.body as { latitude?: unknown; longitude?: unknown };
   const lat = parseFloat(String(latitude));
@@ -333,7 +333,7 @@ router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, re
 });
 
 router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     await db
       .update(ordersTable)

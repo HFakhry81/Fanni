@@ -70,7 +70,7 @@ router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
 
 router.get("/invoices/:id", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     const rows = await db
       .select()
@@ -198,7 +198,7 @@ router.post("/invoices", authMiddleware, requireAuth, async (req, res) => {
 
 router.patch("/invoices/:id/pay", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     const rows = await db
       .select()
@@ -236,7 +236,7 @@ router.patch("/invoices/:id/pay", authMiddleware, requireAuth, async (req, res) 
 
 router.patch("/invoices/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     const rows = await db
       .select()

@@ -14,7 +14,7 @@ router.patch(
   async (req, res) => {
     const { id } = req.params;
 
-    if (req.user.id !== id) {
+    if (req.user!.id !== id) {
       res.status(403).json({ error: "Forbidden: cannot update another technician's availability" });
       return;
     }
