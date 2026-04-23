@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -107,9 +107,13 @@ export default function ClientOrdersScreen() {
           <View style={[styles.techRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
             {item.technicianName && (
               <>
-                <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
-                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 12 }}>{item.technicianName[0]}</Text>
-                </View>
+                {item.technicianAvatar ? (
+                  <Image source={{ uri: item.technicianAvatar }} style={styles.techAvatar} />
+                ) : (
+                  <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
+                    <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 12 }}>{item.technicianName[0]}</Text>
+                  </View>
+                )}
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0, textAlign: isRTL ? "right" : "left" }}>
                   {item.technicianName}
                 </Text>

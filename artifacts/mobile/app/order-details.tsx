@@ -138,9 +138,13 @@ export default function OrderDetailsScreen() {
               {t("order.techInfo")}
             </Text>
             <View style={[styles.techCard, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
-                <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 22 }}>{order.technicianName[0]}</Text>
-              </View>
+              {order.technicianAvatar ? (
+                <Image source={{ uri: order.technicianAvatar }} style={styles.techAvatar} />
+              ) : (
+                <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 22 }}>{order.technicianName[0]}</Text>
+                </View>
+              )}
               <View style={{ flex: 1, marginLeft: isRTL ? 0 : 14, marginRight: isRTL ? 14 : 0 }}>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
                   {order.technicianName}
