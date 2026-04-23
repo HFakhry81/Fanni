@@ -56,7 +56,6 @@ export default function ClientProfileScreen() {
     setEditMobile(user.mobile ?? "");
     setEditGov(user.governorate ?? "");
     setEditArea(user.area ?? "");
-    setEditDistrict(user.district ?? "");
     setEditStreet(user.address ?? "");
     setErrors({});
     setEditVisible(true);

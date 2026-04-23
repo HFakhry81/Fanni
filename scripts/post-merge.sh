@@ -9,6 +9,6 @@ psql "$DATABASE_URL" -c "
     WHERE centroid IS NOT NULL;
 "
 
-node artifacts/api-server/migrations/009-reseed-locations.mjs
+pnpm --filter @workspace/api-server exec tsx migrations/009-reseed-locations.ts
 
 pnpm --filter db push
