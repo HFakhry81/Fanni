@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -24,6 +24,8 @@ export default function ClientOrdersScreen() {
   const [tab, setTab] = useState<"active" | "history">("active");
   const [apiOrders, setApiOrders] = useState<Order[]>([]);
   const [loadingApi, setLoadingApi] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
   const fetchOrdersFromApi = useCallback(async () => {
     if (!isAuthenticated || !sessionToken) return;
     const base = getApiBaseUrl();
@@ -45,6 +47,12 @@ export default function ClientOrdersScreen() {
       setLoadingApi(false);
     }
   }, [isAuthenticated, sessionToken, mergeOrders]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchOrdersFromApi();
+    setRefreshing(false);
+  }, [fetchOrdersFromApi]);
 
   useEffect(() => {
     fetchOrdersFromApi();
@@ -177,7 +185,7 @@ export default function ClientOrdersScreen() {
         ))}
       </View>
 
-      {loadingApi ? (
+      {loadingApi && apiOrders.length === 0 && !refreshing ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
@@ -187,6 +195,14 @@ export default function ClientOrdersScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderOrder}
           contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
