@@ -252,10 +252,23 @@ export default function TechProfileScreen() {
       buttons.push({
         text: isRTL ? "حذف الصورة" : "Remove Photo",
         style: "destructive" as const,
-        onPress: async () => {
-          if (user) {
-            await setUser({ ...user, avatar: undefined });
-          }
+        onPress: () => {
+          Alert.alert(
+            isRTL ? "حذف الصورة" : "Remove Photo",
+            isRTL ? "هل أنت متأكد أنك تريد حذف صورتك الشخصية؟" : "Are you sure you want to remove your photo?",
+            [
+              { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+              {
+                text: isRTL ? "حذف" : "Remove",
+                style: "destructive",
+                onPress: async () => {
+                  if (user) {
+                    await setUser({ ...user, avatar: undefined });
+                  }
+                },
+              },
+            ]
+          );
         },
       });
     }
