@@ -100,7 +100,13 @@ export default function LoginScreen() {
       <AppHeader
         title={t("login.title")}
         showBack
-        onBack={() => router.back()}
+        onBack={() => {
+          setIdentifier("");
+          setPassword("");
+          setShowPassword(false);
+          setLocalError("");
+          router.replace("/welcome");
+        }}
         showLangToggle
       />
 
