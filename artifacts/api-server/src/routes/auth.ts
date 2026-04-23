@@ -166,6 +166,11 @@ router.get("/auth/user", async (req: Request, res: Response) => {
 });
 
 router.post("/auth/role", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  // Admin sessions cannot change roles via this endpoint
+  if (req.sessionSource === "admin") {
+    res.status(403).json({ error: "Admin role cannot be modified via this endpoint" });
+    return;
+  }
   const parsed = SetUserRoleBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid role" });
@@ -181,6 +186,10 @@ router.post("/auth/role", authMiddleware, requireAuth, async (req: Request, res:
     .set({ role: parsed.data.role as "client" | "technician", updatedAt: new Date() })
     .where(eq(usersTable.id, req.user!.id))
     .returning();
+  if (!dbUser) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
   res.json(GetCurrentAuthUserResponse.parse({ user: buildAuthUser(dbUser) }));
 });
 
@@ -756,13 +765,13 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
 
   // Route update to the correct table using session source (not role claim alone)
   if (req.sessionSource === "admin") {
-    // Check email uniqueness in admins table
+    // Check email uniqueness across both tables to prevent credential collision
     if (emailVal) {
-      const [existing] = await db
-        .select()
-        .from(adminsTable)
-        .where(eq(adminsTable.email, emailVal));
-      if (existing && existing.id !== req.user!.id) {
+      const [[adminWithEmail], [userWithEmail]] = await Promise.all([
+        db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.email, emailVal)),
+        db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, emailVal)),
+      ]);
+      if ((adminWithEmail && adminWithEmail.id !== req.user!.id) || userWithEmail) {
         res.status(409).json({ error: "Email address is already in use" });
         return;
       }
