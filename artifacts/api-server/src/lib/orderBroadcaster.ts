@@ -4,6 +4,7 @@ import { logger } from "./logger";
 import { db, ordersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "./auth";
+import { locationsMatchSync, warmLocationCache } from "./locationNormalizer";
 
 interface TechnicianMeta {
   registered: boolean;
@@ -38,15 +39,15 @@ function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta):
   }
 
   if (meta.governorate) {
-    const orderGovernorate = (order.governorate as string | undefined)?.toLowerCase();
-    if (!orderGovernorate || orderGovernorate !== meta.governorate.toLowerCase()) {
+    const orderGovernorate = (order.governorate as string | undefined) ?? null;
+    if (!orderGovernorate || !locationsMatchSync(orderGovernorate, meta.governorate)) {
       return false;
     }
   }
 
   if (meta.area) {
-    const orderArea = (order.area as string | undefined)?.toLowerCase();
-    if (!orderArea || orderArea !== meta.area.toLowerCase()) {
+    const orderArea = (order.area as string | undefined) ?? null;
+    if (!orderArea || !locationsMatchSync(orderArea, meta.area)) {
       return false;
     }
   }
@@ -223,6 +224,7 @@ export function broadcastNewOrder(order: unknown): void {
 }
 
 export async function recoverPendingOrders(): Promise<void> {
+  await warmLocationCache();
   try {
     const rows = await db
       .select()

@@ -5,6 +5,7 @@ import { logger } from "../lib/logger";
 import { db, ordersTable, pool } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { normalizeToSlug } from "../lib/locationNormalizer";
 
 const router: IRouter = Router();
 
@@ -87,10 +88,25 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
     return;
   }
 
+  const rawGovernorate = (order.governorate as string | undefined) ?? null;
+  const rawArea = (order.area as string | undefined) ?? null;
+
+  const [normalizedGovernorate, normalizedArea] = await Promise.all([
+    normalizeToSlug(rawGovernorate),
+    normalizeToSlug(rawArea),
+  ]);
+
+  if (rawGovernorate && normalizedGovernorate !== rawGovernorate) {
+    logger.info({ raw: rawGovernorate, normalized: normalizedGovernorate }, "Normalized order governorate to slug");
+  }
+  if (rawArea && normalizedArea !== rawArea) {
+    logger.info({ raw: rawArea, normalized: normalizedArea }, "Normalized order area to slug");
+  }
+
   const routingMeta = {
     category: order.category as string,
-    governorate: (order.governorate as string | undefined) ?? null,
-    area: (order.area as string | undefined) ?? null,
+    governorate: normalizedGovernorate,
+    area: normalizedArea,
   };
 
   try {

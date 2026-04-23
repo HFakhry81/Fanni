@@ -49,6 +49,10 @@ function NativeTechTabs() {
         <Icon sf={{ default: "map", selected: "map.fill" }} />
         <Label>Map</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="available-orders">
+        <Icon sf={{ default: "tray", selected: "tray.fill" }} />
+        <Label>Available</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="orders">
         <Icon sf={{ default: "list.bullet", selected: "list.bullet.fill" }} />
         <Label>Orders</Label>
@@ -67,7 +71,7 @@ function NativeTechTabs() {
 
 function ClassicTechTabs() {
   const colors = useColors();
-  const { t } = useApp();
+  const { t, isRTL } = useApp();
   const { newPendingOrders } = useOrders();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -108,6 +112,13 @@ function ClassicTechTabs() {
                 {hasNew && <PulsingBadge />}
               </View>
             ),
+        }}
+      />
+      <Tabs.Screen
+        name="available-orders"
+        options={{
+          title: isRTL ? "المتاحة" : "Available",
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📥</Text>,
         }}
       />
       <Tabs.Screen

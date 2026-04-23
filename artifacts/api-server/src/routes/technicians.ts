@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, pool } from "@workspace/db";
+import { db, usersTable, ordersTable, pool } from "@workspace/db";
 import { and, eq, SQL } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
+import { locationsMatch } from "../lib/locationNormalizer";
 
 const router: IRouter = Router();
 
@@ -145,6 +146,87 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
     .where(and(...conditions));
 
   res.json({ technicians, spatialFilter: false, governorateFilter: govFilter, areaFilter });
+});
+
+router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can access this endpoint" });
+    return;
+  }
+
+  try {
+    const techRow = await db
+      .select({
+        serviceCategories: usersTable.serviceCategories,
+        governorate: usersTable.governorate,
+        area: usersTable.area,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.id))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
+
+    if (!techRow) {
+      res.status(404).json({ error: "Technician profile not found" });
+      return;
+    }
+
+    const pendingRows = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.status, "pending"))
+      .orderBy(ordersTable.createdAt);
+
+    const techCategories: string[] = (techRow.serviceCategories as string[] | null) ?? [];
+    const techGov = techRow.governorate ?? null;
+    const techArea = techRow.area ?? null;
+
+    const matchPromises = pendingRows.map(async (row) => {
+      if (techCategories.length > 0) {
+        const orderCategory = (row.category ?? "").toLowerCase();
+        if (!techCategories.map((c) => c.toLowerCase()).includes(orderCategory)) return null;
+      }
+      if (techGov) {
+        const govMatch = await locationsMatch(row.governorate, techGov);
+        if (!govMatch) return null;
+      }
+      if (techArea) {
+        const areaMatch = await locationsMatch(row.area, techArea);
+        if (!areaMatch) return null;
+      }
+      const data = row.data as Record<string, unknown>;
+      return {
+        id: row.id,
+        orderNumber: row.orderNumber,
+        orderSerial: row.orderSerial,
+        status: row.status,
+        category: row.category ?? data.category,
+        subCategory: data.subCategory ?? null,
+        governorate: row.governorate ?? null,
+        area: row.area ?? null,
+        street: data.street ?? null,
+        floor: data.floor ?? null,
+        building: data.building ?? null,
+        landmark: data.landmark ?? null,
+        visitDate: data.visitDate ?? null,
+        visitTime: data.visitTime ?? null,
+        problemDescription: data.problemDescription ?? null,
+        deviceType: data.deviceType ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        createdAt: row.createdAt,
+      };
+    });
+
+    const results = (await Promise.all(matchPromises)).filter(Boolean);
+
+    logger.info({ techId: user.id, total: pendingRows.length, matched: results.length }, "Technician fetched pending orders");
+    res.json({ orders: results });
+  } catch (err) {
+    logger.error({ err, techId: user.id }, "Failed to fetch pending orders for technician");
+    res.status(500).json({ error: "Failed to fetch pending orders" });
+  }
 });
 
 export default router;
