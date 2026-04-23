@@ -347,6 +347,7 @@ export default function RegisterScreen() {
             governorateId: governorateId || undefined,
             areaId: areaId || undefined,
             verificationToken: verificationToken || undefined,
+            serviceCategories: regType === "technician" && selectedCategories.length > 0 ? selectedCategories : undefined,
           }),
         });
         const data = await res.json() as { token?: string; user?: { id: string; firstName?: string; lastName?: string; email?: string; mobile?: string; role?: string; governorate?: string; area?: string }; error?: string };

@@ -116,8 +116,46 @@ export default function TechProfileScreen() {
     }
 
     const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+    const nameParts = editName.trim().split(/\s+/);
+    const firstName = nameParts[0] ?? editName.trim();
+    const lastName = nameParts.slice(1).join(" ") || null;
 
     setErrors({});
+
+    if (sessionToken) {
+      try {
+        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+        const apiBase = domain ? `https://${domain}` : "";
+        if (apiBase) {
+          const res = await fetch(`${apiBase}/api/auth/me`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionToken}`,
+            },
+            body: JSON.stringify({
+              firstName,
+              lastName,
+              specialty: editSpecialty.trim() || user.specialty || null,
+              governorate: editGov || null,
+              area: editArea || null,
+              district: editDistrict || null,
+              serviceCategories: editCategories.length > 0 ? editCategories : null,
+            }),
+          });
+          if (!res.ok) {
+            setToastMessage(isRTL ? "فشل حفظ البيانات على الخادم، حاول مرة أخرى" : "Failed to save to server, please try again");
+            setToastVisible(true);
+            return;
+          }
+        }
+      } catch (_) {
+        setToastMessage(isRTL ? "تعذّر الاتصال بالخادم" : "Could not reach server");
+        setToastVisible(true);
+        return;
+      }
+    }
+
     await setUser({
       ...user,
       name: editName.trim(),

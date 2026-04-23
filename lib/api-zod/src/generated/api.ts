@@ -37,6 +37,7 @@ export const GetCurrentAuthUserResponse = zod.object({
       district: zod.string().nullish(),
       profession: zod.string().nullish(),
       specialty: zod.string().nullish(),
+      serviceCategories: zod.array(zod.string()).nullish(),
     })
     .nullable(),
 });
@@ -67,6 +68,7 @@ export const SetUserRoleResponse = zod.object({
       district: zod.string().nullish(),
       profession: zod.string().nullish(),
       specialty: zod.string().nullish(),
+      serviceCategories: zod.array(zod.string()).nullish(),
     })
     .nullable(),
 });

@@ -126,6 +126,7 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
     district: dbUser.district ?? null,
     profession: dbUser.profession ?? null,
     specialty: dbUser.specialty ?? null,
+    serviceCategories: (dbUser.serviceCategories as string[] | null) ?? null,
   };
 }
 
@@ -608,7 +609,7 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
 
 // PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken } = req.body as {
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken, serviceCategories } = req.body as {
     name?: string;
     email?: string;
     mobile?: string;
@@ -618,6 +619,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     governorateId?: string;
     areaId?: string;
     verificationToken?: string;
+    serviceCategories?: string[];
   };
 
   if (!name || !name.trim()) {
@@ -717,6 +719,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       passwordHash,
       governorate: governorateId ?? null,
       area: areaId ?? null,
+      serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
     })
     .returning();
 
@@ -834,12 +837,17 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
   res.json({ token: sid, user: buildAuthUser(user) });
 });
 
-// PROTECTED: Updates the current user's profile (firstName, lastName, email). Mobile and role are immutable.
+// PROTECTED: Updates the current user's profile. Mobile and role are immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email } = req.body as {
+  const { firstName, lastName, email, specialty, governorate, area, district, serviceCategories } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
+    specialty?: string | null;
+    governorate?: string | null;
+    area?: string | null;
+    district?: string | null;
+    serviceCategories?: string[] | null;
   };
 
   const now = new Date();
@@ -871,6 +879,13 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
         return;
       }
       emailVal = normalizedEmail;
+    }
+  }
+
+  if (serviceCategories !== undefined && serviceCategories !== null) {
+    if (!Array.isArray(serviceCategories) || !serviceCategories.every((c) => typeof c === "string")) {
+      res.status(400).json({ error: "serviceCategories must be an array of strings" });
+      return;
     }
   }
 
@@ -919,6 +934,11 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (firstNameVal !== undefined) updates.firstName = firstNameVal;
   if (lastNameVal !== undefined) updates.lastName = lastNameVal;
   if (emailVal !== undefined) updates.email = emailVal;
+  if (specialty !== undefined) updates.specialty = specialty ?? null;
+  if (governorate !== undefined) updates.governorate = governorate ?? null;
+  if (area !== undefined) updates.area = area ?? null;
+  if (district !== undefined) updates.district = district ?? null;
+  if (serviceCategories !== undefined) updates.serviceCategories = serviceCategories ?? null;
 
   const [updatedUser] = await db
     .update(usersTable)

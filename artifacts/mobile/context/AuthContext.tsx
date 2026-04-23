@@ -28,6 +28,7 @@ export interface AuthUser {
   district: string | null;
   profession: string | null;
   specialty: string | null;
+  serviceCategories?: string[] | null;
 }
 
 interface AuthContextValue {

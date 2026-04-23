@@ -32,6 +32,7 @@ export const usersTable = pgTable("users", {
   district: varchar("district", { length: 100 }),
   profession: varchar("profession", { length: 100 }),
   specialty: varchar("specialty", { length: 100 }),
+  serviceCategories: jsonb("service_categories").$type<string[]>(),
   isAvailable: boolean("is_available").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
   location: geography("location"),
