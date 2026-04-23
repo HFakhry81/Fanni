@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { db, usersTable, adminsTable, loginLogsTable } from "@workspace/db";
+import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { verifyOtpToken, OTP_ENABLED } from "../lib/otp";
@@ -282,6 +282,54 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, asyn
 
   req.log.info({ userId: id, updates, adminId: req.user?.id }, "Admin updated user");
   res.json({ success: true, user: updated });
+});
+
+// ADMIN ONLY: Get login logs with optional filters
+router.get("/admin/login-logs", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+  const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const offset = (page - 1) * limit;
+  const role = req.query.role as string | undefined;
+  const success = req.query.success as string | undefined;
+  const from = req.query.from as string | undefined;
+  const to = req.query.to as string | undefined;
+
+  const conditions = [];
+  if (role && ["client", "technician", "admin"].includes(role)) {
+    conditions.push(eq(loginLogsTable.role, role));
+  }
+  if (success === "true") conditions.push(eq(loginLogsTable.success, true));
+  if (success === "false") conditions.push(eq(loginLogsTable.success, false));
+  if (from) {
+    const fromDate = new Date(from);
+    if (!isNaN(fromDate.getTime())) conditions.push(gte(loginLogsTable.createdAt, fromDate));
+  }
+  if (to) {
+    const toDate = new Date(to);
+    if (!isNaN(toDate.getTime())) conditions.push(lte(loginLogsTable.createdAt, toDate));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [logs, [countRow]] = await Promise.all([
+    db
+      .select()
+      .from(loginLogsTable)
+      .where(whereClause)
+      .orderBy(desc(loginLogsTable.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(loginLogsTable)
+      .where(whereClause),
+  ]);
+
+  const total = countRow?.count ?? 0;
+  res.json({
+    logs,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  });
 });
 
 export default router;

@@ -30,6 +30,10 @@ function NativeAdminTabs() {
         <Icon sf={{ default: "shield", selected: "shield.fill" }} />
         <Label>Permissions</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="login-logs">
+        <Icon sf={{ default: "list.bullet.clipboard", selected: "list.bullet.clipboard.fill" }} />
+        <Label>Logs</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -101,6 +105,13 @@ function ClassicAdminTabs() {
         options={{
           title: t("admin.permissions"),
           tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🛡️</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="login-logs"
+        options={{
+          title: t("loginLogs.title"),
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📋</Text>,
         }}
       />
       <Tabs.Screen

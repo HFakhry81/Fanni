@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, customType, index, jsonb, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, customType, index, jsonb, pgEnum, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
 
 const geography = customType<{ data: string }>({
   dataType() {
@@ -79,9 +79,29 @@ export const phoneVerificationsTable = pgTable(
   (table) => [index("IDX_phone_verif_mobile").on(table.mobile)],
 );
 
+export const loginLogsTable = pgTable(
+  "login_logs",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id"),
+    identifier: varchar("identifier").notNull(),
+    role: varchar("role"),
+    success: boolean("success").notNull(),
+    failureReason: varchar("failure_reason"),
+    ipAddress: varchar("ip_address"),
+    userAgent: varchar("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("login_logs_created_at_idx").on(table.createdAt),
+    index("login_logs_user_id_idx").on(table.userId),
+  ],
+);
+
 export type UpsertUser = typeof usersTable.$inferInsert;
 export type User = typeof usersTable.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokensTable.$inferSelect;
 export type Admin = typeof adminsTable.$inferSelect;
 export type UpsertAdmin = typeof adminsTable.$inferInsert;
 export type PhoneVerification = typeof phoneVerificationsTable.$inferSelect;
+export type LoginLog = typeof loginLogsTable.$inferSelect;

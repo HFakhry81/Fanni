@@ -9,7 +9,7 @@ import {
   LogoutMobileSessionResponse,
   SetUserRoleBody,
 } from "@workspace/api-zod";
-import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable } from "@workspace/db";
+import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
 import { eq, and, gt, isNull, lt, desc } from "drizzle-orm";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import {
@@ -763,8 +763,30 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
   }
 
   const needle = identifier.trim().toLowerCase();
-
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  const userAgent = String(req.headers["user-agent"] ?? "");
+
+  async function logLoginAttempt(opts: {
+    userId?: string;
+    role?: string;
+    success: boolean;
+    failureReason?: string;
+  }) {
+    try {
+      await db.insert(loginLogsTable).values({
+        userId: opts.userId ?? null,
+        identifier: needle,
+        role: opts.role ?? null,
+        success: opts.success,
+        failureReason: opts.failureReason ?? null,
+        ipAddress: ip,
+        userAgent: userAgent.slice(0, 500),
+      });
+    } catch (e) {
+      req.log.warn({ err: e }, "Failed to write login log");
+    }
+  }
+
   if (!checkRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000) || !checkRateLimit(`login:id:${needle}`, 10, 15 * 60 * 1000)) {
     res.status(429).json({ error: "Too many login attempts. Please wait before trying again." });
     return;
@@ -780,10 +802,12 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
   if (admin) {
     if (!admin.passwordHash || !verifyPassword(password, admin.passwordHash)) {
+      await logLoginAttempt({ userId: admin.id, role: "admin", success: false, failureReason: "invalid_password" });
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
     if (!admin.isActive) {
+      await logLoginAttempt({ userId: admin.id, role: "admin", success: false, failureReason: "account_suspended" });
       res.status(403).json({ error: "Account is suspended" });
       return;
     }
@@ -796,6 +820,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
       expires_at: undefined,
     };
     const sid = await createSession(sessionData);
+    await logLoginAttempt({ userId: admin.id, role: "admin", success: true });
     req.log.info({ adminId: admin.id }, "Admin signed in with password");
     res.json({ token: sid, user: authUser });
     return;
@@ -810,17 +835,20 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     );
 
   if (!user || !user.passwordHash) {
+    await logLoginAttempt({ success: false, failureReason: "user_not_found" });
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
   const valid = verifyPassword(password, user.passwordHash);
   if (!valid) {
+    await logLoginAttempt({ userId: user.id, role: user.role ?? "client", success: false, failureReason: "invalid_password" });
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
   if (!user.isActive) {
+    await logLoginAttempt({ userId: user.id, role: user.role ?? "client", success: false, failureReason: "account_suspended" });
     res.status(403).json({ error: "Account is suspended" });
     return;
   }
@@ -833,6 +861,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     expires_at: undefined,
   };
   const sid = await createSession(sessionData);
+  await logLoginAttempt({ userId: user.id, role: user.role ?? "client", success: true });
   req.log.info({ userId: user.id }, "User signed in with password");
   res.json({ token: sid, user: buildAuthUser(user) });
 });
