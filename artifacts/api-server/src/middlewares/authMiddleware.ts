@@ -16,12 +16,13 @@ declare global {
 
     interface Request {
       isAuthenticated(): this is AuthedRequest;
-
       user?: User | undefined;
+      sessionSource?: "admin" | "user";
     }
 
     export interface AuthedRequest {
       user: User;
+      sessionSource?: "admin" | "user";
     }
   }
 }
@@ -83,5 +84,6 @@ export async function authMiddleware(
   }
 
   req.user = refreshed.user;
+  req.sessionSource = refreshed.source;
   next();
 }

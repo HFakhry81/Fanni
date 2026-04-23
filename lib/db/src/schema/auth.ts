@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, jsonb, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 
-export const userRoleEnum = pgEnum("user_role", ["client", "technician", "admin"]);
+export const userRoleEnum = pgEnum("user_role", ["client", "technician"]);
 
 export const sessionsTable = pgTable(
   "sessions",

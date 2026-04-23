@@ -18,7 +18,7 @@ function generateSalt(): string {
 }
 
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!req.user || req.user.role !== "admin") {
+  if (!req.user || req.user.role !== "admin" || req.sessionSource !== "admin") {
     res.status(403).json({ error: "Admin access required" });
     return;
   }

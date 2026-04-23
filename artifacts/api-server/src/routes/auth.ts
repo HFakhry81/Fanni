@@ -20,7 +20,7 @@ import {
   SESSION_COOKIE,
   SESSION_TTL,
   ISSUER_URL,
-  type SessionData,
+  SessionData,
 } from "../lib/auth";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -171,9 +171,14 @@ router.post("/auth/role", authMiddleware, requireAuth, async (req: Request, res:
     res.status(400).json({ error: "Invalid role" });
     return;
   }
+  // Admin role can only be assigned via the admins table — block it here
+  if (parsed.data.role === "admin") {
+    res.status(403).json({ error: "Admin role cannot be assigned via this endpoint" });
+    return;
+  }
   const [dbUser] = await db
     .update(usersTable)
-    .set({ role: parsed.data.role, updatedAt: new Date() })
+    .set({ role: parsed.data.role as "client" | "technician", updatedAt: new Date() })
     .where(eq(usersTable.id, req.user!.id))
     .returning();
   res.json(GetCurrentAuthUserResponse.parse({ user: buildAuthUser(dbUser) }));
@@ -600,13 +605,14 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return;
   }
 
-  const sessionData = {
+  const sessionData: SessionData = {
     user: buildAuthUser(newUser),
+    source: "user",
     access_token: "",
     refresh_token: undefined,
     expires_at: undefined,
   };
-  const sid = await createSession(sessionData as Parameters<typeof createSession>[0]);
+  const sid = await createSession(sessionData);
   req.log.info({ userId: newUser.id }, "New user registered");
 
   if (newUser.email) {
@@ -659,13 +665,14 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
       return;
     }
     const authUser = buildAdminUser(admin);
-    const sessionData = {
+    const sessionData: SessionData = {
       user: authUser,
+      source: "admin",
       access_token: "",
       refresh_token: undefined,
       expires_at: undefined,
     };
-    const sid = await createSession(sessionData as Parameters<typeof createSession>[0]);
+    const sid = await createSession(sessionData);
     req.log.info({ adminId: admin.id }, "Admin signed in with password");
     res.json({ token: sid, user: authUser });
     return;
@@ -695,13 +702,14 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     return;
   }
 
-  const sessionData = {
+  const sessionData: SessionData = {
     user: buildAuthUser(user),
+    source: "user",
     access_token: "",
     refresh_token: undefined,
     expires_at: undefined,
   };
-  const sid = await createSession(sessionData as Parameters<typeof createSession>[0]);
+  const sid = await createSession(sessionData);
   req.log.info({ userId: user.id }, "User signed in with password");
   res.json({ token: sid, user: buildAuthUser(user) });
 });
