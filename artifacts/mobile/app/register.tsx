@@ -74,6 +74,7 @@ export default function RegisterScreen() {
 
   // ── OTP verification state ─────────────────────────────────────────────────
   const [otpMode, setOtpMode] = useState(false);
+  const [otpRequired, setOtpRequired] = useState(false);
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [otpError, setOtpError] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
@@ -81,6 +82,14 @@ export default function RegisterScreen() {
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [verificationToken, setVerificationToken] = useState("");
   const otpInputRefs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    // Fetch backend config to know if OTP is mandatory
+    fetch(`${getApiBase()}/api/config`)
+      .then((r) => r.json())
+      .then((d: { otpEnabled?: boolean }) => { if (d.otpEnabled) setOtpRequired(true); })
+      .catch(() => { /* ignore — default false means non-blocking */ });
+  }, []);
 
   useEffect(() => {
     if (otpCountdown <= 0) return;
@@ -757,6 +766,17 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {!otpRequired && (
+          <TouchableOpacity
+            style={{ marginTop: 20, alignItems: "center", padding: 10 }}
+            onPress={() => { setOtpMode(false); setStep(2); }}
+          >
+            <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_400Regular", textDecorationLine: "underline" }}>
+              {isRTL ? "تخطي التحقق (وضع التطوير)" : "Skip verification (dev mode)"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };

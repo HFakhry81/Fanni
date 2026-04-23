@@ -352,7 +352,8 @@ function hashOtpCode(code: string): string {
 }
 
 function signOtpToken(mobile: string): string {
-  const secret = process.env.SESSION_SECRET ?? "fanni-otp-fallback-secret";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET environment variable is not set");
   const payload = Buffer.from(JSON.stringify({ mobile, exp: Date.now() + 30 * 60 * 1000 })).toString("base64url");
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
   return `${payload}.${sig}`;
@@ -360,7 +361,8 @@ function signOtpToken(mobile: string): string {
 
 function verifyOtpToken(token: string): string | null {
   try {
-    const secret = process.env.SESSION_SECRET ?? "fanni-otp-fallback-secret";
+    const secret = process.env.SESSION_SECRET;
+    if (!secret) return null;
     const [payload, sig] = token.split(".");
     if (!payload || !sig) return null;
     const expectedSig = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
@@ -382,6 +384,11 @@ async function sendSmsOtp(mobile: string, code: string): Promise<boolean> {
 }
 
 const OTP_ENABLED = process.env.ENABLE_OTP === "true";
+
+// PUBLIC: Returns feature flags relevant to the mobile client.
+router.get("/config", (_req: Request, res: Response) => {
+  res.json({ otpEnabled: OTP_ENABLED });
+});
 
 // PUBLIC: Sends a 6-digit OTP to a mobile number. No auth required.
 router.post("/auth/send-otp", async (req: Request, res: Response) => {
