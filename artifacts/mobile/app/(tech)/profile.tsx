@@ -217,6 +217,8 @@ export default function TechProfileScreen() {
               ? `data:image/jpeg;base64,${result.assets[0].base64}`
               : result.assets[0].uri;
             await setUser({ ...user, avatar: uri });
+            setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
+            setToastVisible(true);
           }
         },
       },
@@ -243,6 +245,8 @@ export default function TechProfileScreen() {
               ? `data:image/jpeg;base64,${result.assets[0].base64}`
               : result.assets[0].uri;
             await setUser({ ...user, avatar: uri });
+            setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
+            setToastVisible(true);
           }
         },
       },
@@ -264,6 +268,8 @@ export default function TechProfileScreen() {
                 onPress: async () => {
                   if (user) {
                     await setUser({ ...user, avatar: undefined });
+                    setToastMessage(isRTL ? "تم حذف صورة الملف الشخصي" : "Profile photo removed");
+                    setToastVisible(true);
                   }
                 },
               },
