@@ -47,7 +47,6 @@ export default function TechProfileScreen() {
   const [editSpecialty, setEditSpecialty] = useState("");
   const [editGov, setEditGov] = useState("");
   const [editArea, setEditArea] = useState("");
-  const [editDistrict, setEditDistrict] = useState("");
   const [editStreet, setEditStreet] = useState("");
   const [editCategories, setEditCategories] = useState<string[]>([]);
 
@@ -78,7 +77,6 @@ export default function TechProfileScreen() {
     setEditSpecialty(user.specialty ?? "");
     setEditGov(user.governorate ?? "");
     setEditArea(user.area ?? "");
-    setEditDistrict(user.district ?? "");
     setEditStreet(user.address ?? "");
     setEditCategories(user.serviceCategories ?? []);
     setErrors({});
@@ -139,7 +137,6 @@ export default function TechProfileScreen() {
               specialty: editSpecialty.trim() || user.specialty || null,
               governorate: editGov || null,
               area: editArea || null,
-              district: editDistrict || null,
               serviceCategories: editCategories.length > 0 ? editCategories : null,
             }),
           });
@@ -163,7 +160,6 @@ export default function TechProfileScreen() {
       specialty: editSpecialty.trim() || user.specialty,
       governorate: editGov,
       area: editArea,
-      district: editDistrict,
       address: editStreet.trim(),
       serviceCategories: editCategories,
     });

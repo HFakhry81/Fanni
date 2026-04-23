@@ -34,7 +34,6 @@ export default function ClientProfileScreen() {
   const [editMobile, setEditMobile] = useState("");
   const [editGov, setEditGov] = useState("");
   const [editArea, setEditArea] = useState("");
-  const [editDistrict, setEditDistrict] = useState("");
   const [editStreet, setEditStreet] = useState("");
 
   // Change password state
@@ -102,7 +101,6 @@ export default function ClientProfileScreen() {
       mobile: normalizedMobile,
       governorate: editGov,
       area: editArea,
-      district: editDistrict,
       address: editStreet.trim(),
     });
     setEditVisible(false);

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 pnpm install --frozen-lockfile
-pnpm --filter db push
 
 psql "$DATABASE_URL" -c "
   ALTER TABLE locations ADD COLUMN IF NOT EXISTS centroid GEOGRAPHY(POINT, 4326);
@@ -10,6 +9,6 @@ psql "$DATABASE_URL" -c "
     WHERE centroid IS NOT NULL;
 "
 
-psql "$DATABASE_URL" << 'EOSQL'
-DELETE FROM locations WHERE type = 'neighborhood';
-EOSQL
+node artifacts/api-server/migrations/009-reseed-locations.mjs
+
+pnpm --filter db push
