@@ -24,7 +24,7 @@ export default function NewOrderScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { addOrder } = useOrders();
-  const { sessionToken, isAuthenticated, login } = useAuth();
+  const { sessionToken, isAuthenticated, isLoading: authLoading, login } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<OrderStep>(1);
@@ -54,6 +54,48 @@ export default function NewOrderScreen() {
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const stepLabels = [t("order.describe"), t("order.schedule"), t("order.confirm")];
+
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppHeader title={t("order.new")} showBack onBack={() => router.back()} />
+        <View style={styles.authGate}>
+          <Feather name="loader" size={32} color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppHeader title={t("order.new")} showBack onBack={() => router.back()} />
+        <View style={styles.authGate}>
+          <View style={[styles.authGateIcon, { backgroundColor: colors.accent }]}>
+            <Feather name="lock" size={36} color={colors.primary} />
+          </View>
+          <Text style={[styles.authGateTitle, { color: colors.foreground }]}>
+            {isRTL ? "تسجيل الدخول مطلوب" : "Sign In Required"}
+          </Text>
+          <Text style={[styles.authGateBody, { color: colors.mutedForeground }]}>
+            {isRTL
+              ? "يجب تسجيل الدخول أولاً قبل تقديم طلب الخدمة"
+              : "Please sign in before placing a service order"}
+          </Text>
+          <FanniButton
+            title={isRTL ? "تسجيل الدخول" : "Sign In"}
+            onPress={login}
+            style={styles.authGateBtn}
+          />
+          <TouchableOpacity onPress={() => router.back()} style={styles.authGateCancel}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
+              {isRTL ? "رجوع" : "Go Back"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   const handleNext = () => { if (step < 3) setStep((step + 1) as OrderStep); };
   const handleBack = () => {
@@ -323,15 +365,6 @@ export default function NewOrderScreen() {
           {step === 3 && renderStep3()}
         </View>
 
-        {step === 3 && !isAuthenticated && (
-          <View style={[styles.authBanner, { backgroundColor: colors.accentBlue, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="lock" size={16} color={colors.secondary} />
-            <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
-              {isRTL ? "يجب تسجيل الدخول لإرسال الطلب" : "You must be logged in to submit an order"}
-            </Text>
-          </View>
-        )}
-
         <View style={[styles.navBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {step > 1 && (
             <FanniButton
@@ -342,9 +375,7 @@ export default function NewOrderScreen() {
           )}
           {step < 3
             ? <FanniButton title={t("common.next")} onPress={handleNext} style={{ flex: 1 }} />
-            : !isAuthenticated
-              ? <FanniButton title={isRTL ? "تسجيل الدخول" : "Log In to Submit"} onPress={login} style={{ flex: 1 }} />
-              : <FanniButton title={t("common.sendOrder")} onPress={handleSubmit} loading={loading} style={{ flex: 1 }} />
+            : <FanniButton title={t("common.sendOrder")} onPress={handleSubmit} loading={loading} style={{ flex: 1 }} />
           }
         </View>
       </ScrollView>
@@ -374,5 +405,10 @@ const styles = StyleSheet.create({
   confirmRow: { paddingVertical: 10, borderBottomWidth: 1, alignItems: "center", flexDirection: "row" },
   totalRow: { padding: 14, borderWidth: 1.5, marginTop: 16, flexDirection: "row", alignItems: "center" },
   navBtns: { gap: 8, marginBottom: 8 },
-  authBanner: { padding: 12, marginBottom: 10, alignItems: "center", gap: 8 },
+  authGate: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 16 },
+  authGateIcon: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  authGateTitle: { fontFamily: "Inter_700Bold", fontSize: 22, textAlign: "center" },
+  authGateBody: { fontFamily: "Inter_400Regular", fontSize: 14, textAlign: "center", lineHeight: 22 },
+  authGateBtn: { width: "100%", marginTop: 8 },
+  authGateCancel: { marginTop: 4, paddingVertical: 8 },
 });
