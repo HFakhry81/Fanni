@@ -1,6 +1,12 @@
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, pgEnum, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import { customType, index, jsonb, pgEnum, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
+
+const geography = customType<{ data: string }>({
+  dataType() {
+    return "geography(POINT, 4326)";
+  },
+});
 
 export const orderStatusEnum = pgEnum("order_status", [
   "pending",
@@ -22,6 +28,7 @@ export const ordersTable = pgTable(
     category: varchar("category", { length: 100 }),
     governorate: varchar("governorate", { length: 100 }),
     area: varchar("area", { length: 100 }),
+    location: geography("location"),
     data: jsonb("data").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),

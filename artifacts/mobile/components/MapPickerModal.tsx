@@ -66,34 +66,24 @@ async function reverseGeocodeBilingual(lat: number, lon: number): Promise<Biling
   if (!base) return empty;
 
   try {
-    const [resAr, resEn] = await Promise.all([
-      fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}&lang=ar`),
-      fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}&lang=en`),
-    ]);
+    const res = await fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}`);
+    if (!res.ok) return empty;
 
-    let ar: Record<string, unknown> = {};
-    let en: Record<string, unknown> = {};
+    const json = await res.json();
+    const ar = (json.resultAr ?? {}) as Record<string, unknown>;
+    const en = (json.resultEn ?? {}) as Record<string, unknown>;
 
-    if (resAr.ok) {
-      const j = await resAr.json();
-      ar = (j.result ?? {}) as Record<string, unknown>;
-    }
-    if (resEn.ok) {
-      const j = await resEn.json();
-      en = (j.result ?? {}) as Record<string, unknown>;
-    }
-
-    const addr = (ar.address ?? en.address ?? {}) as Record<string, string>;
-    const addrEn = (en.address ?? ar.address ?? {}) as Record<string, string>;
+    const addr   = (ar.address ?? {}) as Record<string, string>;
+    const addrEn = (en.address ?? {}) as Record<string, string>;
 
     return {
       displayNameAr: (ar.display_name as string) ?? "",
       displayNameEn: (en.display_name as string) ?? "",
       suburbAr: addr.suburb ?? addr.neighbourhood,
       suburbEn: addrEn.suburb ?? addrEn.neighbourhood,
-      cityAr:  addr.city ?? addr.town,
-      cityEn:  addrEn.city ?? addrEn.town,
-      street:  addrEn.road ?? addr.road,
+      cityAr:   addr.city ?? addr.town,
+      cityEn:   addrEn.city ?? addrEn.town,
+      street:   addrEn.road ?? addr.road,
     };
   } catch {
     return empty;

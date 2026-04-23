@@ -6,37 +6,46 @@ const router: IRouter = Router();
 
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 const CACHE_DAYS = 30;
+const MIN_INTERVAL_MS = 1100;
 const USER_AGENT = "Fanni-HomeApp/1.0 (contact@fanni-eg.com)";
 
-// ─── Simple 1-request-per-second queue ────────────────────────────────────────
+// ─── True serialized 1-req/sec queue ──────────────────────────────────────────
+// All Nominatim requests go through this promise chain — concurrent callers
+// queue up and are served sequentially with at least MIN_INTERVAL_MS between
+// actual HTTP requests.
 
+let nominatimQueue: Promise<void> = Promise.resolve();
 let lastRequestAt = 0;
 
 async function nominatimFetch(url: string): Promise<unknown> {
-  const now = Date.now();
-  const elapsed = now - lastRequestAt;
-  const MIN_INTERVAL_MS = 1100;
+  // Attach to the end of the current chain; the next caller will wait for us.
+  const ticket = nominatimQueue.then(async () => {
+    const now = Date.now();
+    const delay = Math.max(0, lastRequestAt + MIN_INTERVAL_MS - now);
+    if (delay > 0) {
+      await new Promise<void>((r) => setTimeout(r, delay));
+    }
+    lastRequestAt = Date.now();
 
-  if (elapsed < MIN_INTERVAL_MS) {
-    await new Promise<void>((res) =>
-      setTimeout(res, MIN_INTERVAL_MS - elapsed),
-    );
-  }
+    const response = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+    });
 
-  lastRequestAt = Date.now();
+    if (!response.ok) {
+      throw new Error(`Nominatim ${response.status}: ${await response.text()}`);
+    }
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": USER_AGENT,
-      "Accept-Language": "ar,en",
-    },
+    return response.json() as unknown;
   });
 
-  if (!response.ok) {
-    throw new Error(`Nominatim ${response.status}: ${await response.text()}`);
-  }
+  // Advance the queue regardless of success/failure so subsequent callers
+  // are not blocked forever on a rejected promise.
+  nominatimQueue = ticket.then(
+    () => {},
+    () => {},
+  ) as Promise<void>;
 
-  return response.json();
+  return ticket;
 }
 
 // ─── Cache helpers ─────────────────────────────────────────────────────────────
@@ -60,20 +69,22 @@ async function setCache(cacheKey: string, lang: string, data: unknown) {
   const expiresAt = new Date(Date.now() + CACHE_DAYS * 24 * 60 * 60 * 1000);
   await db
     .insert(nominatimCacheTable)
-    .values({
-      cacheKey,
-      lang,
-      responseJson: data as never,
-      expiresAt,
-    })
+    .values({ cacheKey, lang, responseJson: data as never, expiresAt })
     .onConflictDoUpdate({
       target: nominatimCacheTable.cacheKey,
-      set: {
-        responseJson: data as never,
-        cachedAt: sql`now()`,
-        expiresAt,
-      },
+      set: { responseJson: data as never, cachedAt: sql`now()`, expiresAt },
     });
+}
+
+// ─── Cached Nominatim call (check cache → queue → store) ──────────────────────
+
+async function cachedNominatim(url: string, cacheKey: string, lang: string): Promise<unknown> {
+  const cached = await getCached(cacheKey);
+  if (cached) return cached;
+
+  const data = await nominatimFetch(url);
+  await setCache(cacheKey, lang, data);
+  return data;
 }
 
 // ─── GET /geo/search?q=...&lang=ar ────────────────────────────────────────────
@@ -91,12 +102,6 @@ router.get("/geo/search", async (req, res) => {
   const cacheKey = `search:${lang}:${q.toLowerCase()}`;
 
   try {
-    const cached = await getCached(cacheKey);
-    if (cached) {
-      res.json({ results: cached, cached: true });
-      return;
-    }
-
     const url =
       `${NOMINATIM_BASE}/search` +
       `?q=${encodeURIComponent(q)}` +
@@ -106,8 +111,7 @@ router.get("/geo/search", async (req, res) => {
       `&accept-language=${lang}` +
       `&limit=${limit}`;
 
-    const data = await nominatimFetch(url);
-    await setCache(cacheKey, lang, data);
+    const data = await cachedNominatim(url, cacheKey, lang);
     res.json({ results: data, cached: false });
   } catch (err) {
     console.error("[geo/search] error:", err);
@@ -115,12 +119,14 @@ router.get("/geo/search", async (req, res) => {
   }
 });
 
-// ─── GET /geo/reverse?lat=...&lon=...&lang=ar ─────────────────────────────────
+// ─── GET /geo/reverse?lat=...&lon=... ─────────────────────────────────────────
+// Always returns BOTH Arabic and English results in a single response.
+// The optional `lang` param is still accepted for backward compat but ignored —
+// the response always contains `resultAr` and `resultEn`.
 
 router.get("/geo/reverse", async (req, res) => {
   const lat = parseFloat(req.query.lat as string);
   const lon = parseFloat(req.query.lon as string);
-  const lang = ((req.query.lang as string | undefined) ?? "ar").trim();
 
   if (isNaN(lat) || isNaN(lon)) {
     res.status(400).json({ error: "lat and lon are required numbers" });
@@ -134,26 +140,21 @@ router.get("/geo/reverse", async (req, res) => {
 
   const latR = lat.toFixed(5);
   const lonR = lon.toFixed(5);
-  const cacheKey = `reverse:${lang}:${latR}:${lonR}`;
+
+  const cacheKeyAr = `reverse:ar:${latR}:${lonR}`;
+  const cacheKeyEn = `reverse:en:${latR}:${lonR}`;
 
   try {
-    const cached = await getCached(cacheKey);
-    if (cached) {
-      res.json({ result: cached, cached: true });
-      return;
-    }
-
-    const url =
+    const buildUrl = (l: string) =>
       `${NOMINATIM_BASE}/reverse` +
-      `?lat=${latR}` +
-      `&lon=${lonR}` +
-      `&format=json` +
-      `&addressdetails=1` +
-      `&accept-language=${lang}`;
+      `?lat=${latR}&lon=${lonR}&format=json&addressdetails=1&accept-language=${l}`;
 
-    const data = await nominatimFetch(url);
-    await setCache(cacheKey, lang, data);
-    res.json({ result: data, cached: false });
+    const [resultAr, resultEn] = await Promise.all([
+      cachedNominatim(buildUrl("ar"), cacheKeyAr, "ar"),
+      cachedNominatim(buildUrl("en"), cacheKeyEn, "en"),
+    ]);
+
+    res.json({ resultAr, resultEn, cached: false });
   } catch (err) {
     console.error("[geo/reverse] error:", err);
     res.status(502).json({ error: "Geocoding service unavailable" });
