@@ -27,29 +27,47 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
  */
 let legacyAliasMap: Record<string, string> = {};
 
+/**
+ * Builds the alias map in two ordered passes so key precedence is deterministic:
+ *
+ * Pass 1 — areas: registers city-part slug, city-part-spaced, nameEn, nameAr, full slug
+ *   for each area row. Areas can share a plain name (e.g. "6th of October" appears in
+ *   multiple govs); last write wins within this pass, which is acceptable for area lookups.
+ *
+ * Pass 2 — governorates: registers the same keys for each gov row, OVERWRITING any
+ *   area entries that share the same plain name (e.g. "giza"). This guarantees that a
+ *   bare gov name always resolves to the governorate slug when no type filter is applied.
+ *   When an area slug is needed, the caller passes type="area" and the type-filtered
+ *   fuzzy path is used instead of the alias map.
+ */
 function buildLegacyAliasMap(cache: LocationRow[]): Record<string, string> {
   const map: Record<string, string> = {};
-  for (const loc of cache) {
+
+  const setKeys = (loc: LocationRow) => {
     const en = loc.nameEn.toLowerCase().trim();
     const ar = loc.nameAr.trim();
     const slug = loc.slug.toLowerCase();
-
     map[en] = loc.slug;
     map[ar] = loc.slug;
     map[slug] = loc.slug;
     map[slug.replace(/[_]/g, " ")] = loc.slug;
-
+    map[stripNoise(en)] = loc.slug;
     if (loc.type === "area" && loc.slug.includes("__")) {
       const cityPart = loc.slug.split("__")[1];
       const cityPartSpaced = cityPart.replace(/_/g, " ");
       map[cityPart] = loc.slug;
       map[cityPartSpaced] = loc.slug;
       map[stripNoise(cityPartSpaced)] = loc.slug;
-      map[stripNoise(en)] = loc.slug;
-    } else if (loc.type === "governorate") {
-      map[stripNoise(en)] = loc.slug;
     }
+  };
+
+  for (const loc of cache) {
+    if (loc.type === "area") setKeys(loc);
   }
+  for (const loc of cache) {
+    if (loc.type === "governorate") setKeys(loc);
+  }
+
   return map;
 }
 

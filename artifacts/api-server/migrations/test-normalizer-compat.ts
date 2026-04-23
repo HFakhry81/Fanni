@@ -30,7 +30,8 @@ function stripNoise(s: string): string {
 
 function buildAliasMap(cache: LocationRow[]): Record<string, string> {
   const map: Record<string, string> = {};
-  for (const loc of cache) {
+
+  const setKeys = (loc: LocationRow) => {
     const en = loc.nameEn.toLowerCase().trim();
     const ar = loc.nameAr.trim();
     const slug = loc.slug.toLowerCase();
@@ -38,17 +39,23 @@ function buildAliasMap(cache: LocationRow[]): Record<string, string> {
     map[ar] = loc.slug;
     map[slug] = loc.slug;
     map[slug.replace(/[_]/g, " ")] = loc.slug;
+    map[stripNoise(en)] = loc.slug;
     if (loc.type === "area" && loc.slug.includes("__")) {
       const cityPart = loc.slug.split("__")[1];
       const cityPartSpaced = cityPart.replace(/_/g, " ");
       map[cityPart] = loc.slug;
       map[cityPartSpaced] = loc.slug;
       map[stripNoise(cityPartSpaced)] = loc.slug;
-      map[stripNoise(en)] = loc.slug;
-    } else if (loc.type === "governorate") {
-      map[stripNoise(en)] = loc.slug;
     }
+  };
+
+  for (const loc of cache) {
+    if (loc.type === "area") setKeys(loc);
   }
+  for (const loc of cache) {
+    if (loc.type === "governorate") setKeys(loc);
+  }
+
   return map;
 }
 
@@ -104,7 +111,7 @@ const COMPAT_CASES: Array<{ input: string; expectedSlug: string; label: string }
   { input: "sixth_of_october",  expectedSlug: "giza__sixth_of_october",     label: "old area slug with underscores" },
   { input: "alexandria",         expectedSlug: "alexandria",                 label: "gov slug unchanged" },
   { input: "cairo",              expectedSlug: "cairo",                      label: "gov slug (Cairo)" },
-  { input: "giza",               expectedSlug: "giza__giza",                 label: "gov name resolves to primary giza area" },
+  { input: "giza",               expectedSlug: "giza",                       label: "gov name resolves to gov slug (gov wins alias precedence)" },
   { input: "Alexandria",         expectedSlug: "alexandria",                 label: "gov nameEn capitalized" },
   { input: "الإسكندرية",          expectedSlug: "alexandria",                 label: "gov nameAr" },
   { input: "القاهرة",             expectedSlug: "cairo",                      label: "gov nameAr (Cairo)" },

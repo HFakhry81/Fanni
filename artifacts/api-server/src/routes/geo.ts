@@ -140,24 +140,28 @@ router.get("/geo/streets", async (req, res) => {
     res.status(400).json({ error: "Query too short (min 3 chars)" });
     return;
   }
+  if (!cityId) {
+    res.status(400).json({ error: "city_id is required" });
+    return;
+  }
 
   try {
-    let cityName = cityId ?? "";
+    let cityName = "";
 
-    if (cityId) {
-      const [loc] = await db
-        .select({ nameEn: locationsTable.nameEn, nameAr: locationsTable.nameAr })
-        .from(locationsTable)
-        .where(eq(locationsTable.id, cityId))
-        .limit(1);
+    const [loc] = await db
+      .select({ nameEn: locationsTable.nameEn, nameAr: locationsTable.nameAr })
+      .from(locationsTable)
+      .where(eq(locationsTable.id, cityId))
+      .limit(1);
 
-      if (loc) {
-        cityName = lang === "ar" ? loc.nameAr : loc.nameEn;
-      }
+    if (!loc) {
+      res.status(404).json({ error: "city_id not found" });
+      return;
     }
+    cityName = lang === "ar" ? loc.nameAr : loc.nameEn;
 
-    const searchQ = cityName ? `${q}, ${cityName}, Egypt` : `${q}, Egypt`;
-    const cacheKey = `streets:${lang}:${cityId ?? "all"}:${q.toLowerCase()}`;
+    const searchQ = `${q}, ${cityName}, Egypt`;
+    const cacheKey = `streets:${lang}:${cityId}:${q.toLowerCase()}`;
 
     const url =
       `${NOMINATIM_BASE}/search` +
