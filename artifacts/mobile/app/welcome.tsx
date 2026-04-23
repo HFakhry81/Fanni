@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
@@ -61,15 +60,15 @@ export default function WelcomeScreen() {
           {t("app.tagline")}
         </Text>
 
-        {/* Feature pills */}
+        {/* Feature pills — plain text/emoji icons, always visible on Android */}
         <View style={styles.pills}>
           {[
-            { icon: "zap", label: isRTL ? "خدمة سريعة" : "Fast Service" },
-            { icon: "star", label: isRTL ? "فنيون معتمدون" : "Certified Techs" },
-            { icon: "shield", label: isRTL ? "مضمون" : "Guaranteed" },
+            { icon: "⚡", label: isRTL ? "خدمة سريعة" : "Fast Service" },
+            { icon: "★", label: isRTL ? "فنيون معتمدون" : "Certified Techs" },
+            { icon: "✓", label: isRTL ? "مضمون" : "Guaranteed" },
           ].map((pill) => (
             <View key={pill.label} style={[styles.pill, { backgroundColor: "rgba(245,166,35,0.12)", borderColor: "rgba(245,166,35,0.25)" }]}>
-              <Feather name={pill.icon as any} size={12} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 12 }}>{pill.icon}</Text>
               <Text style={{ color: "rgba(255,255,255,0.75)", fontFamily: "Inter_500Medium", fontSize: 11, marginLeft: 5 }}>
                 {pill.label}
               </Text>
@@ -89,49 +88,34 @@ export default function WelcomeScreen() {
           {isRTL ? "ابدأ الآن" : "Get Started"}
         </Text>
 
-        {/* Client button */}
+        {/* Client login button */}
         <TouchableOpacity
           style={[styles.btn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-          onPress={() => router.push({ pathname: "/login", params: { type: "client" } })}
+          onPress={() => router.replace("/login")}
           activeOpacity={0.85}
         >
           <View style={[styles.btnIcon, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-            <Feather name="home" size={18} color="#FFF" />
+            <Text style={styles.btnEmoji}>🏠</Text>
           </View>
           <Text style={[styles.btnText, { color: "#FFF", fontFamily: "Inter_600SemiBold", flex: 1, textAlign: isRTL ? "right" : "left" }]}>
             {t("welcome.client")}
           </Text>
-          <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="rgba(255,255,255,0.7)" />
+          <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 20 }}>{isRTL ? "‹" : "›"}</Text>
         </TouchableOpacity>
 
-        {/* Technician button */}
+        {/* Technician login button */}
         <TouchableOpacity
           style={[styles.btn, { backgroundColor: colors.dark, borderRadius: colors.radius }]}
-          onPress={() => router.push({ pathname: "/login", params: { type: "technician" } })}
+          onPress={() => router.replace("/login")}
           activeOpacity={0.85}
         >
           <View style={[styles.btnIcon, { backgroundColor: "rgba(255,255,255,0.1)" }]}>
-            <Feather name="tool" size={18} color="#FFF" />
+            <Text style={styles.btnEmoji}>🔧</Text>
           </View>
           <Text style={[styles.btnText, { color: "#FFF", fontFamily: "Inter_600SemiBold", flex: 1, textAlign: isRTL ? "right" : "left" }]}>
             {t("welcome.technician")}
           </Text>
-          <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="rgba(255,255,255,0.5)" />
-        </TouchableOpacity>
-
-        {/* Admin button */}
-        <TouchableOpacity
-          style={[styles.btn, styles.adminBtn, { borderColor: colors.border, borderRadius: colors.radius }]}
-          onPress={() => router.push({ pathname: "/login", params: { type: "admin" } })}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.btnIcon, { backgroundColor: colors.muted }]}>
-            <Feather name="shield" size={18} color={colors.dark} />
-          </View>
-          <Text style={[styles.btnText, { color: colors.foreground, fontFamily: "Inter_600SemiBold", flex: 1, textAlign: isRTL ? "right" : "left" }]}>
-            {t("welcome.admin")}
-          </Text>
-          <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+          <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 20 }}>{isRTL ? "‹" : "›"}</Text>
         </TouchableOpacity>
 
         <View style={[styles.divider, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -142,7 +126,7 @@ export default function WelcomeScreen() {
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
         </View>
 
-        <TouchableOpacity onPress={() => router.push("/register")} activeOpacity={0.8}>
+        <TouchableOpacity onPress={() => router.replace("/register")} activeOpacity={0.8}>
           <Text style={[styles.registerLink, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
             {t("welcome.register")}
           </Text>
@@ -232,10 +216,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 12,
   },
-  adminBtn: {
-    borderWidth: 1.5,
-    backgroundColor: "transparent",
-  },
   btnIcon: {
     width: 36,
     height: 36,
@@ -243,6 +223,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  btnEmoji: { fontSize: 18 },
   btnText: { fontSize: 16 },
   divider: {
     alignItems: "center",

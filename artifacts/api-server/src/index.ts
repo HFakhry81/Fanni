@@ -1,7 +1,10 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import app from "./app";
 import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
+import { db, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
 
@@ -15,6 +18,45 @@ const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+function hashPassword(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
+}
+
+function generateSalt(): string {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+async function seedDefaultAdmin(): Promise<void> {
+  try {
+    const [existing] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, "admin@fanni.app"));
+
+    if (existing) {
+      logger.info("Default admin already exists, skipping seed");
+      return;
+    }
+
+    const salt = generateSalt();
+    const hash = hashPassword("admin", salt);
+    const passwordHash = `${salt}:${hash}`;
+
+    await db.insert(usersTable).values({
+      email: "admin@fanni.app",
+      mobile: "admin",
+      firstName: "Admin",
+      lastName: null,
+      role: "admin",
+      passwordHash,
+    });
+
+    logger.info("Default admin seeded — identifier: admin, password: admin");
+  } catch (err) {
+    logger.error({ err }, "Failed to seed default admin user");
+  }
 }
 
 const server = http.createServer(app);
@@ -34,5 +76,8 @@ server.listen(port, () => {
   logger.info({ port }, "Server listening");
   recoverPendingOrders().catch((err) => {
     logger.error({ err }, "Startup order recovery failed");
+  });
+  seedDefaultAdmin().catch((err) => {
+    logger.error({ err }, "Startup admin seed failed");
   });
 });
