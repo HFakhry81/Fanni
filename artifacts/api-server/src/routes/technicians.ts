@@ -3,6 +3,7 @@ import { db, usersTable, pool } from "@workspace/db";
 import { and, eq, SQL } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -114,8 +115,8 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
       } finally {
         client.release();
       }
-    } catch {
-      // PostGIS may not be installed — fall through to text-based filter
+    } catch (err) {
+      logger.warn({ err, lat, lon, radiusKm }, "ST_DWithin spatial query failed — falling back to text filter");
     }
   }
 
