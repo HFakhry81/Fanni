@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -110,13 +110,22 @@ export default function TechOrdersScreen() {
             </Text>
           </View>
           {isActive && (
-            <TouchableOpacity
-              style={[styles.completeBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
-              onPress={() => { setSelectedOrderId(item.id); setShowComplete(true); }}
-            >
-              <Feather name="check-circle" size={14} color={colors.primary} />
-              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: 6 }}>{t("tech.complete")}</Text>
-            </TouchableOpacity>
+            <View style={[styles.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <TouchableOpacity
+                style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
+                onPress={() => Linking.openURL(`sms:${item.clientMobile}`)}
+              >
+                <Feather name="message-circle" size={14} color={colors.secondary} />
+                <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.messageClient")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.completeBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flex: 1 }]}
+                onPress={() => { setSelectedOrderId(item.id); setShowComplete(true); }}
+              >
+                <Feather name="check-circle" size={14} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: 6 }}>{t("tech.complete")}</Text>
+              </TouchableOpacity>
+            </View>
           )}
           {item.status === "completed" && item.invoice && (
             <View style={[styles.invoiceSummary, { backgroundColor: colors.accent, borderRadius: colors.radius - 4 }]}>
@@ -229,7 +238,9 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1, padding: 12 },
   cardTop: { alignItems: "flex-start", marginBottom: 8, gap: 8 },
   infoRow: { alignItems: "center", marginBottom: 6, gap: 0 },
-  completeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10, marginTop: 8 },
+  actionRow: { marginTop: 8, gap: 8 },
+  messageBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10 },
+  completeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10 },
   invoiceSummary: { flexDirection: "row", alignItems: "center", padding: 10, marginTop: 8 },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 72, height: 72, alignItems: "center", justifyContent: "center" },
