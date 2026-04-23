@@ -68,7 +68,7 @@ function ClassicAdminTabs() {
         name="dashboard"
         options={{
           title: t("admin.dashboard"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>⊞</Text>,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🗂️</Text>,
         }}
       />
       <Tabs.Screen

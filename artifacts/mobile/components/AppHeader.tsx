@@ -120,9 +120,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.1)",
   },
-  arrowIcon: { fontSize: 18, color: "#FFFFFF", fontWeight: "700" },
-  homeIcon: { fontSize: 17 },
-  logoutIcon: { fontSize: 17, color: "#FF6B6B" },
+  arrowIcon: { fontSize: 20, color: "#FFFFFF", fontWeight: "700" },
+  homeIcon: { fontSize: 18 },
+  logoutIcon: { fontSize: 18, color: "#FF6B6B" },
   langBtn: {
     paddingVertical: 5,
     paddingHorizontal: 12,
