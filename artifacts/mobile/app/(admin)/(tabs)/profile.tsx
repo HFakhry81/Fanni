@@ -81,30 +81,40 @@ export default function AdminProfileScreen() {
     try {
       const apiBase = getApiBaseUrl();
       const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-      if (apiBase && token) {
-        const res = await fetch(`${apiBase}/api/auth/me`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            firstName: firstName.trim(),
-            lastName: lastName.trim() || null,
-            email: email.trim() || null,
-          }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error ?? "Failed to save");
-        }
+
+      if (!apiBase || !token) {
+        throw new Error(isRTL ? "تعذر الاتصال بالخادم" : "Unable to reach server");
       }
 
-      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+      const res = await fetch(`${apiBase}/api/auth/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim() || null,
+          email: email.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? (isRTL ? "فشل الحفظ" : "Failed to save"));
+      }
+
+      const data = await res.json();
+      const serverUser = data.user;
+      const fullName = [
+        serverUser?.firstName ?? firstName.trim(),
+        serverUser?.lastName ?? lastName.trim(),
+      ].filter(Boolean).join(" ");
+
       await setUser({
         ...user,
         name: fullName,
-        email: email.trim() || user.email,
+        email: serverUser?.email ?? null,
       });
 
       setEditMode(false);
