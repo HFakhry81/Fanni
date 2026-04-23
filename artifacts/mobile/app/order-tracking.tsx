@@ -26,12 +26,28 @@ interface RouteData {
   durationSec: number;
 }
 
+const ROUTE_CACHE = new Map<string, RouteData | null>();
+
+function routeCacheKey(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+): string {
+  const r = (n: number) => n.toFixed(4);
+  return `${r(startLat)},${r(startLng)};${r(endLat)},${r(endLng)}`;
+}
+
 async function fetchOSRMRoute(
   startLat: number,
   startLng: number,
   endLat: number,
   endLng: number
 ): Promise<RouteData | null> {
+  const key = routeCacheKey(startLat, startLng, endLat, endLng);
+  if (ROUTE_CACHE.has(key)) {
+    return ROUTE_CACHE.get(key) ?? null;
+  }
   try {
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
@@ -41,14 +57,20 @@ async function fetchOSRMRoute(
     const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return null;
+    }
     const data = await res.json();
-    if (data.code !== "Ok" || !data.routes?.[0]) return null;
+    if (data.code !== "Ok" || !data.routes?.[0]) {
+      return null;
+    }
     const route = data.routes[0];
     const coords = (route.geometry.coordinates as [number, number][]).map(
       ([lng, lat]) => ({ lat, lng })
     );
-    return { coords, durationSec: route.duration };
+    const result: RouteData = { coords, durationSec: route.duration };
+    ROUTE_CACHE.set(key, result);
+    return result;
   } catch {
     return null;
   }
