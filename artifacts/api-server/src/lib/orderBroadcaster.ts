@@ -3,6 +3,7 @@ import { IncomingMessage } from "node:http";
 import { logger } from "./logger";
 import { db, ordersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { getSession } from "./auth";
 
 interface TechnicianMeta {
   registered: boolean;
@@ -65,7 +66,7 @@ wss.on("connection", (ws: WebSocket) => {
 
   ws.send(JSON.stringify({ type: "connected", message: "Connected to Fanni order stream" }));
 
-  ws.on("message", (raw) => {
+  ws.on("message", async (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
 
@@ -80,6 +81,31 @@ wss.on("connection", (ws: WebSocket) => {
       }
 
       if (msg.type === "register") {
+        const token = typeof msg.token === "string" ? msg.token.trim() : "";
+        if (!token) {
+          logger.warn("WebSocket register rejected: no token provided");
+          ws.send(JSON.stringify({ type: "auth_error", message: "Authentication required: no token provided" }));
+          ws.close();
+          return;
+        }
+
+        const session = await getSession(token);
+        if (!session) {
+          logger.warn("WebSocket register rejected: invalid or expired token");
+          ws.send(JSON.stringify({ type: "auth_error", message: "Authentication required: invalid or expired session" }));
+          ws.close();
+          return;
+        }
+
+        if (session.user.role !== "technician") {
+          logger.warn({ userId: session.user.id, role: session.user.role }, "WebSocket register rejected: not a technician");
+          ws.send(JSON.stringify({ type: "auth_error", message: "Authentication required: technician account required" }));
+          ws.close();
+          return;
+        }
+
+        logger.info({ userId: session.user.id, role: session.user.role }, "WebSocket technician authenticated");
+
         const isAvailable = msg.isAvailable !== false;
         const meta: TechnicianMeta = { registered: true, isAvailable };
 

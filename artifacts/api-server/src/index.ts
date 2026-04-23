@@ -60,9 +60,9 @@ async function seedDefaultAdmin(): Promise<void> {
 
 const server = http.createServer(app);
 
-// PUBLIC WebSocket endpoint (/api/ws): intentionally allows unauthenticated connections.
-// Technician clients connect here to receive new-order broadcasts. Authentication is
-// handled at the application layer via the "register" message sent after connection.
+// WebSocket endpoint (/api/ws): connections are accepted but not trusted until the
+// "register" message is received with a valid session token. Unauthenticated or
+// invalid-token register attempts receive an auth_error message and are closed.
 server.on("upgrade", (req, socket, head) => {
   if (req.url === "/api/ws") {
     handleUpgrade(req, socket as import("node:net").Socket, head);

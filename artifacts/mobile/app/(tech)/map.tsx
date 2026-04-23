@@ -38,7 +38,7 @@ export default function TechMapScreen() {
   const hasServiceArea = !!(govLabel && areaLabel);
   const serviceAreaDisplay = [govLabel, areaLabel].filter(Boolean).join(" — ");
 
-  useOrderNotifications(isOnline, user);
+  useOrderNotifications(isOnline, user, sessionToken);
 
   const pendingOrders = allOrders.filter((o) => o.status === "pending");
 

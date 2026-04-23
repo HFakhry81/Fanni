@@ -31,8 +31,12 @@ function getWsUrl(): string {
   return `wss://${domain}/api/ws`;
 }
 
-function buildRegisterMessage(user: User | null): string {
+function buildRegisterMessage(user: User | null, sessionToken: string | null): string {
   const payload: Record<string, unknown> = { type: "register", isAvailable: true };
+
+  if (sessionToken) {
+    payload.token = sessionToken;
+  }
 
   if (user?.serviceCategories && user.serviceCategories.length > 0) {
     payload.categories = user.serviceCategories.map((c) => c.toLowerCase());
@@ -54,7 +58,7 @@ function buildRegisterMessage(user: User | null): string {
   return JSON.stringify(payload);
 }
 
-export function useOrderNotifications(isOnline: boolean = true, user: User | null = null) {
+export function useOrderNotifications(isOnline: boolean = true, user: User | null = null, sessionToken: string | null = null) {
   const { injectNewOrder } = useOrders();
   const injectRef = useRef(injectNewOrder);
   injectRef.current = injectNewOrder;
@@ -62,12 +66,17 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
   const userRef = useRef(user);
   userRef.current = user;
 
+  const sessionTokenRef = useRef(sessionToken);
+  sessionTokenRef.current = sessionToken;
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const authRejectedRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
+    authRejectedRef.current = false;
 
     function disconnect() {
       if (reconnectTimerRef.current) {
@@ -93,13 +102,19 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
           clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = null;
         }
-        ws.send(buildRegisterMessage(userRef.current));
+        ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current));
       };
 
       ws.onmessage = (event) => {
         if (!isOnline) return;
         try {
           const data = JSON.parse(event.data as string);
+          if (data.type === "auth_error") {
+            console.warn("[Fanni] WebSocket auth rejected:", data.message);
+            authRejectedRef.current = true;
+            ws.close();
+            return;
+          }
           if (data.type === "new_order" && data.order) {
             const order = data.order as Order;
             injectRef.current({ ...order, createdAt: order.createdAt ?? new Date().toISOString() });
@@ -109,7 +124,7 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
 
       ws.onclose = () => {
         wsRef.current = null;
-        if (mountedRef.current && isOnline) {
+        if (mountedRef.current && isOnline && !authRejectedRef.current) {
           console.warn("[Fanni] Order notification WS closed. Reconnecting in", WS_RECONNECT_DELAY_MS, "ms...");
           reconnectTimerRef.current = setTimeout(connect, WS_RECONNECT_DELAY_MS);
         }
@@ -131,12 +146,13 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
       mountedRef.current = false;
       disconnect();
     };
-  }, [isOnline]);
+  }, [isOnline, sessionToken]);
 
   useEffect(() => {
     if (!isOnline) return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(buildRegisterMessage(user));
+    authRejectedRef.current = false;
+    ws.send(buildRegisterMessage(user, sessionTokenRef.current));
   }, [user?.id, user?.profession, user?.serviceCategories, user?.governorate, user?.area, isOnline]);
 }
