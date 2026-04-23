@@ -76,6 +76,7 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<{
     name?: string;
     mobile?: string;
+    email?: string;
     nationalId?: string;
     area?: string;
     password?: string;
@@ -133,6 +134,43 @@ export default function RegisterScreen() {
 
   const handleNext = async () => {
     if (!validateCurrentStep()) return;
+
+    if (step === 1) {
+      const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+      const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
+      const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+
+      setLoading(true);
+      try {
+        const apiBase = getApiBase();
+        const res = await fetch(`${apiBase}/api/auth/check-availability`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mobile: normalizedMobile,
+            email: email.trim() || undefined,
+          }),
+        });
+        const data = await res.json() as { mobileTaken?: boolean; emailTaken?: boolean };
+        const availabilityErrors: typeof errors = {};
+        if (data.mobileTaken) {
+          availabilityErrors.mobile = isRTL ? "رقم الهاتف مسجل بالفعل" : "Mobile number is already registered";
+        }
+        if (data.emailTaken) {
+          availabilityErrors.email = isRTL ? "البريد الإلكتروني مسجل بالفعل" : "Email address is already registered";
+        }
+        if (Object.keys(availabilityErrors).length > 0) {
+          setErrors(availabilityErrors);
+          return;
+        }
+        setStep(step + 1);
+      } catch {
+        setApiError(isRTL ? "تعذّر الاتصال بالخادم" : "Could not connect to server");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     if (step < totalSteps) {
       setStep(step + 1);
@@ -255,7 +293,14 @@ export default function RegisterScreen() {
         placeholder="01XXXXXXXXX"
         error={errors.mobile}
       />
-      <FanniInput label={t("register.email")} value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="email@example.com" />
+      <FanniInput
+        label={t("register.email")}
+        value={email}
+        onChangeText={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }}
+        keyboardType="email-address"
+        placeholder="email@example.com"
+        error={errors.email}
+      />
 
       <FanniInput
         label={isRTL ? "كلمة المرور" : "Password"}

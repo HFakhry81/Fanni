@@ -438,6 +438,37 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
 
 const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
+// PUBLIC: Checks whether a mobile number or email is already registered. No auth required.
+router.post("/auth/check-availability", async (req: Request, res: Response) => {
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+  if (!checkRateLimit(`check-availability:ip:${ip}`, 20, 60 * 1000)) {
+    res.status(429).json({ error: "Too many requests, please wait before trying again." });
+    return;
+  }
+
+  const { mobile, email } = req.body as { mobile?: string; email?: string };
+
+  const result: { mobileTaken: boolean; emailTaken: boolean } = {
+    mobileTaken: false,
+    emailTaken: false,
+  };
+
+  if (mobile && mobile.trim()) {
+    const mobileDigits = mobile.trim().replace(/\s|-/g, "");
+    const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
+    const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.mobile, normalizedMobile));
+    result.mobileTaken = !!existing;
+  }
+
+  if (email && email.trim()) {
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
+    result.emailTaken = !!existing;
+  }
+
+  res.json(result);
+});
+
 // PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
   const { name, email, mobile, password, role, nationalId, governorateId, areaId } = req.body as {
