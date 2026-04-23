@@ -12,6 +12,12 @@ import StatusBadge from "@/components/StatusBadge";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 
+function getApiBaseUrl(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  if (domain) return `https://${domain}`;
+  return "";
+}
+
 export default function TechMapScreen() {
   const router = useRouter();
   const colors = useColors();
@@ -50,15 +56,43 @@ export default function TechMapScreen() {
   const handleAccept = async () => {
     if (!selectedOrder) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    await updateOrder(selectedOrder.id, {
-      status: "accepted",
+    const techUpdate = {
+      status: "accepted" as const,
       technicianId: user?.id ?? "tech1",
       technicianName: user?.name ?? "محمد علي",
       technicianMobile: user?.mobile ?? "01098765432",
       technicianAvatar: user?.avatar,
       technicianRating: 4.8,
-    });
+    };
+    let serverSynced = false;
+    try {
+      const apiBase = getApiBaseUrl();
+      if (apiBase && sessionToken) {
+        const res = await fetch(`${apiBase}/api/orders/${selectedOrder.id}/acknowledge`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify({
+            technicianName: techUpdate.technicianName,
+            technicianMobile: techUpdate.technicianMobile,
+            technicianAvatar: techUpdate.technicianAvatar,
+            technicianRating: techUpdate.technicianRating,
+          }),
+        });
+        if (res.ok) {
+          serverSynced = true;
+        } else {
+          console.warn(`[Fanni] Failed to acknowledge order on server: ${res.status}`);
+        }
+      }
+    } catch (err) {
+      console.warn("[Fanni] Network error acknowledging order:", err);
+    }
+    if (serverSynced || !sessionToken) {
+      await updateOrder(selectedOrder.id, techUpdate);
+    }
     setLoading(false);
     setModalVisible(false);
     if (selectedOrder) markOrderSeen(selectedOrder.id);

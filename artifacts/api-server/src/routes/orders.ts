@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { sql, desc, eq } from "drizzle-orm";
-import { broadcastNewOrder } from "../lib/orderBroadcaster";
+import { broadcastNewOrder, removeOrderFromPending } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -10,6 +10,15 @@ const router: IRouter = Router();
 
 function formatOrderNumber(serial: number): string {
   return `ORD-${String(serial).padStart(6, "0")}`;
+}
+
+type DbStatus = "pending" | "acknowledged" | "in_progress" | "completed" | "cancelled";
+type MobileStatus = "pending" | "accepted" | "inProgress" | "completed" | "cancelled";
+
+function toMobileStatus(dbStatus: DbStatus): MobileStatus {
+  if (dbStatus === "acknowledged") return "accepted";
+  if (dbStatus === "in_progress") return "inProgress";
+  return dbStatus as MobileStatus;
 }
 
 router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
@@ -28,7 +37,7 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
         id: row.id,
         orderNumber: row.orderNumber,
         orderSerial: row.orderSerial,
-        status: row.status,
+        status: toMobileStatus(row.status as DbStatus),
         createdAt: row.createdAt,
         category: row.category ?? data.category,
         subCategory: data.subCategory,
@@ -131,6 +140,27 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req,
     return;
   }
 
+  const {
+    technicianName,
+    technicianMobile,
+    technicianAvatar,
+    technicianRating,
+  } = req.body as {
+    technicianName?: string;
+    technicianMobile?: string;
+    technicianAvatar?: string;
+    technicianRating?: number;
+  };
+
+  const dataPatch: Record<string, unknown> = {
+    status: "acknowledged",
+    technicianId: user.id,
+  };
+  if (technicianName !== undefined) dataPatch.technicianName = technicianName;
+  if (technicianMobile !== undefined) dataPatch.technicianMobile = technicianMobile;
+  if (technicianAvatar !== undefined) dataPatch.technicianAvatar = technicianAvatar;
+  if (technicianRating !== undefined) dataPatch.technicianRating = technicianRating;
+
   try {
     await db
       .update(ordersTable)
@@ -139,13 +169,43 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req,
         technicianId: user.id,
         acknowledgedAt: new Date(),
         updatedAt: new Date(),
+        data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
       })
       .where(eq(ordersTable.id, id));
 
+    removeOrderFromPending(id);
+    logger.info({ id, technicianId: user.id }, "Order acknowledged and data JSONB updated");
     res.json({ success: true });
   } catch (err) {
     logger.error({ err, id }, "Failed to acknowledge order");
     res.status(500).json({ error: "Failed to acknowledge order" });
+  }
+});
+
+router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  const { id } = req.params;
+
+  if (user.role !== "technician" && user.role !== "admin") {
+    res.status(403).json({ error: "Only technicians can start orders" });
+    return;
+  }
+
+  try {
+    await db
+      .update(ordersTable)
+      .set({
+        status: "in_progress",
+        updatedAt: new Date(),
+        data: sql`${ordersTable.data} || '{"status":"inProgress"}'::jsonb`,
+      })
+      .where(eq(ordersTable.id, id));
+
+    logger.info({ id, technicianId: user.id }, "Order started (in_progress)");
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to start order");
+    res.status(500).json({ error: "Failed to start order" });
   }
 });
 
@@ -158,12 +218,31 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, re
     return;
   }
 
+  const { solutionDescription, clientSatisfaction, materials, invoice } = req.body as {
+    solutionDescription?: string;
+    clientSatisfaction?: string;
+    materials?: unknown[];
+    invoice?: unknown;
+  };
+
+  const dataPatch: Record<string, unknown> = { status: "completed" };
+  if (solutionDescription !== undefined) dataPatch.solutionDescription = solutionDescription;
+  if (clientSatisfaction !== undefined) dataPatch.clientSatisfaction = clientSatisfaction;
+  if (materials !== undefined) dataPatch.materials = materials;
+  if (invoice !== undefined) dataPatch.invoice = invoice;
+
   try {
     await db
       .update(ordersTable)
-      .set({ status: "completed", completedAt: new Date(), updatedAt: new Date() })
+      .set({
+        status: "completed",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+        data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
+      })
       .where(eq(ordersTable.id, id));
 
+    logger.info({ id, technicianId: user.id }, "Order completed and data JSONB updated");
     res.json({ success: true });
   } catch (err) {
     logger.error({ err, id }, "Failed to complete order");

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platfor
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order, MaterialItem } from "@/context/OrderContext";
 import StatusBadge from "@/components/StatusBadge";
 import FanniInput from "@/components/FanniInput";
@@ -10,9 +11,16 @@ import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+function getApiBaseUrl(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  if (domain) return `https://${domain}`;
+  return "";
+}
+
 export default function TechOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
+  const { sessionToken } = useAuth();
   const { getOrdersByTech, updateOrder } = useOrders();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -39,7 +47,6 @@ export default function TechOrdersScreen() {
 
   const handleComplete = async (orderId: string) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
     const matTotal = materials.reduce((sum, m) => sum + m.amount, 0);
     const markup = matTotal * 0.1;
     const labor = 200;
@@ -48,8 +55,8 @@ export default function TechOrdersScreen() {
     const vat = (matTotal + markup + labor + tools) * 0.15;
     const total = matTotal + markup + labor + tools + tax + vat;
     const invNum = `INV-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000) + 1000}`;
-    await updateOrder(orderId, {
-      status: "completed",
+    const completionPayload = {
+      status: "completed" as const,
       solutionDescription: solutionDesc,
       clientSatisfaction: satisfaction ?? "satisfied",
       materials,
@@ -69,7 +76,36 @@ export default function TechOrdersScreen() {
         clientName: orders.find((o) => o.id === orderId)?.clientName ?? "",
         technicianName: user?.name ?? "",
       },
-    });
+    };
+    let serverSynced = false;
+    try {
+      const apiBase = getApiBaseUrl();
+      if (apiBase && sessionToken) {
+        const res = await fetch(`${apiBase}/api/orders/${orderId}/complete`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify({
+            solutionDescription: completionPayload.solutionDescription,
+            clientSatisfaction: completionPayload.clientSatisfaction,
+            materials: completionPayload.materials,
+            invoice: completionPayload.invoice,
+          }),
+        });
+        if (res.ok) {
+          serverSynced = true;
+        } else {
+          console.warn(`[Fanni] Failed to complete order on server: ${res.status}`);
+        }
+      }
+    } catch (err) {
+      console.warn("[Fanni] Network error completing order:", err);
+    }
+    if (serverSynced || !sessionToken) {
+      await updateOrder(orderId, completionPayload);
+    }
     setLoading(false);
     setShowComplete(false);
     setSelectedOrderId(null);

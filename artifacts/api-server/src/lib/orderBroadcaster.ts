@@ -141,6 +141,14 @@ wss.on("connection", (ws: WebSocket) => {
   });
 });
 
+export function removeOrderFromPending(orderId: string): void {
+  pendingOrders = pendingOrders.filter((o) => {
+    const rec = o as Record<string, unknown>;
+    return rec["id"] !== orderId;
+  });
+  logger.info({ orderId }, "Removed order from pending broadcast list");
+}
+
 export function broadcastNewOrder(order: unknown): void {
   pendingOrders.push(order);
 
