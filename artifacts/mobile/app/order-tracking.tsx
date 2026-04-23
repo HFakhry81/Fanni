@@ -436,6 +436,14 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
 
   const dragRef = useRef<{ startX: number; startY: number; startCx: number; startCy: number } | null>(null);
   const pinchRef = useRef<{ dist: number; startZoom: number } | null>(null);
+  const webInteractingRef = useRef(false);
+  const webInteractionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (webInteractionTimerRef.current) clearTimeout(webInteractionTimerRef.current);
+    };
+  }, []);
 
   const clampCenter = useCallback((cx: number, cy: number, zoom: number) => {
     const scale = TILE_SIZE * Math.pow(2, zoom);
@@ -449,6 +457,25 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     centerRef.current = clampCenter(fit.cx, fit.cy, fit.zoom);
     triggerRender();
   }, [techLat, techLng, clientLat, clientLng, clampCenter, triggerRender]);
+
+  useEffect(() => {
+    if (dragRef.current || pinchRef.current || webInteractingRef.current) return;
+    const { w, h } = sizeRef.current;
+    if (w === 0 || h === 0) return;
+    const zoom = zoomRef.current;
+    const cx = centerRef.current.x;
+    const cy = centerRef.current.y;
+    const MARGIN = 48;
+    const isOffScreen = (lat: number, lng: number) => {
+      const wld = geoToWorld(lat, lng, zoom);
+      const sx = wld.x - cx + w / 2;
+      const sy = wld.y - cy + h / 2;
+      return sx < MARGIN || sx > w - MARGIN || sy < MARGIN || sy > h - MARGIN;
+    };
+    if (isOffScreen(techLat, techLng) || isOffScreen(clientLat, clientLng)) {
+      fitBothPins();
+    }
+  }, [techLat, techLng, clientLat, clientLng, fitBothPins]);
 
   const applyZoom = useCallback((newZoom: number, pivotScreenX?: number, pivotScreenY?: number) => {
     newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
@@ -478,6 +505,9 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       const delta = e.deltaY < 0 ? 1 : -1;
       const rect = el.getBoundingClientRect();
       applyZoom(zoomRef.current + delta, e.clientX - rect.left, e.clientY - rect.top);
+      webInteractingRef.current = true;
+      if (webInteractionTimerRef.current) clearTimeout(webInteractionTimerRef.current);
+      webInteractionTimerRef.current = setTimeout(() => { webInteractingRef.current = false; }, 5000);
     };
 
     const onMouseDown = (e: MouseEvent) => {
@@ -503,6 +533,11 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     };
 
     const onMouseUp = () => {
+      if (dragRef.current) {
+        webInteractingRef.current = true;
+        if (webInteractionTimerRef.current) clearTimeout(webInteractionTimerRef.current);
+        webInteractionTimerRef.current = setTimeout(() => { webInteractingRef.current = false; }, 5000);
+      }
       dragRef.current = null;
       el.style.cursor = "grab";
     };
@@ -553,6 +588,11 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     };
 
     const onTouchEnd = () => {
+      if (dragRef.current || pinchRef.current) {
+        webInteractingRef.current = true;
+        if (webInteractionTimerRef.current) clearTimeout(webInteractionTimerRef.current);
+        webInteractionTimerRef.current = setTimeout(() => { webInteractingRef.current = false; }, 5000);
+      }
       dragRef.current = null;
       pinchRef.current = null;
     };
@@ -758,6 +798,12 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
   const animCoord = useRef(new Animated.ValueXY({ x: techLat, y: techLng })).current;
   const [displayCoord, setDisplayCoord] = useState({ latitude: techLat, longitude: techLng });
 
+  const userInteractingRef = useRef(false);
+  const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFittingRef = useRef(false);
+  const fittingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibleRegionRef = useRef<{ lat: number; lng: number; latDelta: number; lngDelta: number } | null>(null);
+
   useEffect(() => {
     const id = animCoord.addListener(({ x, y }) => {
       setDisplayCoord({ latitude: x, longitude: y });
@@ -791,6 +837,11 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
 
   const fitPins = useCallback(() => {
     if (!mapRef.current) return;
+    isFittingRef.current = true;
+    if (fittingTimeoutRef.current) clearTimeout(fittingTimeoutRef.current);
+    fittingTimeoutRef.current = setTimeout(() => {
+      isFittingRef.current = false;
+    }, 2500);
     mapRef.current.fitToCoordinates(
       [
         { latitude: techLat, longitude: techLng },
@@ -799,6 +850,49 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
       { edgePadding: { top: 80, right: 80, bottom: 80, left: 80 }, animated: true }
     );
   }, [techLat, techLng, clientLat, clientLng]);
+
+  const handleRegionChange = useCallback(() => {
+    if (isFittingRef.current) return;
+    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
+    userInteractingRef.current = true;
+  }, []);
+
+  const handleRegionChangeComplete = useCallback((region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => {
+    visibleRegionRef.current = {
+      lat: region.latitude,
+      lng: region.longitude,
+      latDelta: region.latitudeDelta,
+      lngDelta: region.longitudeDelta,
+    };
+    if (isFittingRef.current) {
+      isFittingRef.current = false;
+      return;
+    }
+    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
+    interactionTimerRef.current = setTimeout(() => {
+      userInteractingRef.current = false;
+    }, 8000);
+  }, []);
+
+  useEffect(() => {
+    if (userInteractingRef.current) return;
+    const region = visibleRegionRef.current;
+    if (region) {
+      const MARGIN = 0.8;
+      const isInBounds = (lat: number, lng: number) =>
+        Math.abs(lat - region.lat) < (region.latDelta / 2) * MARGIN &&
+        Math.abs(lng - region.lng) < (region.lngDelta / 2) * MARGIN;
+      if (isInBounds(techLat, techLng) && isInBounds(clientLat, clientLng)) return;
+    }
+    fitPins();
+  }, [techLat, techLng, clientLat, clientLng, fitPins]);
+
+  useEffect(() => {
+    return () => {
+      if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
+      if (fittingTimeoutRef.current) clearTimeout(fittingTimeoutRef.current);
+    };
+  }, []);
 
   if (!components) {
     return (
@@ -834,6 +928,8 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
         showsUserLocation={false}
         showsMyLocationButton={false}
         onMapReady={fitPins}
+        onRegionChange={handleRegionChange}
+        onRegionChangeComplete={handleRegionChangeComplete}
       >
         <UrlTile
           urlTemplate={OSM_TILE_URL}
