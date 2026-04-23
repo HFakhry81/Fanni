@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform,
@@ -6,6 +6,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
@@ -17,6 +18,8 @@ import AppHeader from "@/components/AppHeader";
 import type { LocationOption } from "@/components/LocationPicker";
 
 type OrderStep = 1 | 2 | 3;
+
+const DRAFT_KEY = "fanni_order_draft";
 
 export default function NewOrderScreen() {
   const { category = "", subCategory = "" } = useLocalSearchParams<{ category: string; subCategory: string }>();
@@ -51,51 +54,70 @@ export default function NewOrderScreen() {
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
 
+  const draftRestoredRef = useRef(false);
+
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const stepLabels = [t("order.describe"), t("order.schedule"), t("order.confirm")];
 
-  if (authLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <AppHeader title={t("order.new")} showBack onBack={() => router.back()} />
-        <View style={styles.authGate}>
-          <Feather name="loader" size={32} color={colors.primary} />
-        </View>
-      </View>
-    );
-  }
+  // ── Draft restore: when auth finishes loading and user is authenticated ──────
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (draftRestoredRef.current) return;
+    if (!category && !subCategory) return; // wait for route params to settle
 
-  if (!isAuthenticated) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <AppHeader title={t("order.new")} showBack onBack={() => router.back()} />
-        <View style={styles.authGate}>
-          <View style={[styles.authGateIcon, { backgroundColor: colors.accent }]}>
-            <Feather name="lock" size={36} color={colors.primary} />
-          </View>
-          <Text style={[styles.authGateTitle, { color: colors.foreground }]}>
-            {isRTL ? "تسجيل الدخول مطلوب" : "Sign In Required"}
-          </Text>
-          <Text style={[styles.authGateBody, { color: colors.mutedForeground }]}>
-            {isRTL
-              ? "يجب تسجيل الدخول أولاً قبل تقديم طلب الخدمة"
-              : "Please sign in before placing a service order"}
-          </Text>
-          <FanniButton
-            title={isRTL ? "تسجيل الدخول" : "Sign In"}
-            onPress={login}
-            style={styles.authGateBtn}
-          />
-          <TouchableOpacity onPress={() => router.back()} style={styles.authGateCancel}>
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
-              {isRTL ? "رجوع" : "Go Back"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+    (async () => {
+      const raw = await AsyncStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      let draft: Record<string, unknown>;
+      try {
+        draft = JSON.parse(raw);
+      } catch (err) {
+        console.warn("[Fanni] Failed to parse order draft:", err);
+        await AsyncStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      if (draft.category !== category || draft.subCategory !== subCategory) {
+        return; // leave draft untouched — it belongs to a different order flow
+      }
+      draftRestoredRef.current = true;
+      if (draft.problemDesc)    setProblemDesc(draft.problemDesc as string);
+      if (draft.deviceType)     setDeviceType(draft.deviceType as string);
+      if (draft.governorateId)  setGovernorateId(draft.governorateId as string);
+      if (draft.areaId)         setAreaId(draft.areaId as string);
+      if (draft.neighborhoodId) setNeighborhoodId(draft.neighborhoodId as string);
+      if (draft.govOpt)         setGovOpt(draft.govOpt as LocationOption);
+      if (draft.areaOpt)        setAreaOpt(draft.areaOpt as LocationOption);
+      if (draft.nbhOpt)         setNbhOpt(draft.nbhOpt as LocationOption);
+      if (draft.street)         setStreet(draft.street as string);
+      if (draft.building)       setBuilding(draft.building as string);
+      if (draft.floor)          setFloor(draft.floor as string);
+      if (draft.apartment)      setApartment(draft.apartment as string);
+      if (draft.landmark)       setLandmark(draft.landmark as string);
+      if (draft.latitude  != null) setLatitude(draft.latitude as number);
+      if (draft.longitude != null) setLongitude(draft.longitude as number);
+      if (draft.visitDate)      setVisitDate(draft.visitDate as string);
+      if (draft.visitTime)      setVisitTime(draft.visitTime as string);
+      setStep(3);
+      await AsyncStorage.removeItem(DRAFT_KEY);
+    })();
+  }, [authLoading, isAuthenticated, category, subCategory]);
+
+  // ── Save draft and trigger login ─────────────────────────────────────────────
+  const handleLoginToSubmit = async () => {
+    const draft = {
+      category, subCategory,
+      problemDesc, deviceType,
+      governorateId, areaId, neighborhoodId,
+      govOpt, areaOpt, nbhOpt,
+      street, building, floor, apartment, landmark,
+      latitude, longitude,
+      visitDate, visitTime,
+    };
+    await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    await login();
+  };
 
   const handleNext = () => { if (step < 3) setStep((step + 1) as OrderStep); };
   const handleBack = () => {
@@ -104,10 +126,6 @@ export default function NewOrderScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!isAuthenticated) {
-      await login();
-      return;
-    }
     setLoading(true);
     await new Promise((r) => setTimeout(r, 1200));
     const orderId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
@@ -164,6 +182,7 @@ export default function NewOrderScreen() {
       }
     }
 
+    await AsyncStorage.removeItem(DRAFT_KEY);
     setLoading(false);
     router.replace("/(client)/orders");
   };
@@ -323,9 +342,31 @@ export default function NewOrderScreen() {
             {isRTL ? "سيتم تحديد السعر بعد الكشف" : "Price will be set after inspection"}
           </Text>
         </View>
+
+        {!isAuthenticated && (
+          <View style={[styles.loginNotice, { backgroundColor: colors.accentBlue, borderRadius: colors.radius }]}>
+            <Feather name="lock" size={16} color={colors.secondary} />
+            <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: 8, flex: 1 }}>
+              {isRTL
+                ? "سجّل دخولك لتأكيد الطلب — بياناتك محفوظة"
+                : "Sign in to confirm — your details are saved"}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
+
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppHeader title={t("order.new")} showBack onBack={() => router.back()} />
+        <View style={styles.authGate}>
+          <Feather name="loader" size={32} color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -375,7 +416,13 @@ export default function NewOrderScreen() {
           )}
           {step < 3
             ? <FanniButton title={t("common.next")} onPress={handleNext} style={{ flex: 1 }} />
-            : <FanniButton title={t("common.sendOrder")} onPress={handleSubmit} loading={loading} style={{ flex: 1 }} />
+            : isAuthenticated
+              ? <FanniButton title={t("common.sendOrder")} onPress={handleSubmit} loading={loading} style={{ flex: 1 }} />
+              : <FanniButton
+                  title={isRTL ? "تسجيل الدخول للإرسال" : "Log In to Submit"}
+                  onPress={handleLoginToSubmit}
+                  style={{ flex: 1 }}
+                />
           }
         </View>
       </ScrollView>
@@ -404,11 +451,7 @@ const styles = StyleSheet.create({
   confirmIcon: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   confirmRow: { paddingVertical: 10, borderBottomWidth: 1, alignItems: "center", flexDirection: "row" },
   totalRow: { padding: 14, borderWidth: 1.5, marginTop: 16, flexDirection: "row", alignItems: "center" },
+  loginNotice: { padding: 12, marginTop: 14, flexDirection: "row", alignItems: "center" },
   navBtns: { gap: 8, marginBottom: 8 },
   authGate: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 16 },
-  authGateIcon: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  authGateTitle: { fontFamily: "Inter_700Bold", fontSize: 22, textAlign: "center" },
-  authGateBody: { fontFamily: "Inter_400Regular", fontSize: 14, textAlign: "center", lineHeight: 22 },
-  authGateBtn: { width: "100%", marginTop: 8 },
-  authGateCancel: { marginTop: 4, paddingVertical: 8 },
 });
