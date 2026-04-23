@@ -63,11 +63,15 @@ function scoreMatch(raw: string, loc: LocationRow): number {
   return 0;
 }
 
-function resolveSync(raw: string, cache: LocationRow[]): string {
+type LocationType = "governorate" | "area" | "neighborhood";
+
+function resolveSync(raw: string, cache: LocationRow[], type?: LocationType): string {
   if (!cache.length) return raw.toLowerCase();
+  const filtered = type ? cache.filter((l) => l.type === type) : cache;
+  const pool = filtered.length > 0 ? filtered : cache;
   let best: LocationRow | null = null;
   let bestScore = 0;
-  for (const loc of cache) {
+  for (const loc of pool) {
     const score = scoreMatch(raw, loc);
     if (score > bestScore) {
       bestScore = score;
@@ -77,38 +81,38 @@ function resolveSync(raw: string, cache: LocationRow[]): string {
   return best && bestScore >= 55 ? best.slug : raw.toLowerCase().replace(/[_\-]/g, " ").trim();
 }
 
-export async function normalizeToSlug(raw: string | null | undefined): Promise<string | null> {
+export async function normalizeToSlug(raw: string | null | undefined, type?: LocationType): Promise<string | null> {
   if (!raw?.trim()) return null;
   const cache = await ensureFresh();
-  const resolved = resolveSync(raw.trim(), cache);
+  const resolved = resolveSync(raw.trim(), cache, type);
   if (resolved !== raw.trim().toLowerCase()) {
-    logger.info({ raw: raw.trim(), resolved }, "Normalized location to slug");
+    logger.info({ raw: raw.trim(), resolved, type }, "Normalized location to slug");
   }
   return resolved;
 }
 
-export function locationsMatchSync(a: string | null | undefined, b: string | null | undefined): boolean {
+export function locationsMatchSync(a: string | null | undefined, b: string | null | undefined, type?: LocationType): boolean {
   if (!a || !b) return false;
   const la = a.trim().toLowerCase();
   const lb = b.trim().toLowerCase();
   if (la === lb) return true;
   if (!locationCache.length) return false;
-  const sa = resolveSync(la, locationCache);
-  const sb = resolveSync(lb, locationCache);
+  const sa = resolveSync(la, locationCache, type);
+  const sb = resolveSync(lb, locationCache, type);
   return sa === sb;
 }
 
-export async function locationsMatch(a: string | null | undefined, b: string | null | undefined): Promise<boolean> {
+export async function locationsMatch(a: string | null | undefined, b: string | null | undefined, type?: LocationType): Promise<boolean> {
   if (!a || !b) return false;
   const la = a.trim().toLowerCase();
   const lb = b.trim().toLowerCase();
   if (la === lb) return true;
   const cache = await ensureFresh();
-  const sa = resolveSync(la, cache);
-  const sb = resolveSync(lb, cache);
+  const sa = resolveSync(la, cache, type);
+  const sb = resolveSync(lb, cache, type);
   const matched = sa === sb;
   if (!matched) {
-    logger.debug({ a, b, sa, sb }, "Location mismatch after resolution");
+    logger.debug({ a, b, sa, sb, type }, "Location mismatch after resolution");
   }
   return matched;
 }

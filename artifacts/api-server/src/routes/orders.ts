@@ -92,8 +92,8 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   const rawArea = (order.area as string | undefined) ?? null;
 
   const [normalizedGovernorate, normalizedArea] = await Promise.all([
-    normalizeToSlug(rawGovernorate),
-    normalizeToSlug(rawArea),
+    normalizeToSlug(rawGovernorate, "governorate"),
+    normalizeToSlug(rawArea, "area"),
   ]);
 
   if (rawGovernorate && normalizedGovernorate !== rawGovernorate) {

@@ -40,14 +40,14 @@ function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta):
 
   if (meta.governorate) {
     const orderGovernorate = (order.governorate as string | undefined) ?? null;
-    if (!orderGovernorate || !locationsMatchSync(orderGovernorate, meta.governorate)) {
+    if (!orderGovernorate || !locationsMatchSync(orderGovernorate, meta.governorate, "governorate")) {
       return false;
     }
   }
 
   if (meta.area) {
     const orderArea = (order.area as string | undefined) ?? null;
-    if (!orderArea || !locationsMatchSync(orderArea, meta.area)) {
+    if (!orderArea || !locationsMatchSync(orderArea, meta.area, "area")) {
       return false;
     }
   }

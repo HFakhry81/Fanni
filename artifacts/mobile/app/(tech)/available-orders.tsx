@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -77,11 +77,11 @@ export default function AvailableOrdersScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/technician/pending-orders`, {
+      const res = await fetch(`${apiBase}/api/technician/pending-orders?limit=50`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json() as { orders: PendingOrder[] };
+      const json = await res.json() as { orders: PendingOrder[]; meta?: { total: number } };
       setOrders(json.orders ?? []);
     } catch (err) {
       console.warn("[Fanni] Failed to fetch pending orders:", err);
@@ -92,9 +92,25 @@ export default function AvailableOrdersScreen() {
     }
   }, [sessionToken, isRTL]);
 
+  const isFocusedRef = useRef(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
       fetchOrders();
+      pollTimerRef.current = setInterval(() => {
+        if (isFocusedRef.current && !refreshing) {
+          fetchOrders(true);
+        }
+      }, 60_000);
+      return () => {
+        isFocusedRef.current = false;
+        if (pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+      };
     }, [fetchOrders])
   );
 

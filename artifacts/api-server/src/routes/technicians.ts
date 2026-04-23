@@ -6,6 +6,9 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
 import { locationsMatch } from "../lib/locationNormalizer";
 
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
+
 const router: IRouter = Router();
 
 router.patch(
@@ -172,6 +175,11 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
       return;
     }
 
+    const limitRaw = parseInt(String(req.query.limit ?? DEFAULT_PAGE_SIZE), 10);
+    const limit = isNaN(limitRaw) || limitRaw < 1 ? DEFAULT_PAGE_SIZE : Math.min(limitRaw, MAX_PAGE_SIZE);
+    const pageRaw = parseInt(String(req.query.page ?? 1), 10);
+    const page = isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
+
     const pendingRows = await db
       .select()
       .from(ordersTable)
@@ -188,11 +196,11 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
         if (!techCategories.map((c) => c.toLowerCase()).includes(orderCategory)) return null;
       }
       if (techGov) {
-        const govMatch = await locationsMatch(row.governorate, techGov);
+        const govMatch = await locationsMatch(row.governorate, techGov, "governorate");
         if (!govMatch) return null;
       }
       if (techArea) {
-        const areaMatch = await locationsMatch(row.area, techArea);
+        const areaMatch = await locationsMatch(row.area, techArea, "area");
         if (!areaMatch) return null;
       }
       const data = row.data as Record<string, unknown>;
@@ -219,10 +227,14 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
       };
     });
 
-    const results = (await Promise.all(matchPromises)).filter(Boolean);
+    const allMatched = (await Promise.all(matchPromises)).filter(Boolean);
+    const total = allMatched.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const results = allMatched.slice(offset, offset + limit);
 
-    logger.info({ techId: user.id, total: pendingRows.length, matched: results.length }, "Technician fetched pending orders");
-    res.json({ orders: results });
+    logger.info({ techId: user.id, total: pendingRows.length, matched: total, page, limit }, "Technician fetched pending orders");
+    res.json({ orders: results, meta: { total, page, limit, totalPages } });
   } catch (err) {
     logger.error({ err, techId: user.id }, "Failed to fetch pending orders for technician");
     res.status(500).json({ error: "Failed to fetch pending orders" });
