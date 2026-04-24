@@ -887,12 +887,14 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
   res.json({ token: sid, user: buildAuthUser(user) });
 });
 
-// PROTECTED: Updates the current user's profile. Mobile and role are immutable.
+// PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, specialty, governorate, area, district, serviceCategories } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, serviceCategories } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
+    mobile?: string;
+    verificationToken?: string;
     specialty?: string | null;
     governorate?: string | null;
     area?: string | null;
@@ -935,6 +937,43 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (serviceCategories !== undefined && serviceCategories !== null) {
     if (!Array.isArray(serviceCategories) || !serviceCategories.every((c) => typeof c === "string")) {
       res.status(400).json({ error: "serviceCategories must be an array of strings" });
+      return;
+    }
+  }
+
+  // Validate and verify mobile change
+  let mobileVal: string | undefined;
+  if (mobile !== undefined && mobile !== null && String(mobile).trim() !== "") {
+    const mobileDigits = String(mobile).trim().replace(/\s|-/g, "");
+    const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
+    if (!mobileMatch) {
+      res.status(400).json({ error: "Invalid Egyptian mobile number" });
+      return;
+    }
+    mobileVal = `0${mobileMatch[2]}`;
+
+    // Require OTP verification token when changing mobile
+    if (!verificationToken) {
+      res.status(400).json({ error: "verificationToken is required when changing mobile number" });
+      return;
+    }
+    const tokenMobile = verifyOtpToken(verificationToken);
+    if (!tokenMobile || tokenMobile !== mobileVal) {
+      res.status(400).json({ error: "Invalid or expired verification token for this mobile number" });
+      return;
+    }
+
+    // Ensure the new mobile isn't already taken by another user/admin
+    const [[existingUser], [existingAdmin]] = await Promise.all([
+      db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.mobile, mobileVal)),
+      db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.mobile, mobileVal)),
+    ]);
+    const currentUserId = req.user!.id;
+    const mobileConflict =
+      (existingUser && existingUser.id !== currentUserId) ||
+      (existingAdmin && existingAdmin.id !== currentUserId);
+    if (mobileConflict) {
+      res.status(409).json({ error: "Mobile number is already in use" });
       return;
     }
   }
@@ -984,6 +1023,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (firstNameVal !== undefined) updates.firstName = firstNameVal;
   if (lastNameVal !== undefined) updates.lastName = lastNameVal;
   if (emailVal !== undefined) updates.email = emailVal;
+  if (mobileVal !== undefined) updates.mobile = mobileVal;
   if (specialty !== undefined) updates.specialty = specialty ?? null;
   if (governorate !== undefined) updates.governorate = governorate ?? null;
   if (area !== undefined) updates.area = area ?? null;

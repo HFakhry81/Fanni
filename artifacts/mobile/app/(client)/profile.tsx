@@ -15,6 +15,7 @@ import LocationPicker from "@/components/LocationPicker";
 import Toast from "@/components/Toast";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
+import OtpVerifyModal from "@/components/OtpVerifyModal";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -30,6 +31,10 @@ export default function ClientProfileScreen() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastAction, setToastAction] = useState<{ label: string; onPress: () => void } | undefined>(undefined);
   const undoAvatarRef = useRef<string | undefined>(undefined);
+
+  // OTP modal state
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [pendingMobile, setPendingMobile] = useState("");
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -94,8 +99,61 @@ export default function ClientProfileScreen() {
     }
 
     const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
-
     setErrors({});
+
+    if (normalizedMobile !== (user.mobile ?? "")) {
+      setPendingMobile(normalizedMobile);
+      setOtpModalVisible(true);
+      return;
+    }
+
+    await applyProfileSave(normalizedMobile, undefined);
+  };
+
+  const applyProfileSave = async (normalizedMobile: string, verificationToken: string | undefined) => {
+    if (!user) return;
+
+    const nameParts = editName.trim().split(/\s+/);
+    const firstName = nameParts[0] ?? editName.trim();
+    const lastName = nameParts.slice(1).join(" ") || null;
+
+    if (sessionToken) {
+      try {
+        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+        const apiBase = domain ? `https://${domain}` : "";
+        if (apiBase) {
+          const body: Record<string, unknown> = {
+            firstName,
+            lastName,
+            governorate: editGov || null,
+            area: editArea || null,
+          };
+          if (verificationToken) {
+            body.mobile = normalizedMobile;
+            body.verificationToken = verificationToken;
+          }
+          const res = await fetch(`${apiBase}/api/auth/me`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionToken}`,
+            },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const data = await res.json() as { error?: string };
+            setToastMessage(data.error ?? (isRTL ? "فشل حفظ البيانات، حاول مرة أخرى" : "Failed to save, please try again"));
+            setToastVisible(true);
+            return;
+          }
+        }
+      } catch (_) {
+        setToastMessage(isRTL ? "تعذّر الاتصال بالخادم" : "Could not reach server");
+        setToastVisible(true);
+        return;
+      }
+    }
+
     await setUser({
       ...user,
       name: editName.trim(),
@@ -631,6 +689,16 @@ export default function ClientProfileScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <OtpVerifyModal
+        visible={otpModalVisible}
+        mobile={pendingMobile}
+        onCancel={() => setOtpModalVisible(false)}
+        onVerified={async (token) => {
+          setOtpModalVisible(false);
+          await applyProfileSave(pendingMobile, token);
+        }}
+      />
 
       <Toast
         visible={toastVisible}

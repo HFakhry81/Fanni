@@ -16,6 +16,7 @@ import LocationPicker from "@/components/LocationPicker";
 import Toast from "@/components/Toast";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
+import OtpVerifyModal from "@/components/OtpVerifyModal";
 
 const SERVICE_CATEGORIES = [
   { key: "electricity", ar: "كهرباء", en: "Electricity" },
@@ -46,6 +47,10 @@ export default function TechProfileScreen() {
   const editScrollRef = useRef<ScrollView>(null);
   const categoriesYRef = useRef<number>(0);
   const [highlightCategories, setHighlightCategories] = useState(false);
+
+  // OTP modal state
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [pendingMobile, setPendingMobile] = useState("");
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -137,34 +142,52 @@ export default function TechProfileScreen() {
     }
 
     const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+    setErrors({});
+
+    if (normalizedMobile !== (user.mobile ?? "")) {
+      setPendingMobile(normalizedMobile);
+      setOtpModalVisible(true);
+      return;
+    }
+
+    await applyProfileSave(normalizedMobile, undefined);
+  };
+
+  const applyProfileSave = async (normalizedMobile: string, verificationToken: string | undefined) => {
+    if (!user) return;
+
     const nameParts = editName.trim().split(/\s+/);
     const firstName = nameParts[0] ?? editName.trim();
     const lastName = nameParts.slice(1).join(" ") || null;
-
-    setErrors({});
 
     if (sessionToken) {
       try {
         const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
         const apiBase = domain ? `https://${domain}` : "";
         if (apiBase) {
+          const body: Record<string, unknown> = {
+            firstName,
+            lastName,
+            specialty: editSpecialty.trim() || user.specialty || null,
+            governorate: editGov || null,
+            area: editArea || null,
+            serviceCategories: editCategories.length > 0 ? editCategories : null,
+          };
+          if (verificationToken) {
+            body.mobile = normalizedMobile;
+            body.verificationToken = verificationToken;
+          }
           const res = await fetch(`${apiBase}/api/auth/me`, {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${sessionToken}`,
             },
-            body: JSON.stringify({
-              firstName,
-              lastName,
-              specialty: editSpecialty.trim() || user.specialty || null,
-              governorate: editGov || null,
-              area: editArea || null,
-              serviceCategories: editCategories.length > 0 ? editCategories : null,
-            }),
+            body: JSON.stringify(body),
           });
           if (!res.ok) {
-            setToastMessage(isRTL ? "فشل حفظ البيانات على الخادم، حاول مرة أخرى" : "Failed to save to server, please try again");
+            const data = await res.json() as { error?: string };
+            setToastMessage(data.error ?? (isRTL ? "فشل حفظ البيانات على الخادم، حاول مرة أخرى" : "Failed to save to server, please try again"));
             setToastVisible(true);
             return;
           }
@@ -932,6 +955,16 @@ export default function TechProfileScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <OtpVerifyModal
+        visible={otpModalVisible}
+        mobile={pendingMobile}
+        onCancel={() => setOtpModalVisible(false)}
+        onVerified={async (token) => {
+          setOtpModalVisible(false);
+          await applyProfileSave(pendingMobile, token);
+        }}
+      />
 
       <Toast
         visible={toastVisible}
