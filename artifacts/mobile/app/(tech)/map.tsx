@@ -40,7 +40,14 @@ export default function TechMapScreen() {
 
   useOrderNotifications(isOnline, user, sessionToken);
 
-  const pendingOrders = allOrders.filter((o) => o.status === "pending");
+  const allPendingOrders = allOrders.filter((o) => o.status === "pending");
+  const pendingOrders = hasServiceArea
+    ? allPendingOrders.filter((o) => {
+        if (o.governorate && user?.governorate && o.governorate !== user.governorate) return false;
+        if (o.area && user?.area && o.area !== user.area) return false;
+        return true;
+      })
+    : allPendingOrders;
 
   useEffect(() => {
     if (!isOnline && modalVisible) {
@@ -231,6 +238,9 @@ export default function TechMapScreen() {
             <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginTop: 1 }}>
               {serviceAreaDisplay}
             </Text>
+            <Text style={{ color: "#22A36B", fontFamily: "Inter_400Regular", fontSize: 10, marginTop: 2 }}>
+              {t("tech.filteredByArea")}
+            </Text>
           </View>
           <View style={[styles.serviceAreaActiveDot, { backgroundColor: "#22A36B" }]} />
         </View>
@@ -247,8 +257,7 @@ export default function TechMapScreen() {
               {t("tech.noServiceArea")}
             </Text>
             <Text style={{ color: "#B45309", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
-              <Text style={{ fontFamily: "Inter_600SemiBold", textDecorationLine: "underline" }}>{t("tech.updateProfile")}</Text>
-              {" "}{t("tech.toReceiveOrders")}
+              {t("tech.allOrdersShown")}
             </Text>
           </View>
           <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />

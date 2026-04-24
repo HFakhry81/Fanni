@@ -337,6 +337,8 @@ const translations: Record<string, Record<Language, string>> = {
   "tech.noServiceAreaPrompt": { ar: "اضغط هنا لتحديث ملفك الشخصي", en: "Tap here to update your profile" },
   "tech.updateProfile": { ar: "تحديث ملفك الشخصي", en: "Update your profile" },
   "tech.toReceiveOrders": { ar: "لتلقي الطلبات في منطقتك", en: "to receive orders in your area" },
+  "tech.allOrdersShown": { ar: "تعرض جميع الطلبات — حدد منطقتك لتصفيتها", en: "Showing all orders — set your area to filter results" },
+  "tech.filteredByArea": { ar: "الطلبات مصفاة حسب منطقة خدمتك", en: "Orders filtered by your service area" },
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { sql, desc, eq } from "drizzle-orm";
+import { sql, desc, eq, and } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable, pool } from "@workspace/db";
@@ -21,6 +21,78 @@ function toMobileStatus(dbStatus: DbStatus): MobileStatus {
   if (dbStatus === "in_progress") return "inProgress";
   return dbStatus as MobileStatus;
 }
+
+router.get("/orders/pending", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+
+  if (user.role !== "technician" && user.role !== "admin") {
+    res.status(403).json({ error: "Only technicians can access pending orders" });
+    return;
+  }
+
+  const { governorate, area } = req.query as { governorate?: string; area?: string };
+
+  try {
+    const conditions = [eq(ordersTable.status, "pending")];
+    if (governorate) {
+      conditions.push(eq(ordersTable.governorate, governorate));
+    }
+    if (area) {
+      conditions.push(eq(ordersTable.area, area));
+    }
+
+    const rows = await db
+      .select()
+      .from(ordersTable)
+      .where(and(...conditions))
+      .orderBy(desc(ordersTable.createdAt));
+
+    const orders = rows.map((row) => {
+      const data = row.data as Record<string, unknown>;
+      return {
+        id: row.id,
+        orderNumber: row.orderNumber,
+        orderSerial: row.orderSerial,
+        status: toMobileStatus(row.status as DbStatus),
+        createdAt: row.createdAt,
+        category: row.category ?? data.category,
+        subCategory: data.subCategory,
+        street: data.street,
+        floor: data.floor,
+        visitDate: data.visitDate,
+        visitTime: data.visitTime,
+        technicianId: row.technicianId ?? data.technicianId ?? null,
+        technicianName: data.technicianName ?? null,
+        technicianMobile: data.technicianMobile ?? null,
+        technicianAvatar: data.technicianAvatar ?? null,
+        technicianRating: data.technicianRating ?? null,
+        problemDescription: data.problemDescription,
+        deviceType: data.deviceType,
+        building: data.building,
+        apartment: data.apartment,
+        landmark: data.landmark,
+        governorate: row.governorate ?? data.governorate ?? null,
+        area: row.area ?? data.area ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        clientId: row.clientId ?? data.clientId,
+        clientName: data.clientName,
+        clientMobile: data.clientMobile,
+        photos: data.photos ?? [],
+        materials: data.materials ?? null,
+        solutionDescription: data.solutionDescription ?? null,
+        invoice: data.invoice ?? null,
+        clientRating: data.clientRating ?? null,
+        clientComment: data.clientComment ?? null,
+      };
+    });
+
+    res.json({ orders });
+  } catch (err) {
+    logger.error({ err, userId: user.id }, "Failed to fetch pending orders for technician");
+    res.status(500).json({ error: "Failed to fetch pending orders" });
+  }
+});
 
 router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
   const userId = req.user!.id;
