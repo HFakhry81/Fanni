@@ -18,6 +18,34 @@ import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import type { LocationOption } from "@/components/LocationPicker";
 
+// ── API helpers (mirror of LocationPicker) ────────────────────────────────────
+function getApiBase(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  return domain ? `https://${domain}` : "";
+}
+
+interface LocationRow { id: string; nameAr: string; nameEn: string; }
+
+async function apiFetchGovernorates(): Promise<LocationRow[]> {
+  const base = getApiBase();
+  if (!base) return [];
+  try {
+    const res = await fetch(`${base}/api/locations/governorates`);
+    const json = await res.json();
+    return json.governorates ?? [];
+  } catch { return []; }
+}
+
+async function apiFetchAreas(govId: string): Promise<LocationRow[]> {
+  const base = getApiBase();
+  if (!base || !govId) return [];
+  try {
+    const res = await fetch(`${base}/api/locations/${govId}/areas`);
+    const json = await res.json();
+    return json.areas ?? [];
+  } catch { return []; }
+}
+
 const SUB_IMAGE_MAP: Record<string, ReturnType<typeof require>> = {
   sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.png"),
   sub_computers:         require("@/assets/images/sub_computers.png"),
@@ -121,6 +149,36 @@ export default function NewOrderScreen() {
       await AsyncStorage.removeItem(DRAFT_KEY);
     })();
   }, [authLoading, isAuthenticated, category, subCategory]);
+
+  // ── Fallback: resolve govOpt / areaOpt from API if IDs exist but labels are missing ──
+  // Handles older drafts that were saved before govOpt/areaOpt were tracked in state.
+  useEffect(() => {
+    if (!governorateId) return;
+    if (govOpt && areaOpt) return;       // both already resolved — nothing to do
+    if (govOpt && !areaId) return;       // gov resolved, no area selected — nothing to do
+
+    (async () => {
+      let resolvedGovOpt = govOpt;
+
+      if (!govOpt) {
+        const rows = await apiFetchGovernorates();
+        const match = rows.find((r) => r.id === governorateId);
+        if (match) {
+          resolvedGovOpt = { id: match.id, ar: match.nameAr, en: match.nameEn };
+          setGovOpt(resolvedGovOpt);
+        }
+      }
+
+      if (areaId && !areaOpt) {
+        const rows = await apiFetchAreas(governorateId);
+        const match = rows.find((r) => r.id === areaId);
+        if (match) {
+          setAreaOpt({ id: match.id, ar: match.nameAr, en: match.nameEn });
+        }
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [governorateId, areaId]);
 
   // ── Save draft and trigger login ─────────────────────────────────────────────
   const handleLoginToSubmit = async () => {
