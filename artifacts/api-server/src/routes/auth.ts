@@ -12,6 +12,7 @@ import {
 import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
 import { eq, and, gt, isNull, lt, desc } from "drizzle-orm";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
+import { sendWelcomeSms } from "../lib/sms";
 import {
   clearSession,
   getOidcConfig,
@@ -740,12 +741,30 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   const sid = await createSession(sessionData);
   req.log.info({ userId: newUser.id }, "New user registered");
 
+  const userRole = (role as "client" | "technician") ?? "client";
+
   if (newUser.email) {
     sendWelcomeEmail({
       to: newUser.email,
       name: name.trim(),
-      role: (role as "client" | "technician") ?? "client",
-    }).catch((err) => req.log.warn({ err }, "Welcome email failed to send"));
+      role: userRole,
+    }).then((sent) => {
+      if (!sent) {
+        req.log.warn({ userId: newUser.id }, "Welcome email failed — sending SMS fallback");
+        sendWelcomeSms({ to: newUser.mobile, name: name.trim(), role: userRole }).catch((err) =>
+          req.log.warn({ err }, "Welcome SMS fallback also failed"),
+        );
+      }
+    }).catch((err) => {
+      req.log.warn({ err }, "Welcome email threw — sending SMS fallback");
+      sendWelcomeSms({ to: newUser.mobile, name: name.trim(), role: userRole }).catch((smsErr) =>
+        req.log.warn({ smsErr }, "Welcome SMS fallback also failed"),
+      );
+    });
+  } else {
+    sendWelcomeSms({ to: newUser.mobile, name: name.trim(), role: userRole }).catch((err) =>
+      req.log.warn({ err }, "Welcome SMS failed to send"),
+    );
   }
 
   res.status(201).json({ token: sid, user: buildAuthUser(newUser) });
