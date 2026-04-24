@@ -999,6 +999,65 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   res.json({ user: buildAuthUser(updatedUser) });
 });
 
+// PROTECTED: Re-sends the welcome message (email-first, SMS fallback) to the authenticated user.
+// Rate-limited to 3 requests per user per hour.
+router.post("/auth/resend-welcome", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  if (req.sessionSource === "admin") {
+    res.status(403).json({ error: "Not applicable for admin accounts" });
+    return;
+  }
+
+  const userId = req.user!.id;
+  if (!checkRateLimit(`resend-welcome:user:${userId}`, 3, 60 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many requests. Please wait before trying again." });
+    return;
+  }
+
+  const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!dbUser) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const email = dbUser.email;
+  const mobile = dbUser.mobile;
+
+  if (!email && !mobile) {
+    res.status(400).json({ error: "No contact information on file — cannot send welcome message." });
+    return;
+  }
+
+  const name = [dbUser.firstName, dbUser.lastName].filter(Boolean).join(" ") || email || mobile || "User";
+  const role = (dbUser.role === "technician" ? "technician" : "client") as "client" | "technician";
+
+  let delivered = false;
+  let channel: "email" | "sms" | null = null;
+
+  if (email) {
+    const emailSent = await sendWelcomeEmail({ to: email, name, role });
+    if (emailSent) {
+      delivered = true;
+      channel = "email";
+    } else if (mobile) {
+      req.log.warn({ userId }, "Resend welcome: email failed — falling back to SMS");
+      const smsSent = await sendWelcomeSms({ to: mobile, name, role });
+      if (smsSent) {
+        delivered = true;
+        channel = "sms";
+      }
+    }
+  } else if (mobile) {
+    const smsSent = await sendWelcomeSms({ to: mobile, name, role });
+    if (smsSent) {
+      delivered = true;
+      channel = "sms";
+    }
+  }
+
+  req.log.info({ userId, delivered, channel }, "Resend welcome");
+  res.json({ success: true, delivered, channel });
+});
+
 // PROTECTED: Change own password (admin only for now, but works for any session).
 router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Request, res: Response) => {
   const { currentPassword, newPassword } = req.body as {

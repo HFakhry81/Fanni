@@ -20,7 +20,7 @@ export default function ClientProfileScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
-  const { logout } = useAuth();
+  const { logout, sessionToken } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -160,6 +160,43 @@ export default function ClientProfileScreen() {
     setToastVisible(true);
   };
 
+  const handleResendWelcome = async () => {
+    if (!sessionToken) {
+      setToastMessage(t("profile.resendWelcomeError"));
+      setToastAction(undefined);
+      setToastVisible(true);
+      return;
+    }
+    try {
+      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+      const apiBase = domain ? `https://${domain}` : "";
+      if (!apiBase) {
+        setToastMessage(t("profile.resendWelcomeError"));
+        setToastAction(undefined);
+        setToastVisible(true);
+        return;
+      }
+      const res = await fetch(`${apiBase}/api/auth/resend-welcome`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (res.status === 429) {
+        setToastMessage(t("profile.resendWelcomeRateLimited"));
+      } else if (res.status === 400) {
+        setToastMessage(t("profile.resendWelcomeNoEmail"));
+      } else if (!res.ok) {
+        setToastMessage(t("profile.resendWelcomeError"));
+      } else {
+        const data = await res.json() as { delivered?: boolean };
+        setToastMessage(data.delivered ? t("profile.resendWelcomeSent") : t("profile.resendWelcomeError"));
+      }
+    } catch (_) {
+      setToastMessage(t("profile.resendWelcomeError"));
+    }
+    setToastAction(undefined);
+    setToastVisible(true);
+  };
+
   const handleLogout = async () => {
     await logout();
     router.replace("/welcome");
@@ -278,6 +315,7 @@ export default function ClientProfileScreen() {
     { icon: "file-text",  label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices") },
     { icon: "bar-chart-2",label: t("profile.reports"),          color: "#7C5CBF",        action: () => {} },
     { icon: "lock",       label: t("profile.changePassword"),   color: "#22A36B",        action: openPwSheet },
+    { icon: "mail",       label: t("profile.resendWelcome"),    color: "#4B7BEC",        action: handleResendWelcome },
   ];
 
   return (

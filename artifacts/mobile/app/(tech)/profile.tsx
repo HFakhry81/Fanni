@@ -221,6 +221,43 @@ export default function TechProfileScreen() {
     setToastVisible(true);
   };
 
+  const handleResendWelcome = async () => {
+    if (!sessionToken) {
+      setToastMessage(t("profile.resendWelcomeError"));
+      setToastAction(undefined);
+      setToastVisible(true);
+      return;
+    }
+    try {
+      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+      const apiBase = domain ? `https://${domain}` : "";
+      if (!apiBase) {
+        setToastMessage(t("profile.resendWelcomeError"));
+        setToastAction(undefined);
+        setToastVisible(true);
+        return;
+      }
+      const res = await fetch(`${apiBase}/api/auth/resend-welcome`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (res.status === 429) {
+        setToastMessage(t("profile.resendWelcomeRateLimited"));
+      } else if (res.status === 400) {
+        setToastMessage(t("profile.resendWelcomeNoEmail"));
+      } else if (!res.ok) {
+        setToastMessage(t("profile.resendWelcomeError"));
+      } else {
+        const data = await res.json() as { delivered?: boolean };
+        setToastMessage(data.delivered ? t("profile.resendWelcomeSent") : t("profile.resendWelcomeError"));
+      }
+    } catch (_) {
+      setToastMessage(t("profile.resendWelcomeError"));
+    }
+    setToastAction(undefined);
+    setToastVisible(true);
+  };
+
   const handleLogout = async () => {
     await logout();
     router.replace("/welcome");
@@ -543,6 +580,21 @@ export default function TechProfileScreen() {
             </View>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
               {t("profile.changePassword")}
+            </Text>
+            <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+          </TouchableOpacity>
+
+          {/* Resend Welcome */}
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+            onPress={handleResendWelcome}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: "#4B7BEC18", borderRadius: 10 }]}>
+              <Feather name="mail" size={18} color="#4B7BEC" />
+            </View>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
+              {t("profile.resendWelcome")}
             </Text>
             <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
           </TouchableOpacity>

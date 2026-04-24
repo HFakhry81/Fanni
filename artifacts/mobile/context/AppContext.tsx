@@ -286,6 +286,11 @@ const translations: Record<string, Record<Language, string>> = {
   "profile.passwordUpdated": { ar: "تم تحديث كلمة المرور بنجاح", en: "Password updated successfully" },
   "profile.wrongCurrentPassword": { ar: "كلمة المرور الحالية غير صحيحة", en: "Current password is incorrect" },
   "profile.passwordChanging": { ar: "جاري التغيير...", en: "Changing..." },
+  "profile.resendWelcome": { ar: "إعادة إرسال رسالة الترحيب", en: "Resend Welcome Message" },
+  "profile.resendWelcomeSent": { ar: "تم إرسال رسالة الترحيب إلى معلومات تواصلك المسجّلة", en: "Welcome message sent to your registered contact" },
+  "profile.resendWelcomeNoEmail": { ar: "لا توجد معلومات تواصل مسجّلة لإرسال الرسالة إليها", en: "No contact information on file to send the message to" },
+  "profile.resendWelcomeRateLimited": { ar: "لقد أرسلت الرسالة مؤخراً. انتظر قليلاً قبل المحاولة مرة أخرى.", en: "You sent this recently. Please wait before trying again." },
+  "profile.resendWelcomeError": { ar: "تعذّر إرسال الرسالة. حاول مرة أخرى.", en: "Could not send the message. Please try again." },
 
   // Common
   "common.next": { ar: "التالي", en: "Next" },
