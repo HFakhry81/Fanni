@@ -306,6 +306,8 @@ const translations: Record<string, Record<Language, string>> = {
   "order.noOrdersYet": { ar: "لم تقم بأي طلبات حتى الآن", en: "You haven't placed any orders yet" },
   "order.noOrdersHint": { ar: "ستظهر هنا جميع طلباتك بعد إنشائها", en: "All your orders will appear here once you place them" },
   "order.bookService": { ar: "احجز خدمة", en: "Book a Service" },
+  "invoice.noInvoicesYet": { ar: "لا توجد فواتير بعد", en: "No invoices yet" },
+  "invoice.noInvoicesHint": { ar: "ستظهر هنا فواتيرك بعد اكتمال الخدمات. احجز خدمتك الأولى الآن!", en: "Your invoices will appear here once your services are completed. Book your first service now!" },
   "common.search": { ar: "بحث...", en: "Search..." },
   "common.filter": { ar: "تصفية", en: "Filter" },
   "common.from": { ar: "من", en: "From" },

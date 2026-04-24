@@ -145,14 +145,38 @@ export default function ClientInvoicesScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
-                <Feather name="file-text" size={40} color={colors.mutedForeground} />
+            isAuthenticated ? (
+              <View style={styles.empty}>
+                <View style={[styles.emptyIcon, { backgroundColor: colors.accent, borderRadius: 40 }]}>
+                  <Feather name="file-text" size={40} color={colors.primary} />
+                </View>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginTop: 16, textAlign: "center" }}>
+                  {t("invoice.noInvoicesYet")}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 6, textAlign: "center", paddingHorizontal: 32 }}>
+                  {t("invoice.noInvoicesHint")}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.bookBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                  onPress={() => router.push("/(client)/home")}
+                  activeOpacity={0.85}
+                >
+                  <Feather name="plus-circle" size={18} color="#fff" />
+                  <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                    {t("order.bookService")}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 14, textAlign: "center", fontFamily: "Inter_400Regular" }}>
-                {t("common.noData")}
-              </Text>
-            </View>
+            ) : (
+              <View style={styles.empty}>
+                <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
+                  <Feather name="file-text" size={40} color={colors.mutedForeground} />
+                </View>
+                <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 14, textAlign: "center", fontFamily: "Inter_400Regular" }}>
+                  {t("common.noData")}
+                </Text>
+              </View>
+            )
           }
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -221,4 +245,5 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
+  bookBtn: { alignItems: "center", paddingHorizontal: 28, paddingVertical: 14, marginTop: 24 },
 });
