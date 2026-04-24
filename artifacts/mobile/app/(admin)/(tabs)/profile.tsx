@@ -136,6 +136,8 @@ export default function AdminProfileScreen() {
         email: serverUser?.email ?? null,
       });
 
+      await refreshUser();
+
       setEditMode(false);
       setToastMessage(t("profile.saveSuccess"));
       setToastVisible(true);
