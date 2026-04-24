@@ -383,6 +383,8 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req, res)
       .where(eq(ordersTable.id, id))
       .returning({ clientId: ordersTable.clientId });
 
+    removeOrderFromPending(id);
+
     if (updated?.clientId) {
       broadcastOrderStatusToClient(updated.clientId, { id, status: "cancelled" });
     }
