@@ -135,14 +135,24 @@ export default function ClientOrdersScreen() {
               </View>
             )}
             {item.technicianMobile && ["pending", "accepted", "inProgress"].includes(item.status) && (
-              <TouchableOpacity
-                style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: 8, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}
-                onPress={(e) => { e.stopPropagation(); Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {}); }}
-                activeOpacity={0.8}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Feather name="phone" size={14} color="#FFF" />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: 8, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}
+                  onPress={(e) => { e.stopPropagation(); Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {}); }}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="phone" size={14} color="#FFF" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.smsBtn, { backgroundColor: colors.secondary, borderRadius: 8, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }]}
+                  onPress={(e) => { e.stopPropagation(); Linking.openURL(`sms:${item.technicianMobile}`).catch(() => {}); }}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="message-circle" size={14} color="#FFF" />
+                </TouchableOpacity>
+              </>
             )}
           </View>
         )}
@@ -259,6 +269,7 @@ const styles = StyleSheet.create({
   techAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   ratingChip: { flexDirection: "row", alignItems: "center", paddingVertical: 3, paddingHorizontal: 8 },
   callBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  smsBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingTop: 60 },
   bookBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 28, marginTop: 24 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
