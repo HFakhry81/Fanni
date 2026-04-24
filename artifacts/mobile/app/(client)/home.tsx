@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
@@ -159,7 +159,7 @@ export default function ClientHomeScreen() {
             </Text>
           </View>
           <View style={[styles.bannerIcon, { backgroundColor: "rgba(245,166,35,0.15)" }]}>
-            <Feather name="tool" size={32} color={colors.primary} />
+            <VectorIcon name="tool" size={32} color={colors.primary} />
           </View>
         </View>
 
@@ -169,11 +169,11 @@ export default function ClientHomeScreen() {
           activeOpacity={0.8}
           onPress={() => router.push("/(client)/profile")}
         >
-          <Feather name="map-pin" size={14} color={colors.secondary} />
+          <VectorIcon name="map-pin" size={14} color={colors.secondary} />
           <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
             {locationText}
           </Text>
-          <Feather name="chevron-down" size={13} color={colors.secondary} style={{ marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }} />
+          <VectorIcon name="chevron-down" size={13} color={colors.secondary} style={{ marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }} />
         </TouchableOpacity>
 
         {/* Categories */}
@@ -215,7 +215,7 @@ export default function ClientHomeScreen() {
                 activeOpacity={0.8}
               >
                 <View style={[styles.catIconWrap, { backgroundColor: isSelected ? "rgba(245,166,35,0.15)" : cat.color + "18", borderRadius: 12 }]}>
-                  <Feather name={cat.icon as any} size={26} color={isSelected ? colors.primary : cat.color} />
+                  <VectorIcon name={cat.icon as any} size={26} color={isSelected ? colors.primary : cat.color} />
                 </View>
                 <Text style={{ color: isSelected ? "#FFF" : colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "center", marginTop: 6 }} numberOfLines={2}>
                   {label}
@@ -276,7 +276,7 @@ export default function ClientHomeScreen() {
               activeOpacity={0.8}
             >
               <View style={[styles.quickIcon, { backgroundColor: item.color + "15", borderRadius: 10 }]}>
-                <Feather name={item.icon as any} size={20} color={item.color} />
+                <VectorIcon name={item.icon as any} size={20} color={item.color} />
               </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 6, textAlign: "center" }}>
                 {item.label}

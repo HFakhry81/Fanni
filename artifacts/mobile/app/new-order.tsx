@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -208,7 +208,7 @@ export default function NewOrderScreen() {
   const renderStep1 = () => (
     <View>
       <View style={[styles.categoryBadge, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <Feather name="tag" size={14} color={colors.primary} />
+        <VectorIcon name="tag" size={14} color={colors.primary} />
         <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
           {t(`cat.${category}`)} — {subCategory}
         </Text>
@@ -236,7 +236,7 @@ export default function NewOrderScreen() {
             key={i}
             style={[styles.photoBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}
           >
-            <Feather name="plus" size={22} color={colors.mutedForeground} />
+            <VectorIcon name="plus" size={22} color={colors.mutedForeground} />
           </TouchableOpacity>
         ))}
       </View>
@@ -289,7 +289,7 @@ export default function NewOrderScreen() {
       {/* Schedule */}
       <View style={[styles.scheduleHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.scheduleIcon, { backgroundColor: colors.accentBlue }]}>
-          <Feather name="calendar" size={16} color={colors.secondary} />
+          <VectorIcon name="calendar" size={16} color={colors.secondary} />
         </View>
         <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
           {isRTL ? "موعد الزيارة" : "Visit Schedule"}
@@ -328,7 +328,7 @@ export default function NewOrderScreen() {
       <View>
         <View style={[styles.confirmHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={[styles.confirmIcon, { backgroundColor: colors.accent }]}>
-            <Feather name="check-circle" size={22} color={colors.primary} />
+            <VectorIcon name="check-circle" size={22} color={colors.primary} />
           </View>
           <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
             {t("order.confirm")}
@@ -350,7 +350,7 @@ export default function NewOrderScreen() {
         ))}
 
         <View style={[styles.totalRow, { backgroundColor: colors.accent, borderColor: colors.primary, borderRadius: colors.radius }]}>
-          <Feather name="dollar-sign" size={18} color={colors.primary} />
+          <VectorIcon name="dollar-sign" size={18} color={colors.primary} />
           <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: 8 }}>
             {isRTL ? "سيتم تحديد السعر بعد الكشف" : "Price will be set after inspection"}
           </Text>
@@ -358,7 +358,7 @@ export default function NewOrderScreen() {
 
         {!isAuthenticated && (
           <View style={[styles.loginNotice, { backgroundColor: colors.accentBlue, borderRadius: colors.radius }]}>
-            <Feather name="lock" size={16} color={colors.secondary} />
+            <VectorIcon name="lock" size={16} color={colors.secondary} />
             <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: 8, flex: 1 }}>
               {isRTL
                 ? "سجّل دخولك لتأكيد الطلب — بياناتك محفوظة"
@@ -375,7 +375,7 @@ export default function NewOrderScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader title={t("order.new")} showBack onBack={() => router.back()} />
         <View style={styles.authGate}>
-          <Feather name="loader" size={32} color={colors.primary} />
+          <VectorIcon name="loader" size={32} color={colors.primary} />
         </View>
       </View>
     );
@@ -411,7 +411,7 @@ export default function NewOrderScreen() {
           <View key={idx} style={[styles.stepItem, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={[styles.stepDot, { backgroundColor: idx + 1 <= step ? colors.primary : colors.border }]}>
               {idx + 1 < step
-                ? <Feather name="check" size={12} color="#FFF" />
+                ? <VectorIcon name="check" size={12} color="#FFF" />
                 : <Text style={{ color: idx + 1 <= step ? "#FFF" : colors.mutedForeground, fontSize: 11, fontFamily: "Inter_600SemiBold" }}>{idx + 1}</Text>
               }
             </View>

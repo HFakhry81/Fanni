@@ -16,7 +16,7 @@ import { Asset } from "expo-asset";
 import { readAsStringAsync } from "expo-file-system/legacy";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
@@ -211,11 +211,11 @@ export default function OrderDetailsScreen() {
             <StatusBadge status={order.status} />
           </View>
           <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="tag" size={14} color={colors.mutedForeground} />
+            <VectorIcon name="tag" size={14} color={colors.mutedForeground} />
             <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{t(`cat.${order.category}`)} — {order.subCategory}</Text>
           </View>
           <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="calendar" size={14} color={colors.mutedForeground} />
+            <VectorIcon name="calendar" size={14} color={colors.mutedForeground} />
             <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{order.visitDate} {order.visitTime}</Text>
           </View>
         </View>
@@ -230,7 +230,7 @@ export default function OrderDetailsScreen() {
           </Text>
           {order.deviceType && (
             <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row", marginTop: 8 }]}>
-              <Feather name="cpu" size={14} color={colors.mutedForeground} />
+              <VectorIcon name="cpu" size={14} color={colors.mutedForeground} />
               <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{order.deviceType}</Text>
             </View>
           )}
@@ -274,7 +274,7 @@ export default function OrderDetailsScreen() {
                 </Text>
                 {order.technicianRating && (
                   <View style={[styles.ratingRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                    <Feather name="star" size={14} color={colors.primary} />
+                    <VectorIcon name="star" size={14} color={colors.primary} />
                     <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 4 }}>
                       {order.technicianRating}
                     </Text>
@@ -286,7 +286,7 @@ export default function OrderDetailsScreen() {
                     activeOpacity={0.7}
                     style={[styles.phoneRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}
                   >
-                    <Feather name="phone" size={13} color={colors.primary} />
+                    <VectorIcon name="phone" size={13} color={colors.primary} />
                     <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13, marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}>
                       {order.technicianMobile}
                     </Text>
@@ -300,7 +300,7 @@ export default function OrderDetailsScreen() {
                 onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
                 activeOpacity={0.85}
               >
-                <Feather name="phone" size={16} color="#FFF" />
+                <VectorIcon name="phone" size={16} color="#FFF" />
                 <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                   {t("order.callTech")}
                 </Text>
@@ -312,7 +312,7 @@ export default function OrderDetailsScreen() {
                 onPress={() => router.push({ pathname: "/order-tracking", params: { orderId: order.id } })}
                 activeOpacity={0.85}
               >
-                <Feather name="map-pin" size={16} color={colors.primary} />
+                <VectorIcon name="map-pin" size={16} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                   {t("order.trackBtn")}
                 </Text>
@@ -378,13 +378,13 @@ export default function OrderDetailsScreen() {
             {/* Technician info row */}
             {(order.technicianName || order.technicianMobile) && (
               <View style={[styles.invoiceTechRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-                <Feather name="user" size={14} color={colors.mutedForeground} style={{ marginTop: 1 }} />
+                <VectorIcon name="user" size={14} color={colors.mutedForeground} style={{ marginTop: 1 }} />
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0, flex: 1, textAlign: isRTL ? "right" : "left" }}>
                   {order.technicianName}
                 </Text>
                 {order.technicianMobile && (
                   <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }]}>
-                    <Feather name="phone" size={13} color={colors.mutedForeground} />
+                    <VectorIcon name="phone" size={13} color={colors.mutedForeground} />
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}>
                       {order.technicianMobile}
                     </Text>

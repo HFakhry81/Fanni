@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -338,7 +338,7 @@ export default function ClientProfileScreen() {
               )}
             </View>
             <View style={styles.cameraOverlay}>
-              <Feather name="camera" size={14} color="#FFF" />
+              <VectorIcon name="camera" size={14} color="#FFF" />
             </View>
           </TouchableOpacity>
           <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 12 }}>{user?.name}</Text>
@@ -348,7 +348,7 @@ export default function ClientProfileScreen() {
           )}
           {/* Edit badge */}
           <TouchableOpacity style={[styles.editBadge, { backgroundColor: colors.primary }]} onPress={openEdit}>
-            <Feather name="edit-2" size={13} color="#FFF" />
+            <VectorIcon name="edit-2" size={13} color="#FFF" />
             <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 5 }}>
               {t("profile.edit")}
             </Text>
@@ -359,7 +359,7 @@ export default function ClientProfileScreen() {
           {/* Language toggle */}
           <View style={[styles.langCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
             <View style={[styles.langIconWrap, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
-              <Feather name="globe" size={18} color={colors.secondary} />
+              <VectorIcon name="globe" size={18} color={colors.secondary} />
             </View>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               {t("profile.language")}
@@ -386,7 +386,7 @@ export default function ClientProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
-              <Feather name="map-pin" size={18} color={colors.secondary} />
+              <VectorIcon name="map-pin" size={18} color={colors.secondary} />
             </View>
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
@@ -401,7 +401,7 @@ export default function ClientProfileScreen() {
                 </Text>
               ) : null}
             </View>
-            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+            <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
 
           {/* Menu items */}
@@ -413,12 +413,12 @@ export default function ClientProfileScreen() {
               activeOpacity={0.8}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + "18", borderRadius: 10 }]}>
-                <Feather name={item.icon as any} size={18} color={item.color} />
+                <VectorIcon name={item.icon as any} size={18} color={item.color} />
               </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0, textAlign: isRTL ? "right" : "left" }}>
                 {item.label}
               </Text>
-              <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+              <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
             </TouchableOpacity>
           ))}
 
@@ -429,7 +429,7 @@ export default function ClientProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: "#FFE6E6", borderRadius: 10 }]}>
-              <Feather name="log-out" size={18} color={colors.destructive} />
+              <VectorIcon name="log-out" size={18} color={colors.destructive} />
             </View>
             <Text style={{ color: colors.destructive, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0, textAlign: isRTL ? "right" : "left" }}>
               {t("profile.logout")}
@@ -446,7 +446,7 @@ export default function ClientProfileScreen() {
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
               <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setPwVisible(false)} style={{ padding: 4 }}>
-                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                  <VectorIcon name="x" size={22} color={colors.mutedForeground} />
                 </TouchableOpacity>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
                   {t("profile.changePassword")}
@@ -483,7 +483,7 @@ export default function ClientProfileScreen() {
                       style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                     />
                     <TouchableOpacity onPress={() => setShowCurrentPw((v) => !v)} style={{ padding: 8 }}>
-                      <Feather name={showCurrentPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                      <VectorIcon name={showCurrentPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
                   {pwErrors.current ? (
@@ -506,7 +506,7 @@ export default function ClientProfileScreen() {
                       style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                     />
                     <TouchableOpacity onPress={() => setShowNewPw((v) => !v)} style={{ padding: 8 }}>
-                      <Feather name={showNewPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                      <VectorIcon name={showNewPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
                   <PasswordStrengthBar password={newPw} />
@@ -530,7 +530,7 @@ export default function ClientProfileScreen() {
                       style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                     />
                     <TouchableOpacity onPress={() => setShowConfirmPw((v) => !v)} style={{ padding: 8 }}>
-                      <Feather name={showConfirmPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                      <VectorIcon name={showConfirmPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
                   {pwErrors.confirm ? (
@@ -554,7 +554,7 @@ export default function ClientProfileScreen() {
               {/* Header */}
               <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setEditVisible(false)} style={{ padding: 4 }}>
-                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                  <VectorIcon name="x" size={22} color={colors.mutedForeground} />
                 </TouchableOpacity>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
                   {t("profile.edit")}

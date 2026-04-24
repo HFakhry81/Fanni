@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -401,7 +401,7 @@ export default function TechProfileScreen() {
               )}
             </View>
             <View style={styles.cameraOverlay}>
-              <Feather name="camera" size={14} color="#FFF" />
+              <VectorIcon name="camera" size={14} color="#FFF" />
             </View>
           </TouchableOpacity>
           <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 12 }}>{user?.name}</Text>
@@ -415,13 +415,13 @@ export default function TechProfileScreen() {
           {/* Badges */}
           <View style={[styles.badgesRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={[styles.badge, { backgroundColor: "rgba(77,173,217,0.2)", borderColor: colors.secondary }]}>
-              <Feather name="shield" size={12} color={colors.secondary} />
+              <VectorIcon name="shield" size={12} color={colors.secondary} />
               <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 4 }}>
                 {isRTL ? "معتمد" : "Verified"}
               </Text>
             </View>
             <View style={[styles.badge, { backgroundColor: "rgba(245,166,35,0.2)", borderColor: colors.primary }]}>
-              <Feather name="star" size={12} color={colors.primary} />
+              <VectorIcon name="star" size={12} color={colors.primary} />
               <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 4 }}>
                 {isRTL ? "متميز" : "Top Rated"}
               </Text>
@@ -429,7 +429,7 @@ export default function TechProfileScreen() {
           </View>
           {/* Edit badge */}
           <TouchableOpacity style={[styles.editBadge, { backgroundColor: colors.secondary + "33", borderColor: colors.secondary, borderWidth: 1 }]} onPress={openEdit}>
-            <Feather name="edit-2" size={13} color={colors.secondary} />
+            <VectorIcon name="edit-2" size={13} color={colors.secondary} />
             <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 5 }}>
               {t("profile.edit")}
             </Text>
@@ -450,7 +450,7 @@ export default function TechProfileScreen() {
         {hasServiceArea ? (
           <View style={[styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={[styles.serviceAreaIcon, { backgroundColor: colors.primary + "15" }]}>
-              <Feather name="map-pin" size={14} color={colors.primary} />
+              <VectorIcon name="map-pin" size={14} color={colors.primary} />
             </View>
             <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
@@ -469,7 +469,7 @@ export default function TechProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.serviceAreaIcon, { backgroundColor: "#FEF3C7" }]}>
-              <Feather name="alert-circle" size={14} color="#D97706" />
+              <VectorIcon name="alert-circle" size={14} color="#D97706" />
             </View>
             <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
               <Text style={{ color: "#92400E", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
@@ -479,7 +479,7 @@ export default function TechProfileScreen() {
                 {t("tech.noServiceAreaPrompt")}
               </Text>
             </View>
-            <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />
+            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />
           </TouchableOpacity>
         )}
 
@@ -502,14 +502,14 @@ export default function TechProfileScreen() {
               </Text>
             </View>
             <View style={[styles.availToggleKnob, { backgroundColor: "rgba(255,255,255,0.25)", borderColor: "rgba(255,255,255,0.5)" }]}>
-              <Feather name={isOnline ? "toggle-right" : "toggle-left"} size={30} color="#FFF" />
+              <VectorIcon name={isOnline ? "toggle-right" : "toggle-left"} size={30} color="#FFF" />
             </View>
           </TouchableOpacity>
 
           {/* Language toggle */}
           <View style={[styles.langCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
             <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
-              <Feather name="globe" size={18} color={colors.secondary} />
+              <VectorIcon name="globe" size={18} color={colors.secondary} />
             </View>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               {t("profile.language")}
@@ -536,7 +536,7 @@ export default function TechProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: colors.accent, borderRadius: 10 }]}>
-              <Feather name="tool" size={18} color={colors.primary} />
+              <VectorIcon name="tool" size={18} color={colors.primary} />
             </View>
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
@@ -546,7 +546,7 @@ export default function TechProfileScreen() {
                 {user?.specialty ?? (isRTL ? "صيانة مكيفات" : "AC Maintenance")}
               </Text>
             </View>
-            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+            <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
 
           {/* Service Categories display */}
@@ -556,7 +556,7 @@ export default function TechProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
-              <Feather name="grid" size={18} color={colors.secondary} />
+              <VectorIcon name="grid" size={18} color={colors.secondary} />
             </View>
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 6 }}>
@@ -584,7 +584,7 @@ export default function TechProfileScreen() {
                 </Text>
               )}
             </View>
-            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+            <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
 
           {/* Service area */}
@@ -594,7 +594,7 @@ export default function TechProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: colors.accentBlue, borderRadius: 10 }]}>
-              <Feather name="map-pin" size={18} color={colors.secondary} />
+              <VectorIcon name="map-pin" size={18} color={colors.secondary} />
             </View>
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
@@ -607,7 +607,7 @@ export default function TechProfileScreen() {
                 {areaText}
               </Text>
             </View>
-            <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+            <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
 
           {/* Change Password */}
@@ -617,12 +617,12 @@ export default function TechProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: "#22A36B18", borderRadius: 10 }]}>
-              <Feather name="lock" size={18} color="#22A36B" />
+              <VectorIcon name="lock" size={18} color="#22A36B" />
             </View>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
               {t("profile.changePassword")}
             </Text>
-            <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
 
           {/* Resend Welcome */}
@@ -632,12 +632,12 @@ export default function TechProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: "#4B7BEC18", borderRadius: 10 }]}>
-              <Feather name="mail" size={18} color="#4B7BEC" />
+              <VectorIcon name="mail" size={18} color="#4B7BEC" />
             </View>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
               {t("profile.resendWelcome")}
             </Text>
-            <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
 
           {/* Logout */}
@@ -647,7 +647,7 @@ export default function TechProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.menuIcon, { backgroundColor: "#FFE6E6", borderRadius: 10 }]}>
-              <Feather name="log-out" size={18} color={colors.destructive} />
+              <VectorIcon name="log-out" size={18} color={colors.destructive} />
             </View>
             <Text style={{ color: colors.destructive, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0, textAlign: isRTL ? "right" : "left" }}>
               {t("profile.logout")}
@@ -664,7 +664,7 @@ export default function TechProfileScreen() {
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
               <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setPwVisible(false)} style={{ padding: 4 }}>
-                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                  <VectorIcon name="x" size={22} color={colors.mutedForeground} />
                 </TouchableOpacity>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
                   {t("profile.changePassword")}
@@ -701,7 +701,7 @@ export default function TechProfileScreen() {
                       style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                     />
                     <TouchableOpacity onPress={() => setShowCurrentPw((v) => !v)} style={{ padding: 8 }}>
-                      <Feather name={showCurrentPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                      <VectorIcon name={showCurrentPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
                   {pwErrors.current ? (
@@ -724,7 +724,7 @@ export default function TechProfileScreen() {
                       style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                     />
                     <TouchableOpacity onPress={() => setShowNewPw((v) => !v)} style={{ padding: 8 }}>
-                      <Feather name={showNewPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                      <VectorIcon name={showNewPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
                   <PasswordStrengthBar password={newPw} />
@@ -748,7 +748,7 @@ export default function TechProfileScreen() {
                       style={[styles.pwInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                     />
                     <TouchableOpacity onPress={() => setShowConfirmPw((v) => !v)} style={{ padding: 8 }}>
-                      <Feather name={showConfirmPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                      <VectorIcon name={showConfirmPw ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
                   {pwErrors.confirm ? (
@@ -772,7 +772,7 @@ export default function TechProfileScreen() {
               {/* Header */}
               <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setEditVisible(false)} style={{ padding: 4 }}>
-                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                  <VectorIcon name="x" size={22} color={colors.mutedForeground} />
                 </TouchableOpacity>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: "center" }}>
                   {t("profile.edit")}
@@ -860,7 +860,7 @@ export default function TechProfileScreen() {
                           activeOpacity={0.7}
                         >
                           {selected && (
-                            <Feather name="check" size={12} color="#FFF" style={{ marginRight: isRTL ? 0 : 5, marginLeft: isRTL ? 5 : 0 }} />
+                            <VectorIcon name="check" size={12} color="#FFF" style={{ marginRight: isRTL ? 0 : 5, marginLeft: isRTL ? 5 : 0 }} />
                           )}
                           <Text
                             style={{

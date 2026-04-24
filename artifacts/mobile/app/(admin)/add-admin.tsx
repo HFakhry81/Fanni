@@ -5,7 +5,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -276,7 +276,7 @@ export default function AddAdminScreen() {
           <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
             <View style={[styles.cardHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <View style={[styles.headerIcon, { backgroundColor: colors.accent }]}>
-                <Feather name="smartphone" size={22} color={colors.primary} />
+                <VectorIcon name="smartphone" size={22} color={colors.primary} />
               </View>
               <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
@@ -316,7 +316,7 @@ export default function AddAdminScreen() {
 
             {!!otpError && (
               <View style={[styles.otpErrorBox, { backgroundColor: "#FEE2E2", borderColor: "#F87171" }]}>
-                <Feather name="alert-circle" size={14} color="#DC2626" />
+                <VectorIcon name="alert-circle" size={14} color="#DC2626" />
                 <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#DC2626", textAlign: isRTL ? "right" : "left" }}>{otpError}</Text>
               </View>
             )}
@@ -360,7 +360,7 @@ export default function AddAdminScreen() {
           <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
             <View style={[styles.cardHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <View style={[styles.headerIcon, { backgroundColor: colors.accent }]}>
-                <Feather name="user-plus" size={22} color={colors.primary} />
+                <VectorIcon name="user-plus" size={22} color={colors.primary} />
               </View>
               <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
@@ -422,7 +422,7 @@ export default function AddAdminScreen() {
 
         {!!apiError && !otpMode && (
           <View style={[styles.msgBox, { backgroundColor: "#FEE2E2", borderColor: "#EF4444", borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="alert-circle" size={14} color="#EF4444" />
+            <VectorIcon name="alert-circle" size={14} color="#EF4444" />
             <Text style={{ color: "#EF4444", fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
               {apiError}
             </Text>

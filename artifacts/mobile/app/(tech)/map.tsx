@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -203,7 +203,7 @@ export default function TechMapScreen() {
               }]}
               onPress={() => handleOpenOrder(order)}
             >
-              <Feather name="map-pin" size={14} color="#FFF" />
+              <VectorIcon name="map-pin" size={14} color="#FFF" />
               <View style={[styles.pinBadge, { backgroundColor: isNew ? "#7F1D1D" : colors.dark }]}>
                 <Text style={{ color: "#FFF", fontSize: 9, fontFamily: "Inter_700Bold" }}>{i + 1}</Text>
               </View>
@@ -229,7 +229,7 @@ export default function TechMapScreen() {
       {hasServiceArea ? (
         <View style={[styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={[styles.serviceAreaIcon, { backgroundColor: colors.primary + "15" }]}>
-            <Feather name="map-pin" size={14} color={colors.primary} />
+            <VectorIcon name="map-pin" size={14} color={colors.primary} />
           </View>
           <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
@@ -250,7 +250,7 @@ export default function TechMapScreen() {
           onPress={() => router.push("/(tech)/profile")}
         >
           <View style={[styles.serviceAreaIcon, { backgroundColor: "#FEF3C7" }]}>
-            <Feather name="alert-circle" size={14} color="#D97706" />
+            <VectorIcon name="alert-circle" size={14} color="#D97706" />
           </View>
           <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
             <Text style={{ color: "#92400E", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
@@ -260,7 +260,7 @@ export default function TechMapScreen() {
               {t("tech.allOrdersShown")}
             </Text>
           </View>
-          <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />
+          <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />
         </Pressable>
       )}
 
@@ -268,7 +268,7 @@ export default function TechMapScreen() {
       <View style={[styles.ordersSection, { backgroundColor: colors.background }]}>
         {!isOnline && (
           <View style={[styles.offlineBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
-            <Feather name="wifi-off" size={14} color="#EF4444" />
+            <VectorIcon name="wifi-off" size={14} color="#EF4444" />
             <Text style={{ color: "#EF4444", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
               {isRTL ? "أنت غير متاح — لن تتلقى طلبات جديدة" : "You are offline — no new orders will be received"}
             </Text>
@@ -291,7 +291,7 @@ export default function TechMapScreen() {
           ListEmptyComponent={
             <View style={styles.emptyHoriz}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 30 }]}>
-                <Feather name="inbox" size={28} color={colors.mutedForeground} />
+                <VectorIcon name="inbox" size={28} color={colors.mutedForeground} />
               </View>
               <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 8, fontFamily: "Inter_400Regular" }}>
                 {t("common.noData")}
@@ -332,13 +332,13 @@ export default function TechMapScreen() {
                     </Text>
                   </View>
                   <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                    <Feather name="map-pin" size={11} color={colors.secondary} />
+                    <VectorIcon name="map-pin" size={11} color={colors.secondary} />
                     <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 3, flex: 1 }} numberOfLines={1}>
                       {item.street}
                     </Text>
                   </View>
                   <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                    <Feather name="calendar" size={11} color={colors.secondary} />
+                    <VectorIcon name="calendar" size={11} color={colors.secondary} />
                     <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 3 }}>
                       {item.visitDate}
                     </Text>
@@ -348,14 +348,14 @@ export default function TechMapScreen() {
                       style={[styles.acceptBtn, { backgroundColor: colors.primary, borderRadius: 8, flex: 1 }]}
                       onPress={() => { setSelectedOrder(item); handleAccept(); }}
                     >
-                      <Feather name="check" size={12} color="#FFF" />
+                      <VectorIcon name="check" size={12} color="#FFF" />
                       <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 11, marginLeft: 4 }}>{t("tech.accept")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.rejectBtn, { borderColor: colors.border, borderRadius: 8, flex: 1 }]}
                       onPress={() => {}}
                     >
-                      <Feather name="x" size={12} color={colors.mutedForeground} />
+                      <VectorIcon name="x" size={12} color={colors.mutedForeground} />
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 4 }}>{t("tech.reject")}</Text>
                     </TouchableOpacity>
                   </View>
@@ -373,7 +373,7 @@ export default function TechMapScreen() {
             <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
             <View style={[styles.modalTitle, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <View style={[styles.modalIcon, { backgroundColor: "#FEE2E2", borderRadius: 12 }]}>
-                <Feather name="bell" size={18} color="#EF4444" />
+                <VectorIcon name="bell" size={18} color="#EF4444" />
               </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
                 {t("tech.newOrder")}

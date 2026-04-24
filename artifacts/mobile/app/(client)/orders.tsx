@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders, Order } from "@/context/OrderContext";
@@ -100,20 +100,20 @@ export default function ClientOrdersScreen() {
           <StatusBadge status={item.status} />
         </View>
         <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          <Feather name="map-pin" size={13} color={colors.secondary} />
+          <VectorIcon name="map-pin" size={13} color={colors.secondary} />
           <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
             {item.street}, {t("order.floor")} {item.floor}
           </Text>
         </View>
         <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          <Feather name="calendar" size={13} color={colors.secondary} />
+          <VectorIcon name="calendar" size={13} color={colors.secondary} />
           <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
             {item.visitDate} — {item.visitTime}
           </Text>
         </View>
         {item.createdAt && (
           <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="clock" size={13} color={colors.secondary} />
+            <VectorIcon name="clock" size={13} color={colors.secondary} />
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
               {new Date(item.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
             </Text>
@@ -138,7 +138,7 @@ export default function ClientOrdersScreen() {
             {!item.technicianName && <View style={{ flex: 1 }} />}
             {item.technicianRating && (
               <View style={[styles.ratingChip, { backgroundColor: colors.accent, borderRadius: 8 }]}>
-                <Feather name="star" size={11} color={colors.primary} />
+                <VectorIcon name="star" size={11} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 3 }}>{item.technicianRating}</Text>
               </View>
             )}
@@ -150,7 +150,7 @@ export default function ClientOrdersScreen() {
                   activeOpacity={0.8}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Feather name="phone" size={14} color="#FFF" />
+                  <VectorIcon name="phone" size={14} color="#FFF" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.smsBtn, { backgroundColor: colors.secondary, borderRadius: 8, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }]}
@@ -158,7 +158,7 @@ export default function ClientOrdersScreen() {
                   activeOpacity={0.8}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Feather name="message-circle" size={14} color="#FFF" />
+                  <VectorIcon name="message-circle" size={14} color="#FFF" />
                 </TouchableOpacity>
               </>
             )}
@@ -177,7 +177,7 @@ export default function ClientOrdersScreen() {
             style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: 10 }]}
             onPress={() => router.push("/(client)/home")}
           >
-            <Feather name="plus" size={18} color="#FFF" />
+            <VectorIcon name="plus" size={18} color="#FFF" />
           </TouchableOpacity>
         }
       />
@@ -225,7 +225,7 @@ export default function ClientOrdersScreen() {
             isAuthenticated && mergedOrders.length === 0 ? (
               <View style={styles.empty}>
                 <View style={[styles.emptyIcon, { backgroundColor: colors.accent, borderRadius: 40 }]}>
-                  <Feather name="clipboard" size={40} color={colors.primary} />
+                  <VectorIcon name="clipboard" size={40} color={colors.primary} />
                 </View>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginTop: 16, textAlign: "center" }}>
                   {t("order.noOrdersYet")}
@@ -238,7 +238,7 @@ export default function ClientOrdersScreen() {
                   onPress={() => router.push("/(client)/home")}
                   activeOpacity={0.85}
                 >
-                  <Feather name="plus-circle" size={16} color="#FFF" />
+                  <VectorIcon name="plus-circle" size={16} color="#FFF" />
                   <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
                     {t("order.bookService")}
                   </Text>
@@ -247,7 +247,7 @@ export default function ClientOrdersScreen() {
             ) : (
               <View style={styles.empty}>
                 <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
-                  <Feather name="inbox" size={40} color={colors.mutedForeground} />
+                  <VectorIcon name="inbox" size={40} color={colors.mutedForeground} />
                 </View>
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15, marginTop: 14, textAlign: "center" }}>
                   {t("common.noData")}

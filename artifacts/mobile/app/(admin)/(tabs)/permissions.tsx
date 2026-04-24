@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
@@ -63,7 +63,7 @@ export default function AdminPermissionsScreen() {
             <View key={group} style={styles.groupBlock}>
               <View style={[styles.groupHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
                 <View style={[styles.groupIcon, { backgroundColor: groupColor + "18", borderRadius: 10 }]}>
-                  <Feather name={GROUP_ICONS[group] as any} size={16} color={groupColor} />
+                  <VectorIcon name={GROUP_ICONS[group] as any} size={16} color={groupColor} />
                 </View>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
                   {isRTL ? groupAr : group}
@@ -104,7 +104,7 @@ export default function AdminPermissionsScreen() {
         })}
 
         <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}>
-          <Feather name="save" size={18} color="#FFF" />
+          <VectorIcon name="save" size={18} color="#FFF" />
           <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16, marginLeft: 8 }}>{t("common.save")}</Text>
         </TouchableOpacity>
       </ScrollView>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -112,14 +112,14 @@ export default function ClientInvoicesScreen() {
         </View>
         <View style={[styles.summaryFooter, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={[styles.statChip, { backgroundColor: "rgba(77,173,217,0.15)" }]}>
-            <Feather name="check-circle" size={13} color={colors.secondary} />
+            <VectorIcon name="check-circle" size={13} color={colors.secondary} />
             <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
               {invoices.filter(i => i.status === "paid").length} {isRTL ? "مدفوعة" : "paid"}
             </Text>
           </View>
           {totalIssued > 0 && (
             <View style={[styles.statChip, { backgroundColor: "rgba(245,166,35,0.15)" }]}>
-              <Feather name="clock" size={13} color={colors.primary} />
+              <VectorIcon name="clock" size={13} color={colors.primary} />
               <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
                 {totalIssued.toFixed(0)} {t("common.egp")} {isRTL ? "معلقة" : "pending"}
               </Text>
@@ -148,7 +148,7 @@ export default function ClientInvoicesScreen() {
             isAuthenticated ? (
               <View style={styles.empty}>
                 <View style={[styles.emptyIcon, { backgroundColor: colors.accent, borderRadius: 40 }]}>
-                  <Feather name="file-text" size={40} color={colors.primary} />
+                  <VectorIcon name="file-text" size={40} color={colors.primary} />
                 </View>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginTop: 16, textAlign: "center" }}>
                   {t("invoice.noInvoicesYet")}
@@ -161,7 +161,7 @@ export default function ClientInvoicesScreen() {
                   onPress={() => router.push("/(client)/home")}
                   activeOpacity={0.85}
                 >
-                  <Feather name="plus-circle" size={18} color="#fff" />
+                  <VectorIcon name="plus-circle" size={18} color="#fff" />
                   <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                     {t("order.bookService")}
                   </Text>
@@ -170,7 +170,7 @@ export default function ClientInvoicesScreen() {
             ) : (
               <View style={styles.empty}>
                 <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
-                  <Feather name="file-text" size={40} color={colors.mutedForeground} />
+                  <VectorIcon name="file-text" size={40} color={colors.mutedForeground} />
                 </View>
                 <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 14, textAlign: "center", fontFamily: "Inter_400Regular" }}>
                   {t("common.noData")}
@@ -188,7 +188,7 @@ export default function ClientInvoicesScreen() {
               <View style={styles.cardBody}>
                 <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <View style={[styles.iconWrap, { backgroundColor: colors.accent, borderRadius: 12 }]}>
-                    <Feather name="file-text" size={22} color={colors.primary} />
+                    <VectorIcon name="file-text" size={22} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
                     <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>

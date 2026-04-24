@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -202,7 +202,7 @@ export default function LoginLogsScreen() {
         ) : null}
       </View>
 
-      <Feather
+      <VectorIcon
         name={item.success ? "check-circle" : "x-circle"}
         size={20}
         color={item.success ? "#22c55e" : colors.destructive}

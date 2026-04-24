@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -91,7 +91,7 @@ export default function SelectRoleScreen() {
         showLangToggle
         rightElement={
           <TouchableOpacity onPress={handleLogout} style={{ padding: 8 }}>
-            <Feather name="log-out" size={20} color="#fff" />
+            <VectorIcon name="log-out" size={20} color="#fff" />
           </TouchableOpacity>
         }
       />

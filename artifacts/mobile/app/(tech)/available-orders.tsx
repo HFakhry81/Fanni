@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -155,7 +155,7 @@ export default function AvailableOrdersScreen() {
   };
 
   const renderItem = ({ item }: { item: PendingOrder }) => {
-    const iconName = (CATEGORY_ICONS[item.category] ?? "tool") as keyof typeof Feather.glyphMap;
+    const iconName = (CATEGORY_ICONS[item.category] ?? "tool") as string;
     const isAccepting = acceptingId === item.id;
     return (
       <View
@@ -172,7 +172,7 @@ export default function AvailableOrdersScreen() {
         <View style={styles.cardBody}>
           <View style={[styles.cardHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={[styles.categoryIcon, { backgroundColor: colors.primary + "18" }]}>
-              <Feather name={iconName} size={18} color={colors.primary} />
+              <VectorIcon name={iconName} size={18} color={colors.primary} />
             </View>
             <View style={[styles.cardHeaderText, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
               <Text
@@ -208,7 +208,7 @@ export default function AvailableOrdersScreen() {
           ) : null}
 
           <View style={[styles.metaRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="map-pin" size={12} color={colors.secondary} />
+            <VectorIcon name="map-pin" size={12} color={colors.secondary} />
             <Text
               style={{
                 color: colors.mutedForeground,
@@ -227,7 +227,7 @@ export default function AvailableOrdersScreen() {
 
           {item.visitDate ? (
             <View style={[styles.metaRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              <Feather name="calendar" size={12} color={colors.secondary} />
+              <VectorIcon name="calendar" size={12} color={colors.secondary} />
               <Text
                 style={{
                   color: colors.mutedForeground,
@@ -293,7 +293,7 @@ export default function AvailableOrdersScreen() {
               {error ? (
                 <>
                   <View style={[styles.emptyIcon, { backgroundColor: "#FEF2F2" }]}>
-                    <Feather name="alert-circle" size={32} color="#EF4444" />
+                    <VectorIcon name="alert-circle" size={32} color="#EF4444" />
                   </View>
                   <Text style={{ color: "#EF4444", fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 12, textAlign: "center" }}>
                     {error}
@@ -310,7 +310,7 @@ export default function AvailableOrdersScreen() {
               ) : (
                 <>
                   <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
-                    <Feather name="inbox" size={32} color={colors.mutedForeground} />
+                    <VectorIcon name="inbox" size={32} color={colors.mutedForeground} />
                   </View>
                   <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 16, marginTop: 14, textAlign: "center" }}>
                     {isRTL ? "لا توجد طلبات متاحة" : "No Available Orders"}
@@ -324,7 +324,7 @@ export default function AvailableOrdersScreen() {
                     style={[styles.retryBtn, { borderColor: colors.primary, marginTop: 20 }]}
                     onPress={() => fetchOrders()}
                   >
-                    <Feather name="refresh-cw" size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                    <VectorIcon name="refresh-cw" size={14} color={colors.primary} style={{ marginRight: 6 }} />
                     <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
                       {isRTL ? "تحديث" : "Refresh"}
                     </Text>

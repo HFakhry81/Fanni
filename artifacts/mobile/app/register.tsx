@@ -6,7 +6,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -439,7 +439,7 @@ export default function RegisterScreen() {
             ]}
           >
             {s < step ? (
-              <Feather name="check" size={14} color="#FFF" />
+              <VectorIcon name="check" size={14} color="#FFF" />
             ) : (
               <Text style={{ color: s <= step ? "#FFF" : colors.mutedForeground, fontSize: 12, fontFamily: "Inter_600SemiBold" }}>{s}</Text>
             )}
@@ -457,7 +457,7 @@ export default function RegisterScreen() {
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
-          <Feather name="user" size={20} color={colors.primary} />
+          <VectorIcon name="user" size={20} color={colors.primary} />
         </View>
         <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
           {t("register.step1")}
@@ -552,7 +552,7 @@ export default function RegisterScreen() {
 
       {regType === "technician" && (
         <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
-          <Feather name="camera" size={24} color={colors.secondary} />
+          <VectorIcon name="camera" size={24} color={colors.secondary} />
           <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
             {t("register.idPhoto")}
           </Text>
@@ -569,7 +569,7 @@ export default function RegisterScreen() {
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accentBlue }]}>
-          <Feather name="credit-card" size={20} color={colors.secondary} />
+          <VectorIcon name="credit-card" size={20} color={colors.secondary} />
         </View>
         <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
           {t("register.step2")}
@@ -595,7 +595,7 @@ export default function RegisterScreen() {
           onPress={() => setPaymentMethod(opt.id)}
         >
           <View style={[styles.optionIcon, { backgroundColor: paymentMethod === opt.id ? colors.primary + "20" : colors.muted, borderRadius: 10 }]}>
-            <Feather name={opt.icon as any} size={18} color={paymentMethod === opt.id ? colors.primary : colors.mutedForeground} />
+            <VectorIcon name={opt.icon as any} size={18} color={paymentMethod === opt.id ? colors.primary : colors.mutedForeground} />
           </View>
           <Text style={{ color: colors.foreground, fontFamily: paymentMethod === opt.id ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 14, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
             {opt.label}
@@ -620,7 +620,7 @@ export default function RegisterScreen() {
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
-          <Feather name="tool" size={20} color={colors.primary} />
+          <VectorIcon name="tool" size={20} color={colors.primary} />
         </View>
         <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
           {isRTL ? "بيانات المهنة" : "Profession Info"}
@@ -675,13 +675,13 @@ export default function RegisterScreen() {
       </View>
 
       <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
-        <Feather name="image" size={24} color={colors.secondary} />
+        <VectorIcon name="image" size={24} color={colors.secondary} />
         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
           {t("register.workPhotos")} (5 {isRTL ? "صور" : "photos"})
         </Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, marginTop: 10 }]}>
-        <Feather name="award" size={24} color={colors.secondary} />
+        <VectorIcon name="award" size={24} color={colors.secondary} />
         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
           {t("register.licensePhoto")}
         </Text>
@@ -694,7 +694,7 @@ export default function RegisterScreen() {
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accentBlue }]}>
-          <Feather name="home" size={20} color={colors.secondary} />
+          <VectorIcon name="home" size={20} color={colors.secondary} />
         </View>
         <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
           {isRTL ? "عنوان المنزل" : "Home Address"}
@@ -741,7 +741,7 @@ export default function RegisterScreen() {
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
-          <Feather name="grid" size={20} color={colors.primary} />
+          <VectorIcon name="grid" size={20} color={colors.primary} />
         </View>
         <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
           {isRTL ? "تخصصات الخدمة" : "Service Categories"}
@@ -771,7 +771,7 @@ export default function RegisterScreen() {
                 gap: 6,
               }}
             >
-              {selected && <Feather name="check" size={13} color={colors.primary} />}
+              {selected && <VectorIcon name="check" size={13} color={colors.primary} />}
               <Text style={{ color: selected ? colors.primary : colors.foreground, fontFamily: selected ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 13 }}>
                 {isRTL ? cat.ar : cat.en}
               </Text>
@@ -793,7 +793,7 @@ export default function RegisterScreen() {
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accentBlue }]}>
-          <Feather name="map-pin" size={20} color={colors.secondary} />
+          <VectorIcon name="map-pin" size={20} color={colors.secondary} />
         </View>
         <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
           {t("register.step3")}
@@ -843,7 +843,7 @@ export default function RegisterScreen() {
       <View>
         <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
-            <Feather name="smartphone" size={20} color={colors.primary} />
+            <VectorIcon name="smartphone" size={20} color={colors.primary} />
           </View>
           <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left", marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
             {t("otp.heading")}
@@ -882,7 +882,7 @@ export default function RegisterScreen() {
 
         {!!otpError && (
           <View style={[styles.otpErrorBox, { backgroundColor: "#FEE2E2", borderColor: "#F87171" }]}>
-            <Feather name="alert-circle" size={14} color="#DC2626" />
+            <VectorIcon name="alert-circle" size={14} color="#DC2626" />
             <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#DC2626", textAlign: isRTL ? "right" : "left" }}>{otpError}</Text>
           </View>
         )}
@@ -951,7 +951,7 @@ export default function RegisterScreen() {
             style={[styles.typeBtn, { backgroundColor: regType === rt ? colors.primary : "transparent", borderRadius: colors.radius - 4 }]}
             onPress={() => { setRegType(rt); setStep(1); setErrors({}); setSelectedCategories([]); }}
           >
-            <Feather name={rt === "client" ? "home" : "tool"} size={14} color={regType === rt ? "#FFF" : colors.mutedForeground} />
+            <VectorIcon name={rt === "client" ? "home" : "tool"} size={14} color={regType === rt ? "#FFF" : colors.mutedForeground} />
             <Text style={{ color: regType === rt ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>
               {rt === "client" ? t("register.asClient") : t("register.asTech")}
             </Text>
@@ -972,7 +972,7 @@ export default function RegisterScreen() {
 
         {!!apiError && step === totalSteps && !otpMode && (
           <View style={[styles.apiErrorBox, { backgroundColor: "#FEE2E2", borderColor: "#EF4444", borderRadius: colors.radius }]}>
-            <Feather name="alert-circle" size={14} color="#EF4444" style={{ marginRight: isRTL ? 0 : 6, marginLeft: isRTL ? 6 : 0 }} />
+            <VectorIcon name="alert-circle" size={14} color="#EF4444" style={{ marginRight: isRTL ? 0 : 6, marginLeft: isRTL ? 6 : 0 }} />
             <Text style={{ color: "#EF4444", fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }}>
               {apiError}
             </Text>

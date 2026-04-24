@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import FanniInput from "@/components/FanniInput";
@@ -118,7 +118,7 @@ export default function ForgotPasswordScreen() {
         <AppHeader title={t("forgot.title")} showBack onBack={() => router.back()} />
         <View style={styles.centered}>
           <View style={[styles.successIcon, { backgroundColor: colors.accent }]}>
-            <Feather name="check-circle" size={48} color={colors.primary} />
+            <VectorIcon name="check-circle" size={48} color={colors.primary} />
           </View>
           <Text style={[styles.successTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: "center" }]}>
             {t("forgot.success")}
@@ -154,7 +154,7 @@ export default function ForgotPasswordScreen() {
                 { backgroundColor: step === s || (s === "request" && step === "reset") ? colors.primary : colors.border },
               ]}>
                 {s === "request" && step === "reset" ? (
-                  <Feather name="check" size={12} color="#FFF" />
+                  <VectorIcon name="check" size={12} color="#FFF" />
                 ) : (
                   <Text style={{ color: "#FFF", fontSize: 11, fontFamily: "Inter_600SemiBold" }}>{i + 1}</Text>
                 )}
@@ -169,7 +169,7 @@ export default function ForgotPasswordScreen() {
             <>
               <View style={[styles.iconRow, { alignSelf: isRTL ? "flex-end" : "flex-start" }]}>
                 <View style={[styles.iconBg, { backgroundColor: colors.accent }]}>
-                  <Feather name="mail" size={22} color={colors.primary} />
+                  <VectorIcon name="mail" size={22} color={colors.primary} />
                 </View>
               </View>
               <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
@@ -205,7 +205,7 @@ export default function ForgotPasswordScreen() {
           ) : (
             <>
               <View style={[styles.sentBadge, { backgroundColor: colors.accent, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                <Feather name="send" size={16} color={colors.primary} />
+                <VectorIcon name="send" size={16} color={colors.primary} />
                 <View style={{ marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, flex: 1 }}>
                   <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
                     {t("forgot.sent")}
@@ -237,7 +237,7 @@ export default function ForgotPasswordScreen() {
                   style={[styles.eyeBtn, { right: isRTL ? undefined : 12, left: isRTL ? 12 : undefined }]}
                   onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                  <VectorIcon name={showPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                 </TouchableOpacity>
               </View>
 
@@ -253,7 +253,7 @@ export default function ForgotPasswordScreen() {
                   style={[styles.eyeBtn, { right: isRTL ? undefined : 12, left: isRTL ? 12 : undefined }]}
                   onPress={() => setShowConfirm(!showConfirm)}
                 >
-                  <Feather name={showConfirm ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                  <VectorIcon name={showConfirm ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                 </TouchableOpacity>
               </View>
 

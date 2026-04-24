@@ -11,7 +11,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -424,12 +424,12 @@ export default function AdminProfileScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.changePwIcon, { backgroundColor: colors.accentBlue ?? "#EBF5FF", borderRadius: 10 }]}>
-              <Feather name="lock" size={20} color={colors.secondary ?? "#3B82F6"} />
+              <VectorIcon name="lock" size={20} color={colors.secondary ?? "#3B82F6"} />
             </View>
             <Text style={[styles.changePwText, { color: colors.foreground, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }]}>
               {t("profile.changePassword")}
             </Text>
-            <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
+            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
           </TouchableOpacity>
         )}
 

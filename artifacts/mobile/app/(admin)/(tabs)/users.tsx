@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -295,14 +295,14 @@ export default function AdminUsersScreen() {
           </View>
 
           <View style={[styles.metaRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="calendar" size={11} color={colors.mutedForeground} />
+            <VectorIcon name="calendar" size={11} color={colors.mutedForeground} />
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: 4 }}>
               {formatDate(item.createdAt)}
             </Text>
             {(item.area || item.governorate) ? (
               <>
                 <Text style={{ color: colors.border, marginHorizontal: 6 }}>·</Text>
-                <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                <VectorIcon name="map-pin" size={11} color={colors.mutedForeground} />
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: 4 }}>
                   {[item.area, item.governorate].filter(Boolean).join(", ")}
                 </Text>
@@ -320,7 +320,7 @@ export default function AdminUsersScreen() {
                 <ActivityIndicator size="small" color={isActive ? colors.destructive : colors.success} />
               ) : (
                 <>
-                  <Feather name={isActive ? "slash" : "check"} size={14} color={isActive ? colors.destructive : colors.success} />
+                  <VectorIcon name={isActive ? "slash" : "check"} size={14} color={isActive ? colors.destructive : colors.success} />
                   <Text style={{ color: isActive ? colors.destructive : colors.success, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 4 }}>
                     {isActive ? t("admin.suspend") : t("admin.approve")}
                   </Text>
@@ -379,7 +379,7 @@ export default function AdminUsersScreen() {
       </View>
 
       <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+        <VectorIcon name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
         <TextInput
           style={[styles.searchInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
           placeholder={isRTL ? "بحث بالاسم أو الجوال أو البريد أو المنطقة..." : "Search by name, mobile, email, or area..."}
@@ -393,7 +393,7 @@ export default function AdminUsersScreen() {
         />
         {searchQuery.length > 0 && Platform.OS !== "ios" ? (
           <TouchableOpacity onPress={() => handleSearchChange("")}>
-            <Feather name="x" size={16} color={colors.mutedForeground} />
+            <VectorIcon name="x" size={16} color={colors.mutedForeground} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -407,7 +407,7 @@ export default function AdminUsersScreen() {
         </View>
       ) : error ? (
         <View style={styles.centered}>
-          <Feather name="alert-circle" size={40} color={colors.destructive} />
+          <VectorIcon name="alert-circle" size={40} color={colors.destructive} />
           <Text style={{ color: colors.destructive, marginTop: 12, fontFamily: "Inter_500Medium", textAlign: "center" }}>
             {error}
           </Text>
@@ -430,7 +430,7 @@ export default function AdminUsersScreen() {
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
             <View style={styles.centered}>
-              <Feather name={debouncedSearch ? "search" : "users"} size={40} color={colors.mutedForeground} />
+              <VectorIcon name={debouncedSearch ? "search" : "users"} size={40} color={colors.mutedForeground} />
               <Text style={{ color: colors.mutedForeground, marginTop: 12, fontFamily: "Inter_400Regular", textAlign: "center" }}>
                 {debouncedSearch
                   ? (isRTL ? `لا توجد نتائج لـ "${debouncedSearch}"` : `No results for "${debouncedSearch}"`)

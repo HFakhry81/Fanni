@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Modal, TextInput, ScrollView } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -165,7 +165,7 @@ export default function TechInvoicesScreen() {
         </View>
         <View style={[styles.summaryFooter, { flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between" }]}>
           <View style={[styles.statChip, { backgroundColor: "rgba(77,173,217,0.15)" }]}>
-            <Feather name="file-text" size={13} color={colors.secondary} />
+            <VectorIcon name="file-text" size={13} color={colors.secondary} />
             <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
               {invoices.length} {isRTL ? "فاتورة" : "invoices"}
             </Text>
@@ -174,7 +174,7 @@ export default function TechInvoicesScreen() {
             style={[styles.createBtn, { backgroundColor: colors.primary }]}
             onPress={() => setShowCreate(true)}
           >
-            <Feather name="plus" size={15} color="#fff" />
+            <VectorIcon name="plus" size={15} color="#fff" />
             <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>
               {isRTL ? "فاتورة جديدة" : "New Invoice"}
             </Text>
@@ -201,7 +201,7 @@ export default function TechInvoicesScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 40 }]}>
-                <Feather name="file-text" size={40} color={colors.mutedForeground} />
+                <VectorIcon name="file-text" size={40} color={colors.mutedForeground} />
               </View>
               <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 14, textAlign: "center", fontFamily: "Inter_400Regular" }}>
                 {isRTL ? "لا توجد فواتير بعد" : "No invoices yet"}
@@ -214,7 +214,7 @@ export default function TechInvoicesScreen() {
               <View style={styles.cardBody}>
                 <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <View style={[styles.iconWrap, { backgroundColor: colors.accent, borderRadius: 12 }]}>
-                    <Feather name="file-text" size={22} color={colors.primary} />
+                    <VectorIcon name="file-text" size={22} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
                     <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
@@ -222,7 +222,7 @@ export default function TechInvoicesScreen() {
                     </Text>
                     {item.clientName && (
                       <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1, textAlign: isRTL ? "right" : "left" }}>
-                        <Feather name="user" size={11} /> {item.clientName}
+                        <VectorIcon name="user" size={11} /> {item.clientName}
                         {item.clientMobile ? ` · ${item.clientMobile}` : ""}
                       </Text>
                     )}
@@ -258,7 +258,7 @@ export default function TechInvoicesScreen() {
                     style={[styles.payBtn, { backgroundColor: (colors.success ?? "#22A36B") + "20", borderColor: colors.success ?? "#22A36B" }]}
                     onPress={() => markPaid(item.id)}
                   >
-                    <Feather name="check-circle" size={14} color={colors.success ?? "#22A36B"} />
+                    <VectorIcon name="check-circle" size={14} color={colors.success ?? "#22A36B"} />
                     <Text style={{ color: colors.success ?? "#22A36B", fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
                       {isRTL ? "تأكيد الاستلام" : "Mark as Paid"}
                     </Text>
@@ -278,7 +278,7 @@ export default function TechInvoicesScreen() {
                 {isRTL ? "إنشاء فاتورة" : "Create Invoice"}
               </Text>
               <TouchableOpacity onPress={() => setShowCreate(false)}>
-                <Feather name="x" size={22} color={colors.mutedForeground} />
+                <VectorIcon name="x" size={22} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>

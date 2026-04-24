@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import FanniButton from "@/components/FanniButton";
@@ -43,7 +43,7 @@ export default function RegisterSuccessScreen() {
             { backgroundColor: colors.success, borderRadius: 60 },
           ]}
         >
-          <Feather name="check" size={60} color="#FFF" />
+          <VectorIcon name="check" size={60} color="#FFF" />
         </View>
         <Text
           style={[

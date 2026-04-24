@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -50,7 +50,7 @@ export default function AdminDashboardScreen() {
         {/* Default password warning banner */}
         {showDefaultPasswordBanner && (
           <View style={[styles.banner, { backgroundColor: "#FFF3CD", borderColor: "#F5A623", flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="alert-triangle" size={18} color="#C8880A" style={{ marginTop: 1 }} />
+            <VectorIcon name="alert-triangle" size={18} color="#C8880A" style={{ marginTop: 1 }} />
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               <Text style={[styles.bannerText, { textAlign: isRTL ? "right" : "left" }]}>
                 {t("admin.defaultPasswordBanner")}
@@ -65,7 +65,7 @@ export default function AdminDashboardScreen() {
               </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={() => setBannerDismissed(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name="x" size={18} color="#C8880A" />
+              <VectorIcon name="x" size={18} color="#C8880A" />
             </TouchableOpacity>
           </View>
         )}
@@ -75,7 +75,7 @@ export default function AdminDashboardScreen() {
           {kpis.map((kpi) => (
             <View key={kpi.label} style={[styles.kpiCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
               <View style={[styles.kpiIcon, { backgroundColor: kpi.bg, borderRadius: 12 }]}>
-                <Feather name={kpi.icon as any} size={22} color={kpi.color} />
+                <VectorIcon name={kpi.icon as any} size={22} color={kpi.color} />
               </View>
               <Text style={{ color: kpi.color, fontFamily: "Inter_700Bold", fontSize: 22, marginTop: 10 }}>
                 {kpi.value}<Text style={{ fontSize: 13, fontFamily: "Inter_500Medium" }}> {kpi.unit}</Text>
@@ -142,7 +142,7 @@ export default function AdminDashboardScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.actionIcon, { backgroundColor: item.color + "18", borderRadius: 12 }]}>
-                <Feather name={item.icon as any} size={22} color={item.color} />
+                <VectorIcon name={item.icon as any} size={22} color={item.color} />
               </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 11, marginTop: 8, textAlign: "center" }} numberOfLines={2}>
                 {item.label}

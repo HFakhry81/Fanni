@@ -4,7 +4,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Asset } from "expo-asset";
 import { readAsStringAsync } from "expo-file-system/legacy";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -220,17 +220,17 @@ export default function TechOrdersScreen() {
             <StatusBadge status={item.status} />
           </View>
           <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="user" size={12} color={colors.secondary} />
+            <VectorIcon name="user" size={12} color={colors.secondary} />
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12, marginLeft: 5, flex: 1 }}>{item.clientName}</Text>
-            <Feather name="phone" size={12} color={colors.secondary} />
+            <VectorIcon name="phone" size={12} color={colors.secondary} />
             <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginLeft: 4 }}>{item.clientMobile}</Text>
           </View>
           <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="map-pin" size={12} color={colors.secondary} />
+            <VectorIcon name="map-pin" size={12} color={colors.secondary} />
             <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginLeft: 5, flex: 1 }} numberOfLines={1}>
               {item.street}, {t("order.floor")} {item.floor}
             </Text>
-            <Feather name="calendar" size={12} color={colors.secondary} />
+            <VectorIcon name="calendar" size={12} color={colors.secondary} />
             <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", marginLeft: 4 }}>
               {item.visitDate}
             </Text>
@@ -241,21 +241,21 @@ export default function TechOrdersScreen() {
                 style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
                 onPress={() => Linking.openURL(`sms:${item.clientMobile}`)}
               >
-                <Feather name="message-circle" size={14} color={colors.secondary} />
+                <VectorIcon name="message-circle" size={14} color={colors.secondary} />
                 <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.messageClient")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
                 onPress={() => Linking.openURL(`tel:${item.clientMobile}`)}
               >
-                <Feather name="phone" size={14} color={colors.secondary} />
+                <VectorIcon name="phone" size={14} color={colors.secondary} />
                 <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.callClient")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.completeBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flex: 1 }]}
                 onPress={() => { setSelectedOrderId(item.id); setShowComplete(true); }}
               >
-                <Feather name="check-circle" size={14} color={colors.primary} />
+                <VectorIcon name="check-circle" size={14} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: 6 }}>{t("tech.complete")}</Text>
               </TouchableOpacity>
             </View>
@@ -263,7 +263,7 @@ export default function TechOrdersScreen() {
           {item.status === "completed" && item.invoice && (
             <View style={{ marginTop: 8, gap: 8 }}>
               <View style={[styles.invoiceSummary, { backgroundColor: colors.accent, borderRadius: colors.radius - 4 }]}>
-                <Feather name="file-text" size={13} color={colors.primary} />
+                <VectorIcon name="file-text" size={13} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
                   {t("invoice.total")}: {item.invoice.total.toFixed(0)} {t("common.egp")}
                 </Text>
@@ -273,7 +273,7 @@ export default function TechOrdersScreen() {
                 onPress={() => handleShareInvoice(item)}
                 activeOpacity={0.8}
               >
-                <Feather name="share-2" size={14} color={colors.primary} />
+                <VectorIcon name="share-2" size={14} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
                   {t("invoice.share")}
                 </Text>
@@ -298,7 +298,7 @@ export default function TechOrdersScreen() {
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14, flex: 1 }}>{m.description}</Text>
                 <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{m.amount} {t("common.egp")}</Text>
                 <TouchableOpacity onPress={() => setMaterials(materials.filter((x) => x.id !== m.id))} style={{ marginLeft: 10 }}>
-                  <Feather name="trash-2" size={14} color={colors.destructive} />
+                  <VectorIcon name="trash-2" size={14} color={colors.destructive} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -306,7 +306,7 @@ export default function TechOrdersScreen() {
               <FanniInput placeholder={isRTL ? "الوصف" : "Description"} value={matDesc} onChangeText={setMatDesc} style={{ flex: 2, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0, marginBottom: 0 }} />
               <FanniInput placeholder={isRTL ? "المبلغ" : "Amount"} value={matAmount} onChangeText={setMatAmount} keyboardType="numeric" style={{ flex: 1, marginBottom: 0 }} />
               <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: 10 }]} onPress={addMaterial}>
-                <Feather name="plus" size={18} color="#FFF" />
+                <VectorIcon name="plus" size={18} color="#FFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -326,7 +326,7 @@ export default function TechOrdersScreen() {
                 style={[styles.satisfactionOption, { borderColor: satisfaction === s ? colors.primary : colors.border, backgroundColor: satisfaction === s ? colors.accent : colors.background, borderRadius: colors.radius - 4, flexDirection: isRTL ? "row-reverse" : "row" }]}
                 onPress={() => setSatisfaction(s)}
               >
-                <Feather name={s === "satisfied" ? "smile" : s === "neutral" ? "meh" : "frown"} size={20} color={satisfaction === s ? colors.primary : colors.mutedForeground} />
+                <VectorIcon name={s === "satisfied" ? "smile" : s === "neutral" ? "meh" : "frown"} size={20} color={satisfaction === s ? colors.primary : colors.mutedForeground} />
                 <Text style={{ color: satisfaction === s ? colors.primary : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14, marginLeft: 10 }}>
                   {t(`tech.${s}`)}
                 </Text>
@@ -364,7 +364,7 @@ export default function TechOrdersScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 36 }]}>
-              <Feather name="inbox" size={36} color={colors.mutedForeground} />
+              <VectorIcon name="inbox" size={36} color={colors.mutedForeground} />
             </View>
             <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>{t("common.noData")}</Text>
           </View>

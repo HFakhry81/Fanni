@@ -13,7 +13,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors, type AppColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders, Order } from "@/context/OrderContext";
@@ -310,7 +310,7 @@ export default function OrderTrackingScreen() {
           style={[styles.backBtn, { backgroundColor: colors.muted, borderRadius: 10 }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={20} color={colors.foreground} />
+          <VectorIcon name={isRTL ? "arrow-right" : "arrow-left"} size={20} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
           {t("order.trackMap")}
@@ -347,12 +347,12 @@ export default function OrderTrackingScreen() {
         </View>
 
         <View style={[styles.etaBanner, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
-          <Feather name="clock" size={15} color={colors.primary} />
+          <VectorIcon name="clock" size={15} color={colors.primary} />
           <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
             {t("order.arrivingIn")}{eta} {t("order.minutes")}
           </Text>
           <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
-          <Feather name="map-pin" size={15} color={colors.primary} />
+          <VectorIcon name="map-pin" size={15} color={colors.primary} />
           <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
             {distanceLabel}
           </Text>
@@ -399,7 +399,7 @@ export default function OrderTrackingScreen() {
             </View>
             {order.technicianRating && (
               <View style={[styles.ratingChip, { backgroundColor: colors.accent, borderRadius: 8 }]}>
-                <Feather name="star" size={12} color={colors.primary} />
+                <VectorIcon name="star" size={12} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 4 }}>
                   {order.technicianRating}
                 </Text>
@@ -415,7 +415,7 @@ export default function OrderTrackingScreen() {
               onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
               activeOpacity={0.8}
             >
-              <Feather name="phone" size={16} color="#FFF" />
+              <VectorIcon name="phone" size={16} color="#FFF" />
               <Text style={[styles.callBtnText, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
                 {t("order.callTech")}
               </Text>
@@ -425,7 +425,7 @@ export default function OrderTrackingScreen() {
               onPress={() => Linking.openURL(`sms:${order.technicianMobile}`)}
               activeOpacity={0.8}
             >
-              <Feather name="message-circle" size={16} color={colors.primary} />
+              <VectorIcon name="message-circle" size={16} color={colors.primary} />
               <Text style={[styles.callBtnText, { color: colors.primary, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
                 {t("order.messageTech")}
               </Text>
@@ -857,7 +857,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
         // @ts-ignore
         pointerEvents="none"
       >
-        <Feather name="tool" size={11} color="#FFF" />
+        <VectorIcon name="tool" size={11} color="#FFF" />
       </View>
 
       <View
@@ -868,7 +868,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
         // @ts-ignore
         pointerEvents="none"
       >
-        <Feather name="home" size={11} color="#FFF" />
+        <VectorIcon name="home" size={11} color="#FFF" />
       </View>
 
       <View style={[styles.zoomControls, { borderColor: colors.border }]} pointerEvents="box-none">
@@ -877,7 +877,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           onPress={() => applyZoom(zoomRef.current + 1)}
           activeOpacity={0.75}
         >
-          <Feather name="plus" size={18} color={colors.foreground} />
+          <VectorIcon name="plus" size={18} color={colors.foreground} />
         </TouchableOpacity>
         <View style={[styles.zoomDivider, { backgroundColor: colors.border }]} />
         <TouchableOpacity
@@ -885,7 +885,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           onPress={() => applyZoom(zoomRef.current - 1)}
           activeOpacity={0.75}
         >
-          <Feather name="minus" size={18} color={colors.foreground} />
+          <VectorIcon name="minus" size={18} color={colors.foreground} />
         </TouchableOpacity>
         <View style={[styles.zoomDivider, { backgroundColor: colors.border }]} />
         <TouchableOpacity
@@ -893,19 +893,19 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           onPress={fitBothPins}
           activeOpacity={0.75}
         >
-          <Feather name="maximize-2" size={16} color={colors.primary} />
+          <VectorIcon name="maximize-2" size={16} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={[styles.webOverlay, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
         <View style={[styles.webOverlayRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          <Feather name="map-pin" size={16} color={TECH_PIN_COLOR} />
+          <VectorIcon name="map-pin" size={16} color={TECH_PIN_COLOR} />
           <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
             {t("order.techLocation")}: {techLat.toFixed(4)}, {techLng.toFixed(4)}
           </Text>
         </View>
         <View style={[styles.webOverlayRow, { flexDirection: isRTL ? "row-reverse" : "row", marginTop: 6 }]}>
-          <Feather name="home" size={16} color={CLIENT_PIN_COLOR} />
+          <VectorIcon name="home" size={16} color={CLIENT_PIN_COLOR} />
           <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
             {t("order.yourLocation")}: {order.street}
           </Text>
@@ -1119,7 +1119,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
         onPress={fitPins}
         activeOpacity={0.75}
       >
-        <Feather name="maximize-2" size={18} color="#1565C0" />
+        <VectorIcon name="maximize-2" size={18} color="#1565C0" />
       </TouchableOpacity>
     </View>
   );

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from "react-native";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
@@ -70,7 +70,7 @@ export default function AdminOrdersScreen() {
         contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Feather name="inbox" size={48} color={colors.border} />
+            <VectorIcon name="inbox" size={48} color={colors.border} />
             <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>{t("common.noData")}</Text>
           </View>
         }
@@ -110,7 +110,7 @@ export default function AdminOrdersScreen() {
                 )}
               </View>
               <View style={[styles.cardFoot, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                <Feather name="calendar" size={12} color={colors.mutedForeground} />
+                <VectorIcon name="calendar" size={12} color={colors.mutedForeground} />
                 <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 4 }}>{item.visitDate} {item.visitTime}</Text>
               </View>
             </View>

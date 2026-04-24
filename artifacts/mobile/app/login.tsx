@@ -11,7 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -178,7 +178,7 @@ export default function LoginScreen() {
               style={[styles.eyeBtn, { right: isRTL ? undefined : 12, left: isRTL ? 12 : undefined }]}
               onPress={() => setShowPassword(!showPassword)}
             >
-              <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+              <VectorIcon name={showPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
 
