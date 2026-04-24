@@ -119,6 +119,10 @@ export default function OrderDetailsScreen() {
   .total-row{background:#fef3c7;font-weight:700;font-size:16px}
   .total-row td{padding:12px;color:#d97706}
   h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}
+  .meta{background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .meta-item{display:flex;flex-direction:column;gap:2px}
+  .meta-label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em}
+  .meta-value{font-size:14px;font-weight:600;color:#111827}
 </style>
 </head>
 <body>
@@ -128,6 +132,24 @@ export default function OrderDetailsScreen() {
   <div class="invoice-num">#${inv.invoiceNumber}</div>
 </div>
 <h2>${t("invoice.title")} #${inv.invoiceNumber}</h2>
+<div class="meta">
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.client")}</span>
+    <span class="meta-value">${order.clientName}</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.orderNumber")}</span>
+    <span class="meta-value">${order.orderNumber}</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.date")}</span>
+    <span class="meta-value">${new Date(order.visitDate).toLocaleDateString(isRTL ? "ar-EG" : "en-GB", { year: "numeric", month: "long", day: "numeric" })}</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.category")}</span>
+    <span class="meta-value">${t(`cat.${order.category}`) || order.category}</span>
+  </div>
+</div>
 <table>
   <tbody>
     ${rows}
