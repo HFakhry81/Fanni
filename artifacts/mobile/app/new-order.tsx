@@ -70,6 +70,7 @@ const SUB_IMAGE_MAP: Record<string, ReturnType<typeof require>> = {
 type OrderStep = 1 | 2 | 3;
 
 const DRAFT_KEY = "fanni_order_draft";
+const DRAFT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 export default function NewOrderScreen() {
   const { category = "", subCategory = "", subImageKey = "" } = useLocalSearchParams<{ category: string; subCategory: string; subImageKey: string }>();
@@ -123,6 +124,12 @@ export default function NewOrderScreen() {
         draft = JSON.parse(raw);
       } catch (err) {
         console.warn("[Fanni] Failed to parse order draft:", err);
+        await AsyncStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      // Discard expired drafts
+      if (typeof draft.savedAt === "number" && Date.now() - draft.savedAt > DRAFT_TTL_MS) {
+        console.log("[Fanni] Order draft expired — discarding");
         await AsyncStorage.removeItem(DRAFT_KEY);
         return;
       }
@@ -190,9 +197,16 @@ export default function NewOrderScreen() {
       street, building, floor, apartment, landmark,
       latitude, longitude,
       visitDate, visitTime,
+      savedAt: Date.now(),
     };
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    await login();
+    const result = await login();
+    // Only discard the draft when the login definitively failed or was abandoned.
+    // "opened" means the browser is still open; "success" means auth completed.
+    // For any other unexpected result we keep the draft to avoid data loss.
+    if (result === "cancel" || result === "dismiss" || result === "error" || result === "locked") {
+      await AsyncStorage.removeItem(DRAFT_KEY);
+    }
   };
 
   const handleNext = () => { if (step < 3) setStep((step + 1) as OrderStep); };

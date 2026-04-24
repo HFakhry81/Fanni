@@ -33,11 +33,13 @@ export interface AuthUser {
   mustChangePassword?: boolean | null;
 }
 
+export type LoginResult = "success" | "cancel" | "dismiss" | "error" | "locked" | "opened" | "unknown";
+
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: () => Promise<void>;
+  login: () => Promise<LoginResult>;
   logout: () => Promise<void>;
   setRole: (role: "client" | "technician" | "admin") => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -48,7 +50,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
   isAuthenticated: false,
-  login: async () => {},
+  login: async () => "error",
   logout: async () => {},
   setRole: async () => {},
   refreshUser: async () => {},
@@ -152,11 +154,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, [response, request, redirectUri, fetchUser]);
 
-  const login = useCallback(async () => {
+  const login = useCallback(async (): Promise<LoginResult> => {
     try {
-      await promptAsync();
+      const result = await promptAsync();
+      const type = result?.type;
+      if (
+        type === "success" ||
+        type === "cancel" ||
+        type === "dismiss" ||
+        type === "error" ||
+        type === "locked" ||
+        type === "opened"
+      ) {
+        return type;
+      }
+      return "unknown";
     } catch (err) {
       console.error("Login error:", err);
+      return "error";
     }
   }, [promptAsync]);
 
