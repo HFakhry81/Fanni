@@ -174,6 +174,10 @@ export default function TechProfileScreen() {
   const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
   const govText = govData ? (isRTL ? govData.ar : govData.en) : (isRTL ? "الإسكندرية" : "Alexandria");
   const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : (isRTL ? "حي شرق" : "Al Sharq District");
+  const hasServiceArea = !!(govData && areaData);
+  const serviceAreaDisplay = hasServiceArea
+    ? `${isRTL ? govData!.ar : govData!.en} — ${isRTL ? areaData!.ar : areaData!.en}`
+    : null;
 
   const openPwSheet = () => {
     setCurrentPw("");
@@ -441,6 +445,43 @@ export default function TechProfileScreen() {
             </View>
           ))}
         </View>
+
+        {/* Service Area Banner */}
+        {hasServiceArea ? (
+          <View style={[styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <View style={[styles.serviceAreaIcon, { backgroundColor: colors.primary + "15" }]}>
+              <Feather name="map-pin" size={14} color={colors.primary} />
+            </View>
+            <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
+                {t("tech.serviceArea")}
+              </Text>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginTop: 1 }}>
+                {serviceAreaDisplay}
+              </Text>
+            </View>
+            <View style={[styles.serviceAreaActiveDot, { backgroundColor: "#22A36B" }]} />
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.serviceAreaBanner, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A", flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={openEdit}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.serviceAreaIcon, { backgroundColor: "#FEF3C7" }]}>
+              <Feather name="alert-circle" size={14} color="#D97706" />
+            </View>
+            <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
+              <Text style={{ color: "#92400E", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                {t("tech.noServiceArea")}
+              </Text>
+              <Text style={{ color: "#B45309", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
+                {t("tech.noServiceAreaPrompt")}
+              </Text>
+            </View>
+            <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />
+          </TouchableOpacity>
+        )}
 
         <View style={styles.menuSection}>
           {/* Availability toggle */}
@@ -913,4 +954,8 @@ const styles = StyleSheet.create({
   pwInput: { flex: 1, paddingVertical: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
   categoryGrid: { flexWrap: "wrap", gap: 8 },
   categoryChip: { flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1.5 },
+  serviceAreaBanner: { marginHorizontal: 16, marginTop: 12, marginBottom: 2, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", gap: 10 },
+  serviceAreaIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  serviceAreaText: { flex: 1 },
+  serviceAreaActiveDot: { width: 8, height: 8, borderRadius: 4 },
 });

@@ -334,6 +334,7 @@ const translations: Record<string, Record<Language, string>> = {
   // Service area
   "tech.serviceArea": { ar: "منطقة الخدمة النشطة", en: "Active Service Area" },
   "tech.noServiceArea": { ar: "لم يتم تحديد منطقة خدمة بعد", en: "No service area set yet" },
+  "tech.noServiceAreaPrompt": { ar: "اضغط هنا لتحديث ملفك الشخصي", en: "Tap here to update your profile" },
   "tech.updateProfile": { ar: "تحديث ملفك الشخصي", en: "Update your profile" },
   "tech.toReceiveOrders": { ar: "لتلقي الطلبات في منطقتك", en: "to receive orders in your area" },
 };
