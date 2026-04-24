@@ -30,6 +30,10 @@ export default function TechMapScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const autoShownRef = useRef<Set<string>>(new Set());
+  const [catBannerDismissed, setCatBannerDismissed] = useState(false);
+
+  const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
+  const showCatBanner = !!user && !catBannerDismissed && !hasCategories;
 
   const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
   const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
@@ -264,6 +268,33 @@ export default function TechMapScreen() {
         </Pressable>
       )}
 
+      {/* No-categories nudge banner */}
+      {showCatBanner && (
+        <Pressable
+          style={[styles.catBanner, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA", flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={() => router.push("/(tech)/profile?openCategories=1")}
+        >
+          <View style={[styles.serviceAreaIcon, { backgroundColor: "#FFEDD5" }]}>
+            <VectorIcon name="grid" size={14} color="#EA580C" />
+          </View>
+          <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
+            <Text style={{ color: "#7C2D12", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+              {t("tech.noCategories")}
+            </Text>
+            <Text style={{ color: "#C2410C", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
+              {t("tech.noCategoriesPrompt")}
+            </Text>
+          </View>
+          <Pressable
+            onPress={(e) => { e.stopPropagation(); setCatBannerDismissed(true); }}
+            style={{ padding: 4 }}
+            hitSlop={8}
+          >
+            <VectorIcon name="x" size={14} color="#9A3412" />
+          </Pressable>
+        </Pressable>
+      )}
+
       {/* Orders list */}
       <View style={[styles.ordersSection, { backgroundColor: colors.background }]}>
         {!isOnline && (
@@ -466,4 +497,5 @@ const styles = StyleSheet.create({
   serviceAreaIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   serviceAreaText: { flex: 1 },
   serviceAreaActiveDot: { width: 8, height: 8, borderRadius: 4, marginLeft: "auto" },
+  catBanner: { marginHorizontal: 16, marginTop: 8, marginBottom: 2, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", gap: 10 },
 });

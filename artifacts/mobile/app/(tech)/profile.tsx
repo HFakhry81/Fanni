@@ -1,9 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
   Modal, TextInput, KeyboardAvoidingView, Alert, Image, type AlertButton,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import * as ImagePicker from "expo-image-picker";
@@ -30,6 +30,7 @@ const SERVICE_CATEGORIES = [
 
 export default function TechProfileScreen() {
   const router = useRouter();
+  const { openCategories } = useLocalSearchParams<{ openCategories?: string }>();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language, isOnline, setIsOnline } = useApp();
   const { logout, sessionToken } = useAuth();
@@ -42,6 +43,9 @@ export default function TechProfileScreen() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastAction, setToastAction] = useState<{ label: string; onPress: () => void } | undefined>(undefined);
   const undoAvatarRef = useRef<string | undefined>(undefined);
+  const editScrollRef = useRef<ScrollView>(null);
+  const categoriesYRef = useRef<number>(0);
+  const [highlightCategories, setHighlightCategories] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -65,6 +69,23 @@ export default function TechProfileScreen() {
   const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
+
+  useEffect(() => {
+    if (openCategories === "1" && user && !editVisible) {
+      setHighlightCategories(true);
+      openEdit();
+      router.replace("/(tech)/profile");
+      setTimeout(() => {
+        editScrollRef.current?.scrollTo({ y: categoriesYRef.current, animated: true });
+      }, 400);
+    }
+  }, [openCategories]);
+
+  useEffect(() => {
+    if (!editVisible) {
+      setHighlightCategories(false);
+    }
+  }, [editVisible]);
 
   const toggleCategory = (key: string) => {
     setEditCategories((prev) =>
@@ -785,7 +806,7 @@ export default function TechProfileScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+              <ScrollView ref={editScrollRef} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
                 {/* Name */}
                 <View style={styles.fieldWrap}>
                   <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
@@ -836,8 +857,14 @@ export default function TechProfileScreen() {
                 </View>
 
                 {/* Service Categories */}
-                <View style={styles.fieldWrap}>
-                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                <View
+                  style={[
+                    styles.fieldWrap,
+                    highlightCategories && { borderWidth: 2, borderColor: "#EA580C", borderRadius: 12, padding: 10, backgroundColor: "#FFF7ED" },
+                  ]}
+                  onLayout={(e) => { categoriesYRef.current = e.nativeEvent.layout.y; }}
+                >
+                  <Text style={[styles.fieldLabel, { color: highlightCategories ? "#7C2D12" : colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
                     {isRTL ? "تخصصات الخدمة" : "Service Categories"}
                   </Text>
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>

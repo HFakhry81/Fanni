@@ -339,6 +339,8 @@ const translations: Record<string, Record<Language, string>> = {
   "tech.toReceiveOrders": { ar: "لتلقي الطلبات في منطقتك", en: "to receive orders in your area" },
   "tech.allOrdersShown": { ar: "تعرض جميع الطلبات — حدد منطقتك لتصفيتها", en: "Showing all orders — set your area to filter results" },
   "tech.filteredByArea": { ar: "الطلبات مصفاة حسب منطقة خدمتك", en: "Orders filtered by your service area" },
+  "tech.noCategories": { ar: "لم تختر تخصصات الخدمة بعد", en: "No service categories selected yet" },
+  "tech.noCategoriesPrompt": { ar: "بدون تخصصات لن تتلقى أي طلبات — اضغط لإضافتها الآن", en: "Without categories you won't receive orders — tap to add them now" },
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
