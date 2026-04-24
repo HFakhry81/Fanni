@@ -149,6 +149,14 @@ export default function OrderDetailsScreen() {
     <span class="meta-label">${t("invoice.category")}</span>
     <span class="meta-value">${t(`cat.${order.category}`) || order.category}</span>
   </div>
+  ${order.technicianName ? `<div class="meta-item">
+    <span class="meta-label">${t("invoice.technician")}</span>
+    <span class="meta-value">${order.technicianName}</span>
+  </div>` : ""}
+  ${order.technicianMobile ? `<div class="meta-item">
+    <span class="meta-label">${t("invoice.phone")}</span>
+    <span class="meta-value" style="direction:ltr;unicode-bidi:plaintext">${order.technicianMobile}</span>
+  </div>` : ""}
 </div>
 <table>
   <tbody>
