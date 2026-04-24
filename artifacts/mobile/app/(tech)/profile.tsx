@@ -34,7 +34,7 @@ export default function TechProfileScreen() {
   const { openCategories } = useLocalSearchParams<{ openCategories?: string }>();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language, isOnline, setIsOnline } = useApp();
-  const { logout, sessionToken } = useAuth();
+  const { logout, sessionToken, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -160,55 +160,55 @@ export default function TechProfileScreen() {
     const firstName = nameParts[0] ?? editName.trim();
     const lastName = nameParts.slice(1).join(" ") || null;
 
-    if (sessionToken) {
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+    const apiBase = domain ? `https://${domain}` : "";
+    if (sessionToken && apiBase) {
       try {
-        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-        const apiBase = domain ? `https://${domain}` : "";
-        if (apiBase) {
-          const body: Record<string, unknown> = {
-            firstName,
-            lastName,
-            specialty: editSpecialty.trim() || user.specialty || null,
-            governorate: editGov || null,
-            area: editArea || null,
-            serviceCategories: editCategories.length > 0 ? editCategories : null,
-          };
-          if (verificationToken) {
-            body.mobile = normalizedMobile;
-            body.verificationToken = verificationToken;
-          }
-          const res = await fetch(`${apiBase}/api/auth/me`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) {
-            const data = await res.json() as { error?: string };
-            setToastMessage(data.error ?? (isRTL ? "فشل حفظ البيانات على الخادم، حاول مرة أخرى" : "Failed to save to server, please try again"));
-            setToastVisible(true);
-            return;
-          }
+        const body: Record<string, unknown> = {
+          firstName,
+          lastName,
+          specialty: editSpecialty.trim() || user.specialty || null,
+          governorate: editGov || null,
+          area: editArea || null,
+          serviceCategories: editCategories.length > 0 ? editCategories : null,
+        };
+        if (verificationToken) {
+          body.mobile = normalizedMobile;
+          body.verificationToken = verificationToken;
         }
+        const res = await fetch(`${apiBase}/api/auth/me`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const data = await res.json() as { error?: string };
+          setToastMessage(data.error ?? (isRTL ? "فشل حفظ البيانات على الخادم، حاول مرة أخرى" : "Failed to save to server, please try again"));
+          setToastVisible(true);
+          return;
+        }
+        await refreshUser();
       } catch (_) {
         setToastMessage(isRTL ? "تعذّر الاتصال بالخادم" : "Could not reach server");
         setToastVisible(true);
         return;
       }
+    } else {
+      await setUser({
+        ...user,
+        name: editName.trim(),
+        mobile: normalizedMobile,
+        specialty: editSpecialty.trim() || user.specialty,
+        governorate: editGov,
+        area: editArea,
+        address: editStreet.trim(),
+        serviceCategories: editCategories,
+      });
     }
 
-    await setUser({
-      ...user,
-      name: editName.trim(),
-      mobile: normalizedMobile,
-      specialty: editSpecialty.trim() || user.specialty,
-      governorate: editGov,
-      area: editArea,
-      address: editStreet.trim(),
-      serviceCategories: editCategories,
-    });
     setEditVisible(false);
     setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
     setToastVisible(true);
