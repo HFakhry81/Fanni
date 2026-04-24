@@ -62,8 +62,16 @@ Bilingual (Arabic RTL + English LTR) home maintenance service app built with Exp
 - `components/MapPickerModal.tsx` — full-screen map (react-native-maps + OpenStreetMap tiles), draggable pin, address search, web fallback
 - Map screen (`(tech)/map.tsx`) shows Alexandria with Mediterranean sea band, district tags, city coordinates
 
+### Photo Storage
+- **Object Storage**: Replit GCS-backed bucket; env vars `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS` provisioned
+- `POST /api/upload` — authenticated multipart endpoint; validates MIME type (JPEG/PNG/WebP) and size (max 8 MB); stores in GCS with public ACL; returns `{ url }`
+- Profile photos (client + tech): uploaded via `/api/upload` → URL stored in `users.profile_image_url` via PATCH `/api/auth/me`
+- Order problem photos: uploaded via `/api/upload` → URLs stored in `orders.data.photos[]` (backward-compat: old Base64 still renders)
+- `utils/uploadPhoto.ts` — shared React Native upload utility (FormData + fetch)
+- Server-side files: `api-server/src/lib/objectStorage.ts`, `api-server/src/lib/objectAcl.ts`, `api-server/src/routes/upload.ts`
+
 ### Architecture
-- **Frontend-only** (no backend calls) — uses AsyncStorage for persistence
+- Hybrid: local state (AsyncStorage) + API backend (Express on port 8080)
 - `context/AppContext.tsx` — i18n (130+ keys), user state, RTL
 - `context/OrderContext.tsx` — orders + invoices with seed data
 - `constants/colors.ts` — design tokens (Navy #0D1B2A, Golden #F5A623, Sky Blue #4DADD9)

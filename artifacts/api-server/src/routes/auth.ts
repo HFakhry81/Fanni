@@ -911,7 +911,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
 // PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, serviceCategories } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, serviceCategories, profileImageUrl } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -922,6 +922,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     area?: string | null;
     district?: string | null;
     serviceCategories?: string[] | null;
+    profileImageUrl?: string | null;
   };
 
   const now = new Date();
@@ -1051,6 +1052,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (area !== undefined) updates.area = area ?? null;
   if (district !== undefined) updates.district = district ?? null;
   if (serviceCategories !== undefined) updates.serviceCategories = serviceCategories ?? null;
+  if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl ?? null;
 
   // When a technician updates their area or governorate, geocode the new location.
   // Always clear the stored geography first so a stale point is never left behind

@@ -16,6 +16,7 @@ import Toast from "@/components/Toast";
 import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
+import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -260,6 +261,33 @@ export default function ClientProfileScreen() {
     router.replace("/welcome");
   };
 
+  const handlePickedPhoto = async (uri: string, mimeType: string) => {
+    if (!user) return;
+    await setUser({ ...user, avatar: uri });
+    setToastMessage(isRTL ? "جاري رفع الصورة..." : "Uploading photo...");
+    setToastVisible(true);
+    if (sessionToken) {
+      try {
+        const { url } = await uploadPhotoToServer(uri, sessionToken, mimeType);
+        await setUser({ ...user, avatar: url });
+        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+        if (domain) {
+          await fetch(`https://${domain}/api/auth/me`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+            body: JSON.stringify({ profileImageUrl: url }),
+          }).catch(() => {});
+        }
+        setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
+      } catch (_) {
+        setToastMessage(isRTL ? "تم حفظ الصورة محلياً فقط" : "Photo saved locally only");
+      }
+    } else {
+      setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
+    }
+    setToastVisible(true);
+  };
+
   const pickPhoto = () => {
     const hasPhoto = !!user?.avatar;
     const buttons: AlertButton[] = [
@@ -279,15 +307,11 @@ export default function ClientProfileScreen() {
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.7,
-            base64: true,
           });
           if (!result.canceled && result.assets[0] && user) {
-            const uri = result.assets[0].base64
-              ? `data:image/jpeg;base64,${result.assets[0].base64}`
-              : result.assets[0].uri;
-            await setUser({ ...user, avatar: uri });
-            setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
-            setToastVisible(true);
+            const asset = result.assets[0];
+            const mimeType = asset.mimeType ?? "image/jpeg";
+            await handlePickedPhoto(asset.uri, mimeType);
           }
         },
       },
@@ -307,15 +331,11 @@ export default function ClientProfileScreen() {
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.7,
-            base64: true,
           });
           if (!result.canceled && result.assets[0] && user) {
-            const uri = result.assets[0].base64
-              ? `data:image/jpeg;base64,${result.assets[0].base64}`
-              : result.assets[0].uri;
-            await setUser({ ...user, avatar: uri });
-            setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
-            setToastVisible(true);
+            const asset = result.assets[0];
+            const mimeType = asset.mimeType ?? "image/jpeg";
+            await handlePickedPhoto(asset.uri, mimeType);
           }
         },
       },

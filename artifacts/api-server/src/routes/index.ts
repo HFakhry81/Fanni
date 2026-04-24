@@ -7,6 +7,7 @@ import adminRouter from "./admin";
 import invoicesRouter from "./invoices";
 import locationsRouter from "./locations";
 import geoRouter from "./geo";
+import uploadRouter from "./upload";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(adminRouter);
 router.use(invoicesRouter);
 router.use(locationsRouter);
 router.use(geoRouter);
+router.use(uploadRouter);
 
 export default router;

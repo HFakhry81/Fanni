@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Platform, ImageBackground,
+  TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +18,8 @@ import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import type { LocationOption } from "@/components/LocationPicker";
+import { uploadPhotoToServer } from "@/utils/uploadPhoto";
+import type { OrderPhoto } from "@/context/OrderContext";
 
 // ── API helpers (mirror of LocationPicker) ────────────────────────────────────
 function getApiBase(): string {
@@ -83,6 +86,10 @@ export default function NewOrderScreen() {
 
   const [step, setStep] = useState<OrderStep>(1);
   const [loading, setLoading] = useState(false);
+
+  // ── Order photos ─────────────────────────────────────────────────────────────
+  const [orderPhotos, setOrderPhotos] = useState<OrderPhoto[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   // ── Step 1 ──────────────────────────────────────────────────────────────────
   const [problemDesc, setProblemDesc] = useState("");
@@ -237,7 +244,7 @@ export default function NewOrderScreen() {
       subCategory: subCategory as string,
       problemDescription: problemDesc,
       deviceType,
-      photos: [],
+      photos: orderPhotos,
       street: fullAddress,
       building, floor, apartment, landmark,
       governorate: govOpt ? govOpt.en.toLowerCase() : undefined,
@@ -276,6 +283,54 @@ export default function NewOrderScreen() {
     router.replace("/(client)/orders");
   };
 
+  // ── Order photo picking ───────────────────────────────────────────────────────
+  const MAX_PHOTOS = 4;
+
+  const pickOrderPhoto = async () => {
+    if (orderPhotos.length >= MAX_PHOTOS) {
+      Alert.alert(
+        isRTL ? "الحد الأقصى" : "Maximum Reached",
+        isRTL ? `يمكنك إضافة ${MAX_PHOTOS} صور كحد أقصى.` : `You can add up to ${MAX_PHOTOS} photos.`
+      );
+      return;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        isRTL ? "لا يوجد إذن" : "Permission Required",
+        isRTL ? "يرجى السماح للتطبيق بالوصول إلى معرض الصور من الإعدادات." : "Please allow photo library access in your settings."
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.75,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    if (sessionToken) {
+      setPhotoUploading(true);
+      try {
+        const mimeType = asset.mimeType ?? "image/jpeg";
+        const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+        setOrderPhotos((prev) => [...prev, { id: photoId, uri: url }]);
+      } catch (_) {
+        setOrderPhotos((prev) => [...prev, { id: photoId, uri: asset.uri }]);
+      } finally {
+        setPhotoUploading(false);
+      }
+    } else {
+      setOrderPhotos((prev) => [...prev, { id: photoId, uri: asset.uri }]);
+    }
+  };
+
+  const removeOrderPhoto = (id: string) => {
+    setOrderPhotos((prev) => prev.filter((p) => p.id !== id));
+  };
+
   // ── Step 1: Describe ────────────────────────────────────────────────────────
   const renderStep1 = () => (
     <View>
@@ -303,14 +358,40 @@ export default function NewOrderScreen() {
         {t("order.photos")}
       </Text>
       <View style={[styles.photosRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        {[0, 1, 2, 3].map((i) => (
+        {orderPhotos.map((photo) => (
           <TouchableOpacity
-            key={i}
-            style={[styles.photoBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}
+            key={photo.id}
+            style={[styles.photoBox, { borderColor: colors.primary, borderRadius: colors.radius, overflow: "hidden", borderStyle: "solid" }]}
+            onPress={() => {
+              Alert.alert(
+                isRTL ? "حذف الصورة" : "Remove Photo",
+                isRTL ? "هل تريد حذف هذه الصورة؟" : "Remove this photo?",
+                [
+                  { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+                  { text: isRTL ? "حذف" : "Remove", style: "destructive", onPress: () => removeOrderPhoto(photo.id) },
+                ]
+              );
+            }}
           >
-            <VectorIcon name="plus" size={22} color={colors.mutedForeground} />
+            <Image source={{ uri: photo.uri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+            <View style={{ position: "absolute", top: 3, right: 3, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 8, padding: 2 }}>
+              <VectorIcon name="x" size={10} color="#FFF" />
+            </View>
           </TouchableOpacity>
         ))}
+        {orderPhotos.length < MAX_PHOTOS && (
+          <TouchableOpacity
+            style={[styles.photoBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}
+            onPress={pickOrderPhoto}
+            disabled={photoUploading}
+          >
+            {photoUploading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <VectorIcon name="plus" size={22} color={colors.mutedForeground} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
