@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
   Modal, TextInput, KeyboardAvoidingView, Alert, Image, type AlertButton,
@@ -40,6 +40,8 @@ export default function TechProfileScreen() {
   const [pwVisible, setPwVisible] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastAction, setToastAction] = useState<{ label: string; onPress: () => void } | undefined>(undefined);
+  const undoAvatarRef = useRef<string | undefined>(undefined);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -301,8 +303,19 @@ export default function TechProfileScreen() {
                 style: "destructive",
                 onPress: async () => {
                   if (user) {
+                    const previousAvatar = user.avatar;
+                    undoAvatarRef.current = previousAvatar;
                     await setUser({ ...user, avatar: undefined });
                     setToastMessage(isRTL ? "تم حذف صورة الملف الشخصي" : "Profile photo removed");
+                    setToastAction({
+                      label: isRTL ? "تراجع" : "Undo",
+                      onPress: async () => {
+                        if (user && undoAvatarRef.current !== undefined) {
+                          await setUser({ ...user, avatar: undoAvatarRef.current });
+                          undoAvatarRef.current = undefined;
+                        }
+                      },
+                    });
                     setToastVisible(true);
                   }
                 },
@@ -804,7 +817,9 @@ export default function TechProfileScreen() {
       <Toast
         visible={toastVisible}
         message={toastMessage}
-        onHide={() => setToastVisible(false)}
+        duration={toastAction ? 4000 : 2000}
+        onHide={() => { setToastVisible(false); setToastAction(undefined); }}
+        action={toastAction}
       />
     </View>
   );
