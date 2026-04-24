@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  TextInput,
   Platform,
   ActivityIndicator,
   Alert,
@@ -64,59 +65,103 @@ export default function AdminUsersScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentPage = useRef(1);
-  const isFetching = useRef(false);
+  const replaceAbortController = useRef<AbortController | null>(null);
+  const isLoadingMoreRef = useRef(false);
 
-  const fetchUsers = useCallback(async (page: number, replace: boolean) => {
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(text);
+    }, 400);
+  }, []);
+
+  const fetchUsers = useCallback(async (page: number, replace: boolean, search?: string) => {
     if (!sessionToken) return;
-    if (isFetching.current) return;
-    isFetching.current = true;
 
     if (replace) {
+      // Cancel any in-flight replacement request so the latest query always wins
+      replaceAbortController.current?.abort();
+      const controller = new AbortController();
+      replaceAbortController.current = controller;
+
       setIsLoading(true);
       setError(null);
-    } else {
-      setIsLoadingMore(true);
-    }
 
-    try {
-      const role = TAB_ROLE_MAP[tab];
-      const apiBase = getApiBaseUrl();
-      const res = await fetch(
-        `${apiBase}/api/admin/users?page=${page}&limit=20&role=${role}`,
-        { headers: { Authorization: `Bearer ${sessionToken}` } }
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
-      }
-      const data = await res.json() as { users: ApiUser[]; pagination: Pagination };
-      if (replace) {
+      try {
+        const role = TAB_ROLE_MAP[tab];
+        const apiBase = getApiBaseUrl();
+        const searchParam = search && search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
+        const res = await fetch(
+          `${apiBase}/api/admin/users?page=${page}&limit=20&role=${role}${searchParam}`,
+          { headers: { Authorization: `Bearer ${sessionToken}` }, signal: controller.signal }
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+        }
+        const data = await res.json() as { users: ApiUser[]; pagination: Pagination };
         setUsers(data.users);
-      } else {
-        setUsers((prev) => [...prev, ...data.users]);
+        setPagination(data.pagination);
+        currentPage.current = page;
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Failed to load users");
+      } finally {
+        setIsLoading(false);
       }
-      setPagination(data.pagination);
-      currentPage.current = page;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load users");
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      isFetching.current = false;
+    } else {
+      // Load-more: guard against concurrent requests
+      if (isLoadingMoreRef.current) return;
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+
+      try {
+        const role = TAB_ROLE_MAP[tab];
+        const apiBase = getApiBaseUrl();
+        const searchParam = search && search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
+        const res = await fetch(
+          `${apiBase}/api/admin/users?page=${page}&limit=20&role=${role}${searchParam}`,
+          { headers: { Authorization: `Bearer ${sessionToken}` } }
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+        }
+        const data = await res.json() as { users: ApiUser[]; pagination: Pagination };
+        setUsers((prev) => [...prev, ...data.users]);
+        setPagination(data.pagination);
+        currentPage.current = page;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load users");
+      } finally {
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }
     }
   }, [sessionToken, tab]);
 
   useEffect(() => {
     currentPage.current = 1;
-    fetchUsers(1, true);
-  }, [fetchUsers]);
+    fetchUsers(1, true, debouncedSearch);
+  }, [fetchUsers, debouncedSearch]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      replaceAbortController.current?.abort();
+    };
+  }, []);
 
   const loadMore = useCallback(() => {
     if (!pagination) return;
     if (currentPage.current >= pagination.totalPages) return;
-    fetchUsers(currentPage.current + 1, false);
-  }, [pagination, fetchUsers]);
+    fetchUsers(currentPage.current + 1, false, debouncedSearch);
+  }, [pagination, fetchUsers, debouncedSearch]);
 
   const updateUser = useCallback(async (
     userId: string,
@@ -312,7 +357,14 @@ export default function AdminUsersScreen() {
           <TouchableOpacity
             key={key}
             style={[styles.tab, { backgroundColor: tab === key ? colors.secondary : "transparent", borderRadius: colors.radius - 4 }]}
-            onPress={() => setTab(key)}
+            onPress={() => {
+              if (tab !== key) {
+                if (debounceTimer.current) clearTimeout(debounceTimer.current);
+                setSearchQuery("");
+                setDebouncedSearch("");
+                setTab(key);
+              }
+            }}
           >
             <Feather
               name={key === "technicians" ? "tool" : key === "admins" ? "shield" : "users"}
@@ -324,6 +376,26 @@ export default function AdminUsersScreen() {
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+          placeholder={isRTL ? "بحث بالاسم أو الجوال أو البريد أو المنطقة..." : "Search by name, mobile, email, or area..."}
+          placeholderTextColor={colors.mutedForeground}
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {searchQuery.length > 0 && Platform.OS !== "ios" ? (
+          <TouchableOpacity onPress={() => handleSearchChange("")}>
+            <Feather name="x" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {isLoading ? (
@@ -341,7 +413,7 @@ export default function AdminUsersScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.retryBtn, { backgroundColor: colors.secondary, borderRadius: colors.radius - 4, marginTop: 16 }]}
-            onPress={() => fetchUsers(1, true)}
+            onPress={() => fetchUsers(1, true, debouncedSearch)}
           >
             <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold" }}>
               {isRTL ? "إعادة المحاولة" : "Retry"}
@@ -358,9 +430,11 @@ export default function AdminUsersScreen() {
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
             <View style={styles.centered}>
-              <Feather name="users" size={40} color={colors.mutedForeground} />
-              <Text style={{ color: colors.mutedForeground, marginTop: 12, fontFamily: "Inter_400Regular" }}>
-                {isRTL ? "لا يوجد مستخدمون" : "No users found"}
+              <Feather name={debouncedSearch ? "search" : "users"} size={40} color={colors.mutedForeground} />
+              <Text style={{ color: colors.mutedForeground, marginTop: 12, fontFamily: "Inter_400Regular", textAlign: "center" }}>
+                {debouncedSearch
+                  ? (isRTL ? `لا توجد نتائج لـ "${debouncedSearch}"` : `No results for "${debouncedSearch}"`)
+                  : (isRTL ? "لا يوجد مستخدمون" : "No users found")}
               </Text>
             </View>
           }
@@ -379,9 +453,26 @@ export default function AdminUsersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  tabBar: { margin: 12, padding: 4, borderRadius: 14 },
+  tabBar: { margin: 12, marginBottom: 0, padding: 4, borderRadius: 14 },
   tab: { flex: 1, paddingVertical: 10, alignItems: "center", flexDirection: "row", justifyContent: "center" },
-  list: { paddingHorizontal: 16, paddingTop: 4 },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  list: { paddingHorizontal: 16, paddingTop: 8 },
   card: { marginBottom: 12, borderWidth: 1.5, flexDirection: "row", overflow: "hidden" },
   accentBar: { width: 4 },
   cardBody: { flex: 1, padding: 14 },

@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
 import { db, usersTable, adminsTable, loginLogsTable } from "@workspace/db";
-import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
+import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { verifyOtpToken, OTP_ENABLED } from "../lib/otp";
@@ -146,32 +146,52 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
   const role = req.query.role as string | undefined;
+  const search = req.query.search ? String(req.query.search).trim() : undefined;
   const offset = (page - 1) * limit;
 
   // Admins are now in a separate table; only list clients and technicians here.
   // If caller explicitly requests role=admin, return admin list from admins table instead.
   if (role === "admin") {
-    const admins = await db
-      .select({
-        id: adminsTable.id,
-        firstName: adminsTable.firstName,
-        lastName: adminsTable.lastName,
-        email: adminsTable.email,
-        mobile: adminsTable.mobile,
-        role: sql<string>`'admin'`,
-        isActive: adminsTable.isActive,
-        area: sql<null>`null`,
-        governorate: sql<null>`null`,
-        specialty: sql<null>`null`,
-        profession: sql<null>`null`,
-        createdAt: adminsTable.createdAt,
-      })
-      .from(adminsTable)
-      .orderBy(desc(adminsTable.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const adminConditions = [];
+    if (search) {
+      const pattern = `%${search}%`;
+      adminConditions.push(
+        or(
+          ilike(adminsTable.firstName, pattern),
+          ilike(adminsTable.lastName, pattern),
+          ilike(adminsTable.email, pattern),
+          ilike(adminsTable.mobile, pattern),
+          sql`concat(${adminsTable.firstName}, ' ', coalesce(${adminsTable.lastName}, '')) ilike ${pattern}`
+        )
+      );
+    }
 
-    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(adminsTable);
+    const adminWhere = adminConditions.length > 0 ? and(...adminConditions) : undefined;
+
+    const [admins, [countResult]] = await Promise.all([
+      db
+        .select({
+          id: adminsTable.id,
+          firstName: adminsTable.firstName,
+          lastName: adminsTable.lastName,
+          email: adminsTable.email,
+          mobile: adminsTable.mobile,
+          role: sql<string>`'admin'`,
+          isActive: adminsTable.isActive,
+          area: sql<null>`null`,
+          governorate: sql<null>`null`,
+          specialty: sql<null>`null`,
+          profession: sql<null>`null`,
+          createdAt: adminsTable.createdAt,
+        })
+        .from(adminsTable)
+        .where(adminWhere)
+        .orderBy(desc(adminsTable.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(adminsTable).where(adminWhere),
+    ]);
+
     const total = countResult?.count ?? 0;
 
     return res.json({
@@ -184,6 +204,22 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   if (role && ["client", "technician"].includes(role)) {
     conditions.push(eq(usersTable.role, role as "client" | "technician"));
   }
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(usersTable.firstName, pattern),
+        ilike(usersTable.lastName, pattern),
+        ilike(usersTable.email, pattern),
+        ilike(usersTable.mobile, pattern),
+        ilike(usersTable.area, pattern),
+        ilike(usersTable.governorate, pattern),
+        sql`concat(${usersTable.firstName}, ' ', coalesce(${usersTable.lastName}, '')) ilike ${pattern}`
+      )
+    );
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const baseQuery = db
     .select({
@@ -203,12 +239,8 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
     .from(usersTable);
 
   const [rows, countResult] = await Promise.all([
-    conditions.length > 0
-      ? baseQuery.where(conditions[0]).orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset)
-      : baseQuery.orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
-    conditions.length > 0
-      ? db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(conditions[0])
-      : db.select({ count: sql<number>`count(*)::int` }).from(usersTable),
+    baseQuery.where(whereClause).orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(whereClause),
   ]);
 
   const total = countResult[0]?.count ?? 0;
