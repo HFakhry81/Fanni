@@ -490,35 +490,53 @@ export default function LocationPicker({
     const cityAr = loc.cityAr ?? "";
     const suburbAr = loc.suburbAr ?? "";
 
-    if (govOptions.length > 0) {
-      const govMatch = govOptions.find(
-        (g) => optionMatches(g, cityEn) || optionMatches(g, cityAr),
-      );
-      if (govMatch && govMatch.id !== governorateId) {
-        onGovernorateChange(govMatch.id);
-        onGovernorateSelect?.(govMatch);
-        onAreaChange("");
+    let currentGovOptions = govOptions;
+    if (currentGovOptions.length === 0) {
+      const rows = await fetchGovernorates();
+      const opts = rows.map(rowToOption);
+      setGovOptions(opts);
+      currentGovOptions = opts;
+    }
 
-        const areaRows = await fetchAreas(govMatch.id);
+    if (currentGovOptions.length === 0) return;
+
+    const govMatch = currentGovOptions.find(
+      (g) => optionMatches(g, cityEn) || optionMatches(g, cityAr) ||
+             optionMatches(g, suburbEn) || optionMatches(g, suburbAr),
+    );
+
+    if (govMatch && govMatch.id !== governorateId) {
+      onGovernorateChange(govMatch.id);
+      onGovernorateSelect?.(govMatch);
+      onAreaChange("");
+
+      const areaRows = await fetchAreas(govMatch.id);
+      const areaOpts = areaRows.map(rowToOption);
+      setAreaOptions(areaOpts);
+
+      const areaMatch = areaOpts.find(
+        (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
+               optionMatches(a, cityEn)   || optionMatches(a, cityAr),
+      );
+      if (areaMatch) {
+        onAreaChange(areaMatch.id);
+        onAreaSelect?.(areaMatch);
+      }
+    } else if (governorateId) {
+      let currentAreaOptions = areaOptions;
+      if (currentAreaOptions.length === 0) {
+        const areaRows = await fetchAreas(governorateId);
         const areaOpts = areaRows.map(rowToOption);
         setAreaOptions(areaOpts);
-
-        const areaMatch = areaOpts.find(
-          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
-                 optionMatches(a, cityEn)   || optionMatches(a, cityAr),
-        );
-        if (areaMatch) {
-          onAreaChange(areaMatch.id);
-          onAreaSelect?.(areaMatch);
-        }
-      } else if (areaOptions.length > 0) {
-        const areaMatch = areaOptions.find(
-          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr),
-        );
-        if (areaMatch && areaMatch.id !== areaId) {
-          onAreaChange(areaMatch.id);
-          onAreaSelect?.(areaMatch);
-        }
+        currentAreaOptions = areaOpts;
+      }
+      const areaMatch = currentAreaOptions.find(
+        (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
+               optionMatches(a, cityEn)   || optionMatches(a, cityAr),
+      );
+      if (areaMatch && areaMatch.id !== areaId) {
+        onAreaChange(areaMatch.id);
+        onAreaSelect?.(areaMatch);
       }
     }
   };
