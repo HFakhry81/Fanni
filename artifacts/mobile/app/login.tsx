@@ -74,11 +74,13 @@ export default function LoginScreen() {
         await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
         await refreshUser();
       } else {
-        setLocalError(
-          data.error === "Invalid credentials"
-            ? (isRTL ? "البريد الإلكتروني أو كلمة المرور غير صحيحة" : "Invalid email/mobile or password")
-            : (isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again"),
-        );
+        if (data.error === "Invalid credentials") {
+          setLocalError(isRTL ? "البريد الإلكتروني أو كلمة المرور غير صحيحة" : "Invalid email/mobile or password");
+        } else if (data.error === "Account is suspended") {
+          setLocalError(isRTL ? "هذا الحساب موقوف. يرجى التواصل مع الدعم." : "Your account has been suspended. Please contact support.");
+        } else {
+          setLocalError(isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again");
+        }
       }
     } catch {
       setLocalError(isRTL ? "تعذر الاتصال بالخادم" : "Could not reach server");
