@@ -1,96 +1,13 @@
 import { Router, type IRouter } from "express";
-import { and, eq, gt, sql } from "drizzle-orm";
-import { db, nominatimCacheTable, locationsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { db, locationsTable, nominatimCacheTable } from "@workspace/db";
+import { NOMINATIM_BASE, nominatimFetch, getCached, cachedNominatim } from "../lib/nominatim";
 
 const router: IRouter = Router();
 
-const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
-const CACHE_DAYS = 30;
-const MIN_INTERVAL_MS = 1100;
-const USER_AGENT = "Fanni-HomeApp/1.0 (contact@fanni-eg.com)";
-
 // ─── True serialized 1-req/sec queue ──────────────────────────────────────────
-// All Nominatim requests go through this promise chain — concurrent callers
-// queue up and are served sequentially with at least MIN_INTERVAL_MS between
-// actual HTTP requests.
-
-let nominatimQueue: Promise<void> = Promise.resolve();
-let lastRequestAt = 0;
-
-async function nominatimFetch(url: string): Promise<unknown> {
-  // Attach to the end of the current chain; the next caller will wait for us.
-  const ticket = nominatimQueue.then(async () => {
-    const now = Date.now();
-    const delay = Math.max(0, lastRequestAt + MIN_INTERVAL_MS - now);
-    if (delay > 0) {
-      await new Promise<void>((r) => setTimeout(r, delay));
-    }
-    lastRequestAt = Date.now();
-
-    const response = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Nominatim ${response.status}: ${await response.text()}`);
-    }
-
-    return response.json() as unknown;
-  });
-
-  // Advance the queue regardless of success/failure so subsequent callers
-  // are not blocked forever on a rejected promise.
-  nominatimQueue = ticket.then(
-    () => {},
-    () => {},
-  ) as Promise<void>;
-
-  return ticket;
-}
-
-// ─── Cache helpers ─────────────────────────────────────────────────────────────
-
-async function getCached(cacheKey: string): Promise<unknown | null> {
-  const [row] = await db
-    .select({ responseJson: nominatimCacheTable.responseJson })
-    .from(nominatimCacheTable)
-    .where(
-      and(
-        eq(nominatimCacheTable.cacheKey, cacheKey),
-        gt(nominatimCacheTable.expiresAt, sql`now()`),
-      ),
-    )
-    .limit(1);
-
-  return row?.responseJson ?? null;
-}
-
-async function setCache(cacheKey: string, lang: string, data: unknown) {
-  const expiresAt = new Date(Date.now() + CACHE_DAYS * 24 * 60 * 60 * 1000);
-  const responseJson = data as Record<string, unknown>;
-  await db
-    .insert(nominatimCacheTable)
-    .values({ cacheKey, lang, responseJson, expiresAt })
-    .onConflictDoUpdate({
-      target: nominatimCacheTable.cacheKey,
-      set: { responseJson, cachedAt: sql`now()`, expiresAt },
-    });
-}
-
-// ─── Cached Nominatim call (check cache → queue → store) ──────────────────────
-
-async function cachedNominatim(
-  url: string,
-  cacheKey: string,
-  lang: string,
-): Promise<{ data: unknown; fromCache: boolean }> {
-  const cached = await getCached(cacheKey);
-  if (cached) return { data: cached, fromCache: true };
-
-  const data = await nominatimFetch(url);
-  await setCache(cacheKey, lang, data);
-  return { data, fromCache: false };
-}
+// All Nominatim requests go through the shared nominatim.ts module's queue so
+// all callers in this process respect the 1 req/sec policy collectively.
 
 // ─── GET /geo/search?q=...&lang=ar ────────────────────────────────────────────
 

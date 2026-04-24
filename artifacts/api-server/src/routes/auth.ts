@@ -10,7 +10,8 @@ import {
   SetUserRoleBody,
 } from "@workspace/api-zod";
 import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
-import { eq, and, gt, isNull, lt, desc } from "drizzle-orm";
+import { eq, and, gt, isNull, lt, desc, sql } from "drizzle-orm";
+import { geocodeArea } from "../lib/geocode";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import { sendWelcomeSms } from "../lib/sms";
 import {
@@ -731,6 +732,27 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return;
   }
 
+  // Fire-and-forget: geocode the technician's area and persist it in the background.
+  // This does not block the registration response.
+  if ((role === "technician") && (areaId || governorateId)) {
+    geocodeArea(areaId, governorateId)
+      .then((geoPoint) => {
+        if (!geoPoint) return;
+        const locationUpdate: Record<string, unknown> = {
+          updatedAt: new Date(),
+        };
+        locationUpdate.location =
+          sql`ST_SetSRID(ST_MakePoint(${geoPoint.lon}, ${geoPoint.lat}), 4326)::geography`;
+        return db
+          .update(usersTable)
+          .set(locationUpdate as Partial<typeof usersTable.$inferInsert> & { updatedAt: Date })
+          .where(eq(usersTable.id, newUser.id));
+      })
+      .catch((err) => {
+        req.log.warn({ err, userId: newUser.id }, "Failed to geocode technician location on registration");
+      });
+  }
+
   const sessionData: SessionData = {
     user: buildAuthUser(newUser),
     source: "user",
@@ -1029,6 +1051,32 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (area !== undefined) updates.area = area ?? null;
   if (district !== undefined) updates.district = district ?? null;
   if (serviceCategories !== undefined) updates.serviceCategories = serviceCategories ?? null;
+
+  // When a technician updates their area or governorate, geocode the new location.
+  // Always clear the stored geography first so a stale point is never left behind
+  // if the new area can't be resolved (e.g. unknown slug or Nominatim unavailable).
+  // Then overwrite with the fresh geocoded point when geocoding succeeds.
+  // We read current values from the DB (not the session snapshot) so that a partial
+  // patch (e.g. only changing `area`) picks up the persisted `governorate`.
+  const isTechnician = req.user!.role === "technician";
+  const locationChanged = area !== undefined || governorate !== undefined;
+  if (isTechnician && locationChanged) {
+    (updates as Record<string, unknown>).location = null;
+    const [currentRow] = await db
+      .select({ area: usersTable.area, governorate: usersTable.governorate })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user!.id))
+      .limit(1);
+    const effectiveArea = area !== undefined ? area : (currentRow?.area ?? null);
+    const effectiveGov = governorate !== undefined ? governorate : (currentRow?.governorate ?? null);
+    if (effectiveArea || effectiveGov) {
+      const geoPoint = await geocodeArea(effectiveArea, effectiveGov);
+      if (geoPoint) {
+        (updates as Record<string, unknown>).location =
+          sql`ST_SetSRID(ST_MakePoint(${geoPoint.lon}, ${geoPoint.lat}), 4326)::geography`;
+      }
+    }
+  }
 
   const [updatedUser] = await db
     .update(usersTable)
