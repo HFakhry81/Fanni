@@ -198,6 +198,10 @@ export default function RegisterScreen() {
   // ── Technician service categories ─────────────────────────────────────────
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
+  // ── Duplicate-field flags (for "Log in instead" prompt) ───────────────────
+  const [mobileTaken, setMobileTaken] = useState(false);
+  const [emailTaken, setEmailTaken] = useState(false);
+
   // ── API error ─────────────────────────────────────────────────────────────
   const [apiError, setApiError] = useState("");
 
@@ -305,9 +309,11 @@ export default function RegisterScreen() {
         const availabilityErrors: typeof errors = {};
         if (data.mobileTaken) {
           availabilityErrors.mobile = isRTL ? "رقم الهاتف مسجل بالفعل" : "Mobile number is already registered";
+          setMobileTaken(true);
         }
         if (data.emailTaken) {
           availabilityErrors.email = isRTL ? "البريد الإلكتروني مسجل بالفعل" : "Email address is already registered";
+          setEmailTaken(true);
         }
         if (Object.keys(availabilityErrors).length > 0) {
           setErrors(availabilityErrors);
@@ -453,19 +459,45 @@ export default function RegisterScreen() {
       <FanniInput
         label={isRTL ? "رقم الهاتف" : "Mobile Number"}
         value={mobile}
-        onChangeText={(v) => { setMobile(v); setErrors((e) => ({ ...e, mobile: undefined })); }}
+        onChangeText={(v) => { setMobile(v); setMobileTaken(false); setErrors((e) => ({ ...e, mobile: undefined })); }}
         keyboardType="phone-pad" required
         placeholder="01XXXXXXXXX"
         error={errors.mobile}
       />
+      {mobileTaken && (
+        <TouchableOpacity
+          onPress={() => router.replace("/login")}
+          style={[styles.loginPrompt, { flexDirection: isRTL ? "row-reverse" : "row" }]}
+        >
+          <Text style={[styles.loginPromptText, { color: colors.mutedForeground }]}>
+            {isRTL ? "هل لديك حساب بالفعل؟ " : "Already have an account? "}
+          </Text>
+          <Text style={[styles.loginPromptLink, { color: colors.primary }]}>
+            {isRTL ? "تسجيل الدخول" : "Log in instead"}
+          </Text>
+        </TouchableOpacity>
+      )}
       <FanniInput
         label={t("register.email")}
         value={email}
-        onChangeText={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }}
+        onChangeText={(v) => { setEmail(v); setEmailTaken(false); setErrors((e) => ({ ...e, email: undefined })); }}
         keyboardType="email-address"
         placeholder="email@example.com"
         error={errors.email}
       />
+      {emailTaken && (
+        <TouchableOpacity
+          onPress={() => router.replace("/login")}
+          style={[styles.loginPrompt, { flexDirection: isRTL ? "row-reverse" : "row" }]}
+        >
+          <Text style={[styles.loginPromptText, { color: colors.mutedForeground }]}>
+            {isRTL ? "هل لديك حساب بالفعل؟ " : "Already have an account? "}
+          </Text>
+          <Text style={[styles.loginPromptLink, { color: colors.primary }]}>
+            {isRTL ? "تسجيل الدخول" : "Log in instead"}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <FanniInput
         label={isRTL ? "كلمة المرور" : "Password"}
@@ -973,4 +1005,7 @@ const styles = StyleSheet.create({
   otpRow: { gap: 10, justifyContent: "center", marginBottom: 8 },
   digitBox: { flex: 1, aspectRatio: 1, maxWidth: 50, borderWidth: 2, borderRadius: 12, fontSize: 22, fontFamily: "Inter_700Bold" },
   otpErrorBox: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, marginTop: 12 },
+  loginPrompt: { alignItems: "center", gap: 4, marginTop: 2, marginBottom: 10 },
+  loginPromptText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  loginPromptLink: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
