@@ -188,6 +188,7 @@ const translations: Record<string, Record<Language, string>> = {
   "order.callTech": { ar: "اتصل بالفني", en: "Call Technician" },
   "order.messageTech": { ar: "رسالة للفني", en: "Message Technician" },
   "order.messageClient": { ar: "رسالة للعميل", en: "Message Client" },
+  "order.callClient": { ar: "اتصل بالعميل", en: "Call Client" },
 
   // Technician
   "tech.newOrder": { ar: "طلب جديد!", en: "New Order!" },

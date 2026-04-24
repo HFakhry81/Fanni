@@ -155,6 +155,13 @@ export default function TechOrdersScreen() {
                 <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.messageClient")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
+                onPress={() => Linking.openURL(`tel:${item.clientMobile}`)}
+              >
+                <Feather name="phone" size={14} color={colors.secondary} />
+                <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.callClient")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[styles.completeBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flex: 1 }]}
                 onPress={() => { setSelectedOrderId(item.id); setShowComplete(true); }}
               >
