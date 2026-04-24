@@ -60,3 +60,11 @@ defaultBucketID = "replit-objstore-c6dc6f98-de6b-4277-be93-de5a32e94dc2"
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.development]
+ENABLE_OTP = "false"
+
+[userenv.production]
+ENABLE_OTP = "true"
