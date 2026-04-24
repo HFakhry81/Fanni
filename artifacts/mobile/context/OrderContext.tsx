@@ -172,16 +172,22 @@ const SEED_ORDERS: Order[] = [
     technicianRating: 4.8,
     createdAt: "2025-04-18T10:00:00Z",
   },
+  // NOTE: This order uses category "ac" to match the demo technician's registered service
+  // categories. The demo tech's available service categories are configured in
+  // SERVICE_CATEGORIES (artifacts/mobile/app/register.tsx and app/(tech)/profile.tsx)
+  // and stored in user.serviceCategories. For demo flows the expected technician skill set
+  // is ["ac", "electricity"]. If the demo tech's registered categories change, update the
+  // category here so this pending order remains visible to them via the broadcaster filter.
   {
     id: "ord003",
     orderNumber: "ORD-2025-003",
-    clientId: "client1",
-    clientName: "أحمد محمد السيد",
-    clientMobile: "01012345678",
-    category: "plumbing",
-    subCategory: "مواسير",
-    problemDescription: "تسريب مياه في ماسورة الحمام الرئيسي",
-    deviceType: "مواسير",
+    clientId: "client2",
+    clientName: "هالة يوسف منصور",
+    clientMobile: "01211223344",
+    category: "ac",
+    subCategory: "صيانة مكيفات",
+    problemDescription: "المكيف يعمل لكنه لا يبرد بشكل كافٍ والجسم الخارجي يصدر صوتاً غير طبيعي",
+    deviceType: "مكيف سبليت 2 حصان",
     photos: [],
     street: "شارع فلمنج",
     building: "7",
@@ -199,16 +205,22 @@ const SEED_ORDERS: Order[] = [
   },
 ];
 
+// NOTE: SIMULATED_NEW_ORDER uses category "electricity" to match the demo technician's
+// registered service categories. The expected demo tech skill set is ["ac", "electricity"],
+// as configured via SERVICE_CATEGORIES in artifacts/mobile/app/register.tsx and
+// app/(tech)/profile.tsx and stored in user.serviceCategories. The broadcaster
+// (useOrderNotifications) filters broadcast orders by these categories — if the demo tech's
+// registered categories change, update the category here to keep demos predictable.
 export const SIMULATED_NEW_ORDER: Order = {
   id: "ord_sim001",
   orderNumber: "ORD-2025-004",
-  clientId: "client2",
+  clientId: "client3",
   clientName: "سارة إبراهيم",
   clientMobile: "01155667788",
-  category: "carpentry",
-  subCategory: "نجارة",
-  problemDescription: "باب الغرفة الرئيسية لا يغلق بشكل صحيح ويحتاج إلى ضبط المفصلات",
-  deviceType: "باب خشبي",
+  category: "electricity",
+  subCategory: "توصيلات كهربائية",
+  problemDescription: "انقطاع مفاجئ في التيار الكهربائي ببعض الأوتاكات في غرفة المعيشة",
+  deviceType: "توصيلات كهربائية",
   photos: [],
   street: "شارع سيدي بشر",
   building: "3",
