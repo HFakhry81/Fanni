@@ -44,7 +44,7 @@ type PaymentMethod = "bank" | "ewallet" | "instapay";
 export default function RegisterScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL, setUser } = useApp();
+  const { t, isRTL } = useApp();
   const { refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
 
@@ -374,22 +374,25 @@ export default function RegisterScreen() {
             serviceCategories: regType === "technician" && selectedCategories.length > 0 ? selectedCategories : undefined,
           }),
         });
-        const data = await res.json() as { token?: string; user?: { id: string; firstName?: string; lastName?: string; email?: string; mobile?: string; role?: string; governorate?: string; area?: string }; error?: string };
+        const data = await res.json() as { token?: string; user?: { id: string }; error?: string };
         if (data.token) {
           await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
           await refreshUser();
-          if (regType === "technician" && data.user) {
-            const apiUser = data.user;
-            await setUser({
-              id: apiUser.id,
-              type: "technician",
-              name: name.trim(),
-              mobile: normalizedMobile,
-              email: email.trim() || "",
-              governorate: governorateId || undefined,
-              area: areaId || undefined,
-              serviceCategories: selectedCategories.length > 0 ? selectedCategories : undefined,
-            });
+          if (regType === "technician" && selectedCategories.length > 0) {
+            try {
+              const profileRes = await fetch(`${apiBase}/api/auth/user`, {
+                headers: { Authorization: `Bearer ${data.token}` },
+              });
+              const profileData = await profileRes.json() as { user?: { serviceCategories?: string[] | null } };
+              const savedCategories = profileData.user?.serviceCategories;
+              if (!savedCategories || savedCategories.length === 0) {
+                setApiError(isRTL ? "تعذّر حفظ تخصصاتك، يرجى تحديثها من ملفك الشخصي" : "Could not save your service categories. Please update them from your profile.");
+                return;
+              }
+            } catch {
+              setApiError(isRTL ? "تعذّر التحقق من حفظ تخصصاتك" : "Could not verify your service categories were saved.");
+              return;
+            }
           }
           router.replace({
             pathname: "/register-success",
