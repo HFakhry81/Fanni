@@ -6,6 +6,15 @@ import React from "react";
 import { Platform, StyleSheet, View, Text, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { useClientOrderUpdates } from "@/hooks/useClientOrderUpdates";
+
+function ClientOrderUpdatesListener() {
+  const { user } = useApp();
+  const { sessionToken } = useAuth();
+  useClientOrderUpdates(user, sessionToken);
+  return null;
+}
 
 function NativeClientTabs() {
   return (
@@ -97,8 +106,12 @@ function ClassicClientTabs() {
 }
 
 export default function ClientLayout() {
-  if (isLiquidGlassAvailable()) return <NativeClientTabs />;
-  return <ClassicClientTabs />;
+  return (
+    <>
+      <ClientOrderUpdatesListener />
+      {isLiquidGlassAvailable() ? <NativeClientTabs /> : <ClassicClientTabs />}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

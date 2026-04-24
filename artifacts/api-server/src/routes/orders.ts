@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { sql, desc, eq } from "drizzle-orm";
-import { broadcastNewOrder, removeOrderFromPending } from "../lib/orderBroadcaster";
+import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable, pool } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -196,7 +196,7 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req,
   if (technicianRating !== undefined) dataPatch.technicianRating = technicianRating;
 
   try {
-    await db
+    const [updated] = await db
       .update(ordersTable)
       .set({
         status: "acknowledged",
@@ -205,10 +205,24 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req,
         updatedAt: new Date(),
         data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
       })
-      .where(eq(ordersTable.id, id));
+      .where(eq(ordersTable.id, id))
+      .returning({ clientId: ordersTable.clientId });
 
     removeOrderFromPending(id);
     logger.info({ id, technicianId: user.id }, "Order acknowledged and data JSONB updated");
+
+    if (updated?.clientId) {
+      broadcastOrderStatusToClient(updated.clientId, {
+        id,
+        status: "accepted",
+        technicianId: user.id,
+        ...(technicianName !== undefined && { technicianName }),
+        ...(technicianMobile !== undefined && { technicianMobile }),
+        ...(technicianAvatar !== undefined && { technicianAvatar }),
+        ...(technicianRating !== undefined && { technicianRating }),
+      });
+    }
+
     res.json({ success: true });
   } catch (err) {
     logger.error({ err, id }, "Failed to acknowledge order");
@@ -226,16 +240,22 @@ router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req, res) 
   }
 
   try {
-    await db
+    const [updated] = await db
       .update(ordersTable)
       .set({
         status: "in_progress",
         updatedAt: new Date(),
         data: sql`${ordersTable.data} || '{"status":"inProgress"}'::jsonb`,
       })
-      .where(eq(ordersTable.id, id));
+      .where(eq(ordersTable.id, id))
+      .returning({ clientId: ordersTable.clientId });
 
     logger.info({ id, technicianId: user.id }, "Order started (in_progress)");
+
+    if (updated?.clientId) {
+      broadcastOrderStatusToClient(updated.clientId, { id, status: "inProgress" });
+    }
+
     res.json({ success: true });
   } catch (err) {
     logger.error({ err, id }, "Failed to start order");
@@ -266,7 +286,7 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, re
   if (invoice !== undefined) dataPatch.invoice = invoice;
 
   try {
-    await db
+    const [updated] = await db
       .update(ordersTable)
       .set({
         status: "completed",
@@ -274,9 +294,15 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, re
         updatedAt: new Date(),
         data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
       })
-      .where(eq(ordersTable.id, id));
+      .where(eq(ordersTable.id, id))
+      .returning({ clientId: ordersTable.clientId });
 
     logger.info({ id, technicianId: user.id }, "Order completed and data JSONB updated");
+
+    if (updated?.clientId) {
+      broadcastOrderStatusToClient(updated.clientId, { id, status: "completed" });
+    }
+
     res.json({ success: true });
   } catch (err) {
     logger.error({ err, id }, "Failed to complete order");
@@ -351,10 +377,15 @@ router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, re
 router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
   const id = req.params.id as string;
   try {
-    await db
+    const [updated] = await db
       .update(ordersTable)
       .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
-      .where(eq(ordersTable.id, id));
+      .where(eq(ordersTable.id, id))
+      .returning({ clientId: ordersTable.clientId });
+
+    if (updated?.clientId) {
+      broadcastOrderStatusToClient(updated.clientId, { id, status: "cancelled" });
+    }
 
     res.json({ success: true });
   } catch (err) {

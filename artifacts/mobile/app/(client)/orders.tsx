@@ -19,7 +19,7 @@ export default function ClientOrdersScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user } = useApp();
-  const { getOrdersByClient, mergeOrders } = useOrders();
+  const { getOrdersByClient, syncOrders } = useOrders();
   const { sessionToken, isAuthenticated } = useAuth();
   const [tab, setTab] = useState<"active" | "history">("active");
   const [apiOrders, setApiOrders] = useState<Order[]>([]);
@@ -40,13 +40,13 @@ export default function ClientOrdersScreen() {
         const data = await res.json();
         const fetched = (data.orders ?? []) as Order[];
         setApiOrders(fetched);
-        mergeOrders(fetched);
+        syncOrders(fetched);
       }
     } catch {
     } finally {
       setLoadingApi(false);
     }
-  }, [isAuthenticated, sessionToken, mergeOrders]);
+  }, [isAuthenticated, sessionToken, syncOrders]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -62,9 +62,9 @@ export default function ClientOrdersScreen() {
 
   const mergedOrders: Order[] = isAuthenticated
     ? (() => {
-        const apiIds = new Set(apiOrders.map((o) => o.id));
-        const localOnly = localOrders.filter((o) => !apiIds.has(o.id));
-        return [...apiOrders, ...localOnly];
+        const contextIds = new Set(localOrders.map((o) => o.id));
+        const apiOnly = apiOrders.filter((o) => !contextIds.has(o.id));
+        return [...localOrders, ...apiOnly];
       })()
     : localOrders;
 

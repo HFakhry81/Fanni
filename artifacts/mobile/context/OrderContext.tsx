@@ -81,6 +81,7 @@ interface OrderContextType {
   markOrderSeen: (orderId: string) => void;
   injectNewOrder: (order: Order) => void;
   mergeOrders: (incoming: Order[]) => void;
+  syncOrders: (incoming: Order[]) => void;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -261,8 +262,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateOrder = async (id: string, update: Partial<Order>) => {
-    const updated = orders.map((o) => (o.id === id ? { ...o, ...update } : o));
-    setOrders(updated);
+    let updated: Order[] = [];
+    setOrders((prev) => {
+      updated = prev.map((o) => (o.id === id ? { ...o, ...update } : o));
+      return updated;
+    });
     await saveOrders(updated);
     if (update.status && update.status !== "pending") {
       setNewPendingOrders((prev) => prev.filter((o) => o.id !== id));
@@ -299,6 +303,29 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const syncOrders = React.useCallback((incoming: Order[]) => {
+    setOrders((prev) => {
+      const incomingMap = new Map(incoming.map((o) => [o.id, o]));
+      const seedIds = new Set(SEED_ORDERS.map((o) => o.id));
+      let changed = false;
+      const updated = prev.map((o) => {
+        if (seedIds.has(o.id)) return o;
+        const fresh = incomingMap.get(o.id);
+        if (!fresh) return o;
+        const merged = { ...o, ...fresh };
+        if (JSON.stringify(merged) !== JSON.stringify(o)) {
+          changed = true;
+          return merged;
+        }
+        return o;
+      });
+      const existingIds = new Set(prev.map((o) => o.id));
+      const toAdd = incoming.filter((o) => !existingIds.has(o.id));
+      if (!changed && toAdd.length === 0) return prev;
+      return toAdd.length > 0 ? [...updated, ...toAdd] : updated;
+    });
+  }, []);
+
   const getOrdersByClient = (clientId: string) =>
     orders.filter((o) => o.clientId === clientId);
 
@@ -327,6 +354,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         markOrderSeen,
         injectNewOrder,
         mergeOrders,
+        syncOrders,
       }}
     >
       {children}

@@ -59,17 +59,53 @@ const wss = new WebSocketServer({ noServer: true });
 
 const clients = new Map<WebSocket, TechnicianMeta>();
 
+const clientSessions = new Map<string, Set<WebSocket>>();
+const wsToClientId = new Map<WebSocket, string>();
+
 let pendingOrders: unknown[] = [];
 
 wss.on("connection", (ws: WebSocket) => {
   clients.set(ws, { registered: false, isAvailable: true });
-  logger.info({ total: clients.size }, "Technician WebSocket connected");
+  logger.info({ total: clients.size }, "WebSocket connected");
 
   ws.send(JSON.stringify({ type: "connected", message: "Connected to Fanni order stream" }));
 
   ws.on("message", async (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
+
+      if (msg.type === "register" && msg.role === "client") {
+        const token = typeof msg.token === "string" ? msg.token.trim() : "";
+        if (!token) {
+          ws.send(JSON.stringify({ type: "auth_error", message: "Authentication required: no token provided" }));
+          ws.close();
+          return;
+        }
+
+        const session = await getSession(token);
+        if (!session) {
+          ws.send(JSON.stringify({ type: "auth_error", message: "Authentication required: invalid or expired session" }));
+          ws.close();
+          return;
+        }
+
+        if (session.user.role !== "client") {
+          ws.send(JSON.stringify({ type: "auth_error", message: "Client account required" }));
+          ws.close();
+          return;
+        }
+
+        const clientId = session.user.id;
+        const existing = clientSessions.get(clientId) ?? new Set<WebSocket>();
+        existing.add(ws);
+        clientSessions.set(clientId, existing);
+        wsToClientId.set(ws, clientId);
+        clients.set(ws, { registered: true, isAvailable: true });
+
+        logger.info({ clientId }, "Client WebSocket authenticated and registered");
+        ws.send(JSON.stringify({ type: "registered", message: "Client registered for order updates" }));
+        return;
+      }
 
       if (msg.type === "set_availability") {
         const current = clients.get(ws);
@@ -159,12 +195,36 @@ wss.on("connection", (ws: WebSocket) => {
 
   ws.on("close", () => {
     clients.delete(ws);
-    logger.info({ total: clients.size }, "Technician WebSocket disconnected");
+    const clientId = wsToClientId.get(ws);
+    if (clientId) {
+      wsToClientId.delete(ws);
+      const sockets = clientSessions.get(clientId);
+      if (sockets) {
+        sockets.delete(ws);
+        if (sockets.size === 0) {
+          clientSessions.delete(clientId);
+        }
+      }
+      logger.info({ clientId, total: clients.size }, "Client WebSocket disconnected");
+    } else {
+      logger.info({ total: clients.size }, "WebSocket disconnected");
+    }
   });
 
   ws.on("error", (err) => {
     logger.error({ err }, "WebSocket error");
     clients.delete(ws);
+    const clientId = wsToClientId.get(ws);
+    if (clientId) {
+      wsToClientId.delete(ws);
+      const sockets = clientSessions.get(clientId);
+      if (sockets) {
+        sockets.delete(ws);
+        if (sockets.size === 0) {
+          clientSessions.delete(clientId);
+        }
+      }
+    }
   });
 });
 
@@ -221,6 +281,23 @@ export function broadcastNewOrder(order: unknown): void {
     },
     "Routed new order to matching technicians"
   );
+}
+
+export function broadcastOrderStatusToClient(clientId: string, update: Record<string, unknown>): void {
+  const sockets = clientSessions.get(clientId);
+  if (!sockets || sockets.size === 0) {
+    logger.info({ clientId }, "No connected client sessions for order status broadcast — client will see update on next fetch");
+    return;
+  }
+  const payload = JSON.stringify({ type: "order_status_update", update });
+  let sent = 0;
+  for (const ws of sockets) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(payload);
+      sent++;
+    }
+  }
+  logger.info({ clientId, orderId: update["id"], status: update["status"], sent }, "Broadcast order status update to client sessions");
 }
 
 export async function recoverPendingOrders(): Promise<void> {
