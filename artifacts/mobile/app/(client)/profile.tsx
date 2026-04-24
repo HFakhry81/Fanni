@@ -155,10 +155,9 @@ export default function ClientProfileScreen() {
 
     await setUser({ ...user, password: newPw });
     setPwVisible(false);
-    Alert.alert(
-      isRTL ? "تم" : "Done",
-      t("profile.passwordUpdated")
-    );
+    setToastMessage(t("profile.passwordUpdated"));
+    setToastAction(undefined);
+    setToastVisible(true);
   };
 
   const handleLogout = async () => {
