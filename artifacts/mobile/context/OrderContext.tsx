@@ -88,6 +88,9 @@ interface OrderContextType {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
+const SEED_VERSION = "2";
+const SEED_VERSION_KEY = "orders_seed_version";
+
 const SEED_ORDERS: Order[] = [
   {
     id: "ord001",
@@ -250,12 +253,27 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const stored = await AsyncStorage.getItem("orders");
-        if (stored) {
-          const parsed = JSON.parse(stored) as Order[];
-          const merged = [...SEED_ORDERS, ...parsed];
+        const seedIds = new Set(SEED_ORDERS.map((o) => o.id));
+        const storedVersion = await AsyncStorage.getItem(SEED_VERSION_KEY);
+
+        if (storedVersion !== SEED_VERSION) {
+          const stored = await AsyncStorage.getItem("orders");
+          const userOrders: Order[] = stored
+            ? (JSON.parse(stored) as Order[]).filter((o) => !seedIds.has(o.id))
+            : [];
+          await AsyncStorage.setItem("orders", JSON.stringify(userOrders));
+          await AsyncStorage.setItem(SEED_VERSION_KEY, SEED_VERSION);
+          const merged = [...SEED_ORDERS, ...userOrders];
           setOrders(merged);
-          parsed.forEach((o) => seenIdsRef.current.add(o.id));
+          userOrders.forEach((o) => seenIdsRef.current.add(o.id));
+        } else {
+          const stored = await AsyncStorage.getItem("orders");
+          if (stored) {
+            const parsed = JSON.parse(stored) as Order[];
+            const merged = [...SEED_ORDERS, ...parsed];
+            setOrders(merged);
+            parsed.forEach((o) => seenIdsRef.current.add(o.id));
+          }
         }
       } catch (_) {}
     })();
