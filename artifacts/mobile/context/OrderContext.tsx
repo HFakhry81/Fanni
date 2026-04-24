@@ -82,6 +82,8 @@ interface OrderContextType {
   injectNewOrder: (order: Order) => void;
   mergeOrders: (incoming: Order[]) => void;
   syncOrders: (incoming: Order[]) => void;
+  wsOrderStatusSignal: number;
+  bumpWsOrderStatusSignal: () => void;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -227,6 +229,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
   const seenIdsRef = useRef<Set<string>>(new Set(SEED_ORDERS.map((o) => o.id)));
   const [newPendingOrders, setNewPendingOrders] = useState<Order[]>([]);
+  const [wsOrderStatusSignal, setWsOrderStatusSignal] = useState(0);
+
+  const bumpWsOrderStatusSignal = React.useCallback(() => {
+    setWsOrderStatusSignal((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -355,6 +362,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         injectNewOrder,
         mergeOrders,
         syncOrders,
+        wsOrderStatusSignal,
+        bumpWsOrderStatusSignal,
       }}
     >
       {children}

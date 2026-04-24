@@ -19,7 +19,7 @@ export default function ClientOrdersScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user } = useApp();
-  const { getOrdersByClient, syncOrders } = useOrders();
+  const { getOrdersByClient, syncOrders, wsOrderStatusSignal } = useOrders();
   const { sessionToken, isAuthenticated } = useAuth();
   const [tab, setTab] = useState<"active" | "history">("active");
   const [apiOrders, setApiOrders] = useState<Order[]>([]);
@@ -57,6 +57,14 @@ export default function ClientOrdersScreen() {
   useEffect(() => {
     fetchOrdersFromApi();
   }, [fetchOrdersFromApi]);
+
+  useEffect(() => {
+    if (wsOrderStatusSignal === 0) return;
+    const timer = setTimeout(() => {
+      fetchOrdersFromApi();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [wsOrderStatusSignal, fetchOrdersFromApi]);
 
   const localOrders = getOrdersByClient(user?.id ?? "client1");
 

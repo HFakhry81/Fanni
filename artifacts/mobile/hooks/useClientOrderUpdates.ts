@@ -11,8 +11,10 @@ function getWsUrl(): string {
 }
 
 export function useClientOrderUpdates(user: User | null = null, sessionToken: string | null = null) {
-  const { updateOrder } = useOrders();
+  const { updateOrder, bumpWsOrderStatusSignal } = useOrders();
   const updateOrderRef = useRef(updateOrder);
+  const bumpSignalRef = useRef(bumpWsOrderStatusSignal);
+  bumpSignalRef.current = bumpWsOrderStatusSignal;
   updateOrderRef.current = updateOrder;
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -75,6 +77,7 @@ export function useClientOrderUpdates(user: User | null = null, sessionToken: st
           if (data.type === "order_status_update" && data.update && data.update.id) {
             const { id, ...fields } = data.update as { id: string } & Partial<Order>;
             updateOrderRef.current(id, fields);
+            bumpSignalRef.current();
           }
         } catch (_) {}
       };
