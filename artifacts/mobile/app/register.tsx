@@ -217,6 +217,8 @@ export default function RegisterScreen() {
     profession?: string;
     specialty?: string;
     experience?: string;
+    serviceStart?: string;
+    serviceEnd?: string;
   }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
@@ -274,6 +276,23 @@ export default function RegisterScreen() {
         newErrors.experience = isRTL ? "سنوات الخبرة مطلوبة" : "Years of experience is required";
       } else if (isNaN(expNum) || expNum <= 0) {
         newErrors.experience = isRTL ? "يجب أن تكون الخبرة عدداً موجباً" : "Experience must be a positive number";
+      }
+
+      const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      const startValid = TIME_RE.test(serviceStart.trim());
+      const endValid = TIME_RE.test(serviceEnd.trim());
+
+      if (!startValid) {
+        newErrors.serviceStart = isRTL ? "صيغة غير صحيحة — مثال: 08:00" : "Invalid format — e.g. 08:00";
+      }
+      if (!endValid) {
+        newErrors.serviceEnd = isRTL ? "صيغة غير صحيحة — مثال: 22:00" : "Invalid format — e.g. 22:00";
+      }
+      if (startValid && endValid) {
+        const toMinutes = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+        if (toMinutes(serviceEnd.trim()) <= toMinutes(serviceStart.trim())) {
+          newErrors.serviceEnd = isRTL ? "وقت الانتهاء يجب أن يكون بعد وقت البدء" : "Work End must be later than Work Start";
+        }
       }
     }
 
@@ -636,10 +655,22 @@ export default function RegisterScreen() {
 
       <View style={[styles.timeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
-          <FanniInput label={isRTL ? "بداية العمل" : "Work Start"} value={serviceStart} onChangeText={setServiceStart} placeholder="08:00" />
+          <FanniInput
+            label={isRTL ? "بداية العمل" : "Work Start"}
+            value={serviceStart}
+            onChangeText={(v) => { setServiceStart(v); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }}
+            placeholder="08:00"
+            error={errors.serviceStart}
+          />
         </View>
         <View style={{ flex: 1 }}>
-          <FanniInput label={isRTL ? "نهاية العمل" : "Work End"} value={serviceEnd} onChangeText={setServiceEnd} placeholder="22:00" />
+          <FanniInput
+            label={isRTL ? "نهاية العمل" : "Work End"}
+            value={serviceEnd}
+            onChangeText={(v) => { setServiceEnd(v); setErrors((e) => ({ ...e, serviceEnd: undefined })); }}
+            placeholder="22:00"
+            error={errors.serviceEnd}
+          />
         </View>
       </View>
 
