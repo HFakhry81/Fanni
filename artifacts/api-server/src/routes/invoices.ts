@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { SQL, and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db, invoicesTable, ordersTable, usersTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -15,8 +15,88 @@ function formatOrderNumber(serial: number): string {
   return `ORD-${String(serial).padStart(6, "0")}`;
 }
 
+function mapInvoice(invoice: typeof invoicesTable.$inferSelect, clientFirstName?: string | null, clientLastName?: string | null, clientMobile?: string | null) {
+  return {
+    id: invoice.id,
+    invoiceNumber: formatInvoiceNumber(invoice.invoiceSerial),
+    invoiceSerial: invoice.invoiceSerial,
+    orderId: invoice.orderId,
+    orderNumber: invoice.orderNumber,
+    clientId: invoice.clientId,
+    clientName: clientFirstName && clientLastName ? `${clientFirstName} ${clientLastName}` : null,
+    clientMobile: clientMobile ?? null,
+    technicianId: invoice.technicianId,
+    category: invoice.category,
+    invoiceType: invoice.invoiceType ?? null,
+    subtotal: Number(invoice.subtotal),
+    taxRate: Number(invoice.taxRate),
+    taxAmount: Number(invoice.taxAmount),
+    total: Number(invoice.total),
+    currency: invoice.currency,
+    status: invoice.status,
+    noteAr: invoice.noteAr,
+    noteEn: invoice.noteEn,
+    materialsPhotos: invoice.materialsPhotos ?? null,
+    ocrLineItems: invoice.ocrLineItems ?? null,
+    ocrMaterialsTotal: invoice.ocrMaterialsTotal !== null ? Number(invoice.ocrMaterialsTotal) : null,
+    labourFee: invoice.labourFee !== null ? Number(invoice.labourFee) : null,
+    transportFee: invoice.transportFee !== null ? Number(invoice.transportFee) : null,
+    serviceFeeRate: invoice.serviceFeeRate !== null ? Number(invoice.serviceFeeRate) : null,
+    serviceFeeAmount: invoice.serviceFeeAmount !== null ? Number(invoice.serviceFeeAmount) : null,
+    vatRate: invoice.vatRate !== null ? Number(invoice.vatRate) : null,
+    vatAmount: invoice.vatAmount !== null ? Number(invoice.vatAmount) : null,
+    netTotal: invoice.netTotal !== null ? Number(invoice.netTotal) : null,
+    issuedAt: invoice.issuedAt,
+    paidAt: invoice.paidAt,
+    cancelledAt: invoice.cancelledAt,
+    createdAt: invoice.createdAt,
+  };
+}
+
 router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
+  const { invoiceType } = req.query as { invoiceType?: string };
+  try {
+    const conditions: SQL<unknown>[] = [];
+
+    if (user.role === "technician") {
+      conditions.push(eq(invoicesTable.technicianId, user.id));
+      conditions.push(or(eq(invoicesTable.invoiceType, "technician"), isNull(invoicesTable.invoiceType)));
+    } else if (user.role === "admin") {
+      if (invoiceType && ["technician", "client", "admin"].includes(invoiceType)) {
+        conditions.push(eq(invoicesTable.invoiceType, invoiceType as "technician" | "client" | "admin"));
+      }
+    } else {
+      conditions.push(eq(invoicesTable.clientId, user.id));
+      conditions.push(or(eq(invoicesTable.invoiceType, "client"), isNull(invoicesTable.invoiceType)));
+    }
+
+    const rows = await db
+      .select({
+        invoice: invoicesTable,
+        clientFirstName: usersTable.firstName,
+        clientLastName: usersTable.lastName,
+        clientMobile: usersTable.mobile,
+      })
+      .from(invoicesTable)
+      .leftJoin(usersTable, eq(invoicesTable.clientId, usersTable.id))
+      .where(conditions.length > 0 ? and(...conditions) : sql`true`)
+      .orderBy(desc(invoicesTable.createdAt));
+
+    const invoices = rows.map(({ invoice, clientFirstName, clientLastName, clientMobile }) =>
+      mapInvoice(invoice, clientFirstName, clientLastName, clientMobile)
+    );
+
+    res.json({ invoices });
+  } catch (err) {
+    logger.error({ err, userId: user.id }, "Failed to fetch invoices");
+    res.status(500).json({ error: "Failed to fetch invoices" });
+  }
+});
+
+router.get("/invoices/order/:orderId", authMiddleware, requireAuth, async (req: Request<{ orderId: string }>, res) => {
+  const user = req.user!;
+  const orderId = req.params.orderId;
   try {
     const rows = await db
       .select({
@@ -27,43 +107,43 @@ router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
       })
       .from(invoicesTable)
       .leftJoin(usersTable, eq(invoicesTable.clientId, usersTable.id))
-      .where(
-        user.role === "technician"
-          ? eq(invoicesTable.technicianId, user.id)
-          : user.role === "admin"
-            ? sql`true`
-            : eq(invoicesTable.clientId, user.id)
-      )
-      .orderBy(desc(invoicesTable.createdAt));
+      .where(eq(invoicesTable.orderId, orderId))
+      .orderBy(invoicesTable.invoiceSerial);
 
-    const invoices = rows.map(({ invoice, clientFirstName, clientLastName, clientMobile }) => ({
-      id: invoice.id,
-      invoiceNumber: formatInvoiceNumber(invoice.invoiceSerial),
-      invoiceSerial: invoice.invoiceSerial,
-      orderId: invoice.orderId,
-      orderNumber: invoice.orderNumber,
-      clientId: invoice.clientId,
-      clientName: clientFirstName && clientLastName ? `${clientFirstName} ${clientLastName}` : null,
-      clientMobile: clientMobile ?? null,
-      technicianId: invoice.technicianId,
-      category: invoice.category,
-      subtotal: Number(invoice.subtotal),
-      taxRate: Number(invoice.taxRate),
-      taxAmount: Number(invoice.taxAmount),
-      total: Number(invoice.total),
-      currency: invoice.currency,
-      status: invoice.status,
-      noteAr: invoice.noteAr,
-      noteEn: invoice.noteEn,
-      issuedAt: invoice.issuedAt,
-      paidAt: invoice.paidAt,
-      cancelledAt: invoice.cancelledAt,
-      createdAt: invoice.createdAt,
-    }));
+    const allInvoices = rows.map(({ invoice, clientFirstName, clientLastName, clientMobile }) =>
+      mapInvoice(invoice, clientFirstName, clientLastName, clientMobile)
+    );
 
-    res.json({ invoices });
+    if (user.role === "admin") {
+      const technicianInvoice = allInvoices.find((i) => i.invoiceType === "technician") ?? null;
+      const clientInvoice = allInvoices.find((i) => i.invoiceType === "client") ?? null;
+      const adminLedger = allInvoices.find((i) => i.invoiceType === "admin") ?? null;
+      res.json({ invoices: allInvoices, technicianInvoice, clientInvoice, adminLedger });
+      return;
+    }
+
+    if (user.role === "technician") {
+      const technicianInvoice = allInvoices.find(
+        (i) => (i.invoiceType === "technician" || i.invoiceType == null) && i.technicianId === user.id
+      ) ?? null;
+      if (!technicianInvoice) {
+        res.json({ invoices: [], technicianInvoice: null });
+        return;
+      }
+      res.json({ invoices: [technicianInvoice], technicianInvoice });
+      return;
+    }
+
+    const clientInvoice = allInvoices.find(
+      (i) => (i.invoiceType === "client" || i.invoiceType == null) && i.clientId === user.id
+    ) ?? null;
+    if (!clientInvoice) {
+      res.json({ invoices: [], clientInvoice: null });
+      return;
+    }
+    res.json({ invoices: [clientInvoice], clientInvoice });
   } catch (err) {
-    logger.error({ err, userId: user.id }, "Failed to fetch invoices");
+    logger.error({ err, orderId }, "Failed to fetch invoices for order");
     res.status(500).json({ error: "Failed to fetch invoices" });
   }
 });
@@ -93,16 +173,7 @@ router.get("/invoices/:id", authMiddleware, requireAuth, async (req: Request<{ i
       return;
     }
 
-    res.json({
-      invoice: {
-        ...inv,
-        invoiceNumber: formatInvoiceNumber(inv.invoiceSerial),
-        subtotal: Number(inv.subtotal),
-        taxRate: Number(inv.taxRate),
-        taxAmount: Number(inv.taxAmount),
-        total: Number(inv.total),
-      },
-    });
+    res.json({ invoice: mapInvoice(inv) });
   } catch (err) {
     logger.error({ err, id }, "Failed to fetch invoice");
     res.status(500).json({ error: "Failed to fetch invoice" });

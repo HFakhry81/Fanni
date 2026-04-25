@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Asset } from "expo-asset";
@@ -8,7 +8,7 @@ import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
-import { useOrders, Order, MaterialItem } from "@/context/OrderContext";
+import { useOrders, Order, OcrReceiptData } from "@/context/OrderContext";
 import StatusBadge from "@/components/StatusBadge";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
@@ -24,6 +24,33 @@ function getApiBaseUrl(): string {
   return "";
 }
 
+const SERVICE_FEE_RATE = 15;
+const VAT_RATE = 14;
+
+interface ServerInvoiceSummary {
+  techNetTotal?: number;
+  clientTotal?: number;
+  adminTotal?: number;
+  serviceFeeAmount?: number;
+  vatAmount?: number;
+  labourFee?: number;
+  transportFee?: number;
+  materialsTotal?: number;
+}
+
+interface CompleteOrderResponse {
+  invoices?: ServerInvoiceSummary;
+}
+
+function computePreview(labourFee: number, transportFee: number, materialsTotal: number) {
+  const serviceFeeAmount = (labourFee * SERVICE_FEE_RATE) / 100;
+  const vatAmount = (labourFee * VAT_RATE) / 100;
+  const base = materialsTotal + transportFee + labourFee;
+  const techNetTotal = base - serviceFeeAmount;
+  const clientTotal = base + serviceFeeAmount + vatAmount;
+  return { serviceFeeAmount, vatAmount, base, techNetTotal, clientTotal };
+}
+
 export default function TechOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
@@ -35,11 +62,15 @@ export default function TechOrdersScreen() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [solutionDesc, setSolutionDesc] = useState("");
   const [satisfaction, setSatisfaction] = useState<"satisfied" | "neutral" | "unsatisfied" | null>(null);
-  const [materials, setMaterials] = useState<MaterialItem[]>([]);
-  const [matDesc, setMatDesc] = useState("");
-  const [matAmount, setMatAmount] = useState("");
-  const [matInvoicePhoto, setMatInvoicePhoto] = useState<string | null>(null);
-  const [matInvoicePhotoUploading, setMatInvoicePhotoUploading] = useState(false);
+
+  const [receiptPhotos, setReceiptPhotos] = useState<OcrReceiptData[]>([]);
+  const [receiptUploading, setReceiptUploading] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [labourFeeStr, setLabourFeeStr] = useState("");
+  const [transportFeeStr, setTransportFeeStr] = useState("");
+  const [materialsTotalStr, setMaterialsTotalStr] = useState("0");
+  const [ocrRunning, setOcrRunning] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [phaseUploading, setPhaseUploading] = useState<Record<string, boolean>>({});
@@ -83,9 +114,14 @@ export default function TechOrdersScreen() {
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
   const historyOrders = orders.filter((o) => ["completed", "cancelled"].includes(o.status));
 
-  const handleShareInvoice = async (order: Order) => {
-    if (!order.invoice) return;
-    const inv = order.invoice;
+  const labourFee = parseFloat(labourFeeStr) || 0;
+  const transportFee = parseFloat(transportFeeStr) || 0;
+  const materialsTotal = parseFloat(materialsTotalStr) || 0;
+  const preview = computePreview(labourFee, transportFee, materialsTotal);
+
+  const handleShareTechInvoice = async (order: Order) => {
+    const inv = order.threePartyInvoice;
+    if (!inv) return;
     const dir = isRTL ? "rtl" : "ltr";
 
     let logoDataUri = "";
@@ -104,6 +140,78 @@ export default function TechOrdersScreen() {
       ? `<img src="${logoDataUri}" style="width:48px;height:48px;object-fit:contain;margin-${isRTL ? "left" : "right"}:12px" />`
       : "";
 
+    const egp = t("common.egp");
+    const rowsHtml = [
+      [isRTL ? "تكلفة المواد" : "Materials Cost", inv.materialsTotal],
+      [isRTL ? "تكلفة النقل" : "Transport", inv.transportFee],
+      [isRTL ? "أجر العمالة" : "Labour Fee", inv.labourFee],
+      [isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee Deduction (${SERVICE_FEE_RATE}%)`, -inv.serviceFeeAmount],
+    ]
+      .filter(([, v]) => (v as number) !== 0)
+      .map(
+        ([label, val]) =>
+          `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:${isRTL ? "left" : "right"};font-weight:500;color:${(val as number) < 0 ? "#ef4444" : "#111827"}">${(val as number) >= 0 ? "" : "−"}${Math.abs(val as number).toFixed(2)} ${egp}</td></tr>`
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html dir="${dir}" lang="${isRTL ? "ar" : "en"}">
+<head><meta charset="UTF-8"/>
+<style>
+  body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111827;direction:${dir}}
+  .header{display:flex;flex-direction:${isRTL ? "row-reverse" : "row"};align-items:center;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:24px}
+  .brand{flex:1;font-size:20px;font-weight:700;color:#111827;text-align:${isRTL ? "right" : "left"}}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px}
+  .total-row{background:#fef3c7;font-weight:700;font-size:16px}
+  .total-row td{padding:12px;color:#d97706}
+  h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}
+  .badge{display:inline-block;background:#fef3c7;color:#d97706;padding:4px 12px;border-radius:20px;font-size:12px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="header">${logoImg}<div class="brand">${isRTL ? "فني · FANNI" : "FANNI · فني"}</div></div>
+<div class="badge">${isRTL ? "فاتورة الفني" : "Technician Invoice"}</div>
+<h2>${isRTL ? "تفاصيل الدفعة" : "Payout Details"}</h2>
+<table><tbody>${rowsHtml}
+<tr class="total-row"><td>${isRTL ? "صافي المستحق" : "Net Payout"}</td><td style="text-align:${isRTL ? "left" : "right"}">${inv.techNetTotal.toFixed(2)} ${egp}</td></tr>
+</tbody></table>
+</body></html>`;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: isRTL ? "فاتورة الفني" : "Technician Invoice", UTI: "com.adobe.pdf" });
+      } else {
+        Alert.alert(isRTL ? "فاتورة الفني" : "Technician Invoice", uri);
+      }
+    } catch {
+      Alert.alert(t("common.error") || "Error", t("invoice.shareError"));
+    }
+  };
+
+  const handleShareInvoice = async (order: Order) => {
+    if (order.threePartyInvoice) {
+      await handleShareTechInvoice(order);
+      return;
+    }
+    if (!order.invoice) return;
+    const inv = order.invoice;
+    const dir = isRTL ? "rtl" : "ltr";
+    let logoDataUri = "";
+    try {
+      const asset = Asset.fromModule(require("@/assets/images/icon.png"));
+      await asset.downloadAsync();
+      if (asset.localUri) {
+        const base64 = await readAsStringAsync(asset.localUri, { encoding: "base64" });
+        logoDataUri = `data:image/png;base64,${base64}`;
+      }
+    } catch (err) {
+      console.warn("[ShareInvoice] Could not load logo asset:", err);
+    }
+    const logoImg = logoDataUri
+      ? `<img src="${logoDataUri}" style="width:48px;height:48px;object-fit:contain;margin-${isRTL ? "left" : "right"}:12px" />`
+      : "";
     const rows = [
       [t("invoice.materials"), inv.materialsTotal],
       [t("invoice.materialsMark"), inv.materialsMark],
@@ -117,50 +225,21 @@ export default function TechOrdersScreen() {
           `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:${isRTL ? "left" : "right"};font-weight:500">${val} ${t("common.egp")}</td></tr>`
       )
       .join("");
-
     const html = `<!DOCTYPE html>
 <html dir="${dir}" lang="${isRTL ? "ar" : "en"}">
-<head>
-<meta charset="UTF-8"/>
-<style>
-  body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111827;direction:${dir}}
-  .header{display:flex;flex-direction:${isRTL ? "row-reverse" : "row"};align-items:center;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:24px}
-  .brand{flex:1;font-size:20px;font-weight:700;color:#111827;text-align:${isRTL ? "right" : "left"}}
-  .invoice-num{font-size:12px;color:#6b7280}
-  table{width:100%;border-collapse:collapse;margin-bottom:20px}
-  .total-row{background:#fef3c7;font-weight:700;font-size:16px}
-  .total-row td{padding:12px;color:#d97706}
-  h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}
-</style>
+<head><meta charset="UTF-8"/>
+<style>body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111827;direction:${dir}}.header{display:flex;flex-direction:${isRTL ? "row-reverse" : "row"};align-items:center;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:24px}.brand{flex:1;font-size:20px;font-weight:700;color:#111827;text-align:${isRTL ? "right" : "left"}}.invoice-num{font-size:12px;color:#6b7280}table{width:100%;border-collapse:collapse;margin-bottom:20px}.total-row{background:#fef3c7;font-weight:700;font-size:16px}.total-row td{padding:12px;color:#d97706}h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}</style>
 </head>
 <body>
-<div class="header">
-  ${logoImg}
-  <div class="brand">${isRTL ? "فني · FANNI" : "FANNI · فني"}</div>
-  <div class="invoice-num">#${inv.invoiceNumber}</div>
-</div>
+<div class="header">${logoImg}<div class="brand">${isRTL ? "فني · FANNI" : "FANNI · فني"}</div><div class="invoice-num">#${inv.invoiceNumber}</div></div>
 <h2>${t("invoice.title")} #${inv.invoiceNumber}</h2>
-<table>
-  <tbody>
-    ${rows}
-    <tr class="total-row">
-      <td>${t("invoice.total")}</td>
-      <td style="text-align:${isRTL ? "left" : "right"}">${inv.total} ${t("common.egp")}</td>
-    </tr>
-  </tbody>
-</table>
-</body>
-</html>`;
-
+<table><tbody>${rows}<tr class="total-row"><td>${t("invoice.total")}</td><td style="text-align:${isRTL ? "left" : "right"}">${inv.total} ${t("common.egp")}</td></tr></tbody></table>
+</body></html>`;
     try {
       const { uri } = await Print.printToFileAsync({ html });
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: `${t("invoice.title")} #${inv.invoiceNumber}`,
-          UTI: "com.adobe.pdf",
-        });
+        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: `${t("invoice.title")} #${inv.invoiceNumber}`, UTI: "com.adobe.pdf" });
       } else {
         Alert.alert(t("invoice.title"), uri);
       }
@@ -169,7 +248,33 @@ export default function TechOrdersScreen() {
     }
   };
 
-  const pickInvoicePhoto = async () => {
+  const runOCR = async (imageUrl: string): Promise<OcrReceiptData | null> => {
+    const apiBase = getApiBaseUrl();
+    if (!apiBase || !sessionToken) return null;
+    setOcrRunning(true);
+    try {
+      const res = await fetch(`${apiBase}/api/ocr/receipt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as { supplier?: string | null; date?: string | null; lineItems?: Array<{ description: string; qty: number; unit?: string | null; unitPrice: number; totalPrice: number }>; detectedTotal?: number };
+      return {
+        supplier: data.supplier ?? null,
+        date: data.date ?? null,
+        lineItems: data.lineItems ?? [],
+        detectedTotal: data.detectedTotal ?? 0,
+        photoUrl: imageUrl,
+      };
+    } catch {
+      return null;
+    } finally {
+      setOcrRunning(false);
+    }
+  };
+
+  const pickReceiptPhoto = async () => {
     if (!sessionToken) {
       Alert.alert(
         isRTL ? "غير مسجّل" : "Not Signed In",
@@ -179,26 +284,31 @@ export default function TechOrdersScreen() {
     }
     const asset = await pickPhotoWithSourceChooser(isRTL);
     if (!asset) return;
-    setMatInvoicePhotoUploading(true);
+    setReceiptUploading(true);
+    setReceiptError(null);
     try {
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
-      setMatInvoicePhoto(url);
-    } catch (_) {
+      const ocrData = await runOCR(url);
+      const receipt: OcrReceiptData = ocrData ?? { supplier: null, date: null, lineItems: [], detectedTotal: 0, photoUrl: url };
+      setReceiptPhotos((prev) => {
+        const updated = [...prev, receipt];
+        const newTotal = updated.reduce((sum, r) => sum + r.detectedTotal, 0);
+        setMaterialsTotalStr(newTotal > 0 ? newTotal.toFixed(2) : materialsTotalStr);
+        return updated;
+      });
+    } catch {
       Alert.alert(
         isRTL ? "فشل الرفع" : "Upload Failed",
         isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
       );
     } finally {
-      setMatInvoicePhotoUploading(false);
+      setReceiptUploading(false);
     }
   };
 
   const pickPhasePhoto = async (orderId: string, phase: "before" | "during") => {
     if (!sessionToken) {
-      Alert.alert(
-        isRTL ? "غير مسجّل" : "Not Signed In",
-        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
-      );
+      Alert.alert(isRTL ? "غير مسجّل" : "Not Signed In", isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos.");
       return;
     }
     const asset = await pickPhotoWithSourceChooser(isRTL);
@@ -215,9 +325,6 @@ export default function TechOrdersScreen() {
           body: JSON.stringify({ phase, urls: [url] }),
         });
         savedOnServer = res.ok;
-        if (!res.ok) {
-          console.warn(`[Fanni] Phase photo save failed: ${res.status}`);
-        }
       }
       if (savedOnServer || !apiBase) {
         const timestamp = new Date().toISOString();
@@ -227,16 +334,10 @@ export default function TechOrdersScreen() {
           await updateOrder(orderId, { photos: [...(order.photos ?? []), newPhoto] });
         }
       } else {
-        Alert.alert(
-          isRTL ? "فشل الحفظ" : "Save Failed",
-          isRTL ? "تم رفع الصورة لكن تعذّر حفظها. يرجى المحاولة مرة أخرى." : "Photo uploaded but could not be saved. Please try again."
-        );
+        Alert.alert(isRTL ? "فشل الحفظ" : "Save Failed", isRTL ? "تم رفع الصورة لكن تعذّر حفظها." : "Photo uploaded but could not be saved.");
       }
     } catch {
-      Alert.alert(
-        isRTL ? "فشل الرفع" : "Upload Failed",
-        isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
-      );
+      Alert.alert(isRTL ? "فشل الرفع" : "Upload Failed", isRTL ? "تعذّر رفع الصورة." : "Could not upload photo.");
     } finally {
       setPhaseUploading((prev) => ({ ...prev, [orderId]: false }));
     }
@@ -244,10 +345,7 @@ export default function TechOrdersScreen() {
 
   const pickAfterPhoto = async () => {
     if (!sessionToken) {
-      Alert.alert(
-        isRTL ? "غير مسجّل" : "Not Signed In",
-        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
-      );
+      Alert.alert(isRTL ? "غير مسجّل" : "Not Signed In", isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos.");
       return;
     }
     const asset = await pickPhotoWithSourceChooser(isRTL);
@@ -257,75 +355,58 @@ export default function TechOrdersScreen() {
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
       setAfterPhotos((prev) => [...prev, url]);
     } catch {
-      Alert.alert(
-        isRTL ? "فشل الرفع" : "Upload Failed",
-        isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
-      );
+      Alert.alert(isRTL ? "فشل الرفع" : "Upload Failed", isRTL ? "تعذّر رفع الصورة." : "Could not upload photo.");
     } finally {
       setAfterPhotoUploading(false);
     }
   };
 
-  const addMaterial = () => {
-    if (!matDesc || !matAmount) return;
-    setMaterials([...materials, { id: Date.now().toString(), description: matDesc, amount: parseFloat(matAmount), invoicePhoto: matInvoicePhoto ?? undefined }]);
-    setMatDesc("");
-    setMatAmount("");
-    setMatInvoicePhoto(null);
-  };
-
   const handleComplete = async (orderId: string) => {
+    if (receiptPhotos.length === 0) {
+      setReceiptError(isRTL ? "يجب رفع صورة فاتورة مواد واحدة على الأقل" : "At least one material receipt photo is required");
+      return;
+    }
+    if (labourFee <= 0) {
+      Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "يرجى إدخال أجر العمالة" : "Please enter the labour fee");
+      return;
+    }
     setLoading(true);
-    const matTotal = materials.reduce((sum, m) => sum + m.amount, 0);
-    const markup = matTotal * 0.1;
-    const labor = 200;
-    const tools = 50;
-    const tax = (matTotal + markup + labor + tools) * 0.14;
-    const vat = (matTotal + markup + labor + tools) * 0.15;
-    const total = matTotal + markup + labor + tools + tax + vat;
-    const invNum = `INV-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000) + 1000}`;
-    const completionPayload = {
-      status: "completed" as const,
-      solutionDescription: solutionDesc,
-      clientSatisfaction: satisfaction ?? "satisfied",
-      materials,
-      invoice: {
-        invoiceNumber: invNum,
-        date: new Date().toISOString().split("T")[0],
-        materialsTotal: matTotal,
-        materialsMark: markup,
-        laborFee: labor,
-        toolRental: tools,
-        tax,
-        vat,
-        total,
-        companyName: "فني للصيانة المنزلية",
-        companyPhone: "01000000000",
-        orderId,
-        clientName: orders.find((o) => o.id === orderId)?.clientName ?? "",
-        technicianName: user?.name ?? "",
-      },
-    };
+
+    const materialPhotos = receiptPhotos.map((r) => r.photoUrl);
+    const ocrLineItems = receiptPhotos.map((r) => ({
+      supplier: r.supplier,
+      date: r.date,
+      items: r.lineItems.map((li) => ({ description: li.description, qty: li.qty, unit: li.unit, unitPrice: li.unitPrice, totalPrice: li.totalPrice })),
+      detectedTotal: r.detectedTotal,
+    }));
+
+    const { serviceFeeAmount, vatAmount, techNetTotal, clientTotal } = preview;
+    const adminTotal = serviceFeeAmount * 2 + vatAmount;
+
     let serverSynced = false;
+    let serverInvoices: ServerInvoiceSummary | null = null;
     let afterPhotosSaved = false;
+
     try {
       const apiBase = getApiBaseUrl();
       if (apiBase && sessionToken) {
         const res = await fetch(`${apiBase}/api/orders/${orderId}/complete`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionToken}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({
-            solutionDescription: completionPayload.solutionDescription,
-            clientSatisfaction: completionPayload.clientSatisfaction,
-            materials: completionPayload.materials,
-            invoice: completionPayload.invoice,
+            solutionDescription: solutionDesc,
+            clientSatisfaction: satisfaction ?? "satisfied",
+            labourFee,
+            transportFee: transportFee || undefined,
+            materialsTotal,
+            materialPhotos,
+            ocrLineItems,
           }),
         });
         if (res.ok) {
           serverSynced = true;
+          const data = await res.json() as CompleteOrderResponse;
+          serverInvoices = data.invoices ?? null;
         } else {
           console.warn(`[Fanni] Failed to complete order on server: ${res.status}`);
         }
@@ -336,15 +417,6 @@ export default function TechOrdersScreen() {
             body: JSON.stringify({ phase: "after", urls: afterPhotos }),
           });
           afterPhotosSaved = photoRes.ok;
-          if (!photoRes.ok) {
-            console.warn(`[Fanni] After-photos save failed: ${photoRes.status}`);
-            Alert.alert(
-              isRTL ? "تحذير" : "Warning",
-              isRTL
-                ? "اكتمل الطلب لكن تعذّر حفظ صور \"بعد العمل\". يرجى إعادة رفعها."
-                : "Order completed but after-work photos could not be saved. Please re-upload them."
-            );
-          }
         } else {
           afterPhotosSaved = true;
         }
@@ -354,6 +426,7 @@ export default function TechOrdersScreen() {
     } catch (err) {
       console.warn("[Fanni] Network error completing order:", err);
     }
+
     if (serverSynced || !sessionToken) {
       const existingOrder = orders.find((o) => o.id === orderId);
       const afterPhotoObjects =
@@ -366,29 +439,52 @@ export default function TechOrdersScreen() {
             }))
           : [];
       await updateOrder(orderId, {
-        ...completionPayload,
+        status: "completed" as const,
+        solutionDescription: solutionDesc,
+        clientSatisfaction: satisfaction ?? "satisfied",
         photos: [...(existingOrder?.photos ?? []), ...afterPhotoObjects],
+        threePartyInvoice: {
+          labourFee,
+          transportFee,
+          materialsTotal,
+          serviceFeeRate: SERVICE_FEE_RATE,
+          serviceFeeAmount: serverInvoices?.serviceFeeAmount ?? serviceFeeAmount,
+          vatRate: VAT_RATE,
+          vatAmount: serverInvoices?.vatAmount ?? vatAmount,
+          techNetTotal: serverInvoices?.techNetTotal ?? techNetTotal,
+          clientTotal: serverInvoices?.clientTotal ?? clientTotal,
+          adminTotal: serverInvoices?.adminTotal ?? adminTotal,
+          receiptPhotos: materialPhotos,
+          ocrLineItems: receiptPhotos,
+          generatedAt: new Date().toISOString(),
+        },
       });
     }
+
     setLoading(false);
     setShowComplete(false);
     setSelectedOrderId(null);
     setSolutionDesc("");
-    setMaterials([]);
     setSatisfaction(null);
     setAfterPhotos([]);
+    setReceiptPhotos([]);
+    setLabourFeeStr("");
+    setTransportFeeStr("");
+    setMaterialsTotalStr("0");
+    setReceiptError(null);
   };
 
   const handleCancelComplete = () => {
     setShowComplete(false);
     setSelectedOrderId(null);
     setSolutionDesc("");
-    setMaterials([]);
-    setMatDesc("");
-    setMatAmount("");
-    setMatInvoicePhoto(null);
     setSatisfaction(null);
     setAfterPhotos([]);
+    setReceiptPhotos([]);
+    setLabourFeeStr("");
+    setTransportFeeStr("");
+    setMaterialsTotalStr("0");
+    setReceiptError(null);
   };
 
   const renderCard = ({ item }: { item: Order }) => {
@@ -447,7 +543,6 @@ export default function TechOrdersScreen() {
                   <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: 6 }}>{t("tech.complete")}</Text>
                 </TouchableOpacity>
               </View>
-              {/* Phase photo button */}
               {item.status === "accepted" && (
                 <TouchableOpacity
                   style={[styles.phasePhotoBtn, { borderColor: colors.secondary, borderRadius: colors.radius - 4, opacity: phaseUploading[item.id] ? 0.6 : 1 }]}
@@ -480,7 +575,6 @@ export default function TechOrdersScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-              {/* Per-phase photo counts (all phases) */}
               {(() => {
                 const photos = item.photos ?? [];
                 const counts: { phase: string; icon: string; labelAr: string; labelEn: string; color: string }[] = [
@@ -504,7 +598,6 @@ export default function TechOrdersScreen() {
                   </View>
                 );
               })()}
-              {/* Active card: before/during thumbnail strip */}
               {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
                   {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").map((ph) => (
@@ -516,55 +609,80 @@ export default function TechOrdersScreen() {
               )}
             </>
           )}
-          {item.status === "completed" && item.invoice && (() => {
+          {item.status === "completed" && (item.threePartyInvoice || item.invoice) && (() => {
             const invoiceExpanded = expandedInvoices[item.id] ?? false;
+            const inv3 = item.threePartyInvoice;
+            const invLegacy = item.invoice;
+            const displayTotal = inv3 ? inv3.techNetTotal : (invLegacy?.total ?? 0);
+            const displayNum = invLegacy?.invoiceNumber ?? (isRTL ? "فاتورة" : "Invoice");
             return (
               <View style={[styles.invoiceBlock, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
-                {/* Tap-to-expand header row */}
                 <TouchableOpacity
                   style={[styles.invoiceLogoRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: invoiceExpanded ? colors.border : "transparent" }]}
                   onPress={() => setExpandedInvoices((prev) => ({ ...prev, [item.id]: !invoiceExpanded }))}
                   activeOpacity={0.75}
                 >
-                  <Image
-                    source={require("@/assets/images/icon.png")}
-                    style={styles.invoiceLogo}
-                    resizeMode="contain"
-                  />
+                  <Image source={require("@/assets/images/icon.png")} style={styles.invoiceLogo} resizeMode="contain" />
                   <View style={{ flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                     <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-                      {t("invoice.title")} #{item.invoice.invoiceNumber}
+                      {inv3 ? (isRTL ? "فاتورة الفني" : "Technician Invoice") : `${t("invoice.title")} #${displayNum}`}
                     </Text>
                     <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                      {t("invoice.total")}: {item.invoice.total.toFixed(2)} {t("common.egp")}
+                      {isRTL ? "صافي المستحق" : "Net Payout"}: {displayTotal.toFixed(2)} {t("common.egp")}
                     </Text>
                   </View>
                   <VectorIcon name={invoiceExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
                 </TouchableOpacity>
-                {/* Expanded: full line-item breakdown */}
                 {invoiceExpanded && (
                   <>
-                    {[
-                      [t("invoice.materials"), item.invoice.materialsTotal],
-                      [t("invoice.materialsMark"), item.invoice.materialsMark],
-                      [t("invoice.labor"), item.invoice.laborFee],
-                      [t("invoice.tools"), item.invoice.toolRental],
-                      [t("invoice.tax"), item.invoice.tax],
-                      [t("invoice.vat"), item.invoice.vat],
-                    ].map(([label, val]) => (
-                      <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label as string}</Text>
-                        <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
-                      </View>
-                    ))}
-                    {/* Total row */}
-                    <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius - 6, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("invoice.total")}</Text>
-                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>
-                        {item.invoice.total.toFixed(2)} {t("common.egp")}
-                      </Text>
-                    </View>
-                    {/* Share button */}
+                    {inv3 ? (
+                      <>
+                        {[
+                          [isRTL ? "تكلفة المواد" : "Materials Cost", inv3.materialsTotal],
+                          inv3.transportFee > 0 ? [isRTL ? "تكلفة النقل" : "Transport", inv3.transportFee] : null,
+                          [isRTL ? "أجر العمالة" : "Labour Fee", inv3.labourFee],
+                          [isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee (${SERVICE_FEE_RATE}%)`, -inv3.serviceFeeAmount],
+                        ].filter(Boolean).map((row) => {
+                          const [label, val] = row as [string, number];
+                          return (
+                            <View key={label} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label}</Text>
+                              <Text style={{ color: val < 0 ? colors.destructive : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                                {val < 0 ? `−${Math.abs(val).toFixed(2)}` : val.toFixed(2)} {t("common.egp")}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                        <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius - 6, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "صافي المستحق" : "Net Payout"}</Text>
+                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>
+                            {inv3.techNetTotal.toFixed(2)} {t("common.egp")}
+                          </Text>
+                        </View>
+                      </>
+                    ) : invLegacy ? (
+                      <>
+                        {[
+                          [t("invoice.materials"), invLegacy.materialsTotal],
+                          [t("invoice.materialsMark"), invLegacy.materialsMark],
+                          [t("invoice.labor"), invLegacy.laborFee],
+                          [t("invoice.tools"), invLegacy.toolRental],
+                          [t("invoice.tax"), invLegacy.tax],
+                          [t("invoice.vat"), invLegacy.vat],
+                        ].map(([label, val]) => (
+                          <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label as string}</Text>
+                            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
+                          </View>
+                        ))}
+                        <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius - 6, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("invoice.total")}</Text>
+                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>
+                            {invLegacy.total.toFixed(2)} {t("common.egp")}
+                          </Text>
+                        </View>
+                      </>
+                    ) : null}
                     <TouchableOpacity
                       style={[styles.shareBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10 }]}
                       onPress={() => handleShareInvoice(item)}
@@ -580,7 +698,6 @@ export default function TechOrdersScreen() {
               </View>
             );
           })()}
-          {/* Four-phase gallery for completed orders */}
           {item.status === "completed" && (item.photos ?? []).length > 0 && (() => {
             const phaseDef = [
               { phase: "problem", icon: "alert-circle", labelAr: "صور المشكلة", labelEn: "Problem Photos", color: colors.destructive },
@@ -640,6 +757,7 @@ export default function TechOrdersScreen() {
   if (showComplete && selectedOrderId) {
     const completeOrder = orders.find((o) => o.id === selectedOrderId);
     const clientMobile = completeOrder?.clientMobile ?? null;
+
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader title={t("tech.complete")} showBack onBack={handleCancelComplete} />
@@ -647,14 +765,14 @@ export default function TechOrdersScreen() {
           <View style={[styles.contactStrip, { backgroundColor: colors.card, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <TouchableOpacity
               style={[styles.contactBtn, { borderColor: colors.border }]}
-              onPress={() => Linking.openURL(`tel:${clientMobile}`).catch(() => Alert.alert(isRTL ? "تعذّر الاتصال" : "Cannot Call", isRTL ? "لا يمكن فتح تطبيق الاتصال." : "Unable to open the phone app."))}
+              onPress={() => Linking.openURL(`tel:${clientMobile}`).catch(() => {})}
             >
               <VectorIcon name="phone" size={16} color={colors.primary} />
               <Text style={[styles.contactBtnText, { color: colors.primary }]}>{isRTL ? "اتصل بالعميل" : "Call Client"}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.contactBtn, { borderColor: colors.border }]}
-              onPress={() => Linking.openURL(`sms:${clientMobile}`).catch(() => Alert.alert(isRTL ? "تعذّر الإرسال" : "Cannot Message", isRTL ? "لا يمكن فتح تطبيق الرسائل." : "Unable to open the messaging app."))}
+              onPress={() => Linking.openURL(`sms:${clientMobile}`).catch(() => {})}
             >
               <VectorIcon name="message-circle" size={16} color={colors.primary} />
               <Text style={[styles.contactBtnText, { color: colors.primary }]}>{isRTL ? "راسل العميل" : "Message Client"}</Text>
@@ -662,61 +780,274 @@ export default function TechOrdersScreen() {
           </View>
         ) : null}
         <ScrollView contentContainerStyle={[styles.completeContent, { paddingBottom: botPad + 24 }]} keyboardShouldPersistTaps="handled">
-          {/* Materials */}
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>{t("tech.materials")}</Text>
-            {materials.map((m) => (
-              <View key={m.id} style={[styles.matItem, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                {m.invoicePhoto ? (
-                  <Image source={{ uri: m.invoicePhoto }} style={{ width: 32, height: 32, borderRadius: 4, marginRight: isRTL ? 0 : 6, marginLeft: isRTL ? 6 : 0 }} />
-                ) : null}
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14, flex: 1 }}>{m.description}</Text>
-                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{m.amount} {t("common.egp")}</Text>
-                <TouchableOpacity onPress={() => setMaterials(materials.filter((x) => x.id !== m.id))} style={{ marginLeft: 10 }}>
-                  <VectorIcon name="trash-2" size={14} color={colors.destructive} />
-                </TouchableOpacity>
+
+          {/* MANDATORY: Receipt Photos */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: receiptError ? colors.destructive : colors.border }]}>
+            <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 10, gap: 6 }]}>
+              <VectorIcon name="file-text" size={16} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginBottom: 0, flex: 1 }]}>
+                {isRTL ? "فواتير المواد (مطلوب)" : "Material Receipts (Required)"}
+              </Text>
+              <View style={{ backgroundColor: colors.destructive + "20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                <Text style={{ color: colors.destructive, fontFamily: "Inter_700Bold", fontSize: 10 }}>{isRTL ? "إلزامي" : "Required"}</Text>
               </View>
-            ))}
-            <View style={[styles.matForm, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              <FanniInput placeholder={isRTL ? "الوصف" : "Description"} value={matDesc} onChangeText={setMatDesc} style={{ flex: 2, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0, marginBottom: 0 }} />
-              <FanniInput placeholder={isRTL ? "المبلغ" : "Amount"} value={matAmount} onChangeText={setMatAmount} keyboardType="numeric" style={{ flex: 1, marginBottom: 0 }} />
-              <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: 10 }]} onPress={addMaterial}>
-                <VectorIcon name="plus" size={18} color="#FFF" />
-              </TouchableOpacity>
             </View>
-            {/* Invoice receipt photo for current material being added */}
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
+              {isRTL ? "ارفع صورة كل فاتورة مواد اشتريتها. سيتم استخراج البيانات تلقائياً." : "Upload a photo of each material receipt. Data will be extracted automatically."}
+            </Text>
+
+            {receiptPhotos.length > 0 && (
+              <>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                  {receiptPhotos.map((r, i) => (
+                    <View key={i} style={{ marginRight: 10, alignItems: "center" }}>
+                      <Image source={{ uri: r.photoUrl }} style={{ width: 72, height: 72, borderRadius: 8, borderWidth: 2, borderColor: colors.success }} />
+                      {r.detectedTotal > 0 && (
+                        <Text style={{ color: colors.success, fontFamily: "Inter_700Bold", fontSize: 11, marginTop: 4 }}>
+                          {r.detectedTotal.toFixed(0)} {t("common.egp")}
+                        </Text>
+                      )}
+                      {r.supplier && (
+                        <Text style={{ color: colors.mutedForeground, fontSize: 10, fontFamily: "Inter_400Regular", maxWidth: 72 }} numberOfLines={1}>
+                          {r.supplier}
+                        </Text>
+                      )}
+                      <TouchableOpacity
+                        onPress={() => {
+                          setReceiptPhotos((prev) => {
+                            const updated = prev.filter((_, j) => j !== i);
+                            const newTotal = updated.reduce((sum, r2) => sum + r2.detectedTotal, 0);
+                            if (newTotal > 0) setMaterialsTotalStr(newTotal.toFixed(2));
+                            return updated;
+                          });
+                        }}
+                        style={{ marginTop: 4 }}
+                      >
+                        <VectorIcon name="trash-2" size={13} color={colors.destructive} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+
+                {receiptPhotos.some((r) => r.lineItems.length > 0) && (
+                  <View style={{ marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden" }}>
+                    <View style={{ backgroundColor: colors.accent, padding: 8, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
+                      <VectorIcon name="list" size={13} color={colors.primary} />
+                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.primary }}>
+                        {isRTL ? "البنود المستخرجة من الفواتير" : "Extracted Receipt Line Items"}
+                      </Text>
+                    </View>
+                    {receiptPhotos.map((r, ri) =>
+                      r.lineItems.length > 0 ? (
+                        <View key={ri} style={{ paddingHorizontal: 10, paddingBottom: 6 }}>
+                          {r.supplier && (
+                            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.mutedForeground, marginTop: 6, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
+                              {isRTL ? `فاتورة ${ri + 1}: ${r.supplier}` : `Receipt ${ri + 1}: ${r.supplier}`}
+                            </Text>
+                          )}
+                          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2, marginBottom: 2 }}>
+                            <Text style={{ flex: 3, fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }}>
+                              {isRTL ? "البيان" : "Description"}
+                            </Text>
+                            <Text style={{ flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.mutedForeground, textAlign: "center" }}>
+                              {isRTL ? "الكمية" : "Qty"}
+                            </Text>
+                            <Text style={{ flex: 1.5, fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.mutedForeground, textAlign: isRTL ? "left" : "right" }}>
+                              {isRTL ? "السعر" : "Price"}
+                            </Text>
+                          </View>
+                          {r.lineItems.map((li, lii) => (
+                            <View key={lii} style={{ flexDirection: isRTL ? "row-reverse" : "row", paddingVertical: 2 }}>
+                              <Text style={{ flex: 3, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.foreground, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
+                                {li.description}
+                              </Text>
+                              <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.foreground, textAlign: "center" }}>
+                                {li.qty}{li.unit ? ` ${li.unit}` : ""}
+                              </Text>
+                              <Text style={{ flex: 1.5, fontFamily: "Inter_500Medium", fontSize: 11, color: colors.foreground, textAlign: isRTL ? "left" : "right" }}>
+                                {li.totalPrice.toFixed(0)}
+                              </Text>
+                            </View>
+                          ))}
+                          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderColor: colors.border }}>
+                            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.primary, textAlign: isRTL ? "right" : "left" }}>
+                              {isRTL ? "المجموع" : "Subtotal"}
+                            </Text>
+                            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: colors.primary }}>
+                              {r.detectedTotal.toFixed(0)} {t("common.egp")}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null
+                    )}
+                  </View>
+                )}
+              </>
+            )}
+
             <TouchableOpacity
-              onPress={matInvoicePhoto ? () => setMatInvoicePhoto(null) : pickInvoicePhoto}
-              disabled={matInvoicePhotoUploading}
-              style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginTop: 8, padding: 8, borderWidth: 1, borderStyle: "dashed", borderColor: colors.border, borderRadius: 8, backgroundColor: colors.accent }}
+              onPress={pickReceiptPhoto}
+              disabled={receiptUploading || ocrRunning}
+              style={{
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 14,
+                borderWidth: 1.5,
+                borderStyle: "dashed",
+                borderColor: receiptError ? colors.destructive : (receiptPhotos.length > 0 ? colors.success : colors.primary),
+                borderRadius: 10,
+                backgroundColor: colors.accent,
+              }}
             >
-              {matInvoicePhotoUploading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : matInvoicePhoto ? (
+              {receiptUploading || ocrRunning ? (
                 <>
-                  <Image source={{ uri: matInvoicePhoto }} style={{ width: 40, height: 40, borderRadius: 6, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }} />
-                  <Text style={{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }}>
-                    {isRTL ? "إزالة صورة الفاتورة" : "Remove receipt photo"}
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: 8 }}>
+                    {ocrRunning ? (isRTL ? "جارٍ استخراج البيانات..." : "Extracting data...") : (isRTL ? "جارٍ الرفع..." : "Uploading...")}
                   </Text>
                 </>
               ) : (
                 <>
-                  <VectorIcon name="camera" size={16} color={colors.primary} />
-                  <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
-                    {isRTL ? "إضافة صورة فاتورة (اختياري)" : "Add receipt photo (optional)"}
+                  <VectorIcon name="camera" size={18} color={receiptPhotos.length > 0 ? colors.success : colors.primary} />
+                  <Text style={{ color: receiptPhotos.length > 0 ? colors.success : colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 8 }}>
+                    {receiptPhotos.length > 0
+                      ? (isRTL ? `أضف فاتورة أخرى (${receiptPhotos.length} مرفق)` : `Add Another Receipt (${receiptPhotos.length} uploaded)`)
+                      : (isRTL ? "ارفع صورة فاتورة المواد" : "Upload Receipt Photo")}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
+
+            {receiptError && (
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginTop: 8, gap: 4 }}>
+                <VectorIcon name="alert-circle" size={13} color={colors.destructive} />
+                <Text style={{ color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{receiptError}</Text>
+              </View>
+            )}
           </View>
 
-          {/* Solution */}
+          {/* Fees Section */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
+            <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 14, gap: 6 }]}>
+              <VectorIcon name="dollar-sign" size={16} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginBottom: 0 }]}>
+                {isRTL ? "تفاصيل الأتعاب" : "Fee Details"}
+              </Text>
+            </View>
+
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 4 }}>
+              {isRTL ? "إجمالي تكلفة المواد (ج.م)" : "Materials Total (EGP)"}
+            </Text>
+            <TextInput
+              style={[styles.feeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+              placeholder="0.00"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="decimal-pad"
+              value={materialsTotalStr}
+              onChangeText={setMaterialsTotalStr}
+            />
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left", marginBottom: 12, marginTop: 2 }}>
+              {receiptPhotos.length > 0
+                ? (isRTL ? "مسبق التعبئة من الفواتير المرفوعة — يمكن تعديله" : "Pre-filled from uploaded receipts — you can edit")
+                : (isRTL ? "أو أدخل الإجمالي يدوياً" : "Or enter total manually")}
+            </Text>
+
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 4 }}>
+              {isRTL ? "أجر العمالة والمصنعية (ج.م) *" : "Labour & Service Fee (EGP) *"}
+            </Text>
+            <TextInput
+              style={[styles.feeInput, { backgroundColor: colors.background, borderColor: labourFeeStr && labourFee > 0 ? colors.primary : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+              placeholder={isRTL ? "مطلوب" : "Required"}
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="decimal-pad"
+              value={labourFeeStr}
+              onChangeText={setLabourFeeStr}
+            />
+
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 4, marginTop: 12 }}>
+              {isRTL ? "تكلفة النقل (ج.م) — اختياري" : "Transport Cost (EGP) — Optional"}
+            </Text>
+            <TextInput
+              style={[styles.feeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+              placeholder="0.00"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="decimal-pad"
+              value={transportFeeStr}
+              onChangeText={setTransportFeeStr}
+            />
+          </View>
+
+          {/* Preview Panel */}
+          {labourFee > 0 && (
+            <View style={[styles.section, { backgroundColor: colors.darkMid, borderRadius: colors.radius, borderColor: colors.border }]}>
+              <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 14, gap: 6 }]}>
+                <VectorIcon name="eye" size={16} color={colors.primary} />
+                <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
+                  {isRTL ? "ملخص الفاتورة" : "Invoice Preview"}
+                </Text>
+              </View>
+
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Inter_600SemiBold", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
+                  {isRTL ? "ما يدفعه العميل" : "Client Pays"}
+                </Text>
+                {[
+                  [isRTL ? "تكلفة المواد" : "Materials", materialsTotal],
+                  transportFee > 0 ? [isRTL ? "النقل" : "Transport", transportFee] : null,
+                  [isRTL ? "أجر العمالة" : "Labour", labourFee],
+                  [isRTL ? `رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee (${SERVICE_FEE_RATE}%)`, preview.serviceFeeAmount],
+                  [isRTL ? `ضريبة القيمة المضافة (${VAT_RATE}%)` : `VAT (${VAT_RATE}%)`, preview.vatAmount],
+                ].filter(Boolean).map((row) => {
+                  const [label, val] = row as [string, number];
+                  return (
+                    <View key={label} style={[{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingVertical: 4 }]}>
+                      <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Inter_400Regular" }}>{label}</Text>
+                      <Text style={{ color: "#fff", fontSize: 12, fontFamily: "Inter_500Medium" }}>{val.toFixed(2)} {t("common.egp")}</Text>
+                    </View>
+                  );
+                })}
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.2)", marginTop: 4 }}>
+                  <Text style={{ color: colors.secondary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "إجمالي العميل" : "Client Total"}</Text>
+                  <Text style={{ color: colors.secondary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{preview.clientTotal.toFixed(2)} {t("common.egp")}</Text>
+                </View>
+              </View>
+
+              <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.15)", paddingTop: 14 }}>
+                <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Inter_600SemiBold", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
+                  {isRTL ? "صافي استحقاقك" : "Your Net Payout"}
+                </Text>
+                {[
+                  [isRTL ? "تكلفة المواد" : "Materials", materialsTotal],
+                  transportFee > 0 ? [isRTL ? "النقل" : "Transport", transportFee] : null,
+                  [isRTL ? "أجر العمالة" : "Labour", labourFee],
+                  [isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee Deduction (${SERVICE_FEE_RATE}%)`, -preview.serviceFeeAmount],
+                ].filter(Boolean).map((row) => {
+                  const [label, val] = row as [string, number];
+                  return (
+                    <View key={label} style={[{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingVertical: 4 }]}>
+                      <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Inter_400Regular" }}>{label}</Text>
+                      <Text style={{ color: val < 0 ? "#fca5a5" : "#fff", fontSize: 12, fontFamily: "Inter_500Medium" }}>
+                        {val < 0 ? `−${Math.abs(val).toFixed(2)}` : val.toFixed(2)} {t("common.egp")}
+                      </Text>
+                    </View>
+                  );
+                })}
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.2)", marginTop: 4 }}>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "صافي استحقاقك" : "Your Net Payout"}</Text>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18 }}>{preview.techNetTotal.toFixed(2)} {t("common.egp")}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Solution Description */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>{t("tech.solutionDesc")}</Text>
             <FanniInput value={solutionDesc} onChangeText={setSolutionDesc} multiline numberOfLines={4} placeholder={isRTL ? "اشرح الحل الذي تم..." : "Describe the solution applied..."} />
           </View>
 
-          {/* Satisfaction */}
+          {/* Client Satisfaction */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>{t("tech.clientSatisfied")}</Text>
             {(["satisfied", "neutral", "unsatisfied"] as const).map((s) => (
@@ -733,7 +1064,7 @@ export default function TechOrdersScreen() {
             ))}
           </View>
 
-          {/* After completion photos */}
+          {/* After Photos */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>{t("photo.phase.after")}</Text>
             {afterPhotos.length > 0 && (
@@ -777,7 +1108,6 @@ export default function TechOrdersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Lightbox */}
       <Modal visible={!!lightboxUri} transparent animationType="fade" onRequestClose={() => setLightboxUri(null)}>
         <TouchableOpacity style={styles.lightboxOverlay} activeOpacity={1} onPress={() => setLightboxUri(null)}>
           {lightboxUri && (
@@ -855,9 +1185,6 @@ const styles = StyleSheet.create({
   completeContent: { paddingHorizontal: 16, paddingTop: 16, gap: 12 },
   section: { padding: 16, borderWidth: 1.5 },
   sectionTitle: { fontSize: 16, marginBottom: 14 },
-  matItem: { paddingVertical: 8, borderBottomWidth: 1, alignItems: "center", marginBottom: 4 },
-  matForm: { marginTop: 12, alignItems: "center", gap: 8 },
-  addBtn: { padding: 12 },
   satisfactionOption: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center" },
   phasePhotoBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 9, marginTop: 8, borderWidth: 1.5, borderStyle: "dashed" },
   completedGallery: { marginTop: 8, padding: 10, borderWidth: 1, borderRadius: 8 },
@@ -869,4 +1196,5 @@ const styles = StyleSheet.create({
   contactStrip: { flexDirection: "row", borderBottomWidth: 1 },
   contactBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 6, borderRightWidth: 0 },
   contactBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  feeInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular", marginBottom: 4 },
 });

@@ -50,6 +50,7 @@ export interface Order {
   clientSatisfaction?: "satisfied" | "neutral" | "unsatisfied";
   completionStatus?: "solved" | "stillExists" | "worsened";
   invoice?: Invoice;
+  threePartyInvoice?: ThreePartyInvoice;
   clientRating?: number;
   clientComment?: string;
   createdAt: string;
@@ -70,6 +71,38 @@ export interface Invoice {
   orderId: string;
   clientName: string;
   technicianName: string;
+}
+
+export interface OcrLineItem {
+  description: string;
+  qty: number;
+  unit?: string | null;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface OcrReceiptData {
+  supplier?: string | null;
+  date?: string | null;
+  lineItems: OcrLineItem[];
+  detectedTotal: number;
+  photoUrl: string;
+}
+
+export interface ThreePartyInvoice {
+  labourFee: number;
+  transportFee: number;
+  materialsTotal: number;
+  serviceFeeRate: number;
+  serviceFeeAmount: number;
+  vatRate: number;
+  vatAmount: number;
+  techNetTotal: number;
+  clientTotal: number;
+  adminTotal: number;
+  receiptPhotos: string[];
+  ocrLineItems: OcrReceiptData[];
+  generatedAt: string;
 }
 
 interface OrderContextType {

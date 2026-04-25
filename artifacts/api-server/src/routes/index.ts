@@ -8,6 +8,7 @@ import invoicesRouter from "./invoices";
 import locationsRouter from "./locations";
 import geoRouter from "./geo";
 import uploadRouter from "./upload";
+import ocrRouter from "./ocr";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(invoicesRouter);
 router.use(locationsRouter);
 router.use(geoRouter);
 router.use(uploadRouter);
+router.use(ocrRouter);
 
 export default router;

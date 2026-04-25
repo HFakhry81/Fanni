@@ -30,6 +30,29 @@ function generateSalt(): string {
 
 async function runMigrations(): Promise<void> {
   try {
+    await pool.query(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'invoice_type') THEN CREATE TYPE invoice_type AS ENUM ('technician', 'client', 'admin'); END IF; END $$`);
+    logger.info("DB migration: invoice_type enum ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for invoice_type enum");
+  }
+  try {
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS invoice_type invoice_type`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS materials_photos JSONB`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS ocr_line_items JSONB`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS ocr_materials_total NUMERIC(10,2)`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS labour_fee NUMERIC(10,2)`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS transport_fee NUMERIC(10,2)`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS service_fee_rate NUMERIC(5,2) DEFAULT 15`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS service_fee_amount NUMERIC(10,2)`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS vat_rate NUMERIC(5,2) DEFAULT 14`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS vat_amount NUMERIC(10,2)`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS net_total NUMERIC(10,2)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_invoices_type" ON invoices (invoice_type)`);
+    logger.info("DB migration: invoices three-party columns ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for invoices three-party columns");
+  }
+  try {
     await pool.query(
       `ALTER TABLE admins ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`
     );

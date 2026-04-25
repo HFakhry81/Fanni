@@ -237,7 +237,7 @@ const translations: Record<string, Record<Language, string>> = {
   "invoice.labor": { ar: "أجر الخدمة والمصنعية", en: "Labor & Service Fee" },
   "invoice.tools": { ar: "إيجار العدد", en: "Tool Rental" },
   "invoice.tax": { ar: "الضريبة (14%)", en: "Tax (14%)" },
-  "invoice.vat": { ar: "القيمة المضافة (15%)", en: "VAT (15%)" },
+  "invoice.vat": { ar: "ضريبة القيمة المضافة (14%)", en: "VAT (14%)" },
   "invoice.total": { ar: "الإجمالي", en: "Total" },
   "invoice.technician": { ar: "الفني", en: "Technician" },
   "invoice.phone": { ar: "الهاتف", en: "Phone" },

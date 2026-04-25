@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
-import { db, ordersTable, pool } from "@workspace/db";
+import { db, ordersTable, invoicesTable, pool } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug } from "../lib/locationNormalizer";
@@ -344,11 +344,31 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
     return;
   }
 
-  const { solutionDescription, clientSatisfaction, materials, invoice } = req.body as {
+  const {
+    solutionDescription,
+    clientSatisfaction,
+    materials,
+    invoice,
+    labourFee,
+    transportFee,
+    materialsTotal,
+    materialPhotos,
+    ocrLineItems,
+  } = req.body as {
     solutionDescription?: string;
     clientSatisfaction?: string;
     materials?: unknown[];
     invoice?: unknown;
+    labourFee?: number;
+    transportFee?: number;
+    materialsTotal?: number;
+    materialPhotos?: string[];
+    ocrLineItems?: Array<{
+      supplier?: string | null;
+      date?: string | null;
+      items?: Array<{ description: string; qty: number; unit?: string | null; unitPrice: number; totalPrice: number }>;
+      detectedTotal?: number;
+    }>;
   };
 
   const dataPatch: Record<string, unknown> = { status: "completed" };
@@ -357,27 +377,185 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
   if (materials !== undefined) dataPatch.materials = materials;
   if (invoice !== undefined) dataPatch.invoice = invoice;
 
+  if (labourFee === undefined || Number(labourFee) <= 0) {
+    res.status(400).json({ error: "labourFee is required and must be greater than 0" });
+    return;
+  }
+  if (!materialPhotos || materialPhotos.length === 0) {
+    res.status(400).json({ error: "At least one material receipt photo is required (materialPhotos)" });
+    return;
+  }
+
   try {
-    const [updated] = await db
-      .update(ordersTable)
-      .set({
+    const labour = Number(labourFee);
+    const transport = Number(transportFee ?? 0);
+    const matTotal = Number(materialsTotal ?? 0);
+    const SERVICE_FEE_RATE = 15;
+    const VAT_RATE = 14;
+
+    const serviceFeeAmount = (labour * SERVICE_FEE_RATE) / 100;
+    const vatAmount = (labour * VAT_RATE) / 100;
+    const baseSubtotal = matTotal + transport + labour;
+    const techNetTotal = baseSubtotal - serviceFeeAmount;
+    const clientTotal = baseSubtotal + serviceFeeAmount + vatAmount;
+    const adminTotal = serviceFeeAmount * 2 + vatAmount;
+
+    let finalClientId: string | null = null;
+    let finalTechnicianId: string | null = null;
+    let finalOrderNumber: string | null = null;
+    let finalCategory: string | null = null;
+
+    await db.transaction(async (tx) => {
+      const [orderRow] = await tx
+        .select()
+        .from(ordersTable)
+        .where(eq(ordersTable.id, id))
+        .limit(1);
+
+      if (!orderRow) {
+        throw new Error("ORDER_NOT_FOUND");
+      }
+
+      if (user.role === "technician" && orderRow.technicianId !== user.id) {
+        throw new Error("ORDER_FORBIDDEN");
+      }
+
+      if (orderRow.status === "completed") {
+        throw new Error("ORDER_ALREADY_COMPLETED");
+      }
+
+      finalClientId = orderRow.clientId;
+      finalTechnicianId = user.role === "technician" ? user.id : orderRow.technicianId;
+      finalOrderNumber = orderRow.orderNumber;
+      finalCategory = orderRow.category;
+
+      await tx
+        .update(ordersTable)
+        .set({
+          status: "completed",
+          completedAt: new Date(),
+          updatedAt: new Date(),
+          data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
+        })
+        .where(eq(ordersTable.id, id));
+
+      const photosJson = materialPhotos;
+      const ocrJson = ocrLineItems ?? [];
+
+      await tx.insert(invoicesTable).values([
+        {
+          orderId: id,
+          orderNumber: finalOrderNumber,
+          clientId: finalClientId,
+          technicianId: finalTechnicianId,
+          category: finalCategory,
+          invoiceType: "technician",
+          subtotal: String(baseSubtotal.toFixed(2)),
+          taxRate: "0",
+          taxAmount: "0",
+          total: String(techNetTotal.toFixed(2)),
+          status: "issued",
+          materialsPhotos: photosJson,
+          ocrLineItems: ocrJson,
+          ocrMaterialsTotal: String(matTotal.toFixed(2)),
+          labourFee: String(labour.toFixed(2)),
+          transportFee: String(transport.toFixed(2)),
+          serviceFeeRate: String(SERVICE_FEE_RATE),
+          serviceFeeAmount: String(serviceFeeAmount.toFixed(2)),
+          vatRate: "0",
+          vatAmount: "0",
+          netTotal: String(techNetTotal.toFixed(2)),
+          issuedAt: new Date(),
+        },
+        {
+          orderId: id,
+          orderNumber: finalOrderNumber,
+          clientId: finalClientId,
+          technicianId: finalTechnicianId,
+          category: finalCategory,
+          invoiceType: "client",
+          subtotal: String(baseSubtotal.toFixed(2)),
+          taxRate: String(VAT_RATE),
+          taxAmount: String(vatAmount.toFixed(2)),
+          total: String(clientTotal.toFixed(2)),
+          status: "issued",
+          materialsPhotos: photosJson,
+          ocrLineItems: ocrJson,
+          ocrMaterialsTotal: String(matTotal.toFixed(2)),
+          labourFee: String(labour.toFixed(2)),
+          transportFee: String(transport.toFixed(2)),
+          serviceFeeRate: String(SERVICE_FEE_RATE),
+          serviceFeeAmount: String(serviceFeeAmount.toFixed(2)),
+          vatRate: String(VAT_RATE),
+          vatAmount: String(vatAmount.toFixed(2)),
+          netTotal: String(clientTotal.toFixed(2)),
+          issuedAt: new Date(),
+        },
+        {
+          orderId: id,
+          orderNumber: finalOrderNumber,
+          clientId: finalClientId,
+          technicianId: finalTechnicianId,
+          category: finalCategory,
+          invoiceType: "admin",
+          subtotal: String(labour.toFixed(2)),
+          taxRate: String(VAT_RATE),
+          taxAmount: String(vatAmount.toFixed(2)),
+          total: String(adminTotal.toFixed(2)),
+          status: "issued",
+          materialsPhotos: photosJson,
+          ocrLineItems: ocrJson,
+          ocrMaterialsTotal: String(matTotal.toFixed(2)),
+          labourFee: String(labour.toFixed(2)),
+          transportFee: String(transport.toFixed(2)),
+          serviceFeeRate: String(SERVICE_FEE_RATE),
+          serviceFeeAmount: String((serviceFeeAmount * 2).toFixed(2)),
+          vatRate: String(VAT_RATE),
+          vatAmount: String(vatAmount.toFixed(2)),
+          netTotal: String(adminTotal.toFixed(2)),
+          issuedAt: new Date(),
+        },
+      ]);
+    });
+
+    logger.info({ orderId: id, technicianId: user.id }, "Order completed and three-party invoices created atomically");
+
+    if (finalClientId) {
+      broadcastOrderStatusToClient(finalClientId, {
+        id,
         status: "completed",
-        completedAt: new Date(),
-        updatedAt: new Date(),
-        data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
-      })
-      .where(eq(ordersTable.id, id))
-      .returning({ clientId: ordersTable.clientId });
-
-    logger.info({ id, technicianId: user.id }, "Order completed and data JSONB updated");
-
-    if (updated?.clientId) {
-      broadcastOrderStatusToClient(updated.clientId, { id, status: "completed" });
+        invoiceData: {
+          labourFee: labour,
+          transportFee: transport,
+          materialsTotal: matTotal,
+          serviceFeeAmount,
+          vatAmount,
+          techNetTotal,
+          clientTotal,
+        },
+      });
     }
 
-    res.json({ success: true });
+    res.json({
+      success: true,
+      invoices: {
+        techNetTotal: Number(techNetTotal.toFixed(2)),
+        clientTotal: Number(clientTotal.toFixed(2)),
+        adminTotal: Number(adminTotal.toFixed(2)),
+        serviceFeeAmount: Number(serviceFeeAmount.toFixed(2)),
+        vatAmount: Number(vatAmount.toFixed(2)),
+        labourFee: labour,
+        transportFee: transport,
+        materialsTotal: matTotal,
+      },
+    });
   } catch (err) {
-    logger.error({ err, id }, "Failed to complete order");
+    if (err instanceof Error) {
+      if (err.message === "ORDER_NOT_FOUND") { res.status(404).json({ error: "Order not found" }); return; }
+      if (err.message === "ORDER_FORBIDDEN") { res.status(403).json({ error: "You are not assigned to this order" }); return; }
+      if (err.message === "ORDER_ALREADY_COMPLETED") { res.status(409).json({ error: "Order is already completed" }); return; }
+    }
+    logger.error({ err, id }, "Failed to complete order atomically");
     res.status(500).json({ error: "Failed to complete order" });
   }
 });

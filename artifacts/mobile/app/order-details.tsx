@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { useOrders } from "@/context/OrderContext";
+import { useOrders, ThreePartyInvoice } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import StarRating from "@/components/StarRating";
 import FanniButton from "@/components/FanniButton";
@@ -31,18 +32,68 @@ export default function OrderDetailsScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { t, isRTL, user: appUser } = useApp();
   const { orders, updateOrder } = useOrders();
   const insets = useSafeAreaInsets();
 
   const order = orders.find((o) => o.id === orderId);
 
+  const { sessionToken } = useAuth();
   const [completionStatus, setCompletionStatus] = useState<"solved" | "stillExists" | "worsened" | null>(null);
   const [clientRating, setClientRating] = useState(0);
   const [clientComment, setClientComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
   const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
+  type RawInvoice = { labourFee?: number; transportFee?: number; ocrMaterialsTotal?: number; serviceFeeRate?: number; serviceFeeAmount?: number; vatRate?: number; vatAmount?: number; netTotal?: number; total?: number; materialsPhotos?: string[]; invoiceType?: string };
+  const [fetchedTechInvoice, setFetchedTechInvoice] = useState<RawInvoice | null>(null);
+  const [fetchedClientInvoice, setFetchedClientInvoice] = useState<RawInvoice | null>(null);
+  const [fetchedAdminLedger, setFetchedAdminLedger] = useState<RawInvoice | null>(null);
+
+  useEffect(() => {
+    if (!order || order.status !== "completed" || !sessionToken) return;
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+    if (!domain) return;
+    const apiBase = `https://${domain}`;
+    fetch(`${apiBase}/api/invoices/order/${order.id}`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { technicianInvoice?: RawInvoice; clientInvoice?: RawInvoice; adminLedger?: RawInvoice; invoices?: RawInvoice[] } | null) => {
+        if (!data) return;
+        if (data.technicianInvoice) setFetchedTechInvoice(data.technicianInvoice);
+        if (data.clientInvoice) setFetchedClientInvoice(data.clientInvoice);
+        if (data.adminLedger) setFetchedAdminLedger(data.adminLedger);
+        if (!data.clientInvoice && !data.technicianInvoice && data.invoices?.length) {
+          const ti = data.invoices.find((i) => i.invoiceType === "technician");
+          const ci = data.invoices.find((i) => i.invoiceType === "client");
+          const al = data.invoices.find((i) => i.invoiceType === "admin");
+          if (ti) setFetchedTechInvoice(ti);
+          if (ci) setFetchedClientInvoice(ci);
+          if (al) setFetchedAdminLedger(al);
+        }
+      })
+      .catch(() => {});
+  }, [order?.id, order?.status, sessionToken]);
+
+  function rawToThreeParty(ci: RawInvoice, ti?: RawInvoice | null, al?: RawInvoice | null): ThreePartyInvoice {
+    const labour = Number(ci.labourFee ?? 0);
+    const transport = Number(ci.transportFee ?? 0);
+    const matTotal = Number(ci.ocrMaterialsTotal ?? 0);
+    const serviceFeeRate = Number(ci.serviceFeeRate ?? 15);
+    const serviceFeeAmount = Number(ci.serviceFeeAmount ?? 0);
+    const vatRate = Number(ci.vatRate ?? 14);
+    const vatAmount = Number(ci.vatAmount ?? 0);
+    const clientTotal = Number(ci.netTotal ?? ci.total ?? 0);
+    const techNetTotal = ti ? Number(ti.netTotal ?? ti.total ?? 0) : 0;
+    const adminTotal = al ? Number(al.netTotal ?? al.total ?? 0) : serviceFeeAmount * 2 + vatAmount;
+    return {
+      labourFee: labour, transportFee: transport, materialsTotal: matTotal,
+      serviceFeeRate, serviceFeeAmount, vatRate, vatAmount,
+      techNetTotal, clientTotal, adminTotal,
+      receiptPhotos: ci.materialsPhotos ?? [], ocrLineItems: [], generatedAt: new Date().toISOString(),
+    };
+  }
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -73,8 +124,80 @@ export default function OrderDetailsScreen() {
   };
 
   const handleShareInvoice = async () => {
-    if (!order.invoice) return;
+    const inv3 = effectiveThreePartyInvoice;
     const inv = order.invoice;
+    if (!inv3 && !inv) return;
+
+    if (inv3) {
+      const dir = isRTL ? "rtl" : "ltr";
+      let logoDataUri = "";
+      try {
+        const asset = Asset.fromModule(require("@/assets/images/icon.png"));
+        await asset.downloadAsync();
+        if (asset.localUri) {
+          const base64 = await readAsStringAsync(asset.localUri, { encoding: "base64" });
+          logoDataUri = `data:image/png;base64,${base64}`;
+        }
+      } catch (err) { console.warn("[ShareInvoice]", err); }
+      const logoImg = logoDataUri ? `<img src="${logoDataUri}" style="width:48px;height:48px;object-fit:contain;margin-${isRTL ? "left" : "right"}:12px" />` : "";
+      const egp = t("common.egp");
+      const SERVICE_FEE_RATE = inv3.serviceFeeRate ?? 15;
+      const VAT_RATE = inv3.vatRate ?? 14;
+
+      const negCell = (v: number) =>
+        `<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:${isRTL ? "left" : "right"};font-weight:500;color:#dc2626">−${v.toFixed(2)} ${egp}</td>`;
+      const posCell = (v: number) =>
+        `<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:${isRTL ? "left" : "right"};font-weight:500">${v.toFixed(2)} ${egp}</td>`;
+      const labelCell = (l: string) =>
+        `<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280">${l}</td>`;
+
+      const sharedStyle = `body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111827;direction:${dir}}.header{display:flex;flex-direction:${isRTL ? "row-reverse" : "row"};align-items:center;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:24px}.brand{flex:1;font-size:20px;font-weight:700}table{width:100%;border-collapse:collapse;margin-bottom:20px}.total-row{background:#fef3c7;font-weight:700;font-size:16px}.total-row td{padding:12px;color:#d97706}h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}`;
+
+      let rows: string;
+      let invoiceTitle: string;
+      let dialogTitle: string;
+      let grandTotal: number;
+
+      if (isTechnician) {
+        invoiceTitle = isRTL ? "دفعة الفني" : "Technician Payout";
+        dialogTitle = invoiceTitle;
+        grandTotal = inv3.techNetTotal;
+        rows = [
+          `<tr>${labelCell(isRTL ? "تكلفة المواد" : "Materials Cost")}${posCell(inv3.materialsTotal)}</tr>`,
+          inv3.transportFee > 0 ? `<tr>${labelCell(isRTL ? "تكلفة النقل" : "Transport")}${posCell(inv3.transportFee)}</tr>` : "",
+          `<tr>${labelCell(isRTL ? "أجر العمالة" : "Labour Fee")}${posCell(inv3.labourFee)}</tr>`,
+          `<tr>${labelCell(isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee Deduction (${SERVICE_FEE_RATE}%)`)}${negCell(inv3.serviceFeeAmount)}</tr>`,
+        ].join("");
+      } else {
+        invoiceTitle = isRTL ? "فاتورة العميل" : "Client Invoice";
+        dialogTitle = invoiceTitle;
+        grandTotal = inv3.clientTotal;
+        rows = [
+          `<tr>${labelCell(isRTL ? "تكلفة المواد" : "Materials Cost")}${posCell(inv3.materialsTotal)}</tr>`,
+          inv3.transportFee > 0 ? `<tr>${labelCell(isRTL ? "تكلفة النقل" : "Transport")}${posCell(inv3.transportFee)}</tr>` : "",
+          `<tr>${labelCell(isRTL ? "أجر العمالة" : "Labour Fee")}${posCell(inv3.labourFee)}</tr>`,
+          `<tr>${labelCell(isRTL ? `رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee (${SERVICE_FEE_RATE}%)`)}${posCell(inv3.serviceFeeAmount)}</tr>`,
+          `<tr>${labelCell(isRTL ? `ضريبة القيمة المضافة (${VAT_RATE}%)` : `VAT (${VAT_RATE}%)`)}${posCell(inv3.vatAmount)}</tr>`,
+        ].join("");
+      }
+
+      const html = `<!DOCTYPE html><html dir="${dir}" lang="${isRTL ? "ar" : "en"}"><head><meta charset="UTF-8"/>
+<style>${sharedStyle}</style>
+</head><body>
+<div class="header">${logoImg}<div class="brand">${isRTL ? "فني · FANNI" : "FANNI · فني"}</div></div>
+<h2>${invoiceTitle}</h2>
+<table><tbody>${rows}<tr class="total-row"><td>${isRTL ? "الإجمالي" : "Total"}</td><td style="text-align:${isRTL ? "left" : "right"}">${grandTotal.toFixed(2)} ${egp}</td></tr></tbody></table>
+</body></html>`;
+      try {
+        const { uri } = await Print.printToFileAsync({ html });
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle, UTI: "com.adobe.pdf" });
+        else Alert.alert(t("invoice.title"), uri);
+      } catch { Alert.alert(t("common.error") || "Error", t("invoice.shareError")); }
+      return;
+    }
+
+    if (!inv) return;
     const dir = isRTL ? "rtl" : "ltr";
 
     let logoDataUri = "";
@@ -193,7 +316,38 @@ export default function OrderDetailsScreen() {
     }
   };
 
-  const hasInvoice = !!order.invoice;
+  const isAdmin = appUser?.role === "admin";
+  const isTechnician = appUser?.role === "technician";
+
+  const effectiveClientInvoice = fetchedClientInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, netTotal: order.threePartyInvoice.clientTotal, total: order.threePartyInvoice.clientTotal } as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
+  const effectiveTechInvoice = fetchedTechInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, netTotal: order.threePartyInvoice.techNetTotal, total: order.threePartyInvoice.techNetTotal } as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
+
+  function buildTechInvoice(ti: RawInvoice): ThreePartyInvoice {
+    const labour = Number(ti.labourFee ?? 0);
+    const transport = Number(ti.transportFee ?? 0);
+    const matTotal = Number(ti.ocrMaterialsTotal ?? 0);
+    const serviceFeeRate = Number(ti.serviceFeeRate ?? 15);
+    const serviceFeeAmount = Number(ti.serviceFeeAmount ?? 0);
+    const vatRate = Number(ti.vatRate ?? 14);
+    const vatAmount = Number(ti.vatAmount ?? 0);
+    const techNetTotal = Number(ti.netTotal ?? ti.total ?? 0);
+    return {
+      labourFee: labour, transportFee: transport, materialsTotal: matTotal,
+      serviceFeeRate, serviceFeeAmount, vatRate, vatAmount,
+      techNetTotal,
+      clientTotal: 0,
+      adminTotal: 0,
+      receiptPhotos: ti.materialsPhotos ?? [], ocrLineItems: [], generatedAt: new Date().toISOString(),
+    };
+  }
+
+  const effectiveThreePartyInvoice = isAdmin
+    ? (effectiveClientInvoice ? rawToThreeParty(effectiveClientInvoice, effectiveTechInvoice, fetchedAdminLedger) : (order.threePartyInvoice ?? null))
+    : isTechnician
+      ? (effectiveTechInvoice ? buildTechInvoice(effectiveTechInvoice) : (order.threePartyInvoice ?? null))
+      : (effectiveClientInvoice ? rawToThreeParty(effectiveClientInvoice, effectiveTechInvoice, fetchedAdminLedger) : (order.threePartyInvoice ?? null));
+
+  const hasInvoice = !!order.invoice || !!effectiveThreePartyInvoice || !!fetchedClientInvoice || !!fetchedTechInvoice;
   const isCompleted = order.status === "completed";
 
   const phaseLabels: Record<string, string> = {
@@ -451,21 +605,17 @@ export default function OrderDetailsScreen() {
         )}
 
         {/* Invoice */}
-        {hasInvoice && order.invoice && (
+        {hasInvoice && (
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             {/* Logo header */}
             <View style={[styles.invoiceLogoRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-              <Image
-                source={require("@/assets/images/icon.png")}
-                style={styles.invoiceLogo}
-                resizeMode="contain"
-              />
+              <Image source={require("@/assets/images/icon.png")} style={styles.invoiceLogo} resizeMode="contain" />
               <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
                 {isRTL ? "فني · FANNI" : "FANNI · فني"}
               </Text>
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
-                #{order.invoice.invoiceNumber}
-              </Text>
+              {order.invoice && (
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>#{order.invoice.invoiceNumber}</Text>
+              )}
             </View>
             {/* Technician info row */}
             {(order.technicianName || order.technicianMobile) && (
@@ -484,34 +634,144 @@ export default function OrderDetailsScreen() {
                 )}
               </View>
             )}
-            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
-              {t("invoice.title")} #{order.invoice.invoiceNumber}
-            </Text>
-            {[
-              [t("invoice.materials"), order.invoice.materialsTotal],
-              [t("invoice.materialsMark"), order.invoice.materialsMark],
-              [t("invoice.labor"), order.invoice.laborFee],
-              [t("invoice.tools"), order.invoice.toolRental],
-              [t("invoice.tax"), order.invoice.tax],
-              [t("invoice.vat"), order.invoice.vat],
-            ].map(([label, val]) => (
-              <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>{val as number} {t("common.egp")}</Text>
-              </View>
-            ))}
-            <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{t("invoice.total")}</Text>
-              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18 }}>
-                {order.invoice.total} {t("common.egp")}
-              </Text>
-            </View>
-            <FanniButton
-              title={t("invoice.share")}
-              onPress={handleShareInvoice}
-              style={{ marginTop: 16 }}
-              fullWidth
-            />
+
+            {isAdmin && effectiveThreePartyInvoice ? (
+              <>
+                {/* Admin: Technician Payout block */}
+                {effectiveTechInvoice && (
+                  <>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                      <View style={{ backgroundColor: colors.primary + "20", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 11 }}>{isRTL ? "الفني" : "Technician"}</Text>
+                      </View>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "دفعة الفني" : "Technician Payout"}</Text>
+                    </View>
+                    {[
+                      [isRTL ? "تكلفة المواد" : "Materials Cost", Number(effectiveTechInvoice.ocrMaterialsTotal ?? 0)],
+                      Number(effectiveTechInvoice.transportFee ?? 0) > 0 ? [isRTL ? "تكلفة النقل" : "Transport", Number(effectiveTechInvoice.transportFee)] : null,
+                      [isRTL ? "أجر العمالة" : "Labour Fee", Number(effectiveTechInvoice.labourFee ?? 0)],
+                      [isRTL ? `خصم رسوم الخدمة (${15}%)` : `Service Fee Deduction (${15}%)`, -Number(effectiveTechInvoice.serviceFeeAmount ?? 0)],
+                    ].filter(Boolean).map(([label, val]) => (
+                      <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
+                        <Text style={{ color: (val as number) < 0 ? colors.destructive : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                          {(val as number) < 0 ? `−${Math.abs(val as number).toFixed(2)}` : (val as number).toFixed(2)} {t("common.egp")}
+                        </Text>
+                      </View>
+                    ))}
+                    <View style={[{ padding: 10, borderRadius: 8, backgroundColor: colors.accent, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }]}>
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{isRTL ? "صافي استحقاق الفني" : "Technician Net"}</Text>
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>{effectiveThreePartyInvoice.techNetTotal.toFixed(2)} {t("common.egp")}</Text>
+                    </View>
+                  </>
+                )}
+
+                {/* Admin: Client Invoice block */}
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                  <View style={{ backgroundColor: colors.success + "20", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ color: colors.success, fontFamily: "Inter_700Bold", fontSize: 11 }}>{isRTL ? "العميل" : "Client"}</Text>
+                  </View>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "فاتورة العميل" : "Client Invoice"}</Text>
+                </View>
+                {[
+                  [isRTL ? "تكلفة المواد" : "Materials Cost", effectiveThreePartyInvoice.materialsTotal],
+                  effectiveThreePartyInvoice.transportFee > 0 ? [isRTL ? "تكلفة النقل" : "Transport", effectiveThreePartyInvoice.transportFee] : null,
+                  [isRTL ? "أجر العمالة" : "Labour Fee", effectiveThreePartyInvoice.labourFee],
+                  [isRTL ? `رسوم الخدمة (${15}%)` : `Service Fee (${15}%)`, effectiveThreePartyInvoice.serviceFeeAmount],
+                  [isRTL ? `ضريبة القيمة المضافة (${14}%)` : `VAT (${14}%)`, effectiveThreePartyInvoice.vatAmount],
+                ].filter(Boolean).map(([label, val]) => (
+                  <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
+                  </View>
+                ))}
+                <View style={[{ padding: 10, borderRadius: 8, backgroundColor: colors.accent, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }]}>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{isRTL ? "إجمالي العميل" : "Client Total"}</Text>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>{effectiveThreePartyInvoice.clientTotal.toFixed(2)} {t("common.egp")}</Text>
+                </View>
+
+                {/* Admin: Ledger block */}
+                {(fetchedAdminLedger || effectiveThreePartyInvoice.adminTotal > 0) && (
+                  <>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                      <View style={{ backgroundColor: colors.secondary + "30", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ color: colors.secondary, fontFamily: "Inter_700Bold", fontSize: 11 }}>{isRTL ? "المنصة" : "Platform"}</Text>
+                      </View>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "حساب المنصة" : "Platform Ledger"}</Text>
+                    </View>
+                    {[
+                      [isRTL ? `رسوم الخدمة من الفني (${15}%)` : `Service Fee from Tech (${15}%)`, effectiveThreePartyInvoice.serviceFeeAmount],
+                      [isRTL ? `رسوم الخدمة من العميل (${15}%)` : `Service Fee from Client (${15}%)`, effectiveThreePartyInvoice.serviceFeeAmount],
+                      [isRTL ? `ضريبة القيمة المضافة (${14}%)` : `VAT Collected (${14}%)`, effectiveThreePartyInvoice.vatAmount],
+                    ].map(([label, val]) => (
+                      <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
+                      </View>
+                    ))}
+                    <View style={[{ padding: 10, borderRadius: 8, backgroundColor: colors.accent, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }]}>
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{isRTL ? "إجمالي المنصة" : "Platform Total"}</Text>
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>{effectiveThreePartyInvoice.adminTotal.toFixed(2)} {t("common.egp")}</Text>
+                    </View>
+                  </>
+                )}
+              </>
+            ) : !isAdmin && effectiveThreePartyInvoice ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
+                  {isTechnician ? (isRTL ? "دفعة الفني" : "Technician Payout") : (isRTL ? "فاتورة العميل" : "Client Invoice")}
+                </Text>
+                {[
+                  [isRTL ? "تكلفة المواد" : "Materials Cost", effectiveThreePartyInvoice.materialsTotal],
+                  effectiveThreePartyInvoice.transportFee > 0 ? [isRTL ? "تكلفة النقل" : "Transport", effectiveThreePartyInvoice.transportFee] : null,
+                  [isRTL ? "أجر العمالة" : "Labour Fee", effectiveThreePartyInvoice.labourFee],
+                  isTechnician
+                    ? [isRTL ? `خصم رسوم الخدمة (${15}%)` : `Service Fee Deduction (${15}%)`, -effectiveThreePartyInvoice.serviceFeeAmount]
+                    : [isRTL ? `رسوم الخدمة (${15}%)` : `Service Fee (${15}%)`, effectiveThreePartyInvoice.serviceFeeAmount],
+                  isTechnician ? null : [isRTL ? `ضريبة القيمة المضافة (${14}%)` : `VAT (${14}%)`, effectiveThreePartyInvoice.vatAmount],
+                ].filter(Boolean).map(([label, val]) => (
+                  <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
+                    <Text style={{ color: (val as number) < 0 ? colors.destructive : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                      {(val as number) < 0 ? `−${Math.abs(val as number).toFixed(2)}` : (val as number).toFixed(2)} {t("common.egp")}
+                    </Text>
+                  </View>
+                ))}
+                <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "الإجمالي" : "Total"}</Text>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18 }}>
+                    {(isTechnician ? effectiveThreePartyInvoice.techNetTotal : effectiveThreePartyInvoice.clientTotal).toFixed(2)} {t("common.egp")}
+                  </Text>
+                </View>
+              </>
+            ) : order.invoice ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
+                  {t("invoice.title")} #{order.invoice.invoiceNumber}
+                </Text>
+                {[
+                  [t("invoice.materials"), order.invoice.materialsTotal],
+                  [t("invoice.materialsMark"), order.invoice.materialsMark],
+                  [t("invoice.labor"), order.invoice.laborFee],
+                  [t("invoice.tools"), order.invoice.toolRental],
+                  [t("invoice.tax"), order.invoice.tax],
+                  [t("invoice.vat"), order.invoice.vat],
+                ].map(([label, val]) => (
+                  <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>{val as number} {t("common.egp")}</Text>
+                  </View>
+                ))}
+                <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{t("invoice.total")}</Text>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18 }}>
+                    {order.invoice.total} {t("common.egp")}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+
+            <FanniButton title={t("invoice.share")} onPress={handleShareInvoice} style={{ marginTop: 16 }} fullWidth />
           </View>
         )}
 
