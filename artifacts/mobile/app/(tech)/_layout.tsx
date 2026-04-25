@@ -2,43 +2,35 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import React, { useEffect, useRef } from "react";
-import { Platform, StyleSheet, View, Text, useColorScheme, Animated } from "react-native";
+import React, { useCallback, useEffect, useRef } from "react";
+import { AppState, Platform, StyleSheet, View, Text, useColorScheme, Animated } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 
-function PulsingBadge() {
+function CountBadge({ count }: { count: number }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scaleAnim, { toValue: 1.4, duration: 600, useNativeDriver: true }),
-          Animated.timing(opacityAnim, { toValue: 0.4, duration: 600, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scaleAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-          Animated.timing(opacityAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-        ]),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [scaleAnim, opacityAnim]);
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+    ]).start();
+  }, [count, scaleAnim]);
+
+  const label = count > 99 ? "99+" : String(count);
 
   return (
-    <View style={styles.badgeWrapper}>
-      <Animated.View
-        style={[
-          styles.badgePulseRing,
-          { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
-        ]}
-      />
-      <View style={styles.badgeDot} />
-    </View>
+    <Animated.View
+      style={[
+        styles.countBadge,
+        label.length > 2 ? styles.countBadgeWide : null,
+        { transform: [{ scale: scaleAnim }] },
+      ]}
+    >
+      <Text style={styles.countBadgeText}>{label}</Text>
+    </Animated.View>
   );
 }
 
@@ -72,12 +64,11 @@ function NativeTechTabs() {
 function ClassicTechTabs() {
   const colors = useColors();
   const { t, isRTL } = useApp();
-  const { newPendingOrders } = useOrders();
+  const { availablePendingCount } = useOrders();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
-  const hasNew = newPendingOrders.length > 0;
 
   return (
     <Tabs
@@ -105,20 +96,20 @@ function ClassicTechTabs() {
         name="map"
         options={{
           title: t("nav.map"),
-          tabBarIcon: () =>
-            isIOS ? null : (
-              <View>
-                <Text style={[styles.tabIcon, hasNew && { color: colors.primary }]}>🗺️</Text>
-                {hasNew && <PulsingBadge />}
-              </View>
-            ),
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🗺️</Text>,
         }}
       />
       <Tabs.Screen
         name="available-orders"
         options={{
           title: isRTL ? "المتاحة" : "Available",
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📥</Text>,
+          tabBarIcon: () =>
+            isIOS ? null : (
+              <View>
+                <Text style={styles.tabIcon}>📥</Text>
+                {availablePendingCount > 0 && <CountBadge count={availablePendingCount} />}
+              </View>
+            ),
         }}
       />
       <Tabs.Screen
@@ -146,35 +137,65 @@ function ClassicTechTabs() {
   );
 }
 
+function usePendingCountSync() {
+  const { sessionToken } = useAuth();
+  const { setAvailablePendingCount } = useOrders();
+
+  const fetchCount = useCallback(async () => {
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+    if (!domain || !sessionToken) return;
+    try {
+      const res = await fetch(`https://${domain}/api/technician/pending-orders?limit=50`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (res.ok) {
+        const json = await res.json() as { orders?: unknown[]; meta?: { total: number } };
+        const count = json.meta?.total ?? (json.orders?.length ?? 0);
+        setAvailablePendingCount(count);
+      }
+    } catch (_) {}
+  }, [sessionToken, setAvailablePendingCount]);
+
+  useEffect(() => {
+    fetchCount();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") fetchCount();
+    });
+    return () => sub.remove();
+  }, [fetchCount]);
+}
+
 export default function TechLayout() {
-  const { newPendingOrders } = useOrders();
-  const hasNew = newPendingOrders.length > 0;
-  if (isLiquidGlassAvailable() && !hasNew) return <NativeTechTabs />;
+  const { availablePendingCount } = useOrders();
+  usePendingCountSync();
+  if (isLiquidGlassAvailable() && availablePendingCount === 0) return <NativeTechTabs />;
   return <ClassicTechTabs />;
 }
 
 const styles = StyleSheet.create({
   tabIcon: { fontSize: 22 },
-  badgeWrapper: {
+  countBadge: {
     position: "absolute",
-    top: -4,
-    right: -6,
-    width: 12,
-    height: 12,
+    top: -5,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#EF4444",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#fff",
   },
-  badgePulseRing: {
-    position: "absolute",
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#EF4444",
+  countBadgeWide: {
+    minWidth: 24,
+    borderRadius: 10,
   },
-  badgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#EF4444",
+  countBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 12,
   },
 });

@@ -58,7 +58,7 @@ export default function AvailableOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { sessionToken } = useAuth();
-  const { updateOrder } = useOrders();
+  const { updateOrder, setAvailablePendingCount } = useOrders();
   const router = useRouter();
 
   const [orders, setOrders] = useState<PendingOrder[]>([]);
@@ -71,6 +71,7 @@ export default function AvailableOrdersScreen() {
     const apiBase = getApiBaseUrl();
     if (!apiBase || !sessionToken) {
       setOrders([]);
+      setAvailablePendingCount(0);
       return;
     }
     if (isRefresh) setRefreshing(true);
@@ -82,7 +83,9 @@ export default function AvailableOrdersScreen() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json() as { orders: PendingOrder[]; meta?: { total: number } };
-      setOrders(json.orders ?? []);
+      const fetched = json.orders ?? [];
+      setOrders(fetched);
+      setAvailablePendingCount(json.meta?.total ?? fetched.length);
     } catch (err) {
       console.warn("[Fanni] Failed to fetch pending orders:", err);
       setError(isRTL ? "تعذّر تحميل الطلبات المتاحة" : "Could not load available orders");
@@ -141,7 +144,11 @@ export default function AvailableOrdersScreen() {
             technicianAvatar: user?.avatar,
             technicianRating: 4.8,
           });
-          setOrders((prev) => prev.filter((o) => o.id !== order.id));
+          setOrders((prev) => {
+            const next = prev.filter((o) => o.id !== order.id);
+            setAvailablePendingCount(next.length);
+            return next;
+          });
           router.push("/(tech)/orders");
         } else {
           console.warn("[Fanni] Acknowledge failed:", res.status);

@@ -87,6 +87,8 @@ interface OrderContextType {
   syncOrders: (incoming: Order[]) => void;
   wsOrderStatusSignal: number;
   bumpWsOrderStatusSignal: () => void;
+  availablePendingCount: number;
+  setAvailablePendingCount: (count: number) => void;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -250,8 +252,10 @@ export const SIMULATED_NEW_ORDER: Order = {
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
   const seenIdsRef = useRef<Set<string>>(new Set(SEED_ORDERS.map((o) => o.id)));
+  const injectedOrderIdsRef = useRef<Set<string>>(new Set(SEED_ORDERS.map((o) => o.id)));
   const [newPendingOrders, setNewPendingOrders] = useState<Order[]>([]);
   const [wsOrderStatusSignal, setWsOrderStatusSignal] = useState(0);
+  const [availablePendingCount, setAvailablePendingCount] = useState(0);
 
   const bumpWsOrderStatusSignal = React.useCallback(() => {
     setWsOrderStatusSignal((prev) => prev + 1);
@@ -328,6 +332,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   };
 
   const injectNewOrder = (order: Order) => {
+    const isNew = !injectedOrderIdsRef.current.has(order.id);
+    if (isNew) {
+      injectedOrderIdsRef.current.add(order.id);
+    }
     setOrders((prev) => {
       if (prev.find((o) => o.id === order.id)) return prev;
       return [...prev, order];
@@ -336,6 +344,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       if (prev.find((o) => o.id === order.id)) return prev;
       return [...prev, order];
     });
+    if (isNew) {
+      setAvailablePendingCount((prev) => prev + 1);
+    }
   };
 
   const mergeOrders = (incoming: Order[]) => {
@@ -401,6 +412,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         syncOrders,
         wsOrderStatusSignal,
         bumpWsOrderStatusSignal,
+        availablePendingCount,
+        setAvailablePendingCount,
       }}
     >
       {children}
