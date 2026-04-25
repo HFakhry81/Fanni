@@ -57,8 +57,8 @@ async function writePersistedRoute(key: string, data: RouteData): Promise<void> 
   }
 }
 
-let _savedWebMapState: { zoom: number; cx: number; cy: number } | null = null;
-let _savedNativeRegion: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null = null;
+const _savedWebMapState: Record<string, { zoom: number; cx: number; cy: number }> = {};
+const _savedNativeRegion: Record<string, { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }> = {};
 
 function routeCacheKey(
   startLat: number,
@@ -492,17 +492,18 @@ function computeFit(
 function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, colors, t, isRTL }: WebMapViewProps) {
   const initialFit = computeFit(techLat, techLng, clientLat, clientLng, 400, 400);
 
-  const zoomRef = useRef(_savedWebMapState?.zoom ?? initialFit.zoom);
+  const savedWeb = _savedWebMapState[order.id] ?? null;
+  const zoomRef = useRef(savedWeb?.zoom ?? initialFit.zoom);
   const centerRef = useRef(
-    _savedWebMapState
-      ? { x: _savedWebMapState.cx, y: _savedWebMapState.cy }
+    savedWeb
+      ? { x: savedWeb.cx, y: savedWeb.cy }
       : { x: initialFit.cx, y: initialFit.cy }
   );
   const [, setRenderTick] = useState(0);
   const triggerRender = useCallback(() => {
-    _savedWebMapState = { zoom: zoomRef.current, cx: centerRef.current.x, cy: centerRef.current.y };
+    _savedWebMapState[order.id] = { zoom: zoomRef.current, cx: centerRef.current.x, cy: centerRef.current.y };
     setRenderTick((n) => n + 1);
-  }, []);
+  }, [order.id]);
 
   const smoothRouteFirstRef = useRef({ lat: techLat, lng: techLng });
   const routeAnimFromRef = useRef({ lat: techLat, lng: techLng });
@@ -555,11 +556,11 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
 
   const dragRef = useRef<{ startX: number; startY: number; startCx: number; startCy: number } | null>(null);
   const pinchRef = useRef<{ dist: number; startZoom: number } | null>(null);
-  const webInteractingRef = useRef(_savedWebMapState != null);
+  const webInteractingRef = useRef(savedWeb != null);
   const webInteractionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (_savedWebMapState) {
+    if (savedWeb) {
       webInteractionTimerRef.current = setTimeout(() => {
         webInteractingRef.current = false;
       }, 5000);
@@ -788,9 +789,10 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         sizeRef.current = { w: width, h: height };
-        if (_savedWebMapState) {
-          centerRef.current = clampCenter(_savedWebMapState.cx, _savedWebMapState.cy, _savedWebMapState.zoom);
-          zoomRef.current = _savedWebMapState.zoom;
+        const currentSavedWeb = _savedWebMapState[order.id] ?? null;
+        if (currentSavedWeb) {
+          centerRef.current = clampCenter(currentSavedWeb.cx, currentSavedWeb.cy, currentSavedWeb.zoom);
+          zoomRef.current = currentSavedWeb.zoom;
         } else {
           const fit = computeFit(techLat, techLng, clientLat, clientLng, width, height);
           zoomRef.current = fit.zoom;
@@ -930,17 +932,18 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
   const animCoord = useRef(new Animated.ValueXY({ x: techLat, y: techLng })).current;
   const [displayCoord, setDisplayCoord] = useState({ latitude: techLat, longitude: techLng });
 
-  const userInteractingRef = useRef(_savedNativeRegion != null);
+  const savedNative = _savedNativeRegion[order.id] ?? null;
+  const userInteractingRef = useRef(savedNative != null);
   const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFittingRef = useRef(false);
   const fittingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const visibleRegionRef = useRef<{ lat: number; lng: number; latDelta: number; lngDelta: number } | null>(
-    _savedNativeRegion
+    savedNative
       ? {
-          lat: _savedNativeRegion.latitude,
-          lng: _savedNativeRegion.longitude,
-          latDelta: _savedNativeRegion.latitudeDelta,
-          lngDelta: _savedNativeRegion.longitudeDelta,
+          lat: savedNative.latitude,
+          lng: savedNative.longitude,
+          latDelta: savedNative.latitudeDelta,
+          lngDelta: savedNative.longitudeDelta,
         }
       : null
   );
@@ -1005,7 +1008,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
       latDelta: region.latitudeDelta,
       lngDelta: region.longitudeDelta,
     };
-    _savedNativeRegion = {
+    _savedNativeRegion[order.id] = {
       latitude: region.latitude,
       longitude: region.longitude,
       latitudeDelta: region.latitudeDelta,
@@ -1019,7 +1022,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
     interactionTimerRef.current = setTimeout(() => {
       userInteractingRef.current = false;
     }, 8000);
-  }, []);
+  }, [order.id]);
 
   useEffect(() => {
     if (userInteractingRef.current) return;
@@ -1035,7 +1038,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
   }, [techLat, techLng, clientLat, clientLng, fitPins]);
 
   useEffect(() => {
-    if (_savedNativeRegion) {
+    if (savedNative) {
       interactionTimerRef.current = setTimeout(() => {
         userInteractingRef.current = false;
       }, 8000);
@@ -1073,7 +1076,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
         // @ts-ignore – ref forwarding on dynamic import; works at runtime
         ref={mapRef}
         style={styles.map}
-        initialRegion={_savedNativeRegion ?? {
+        initialRegion={savedNative ?? {
           latitude: ALEX.lat,
           longitude: ALEX.lng,
           latitudeDelta: 0.08,
@@ -1082,7 +1085,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
         mapType="none"
         showsUserLocation={false}
         showsMyLocationButton={false}
-        onMapReady={_savedNativeRegion ? undefined : fitPins}
+        onMapReady={savedNative ? undefined : fitPins}
         onRegionChange={handleRegionChange}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
