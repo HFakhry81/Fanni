@@ -318,7 +318,7 @@ export default function NewOrderScreen() {
   };
 
   // ── Order photo picking ───────────────────────────────────────────────────────
-  const MAX_PHOTOS = 4;
+  const MAX_PHOTOS = 5;
 
   const pickOrderPhoto = async () => {
     if (orderPhotos.length >= MAX_PHOTOS) {

@@ -42,6 +42,7 @@ export default function OrderDetailsScreen() {
   const [clientComment, setClientComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
+  const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -262,36 +263,51 @@ export default function OrderDetailsScreen() {
           )}
         </View>
 
-        {/* Photo Gallery */}
+        {/* Photo Gallery — collapsible per phase */}
         {photosByPhase.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
               {t("photo.gallery")}
             </Text>
-            {photosByPhase.map(({ phase, photos: phasePhotos }) => (
-              <View key={phase} style={{ marginBottom: 14 }}>
-                <View style={[styles.phaseLabelRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                  <VectorIcon
-                    name={phase === "problem" ? "alert-circle" : phase === "before" ? "eye" : phase === "during" ? "tool" : "check-circle"}
-                    size={13}
-                    color={colors.primary}
-                  />
-                  <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
-                    {phaseLabels[phase]}
-                  </Text>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}>
-                    ({phasePhotos.length})
-                  </Text>
+            {photosByPhase.map(({ phase, photos: phasePhotos }, idx) => {
+              const isCollapsed = collapsedPhases[phase] ?? false;
+              const isLast = idx === photosByPhase.length - 1;
+              return (
+                <View key={phase} style={{ marginBottom: isLast ? 0 : 12 }}>
+                  {/* Collapsible header */}
+                  <TouchableOpacity
+                    style={[styles.phaseHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border, borderBottomWidth: isCollapsed ? 0 : 1 }]}
+                    onPress={() => setCollapsedPhases((prev) => ({ ...prev, [phase]: !prev[phase] }))}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.phaseLabelRow, { flexDirection: isRTL ? "row-reverse" : "row", flex: 1 }]}>
+                      <VectorIcon
+                        name={phase === "problem" ? "alert-circle" : phase === "before" ? "eye" : phase === "during" ? "tool" : "check-circle"}
+                        size={13}
+                        color={colors.primary}
+                      />
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
+                        {phaseLabels[phase]}
+                      </Text>
+                      <View style={[styles.photoCountBadge, { backgroundColor: colors.accent }]}>
+                        <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 11 }}>{phasePhotos.length}</Text>
+                      </View>
+                    </View>
+                    <VectorIcon name={isCollapsed ? "chevron-down" : "chevron-up"} size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  {/* Expanded thumbnail row */}
+                  {!isCollapsed && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, marginBottom: 4 }}>
+                      {phasePhotos.map((photo) => (
+                        <TouchableOpacity key={photo.id} onPress={() => setLightboxUri(photo.uri)} activeOpacity={0.85}>
+                          <Image source={{ uri: photo.uri }} style={styles.galleryThumb} />
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                  {phasePhotos.map((photo) => (
-                    <TouchableOpacity key={photo.id} onPress={() => setLightboxUri(photo.uri)} activeOpacity={0.85}>
-                      <Image source={{ uri: photo.uri }} style={styles.galleryThumb} />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -559,6 +575,8 @@ const styles = StyleSheet.create({
   invoiceTotalRow: { padding: 14, marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   trackBtn: { marginTop: 14, paddingVertical: 12, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", gap: 8 },
   phaseLabelRow: { alignItems: "center", gap: 4, marginBottom: 2 },
+  phaseHeader: { paddingVertical: 10, alignItems: "center", justifyContent: "space-between", gap: 8 },
+  photoCountBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, marginLeft: 6 },
   galleryThumb: { width: 88, height: 88, borderRadius: 8, marginRight: 8 },
   lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },
   lightboxImage: { width: "100%", height: "80%" },

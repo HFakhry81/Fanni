@@ -190,18 +190,30 @@ export default function TechOrdersScreen() {
       const mimeType = asset.mimeType ?? "image/jpeg";
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
       const apiBase = getApiBaseUrl();
+      let savedOnServer = false;
       if (apiBase) {
-        await fetch(`${apiBase}/api/orders/${orderId}/photos`, {
+        const res = await fetch(`${apiBase}/api/orders/${orderId}/photos`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ phase, urls: [url] }),
         });
+        savedOnServer = res.ok;
+        if (!res.ok) {
+          console.warn(`[Fanni] Phase photo save failed: ${res.status}`);
+        }
       }
-      const timestamp = new Date().toISOString();
-      const newPhoto = { id: `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`, uri: url, phase, timestamp };
-      const order = orders.find((o) => o.id === orderId);
-      if (order) {
-        await updateOrder(orderId, { photos: [...(order.photos ?? []), newPhoto] });
+      if (savedOnServer || !apiBase) {
+        const timestamp = new Date().toISOString();
+        const newPhoto = { id: `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`, uri: url, phase, timestamp };
+        const order = orders.find((o) => o.id === orderId);
+        if (order) {
+          await updateOrder(orderId, { photos: [...(order.photos ?? []), newPhoto] });
+        }
+      } else {
+        Alert.alert(
+          isRTL ? "فشل الحفظ" : "Save Failed",
+          isRTL ? "تم رفع الصورة لكن تعذّر حفظها. يرجى المحاولة مرة أخرى." : "Photo uploaded but could not be saved. Please try again."
+        );
       }
     } catch {
       Alert.alert(
@@ -429,16 +441,45 @@ export default function TechOrdersScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-              {/* Existing phase thumbnails */}
-              {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-                  {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").map((ph) => (
-                    <TouchableOpacity key={ph.id} onPress={() => setLightboxUri(ph.uri)}>
-                      <Image source={{ uri: ph.uri }} style={styles.miniThumb} />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
+              {/* Per-phase photo counts + thumbnails */}
+              {(() => {
+                const beforeCount = (item.photos ?? []).filter((p) => p.phase === "before").length;
+                const duringCount = (item.photos ?? []).filter((p) => p.phase === "during").length;
+                const hasAny = beforeCount > 0 || duringCount > 0;
+                return (
+                  <>
+                    {hasAny && (
+                      <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", gap: 12, marginTop: 6 }]}>
+                        {beforeCount > 0 && (
+                          <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }]}>
+                            <VectorIcon name="eye" size={11} color={colors.secondary} />
+                            <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                              {beforeCount} {isRTL ? "قبل" : "before"}
+                            </Text>
+                          </View>
+                        )}
+                        {duringCount > 0 && (
+                          <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }]}>
+                            <VectorIcon name="tool" size={11} color={colors.primary} />
+                            <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                              {duringCount} {isRTL ? "أثناء" : "during"}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {hasAny && (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                        {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").map((ph) => (
+                          <TouchableOpacity key={ph.id} onPress={() => setLightboxUri(ph.uri)}>
+                            <Image source={{ uri: ph.uri }} style={styles.miniThumb} />
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
           {item.status === "completed" && item.invoice && (
