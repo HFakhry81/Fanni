@@ -35,6 +35,7 @@ export const GetCurrentAuthUserResponse = zod.object({
       governorate: zod.string().nullish(),
       area: zod.string().nullish(),
       district: zod.string().nullish(),
+      address: zod.string().nullish(),
       profession: zod.string().nullish(),
       specialty: zod.string().nullish(),
       serviceCategories: zod.array(zod.string()).nullish(),

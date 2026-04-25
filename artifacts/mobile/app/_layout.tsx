@@ -165,6 +165,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         areaNameAr: areaLabels?.areaNameAr ?? (appUserAreaMatches ? appUser?.areaNameAr : undefined),
         areaNameEn: areaLabels?.areaNameEn ?? (appUserAreaMatches ? appUser?.areaNameEn : undefined),
         district: authUser.district ?? undefined,
+        address: authUser.address ?? undefined,
         profession: authUser.profession ?? undefined,
         specialty: authUser.specialty ?? undefined,
         serviceCategories: authUser.serviceCategories ?? undefined,

@@ -127,6 +127,7 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
     governorate: dbUser.governorate ?? null,
     area: dbUser.area ?? null,
     district: dbUser.district ?? null,
+    address: dbUser.address ?? null,
     profession: dbUser.profession ?? null,
     specialty: dbUser.specialty ?? null,
     serviceCategories: (dbUser.serviceCategories as string[] | null) ?? null,
@@ -904,7 +905,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
 // PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, serviceCategories, profileImageUrl } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, address, serviceCategories, profileImageUrl } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -914,6 +915,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     governorate?: string | null;
     area?: string | null;
     district?: string | null;
+    address?: string | null;
     serviceCategories?: string[] | null;
     profileImageUrl?: string | null;
   };
@@ -1045,6 +1047,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (governorate !== undefined) updates.governorate = governorate ?? null;
   if (area !== undefined) updates.area = area ?? null;
   if (district !== undefined) updates.district = district ?? null;
+  if (address !== undefined) updates.address = address ? String(address).trim() || null : null;
   if (serviceCategories !== undefined) updates.serviceCategories = serviceCategories ?? null;
   if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl ?? null;
 

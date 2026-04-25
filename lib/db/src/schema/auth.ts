@@ -30,6 +30,7 @@ export const usersTable = pgTable("users", {
   governorate: varchar("governorate", { length: 100 }),
   area: varchar("area", { length: 100 }),
   district: varchar("district", { length: 100 }),
+  address: varchar("address", { length: 500 }),
   profession: varchar("profession", { length: 100 }),
   specialty: varchar("specialty", { length: 100 }),
   serviceCategories: jsonb("service_categories").$type<string[]>(),

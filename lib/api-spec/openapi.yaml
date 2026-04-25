@@ -173,6 +173,9 @@ components:
         district:
           type: string
           nullable: true
+        address:
+          type: string
+          nullable: true
         profession:
           type: string
           nullable: true

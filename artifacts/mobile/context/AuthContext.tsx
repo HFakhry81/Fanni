@@ -26,6 +26,7 @@ export interface AuthUser {
   governorate: string | null;
   area: string | null;
   district: string | null;
+  address: string | null;
   profession: string | null;
   specialty: string | null;
   serviceCategories?: string[] | null;

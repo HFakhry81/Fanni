@@ -217,6 +217,7 @@ export default function TechProfileScreen() {
       specialty: editSpecialty.trim() || user.specialty || null,
       governorate: editGov || null,
       area: editArea || null,
+      address: editStreet.trim() || null,
       serviceCategories: editCategories.length > 0 ? editCategories : null,
       serviceStart: editServiceStart.trim(),
       serviceEnd: editServiceEnd.trim(),
