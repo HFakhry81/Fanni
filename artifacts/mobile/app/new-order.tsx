@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
-  BackHandler,
+  BackHandler, AppState,
 } from "react-native";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { LinearGradient } from "expo-linear-gradient";
@@ -120,8 +120,9 @@ export default function NewOrderScreen() {
   const hasCheckedBannerRef   = useRef(false);
   const discardOnLeaveRef     = useRef(false);
 
-  // Always-current snapshot of form fields AND route params for unmount auto-save
+  // Always-current snapshot of form fields AND route params for unmount/background auto-save
   const fieldsRef = useRef({
+    step,
     problemDesc, deviceType,
     governorateId, areaId, govOpt, areaOpt,
     street, building, floor, apartment, landmark,
@@ -185,6 +186,11 @@ export default function NewOrderScreen() {
       if (draft.visitTime)      setVisitTime(draft.visitTime as string);
       setStep(3);
       await AsyncStorage.removeItem(DRAFT_KEY);
+      // Re-enable autosave now that the login-handoff draft has been consumed.
+      // Without this reset, persistDraftIfNeeded would always bail out early
+      // for the rest of the session, leaving the user unprotected if they
+      // background the app or navigate away before submitting.
+      loginDraftSavedRef.current = false;
     })();
   }, [authLoading, isAuthenticated, category, subCategory]);
 
@@ -218,9 +224,10 @@ export default function NewOrderScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [governorateId, areaId]);
 
-  // ── Keep fieldsRef and routeParamsRef in sync so the unmount cleanup always has fresh values ──
+  // ── Keep fieldsRef and routeParamsRef in sync so the unmount/background cleanup always has fresh values ──
   useEffect(() => {
     fieldsRef.current = {
+      step,
       problemDesc, deviceType,
       governorateId, areaId, govOpt, areaOpt,
       street, building, floor, apartment, landmark,
@@ -254,28 +261,47 @@ export default function NewOrderScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, subCategory]);
 
+  // ── Shared helper: build and persist a draft snapshot ────────────────────────
+  // Pass stepOverride to record the *target* step (e.g. on Next/Back transitions
+  // where the state update hasn't fired yet).
+  const persistDraftIfNeeded = useCallback((stepOverride?: OrderStep) => {
+    if (submittedRef.current)       return; // clean submit — no draft needed
+    if (loginDraftSavedRef.current) return; // login-flow handoff in progress
+    if (discardOnLeaveRef.current)  return; // user explicitly chose to discard
+    const f = fieldsRef.current;
+    const { category: cat, subCategory: sub } = routeParamsRef.current;
+    const hasContent =
+      f.problemDesc || f.deviceType ||
+      f.governorateId || f.areaId ||
+      f.street || f.building || f.floor || f.apartment || f.landmark ||
+      f.visitDate || f.visitTime ||
+      f.latitude != null || f.longitude != null;
+    if (!hasContent) return;                        // nothing to save
+    const draft = {
+      ...f,
+      step: stepOverride ?? f.step,
+      category: cat, subCategory: sub,
+      savedAt: Date.now(),
+      loginFlow: false,
+    };
+    AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Auto-save on unmount ──────────────────────────────────────────────────────
   useEffect(() => {
-    return () => {
-      if (submittedRef.current)       return; // clean submit — no draft needed
-      if (loginDraftSavedRef.current) return; // login-flow draft already saved
-      if (discardOnLeaveRef.current)  return; // user explicitly chose to discard
-      const f = fieldsRef.current;
-      const { category: cat, subCategory: sub } = routeParamsRef.current;
-      const hasContent =
-        f.problemDesc || f.deviceType ||
-        f.governorateId || f.areaId ||
-        f.street || f.building || f.floor || f.apartment || f.landmark ||
-        f.visitDate || f.visitTime ||
-        f.latitude != null || f.longitude != null;
-      if (!hasContent) return;                      // nothing to save
-      const draft = {
-        ...f, category: cat, subCategory: sub,
-        savedAt: Date.now(),
-        loginFlow: false,
-      };
-      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
-    };
+    return () => { persistDraftIfNeeded(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save when app is backgrounded (home button, incoming call, etc.) ────
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "background" || nextState === "inactive") {
+        persistDraftIfNeeded();
+      }
+    });
+    return () => subscription.remove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -324,6 +350,7 @@ export default function NewOrderScreen() {
     if (d.longitude != null) setLongitude(d.longitude as number);
     if (d.visitDate)      setVisitDate(d.visitDate as string);
     if (d.visitTime)      setVisitTime(d.visitTime as string);
+    if (d.step && (d.step === 1 || d.step === 2 || d.step === 3)) setStep(d.step as OrderStep);
     await AsyncStorage.removeItem(DRAFT_KEY);
     setShowDraftBanner(false);
     setPendingDraft(null);
@@ -392,20 +419,30 @@ export default function NewOrderScreen() {
     useCallback(() => {
       const onHardwareBack = () => {
         if (step > 1) {
-          setStep((s) => (s - 1) as OrderStep);
+          const prevStep = (step - 1) as OrderStep;
+          persistDraftIfNeeded(prevStep);
+          setStep(prevStep);
           return true; // handled — move to previous step, no dialog
         }
         return false; // let Expo Router handle it → triggers beforeRemove above
       };
       const sub = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
       return () => sub.remove();
-    }, [step])
+    }, [step, persistDraftIfNeeded])
   );
 
-  const handleNext = () => { if (step < 3) setStep((step + 1) as OrderStep); };
+  const handleNext = () => {
+    if (step < 3) {
+      const nextStep = (step + 1) as OrderStep;
+      persistDraftIfNeeded(nextStep);
+      setStep(nextStep);
+    }
+  };
   const handleBack = () => {
     if (step > 1) {
-      setStep((step - 1) as OrderStep);
+      const prevStep = (step - 1) as OrderStep;
+      persistDraftIfNeeded(prevStep);
+      setStep(prevStep);
     } else {
       router.back(); // beforeRemove listener will prompt if form has data
     }
