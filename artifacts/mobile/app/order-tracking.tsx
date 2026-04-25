@@ -193,6 +193,9 @@ export default function OrderTrackingScreen() {
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
 
+  const [arrived, setArrived] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [displayEtaSec, setDisplayEtaSec] = useState<number | null>(null);
   const etaFromRouteRef = useRef(false);
 
@@ -226,12 +229,27 @@ export default function OrderTrackingScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
 
+  const ARRIVED_THRESHOLD = 1.0;
+
   useEffect(() => {
     if (!order) return;
-    const interval = setInterval(() => {
-      progressRef.current = Math.min(progressRef.current + 0.005, 0.95);
+    setArrived(false);
+    intervalRef.current = setInterval(() => {
+      progressRef.current = Math.min(progressRef.current + 0.005, ARRIVED_THRESHOLD);
       const p = progressRef.current;
       setProgress(p);
+
+      if (p >= ARRIVED_THRESHOLD) {
+        if (intervalRef.current !== null) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setArrived(true);
+        setTechLat(clientLat);
+        setTechLng(clientLng);
+        return;
+      }
+
       setDisplayEtaSec((prev) => (prev !== null ? Math.max(0, prev - 1) : null));
 
       if (routeData && routeData.coords.length > 1) {
@@ -247,7 +265,12 @@ export default function OrderTrackingScreen() {
         );
       }
     }, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [order, clientLat, clientLng, techStartLat, techStartLng, routeData]);
 
   if (!order) {
@@ -330,32 +353,43 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
-        <View style={[styles.etaBanner, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
-          <VectorIcon name="clock" size={15} color={colors.primary} />
-          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-            {t("order.arrivingIn")}{displayEtaSec === null ? "…" : `${etaMins > 0 ? `${etaMins} ${t("order.minutes")} ` : ""}${etaRemSec} ${t("order.seconds")}`}
-          </Text>
-          <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
-          <VectorIcon name="map-pin" size={15} color={colors.primary} />
-          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
-            {distanceLabel}
-          </Text>
-          {trafficLabel && (
+        <View style={[styles.etaBanner, { backgroundColor: arrived ? "#E8F5E9" : colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
+          {arrived ? (
             <>
+              <VectorIcon name="check-circle" size={15} color="#2E7D32" />
+              <Text style={{ color: "#2E7D32", fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                {t("order.technicianArrived")}
+              </Text>
+            </>
+          ) : (
+            <>
+              <VectorIcon name="clock" size={15} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                {t("order.arrivingIn")}{displayEtaSec === null ? "…" : `${etaMins > 0 ? `${etaMins} ${t("order.minutes")} ` : ""}${etaRemSec} ${t("order.seconds")}`}
+              </Text>
               <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
-              <View style={[
-                styles.trafficBadge,
-                { backgroundColor: trafficLabel === "slow" ? "#FF6F00" : "#2E7D32" },
-              ]}>
-                <Feather
-                  name={trafficLabel === "slow" ? "alert-triangle" : "zap"}
-                  size={11}
-                  color="#FFF"
-                />
-                <Text style={styles.trafficBadgeText}>
-                  {t(trafficLabel === "slow" ? "order.trafficSlow" : "order.trafficFast")}
-                </Text>
-              </View>
+              <VectorIcon name="map-pin" size={15} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
+                {distanceLabel}
+              </Text>
+              {trafficLabel && (
+                <>
+                  <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
+                  <View style={[
+                    styles.trafficBadge,
+                    { backgroundColor: trafficLabel === "slow" ? "#FF6F00" : "#2E7D32" },
+                  ]}>
+                    <Feather
+                      name={trafficLabel === "slow" ? "alert-triangle" : "zap"}
+                      size={11}
+                      color="#FFF"
+                    />
+                    <Text style={styles.trafficBadgeText}>
+                      {t(trafficLabel === "slow" ? "order.trafficSlow" : "order.trafficFast")}
+                    </Text>
+                  </View>
+                </>
+              )}
             </>
           )}
         </View>
@@ -377,8 +411,8 @@ export default function OrderTrackingScreen() {
               <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
                 {order.technicianName}
               </Text>
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                {t("order.onTheWay")}
+              <Text style={{ color: arrived ? "#2E7D32" : colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                {arrived ? t("order.technicianArrived") : t("order.onTheWay")}
               </Text>
             </View>
             {order.technicianRating && (
