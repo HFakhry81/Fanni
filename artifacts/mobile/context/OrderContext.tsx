@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SEED_VERSION } from "../constants/seedVersion";
 
 export interface OrderPhoto {
   uri: string;
@@ -94,7 +95,6 @@ interface OrderContextType {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-const SEED_VERSION = "3";
 const SEED_VERSION_KEY = "orders_seed_version";
 
 const SEED_ORDERS: Order[] = [
