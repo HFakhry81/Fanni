@@ -441,45 +441,40 @@ export default function TechOrdersScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-              {/* Per-phase photo counts + thumbnails */}
+              {/* Per-phase photo counts (all phases) */}
               {(() => {
-                const beforeCount = (item.photos ?? []).filter((p) => p.phase === "before").length;
-                const duringCount = (item.photos ?? []).filter((p) => p.phase === "during").length;
-                const hasAny = beforeCount > 0 || duringCount > 0;
+                const photos = item.photos ?? [];
+                const counts: { phase: string; icon: string; labelAr: string; labelEn: string; color: string }[] = [
+                  { phase: "problem", icon: "alert-circle", labelAr: "مشكلة", labelEn: "problem", color: colors.destructive },
+                  { phase: "before",  icon: "eye",          labelAr: "قبل",    labelEn: "before",  color: colors.secondary },
+                  { phase: "during",  icon: "tool",         labelAr: "أثناء",  labelEn: "during",  color: colors.primary },
+                  { phase: "after",   icon: "check-circle", labelAr: "بعد",    labelEn: "after",   color: colors.success },
+                ].map((p) => ({ ...p, count: photos.filter((ph) => (ph.phase ?? "problem") === p.phase).length }))
+                  .filter((p) => p.count > 0);
+                if (!counts.length) return null;
                 return (
-                  <>
-                    {hasAny && (
-                      <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", gap: 12, marginTop: 6 }]}>
-                        {beforeCount > 0 && (
-                          <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }]}>
-                            <VectorIcon name="eye" size={11} color={colors.secondary} />
-                            <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
-                              {beforeCount} {isRTL ? "قبل" : "before"}
-                            </Text>
-                          </View>
-                        )}
-                        {duringCount > 0 && (
-                          <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }]}>
-                            <VectorIcon name="tool" size={11} color={colors.primary} />
-                            <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
-                              {duringCount} {isRTL ? "أثناء" : "during"}
-                            </Text>
-                          </View>
-                        )}
+                  <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginTop: 6 }]}>
+                    {counts.map((c) => (
+                      <View key={c.phase} style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 3 }]}>
+                        <VectorIcon name={c.icon} size={11} color={c.color} />
+                        <Text style={{ color: c.color, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                          {c.count} {isRTL ? c.labelAr : c.labelEn}
+                        </Text>
                       </View>
-                    )}
-                    {hasAny && (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-                        {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").map((ph) => (
-                          <TouchableOpacity key={ph.id} onPress={() => setLightboxUri(ph.uri)}>
-                            <Image source={{ uri: ph.uri }} style={styles.miniThumb} />
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    )}
-                  </>
+                    ))}
+                  </View>
                 );
               })()}
+              {/* Active card: before/during thumbnail strip */}
+              {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                  {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").map((ph) => (
+                    <TouchableOpacity key={ph.id} onPress={() => setLightboxUri(ph.uri)}>
+                      <Image source={{ uri: ph.uri }} style={styles.miniThumb} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
             </>
           )}
           {item.status === "completed" && item.invoice && (
@@ -502,6 +497,58 @@ export default function TechOrdersScreen() {
               </TouchableOpacity>
             </View>
           )}
+          {/* Four-phase gallery for completed orders */}
+          {item.status === "completed" && (item.photos ?? []).length > 0 && (() => {
+            const phaseDef = [
+              { phase: "problem", icon: "alert-circle", labelAr: "صور المشكلة", labelEn: "Problem Photos", color: colors.destructive },
+              { phase: "before",  icon: "eye",          labelAr: "قبل البدء",   labelEn: "Before Work",    color: colors.secondary },
+              { phase: "during",  icon: "tool",         labelAr: "أثناء العمل", labelEn: "During Work",    color: colors.primary },
+              { phase: "after",   icon: "check-circle", labelAr: "بعد الإنهاء", labelEn: "After Work",     color: colors.success },
+            ];
+            const groups = phaseDef
+              .map((p) => ({ ...p, photos: (item.photos ?? []).filter((ph) => (ph.phase ?? "problem") === p.phase) }))
+              .filter((g) => g.photos.length > 0);
+            if (!groups.length) return null;
+            return (
+              <View style={[styles.completedGallery, { borderColor: colors.border }]}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
+                  {t("photo.gallery")}
+                </Text>
+                {groups.map((g) => {
+                  const collapsed = collapsedPhases[`${item.id}_${g.phase}`] ?? false;
+                  return (
+                    <View key={g.phase} style={{ marginBottom: 8 }}>
+                      <TouchableOpacity
+                        style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 6, borderBottomColor: colors.border, borderBottomWidth: collapsed ? 0 : 1 }]}
+                        onPress={() => setCollapsedPhases((prev) => ({ ...prev, [`${item.id}_${g.phase}`]: !collapsed }))}
+                        activeOpacity={0.75}
+                      >
+                        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, flex: 1 }}>
+                          <VectorIcon name={g.icon} size={12} color={g.color} />
+                          <Text style={{ color: g.color, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                            {isRTL ? g.labelAr : g.labelEn}
+                          </Text>
+                          <View style={{ paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: colors.accent }}>
+                            <Text style={{ color: g.color, fontFamily: "Inter_700Bold", fontSize: 11 }}>{g.photos.length}</Text>
+                          </View>
+                        </View>
+                        <VectorIcon name={collapsed ? "chevron-down" : "chevron-up"} size={13} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                      {!collapsed && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                          {g.photos.map((ph) => (
+                            <TouchableOpacity key={ph.id} onPress={() => setLightboxUri(ph.uri)}>
+                              <Image source={{ uri: ph.uri }} style={styles.miniThumb} />
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })()}
         </View>
       </View>
     );
@@ -689,6 +736,7 @@ const styles = StyleSheet.create({
   addBtn: { padding: 12 },
   satisfactionOption: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center" },
   phasePhotoBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 9, marginTop: 8, borderWidth: 1.5, borderStyle: "dashed" },
+  completedGallery: { marginTop: 8, padding: 10, borderWidth: 1, borderRadius: 8 },
   miniThumb: { width: 48, height: 48, borderRadius: 6, marginRight: 6 },
   afterThumb: { width: 72, height: 72, borderRadius: 8, marginRight: 8 },
   lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },
