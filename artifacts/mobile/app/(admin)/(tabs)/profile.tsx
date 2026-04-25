@@ -24,6 +24,7 @@ import FanniButton from "@/components/FanniButton";
 import Toast from "@/components/Toast";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
+import { useSaveProfile } from "@/hooks/useSaveProfile";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -38,6 +39,7 @@ export default function AdminProfileScreen() {
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
   const { logout, refreshUser, sessionToken } = useAuth();
+  const { saveProfile } = useSaveProfile();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -105,45 +107,15 @@ export default function AdminProfileScreen() {
 
     setSaving(true);
     try {
-      const apiBase = getApiBaseUrl();
-      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-
-      if (!apiBase || !token) {
-        throw new Error(t("profile.noServer"));
-      }
-
-      const res = await fetch(`${apiBase}/api/auth/me`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName: firstName.trim(),
-          lastName: lastName.trim() || null,
-          email: email.trim() || null,
-        }),
+      const result = await saveProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || null,
+        email: email.trim() || null,
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? t("profile.saveFailed"));
+      if (!result.ok) {
+        throw new Error(result.error ?? t("profile.saveFailed"));
       }
-
-      const data = await res.json();
-      const serverUser = data.user;
-      const fullName = [
-        serverUser?.firstName ?? firstName.trim(),
-        serverUser?.lastName ?? lastName.trim(),
-      ].filter(Boolean).join(" ");
-
-      await setUser({
-        ...user,
-        name: fullName,
-        email: serverUser?.email ?? null,
-      });
-
-      await refreshUser();
 
       setEditMode(false);
       setToastMessage(t("profile.saveSuccess"));
@@ -281,6 +253,7 @@ export default function AdminProfileScreen() {
         if (!patchRes.ok) throw new Error(`Server update failed: ${patchRes.status}`);
       }
       if (user) await setUser({ ...user, avatar: url });
+      refreshUser().catch(() => {});
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
     } catch (_) {
       setToastMessage(isRTL ? "فشل رفع الصورة، يرجى المحاولة مرة أخرى" : "Upload failed, please try again");

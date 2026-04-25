@@ -59,6 +59,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         .filter(Boolean)
         .join(" ") || authUser.email || "User";
       setUser({
+        ...(appUser ?? {}),
         id: authUser.id,
         type: (authUser.role as UserType) ?? null,
         name: displayName,
@@ -70,7 +71,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         district: authUser.district ?? undefined,
         profession: authUser.profession ?? undefined,
         specialty: authUser.specialty ?? undefined,
-        serviceCategories: authUser.serviceCategories,
+        serviceCategories: authUser.serviceCategories ?? undefined,
       });
     } else {
       setUser(null);

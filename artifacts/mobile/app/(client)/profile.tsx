@@ -17,12 +17,14 @@ import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
+import { useSaveProfile } from "@/hooks/useSaveProfile";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
-  const { logout, sessionToken } = useAuth();
+  const { logout, sessionToken, refreshUser } = useAuth();
+  const { saveProfile } = useSaveProfile();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -120,51 +122,29 @@ export default function ClientProfileScreen() {
     const firstName = nameParts[0] ?? editName.trim();
     const lastName = nameParts.slice(1).join(" ") || null;
 
-    if (sessionToken) {
-      try {
-        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-        const apiBase = domain ? `https://${domain}` : "";
-        if (apiBase) {
-          const body: Record<string, unknown> = {
-            firstName,
-            lastName,
-            governorate: editGov || null,
-            area: editArea || null,
-          };
-          if (verificationToken) {
-            body.mobile = normalizedMobile;
-            body.verificationToken = verificationToken;
-          }
-          const res = await fetch(`${apiBase}/api/auth/me`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) {
-            const data = await res.json() as { error?: string };
-            setToastMessage(data.error ?? (isRTL ? "فشل حفظ البيانات، حاول مرة أخرى" : "Failed to save, please try again"));
-            setToastVisible(true);
-            return;
-          }
-        }
-      } catch (_) {
-        setToastMessage(isRTL ? "تعذّر الاتصال بالخادم" : "Could not reach server");
-        setToastVisible(true);
-        return;
-      }
+    const body: Record<string, unknown> = {
+      firstName,
+      lastName,
+      governorate: editGov || null,
+      area: editArea || null,
+    };
+    if (verificationToken) {
+      body.mobile = normalizedMobile;
+      body.verificationToken = verificationToken;
     }
 
-    await setUser({
-      ...user,
-      name: editName.trim(),
-      mobile: normalizedMobile,
-      governorate: editGov,
-      area: editArea,
-      address: editStreet.trim(),
-    });
+    const result = await saveProfile(body, { address: editStreet.trim() });
+
+    if (!result.ok) {
+      setToastMessage(
+        result.error === "offline"
+          ? (isRTL ? "تعذّر الاتصال بالخادم" : "Could not reach server")
+          : (result.error ?? (isRTL ? "فشل حفظ البيانات، حاول مرة أخرى" : "Failed to save, please try again"))
+      );
+      setToastVisible(true);
+      return;
+    }
+
     setEditVisible(false);
     setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
     setToastVisible(true);
@@ -287,6 +267,7 @@ export default function ClientProfileScreen() {
         if (!patchRes.ok) throw new Error(`Server update failed: ${patchRes.status}`);
       }
       await setUser({ ...user, avatar: url });
+      refreshUser().catch(() => {});
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
     } catch (_) {
       setToastMessage(isRTL ? "فشل رفع الصورة، يرجى المحاولة مرة أخرى" : "Upload failed, please try again");
