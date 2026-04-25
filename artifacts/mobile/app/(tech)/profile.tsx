@@ -71,10 +71,15 @@ export default function TechProfileScreen() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
+  // Work hours edit state
+  const [editServiceStart, setEditServiceStart] = useState("08:00");
+  const [editServiceEnd, setEditServiceEnd] = useState("22:00");
+
   // Validation errors
-  const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string; serviceStart?: string; serviceEnd?: string }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
+  const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
   useEffect(() => {
     if (openCategories === "1" && user && !editVisible) {
@@ -108,6 +113,8 @@ export default function TechProfileScreen() {
     setEditArea(user.area ?? "");
     setEditStreet(user.address ?? "");
     setEditCategories(user.serviceCategories ?? []);
+    setEditServiceStart(user.serviceStart ?? "08:00");
+    setEditServiceEnd(user.serviceEnd ?? "22:00");
     setErrors({});
     setEditVisible(true);
   };
@@ -135,6 +142,21 @@ export default function TechProfileScreen() {
 
     if (!editArea) {
       newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
+    }
+
+    const startValid = TIME_RE.test(editServiceStart.trim());
+    const endValid = TIME_RE.test(editServiceEnd.trim());
+    if (!startValid) {
+      newErrors.serviceStart = isRTL ? "صيغة غير صحيحة — مثال: 08:00" : "Invalid format — e.g. 08:00";
+    }
+    if (!endValid) {
+      newErrors.serviceEnd = isRTL ? "صيغة غير صحيحة — مثال: 22:00" : "Invalid format — e.g. 22:00";
+    }
+    if (startValid && endValid) {
+      const toMinutes = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+      if (toMinutes(editServiceEnd.trim()) <= toMinutes(editServiceStart.trim())) {
+        newErrors.serviceEnd = isRTL ? "وقت الانتهاء يجب أن يكون بعد وقت البدء" : "Work End must be later than Work Start";
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -172,6 +194,8 @@ export default function TechProfileScreen() {
           governorate: editGov || null,
           area: editArea || null,
           serviceCategories: editCategories.length > 0 ? editCategories : null,
+          serviceStart: editServiceStart.trim(),
+          serviceEnd: editServiceEnd.trim(),
         };
         if (verificationToken) {
           body.mobile = normalizedMobile;
@@ -207,6 +231,8 @@ export default function TechProfileScreen() {
         area: editArea,
         address: editStreet.trim(),
         serviceCategories: editCategories,
+        serviceStart: editServiceStart.trim(),
+        serviceEnd: editServiceEnd.trim(),
       });
     }
 
@@ -898,6 +924,41 @@ export default function TechProfileScreen() {
                     placeholderTextColor={colors.mutedForeground}
                     style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                   />
+                </View>
+
+                {/* Work Hours */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.serviceStart")}
+                  </Text>
+                  <TextInput
+                    value={editServiceStart}
+                    onChangeText={(v) => { setEditServiceStart(v); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }}
+                    placeholder="08:00"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numbers-and-punctuation"
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.serviceStart ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                  {errors.serviceStart ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.serviceStart}</Text>
+                  ) : null}
+                </View>
+
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.serviceEnd")}
+                  </Text>
+                  <TextInput
+                    value={editServiceEnd}
+                    onChangeText={(v) => { setEditServiceEnd(v); setErrors((e) => ({ ...e, serviceEnd: undefined })); }}
+                    placeholder="22:00"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numbers-and-punctuation"
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.serviceEnd ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                  {errors.serviceEnd ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.serviceEnd}</Text>
+                  ) : null}
                 </View>
 
                 {/* Service Categories */}

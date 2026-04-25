@@ -21,6 +21,8 @@ export interface User {
   rating?: number;
   avatar?: string;
   serviceCategories?: string[];
+  serviceStart?: string;
+  serviceEnd?: string;
 }
 
 interface AppContextType {
