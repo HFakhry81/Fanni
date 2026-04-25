@@ -62,10 +62,30 @@ const clients = new Map<WebSocket, TechnicianMeta>();
 const clientSessions = new Map<string, Set<WebSocket>>();
 const wsToClientId = new Map<WebSocket, string>();
 
+const wsLastPong = new Map<WebSocket, number>();
+
 let pendingOrders: unknown[] = [];
+
+const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_TIMEOUT_MS = 60_000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ws] of clients) {
+    if (ws.readyState !== WebSocket.OPEN) continue;
+    const lastPong = wsLastPong.get(ws) ?? now;
+    if (now - lastPong > HEARTBEAT_TIMEOUT_MS) {
+      logger.warn("WebSocket heartbeat timeout — terminating stale connection");
+      ws.terminate();
+      continue;
+    }
+    ws.send(JSON.stringify({ type: "ping" }));
+  }
+}, HEARTBEAT_INTERVAL_MS);
 
 wss.on("connection", (ws: WebSocket) => {
   clients.set(ws, { registered: false, isAvailable: true });
+  wsLastPong.set(ws, Date.now());
   logger.info({ total: clients.size }, "WebSocket connected");
 
   ws.send(JSON.stringify({ type: "connected", message: "Connected to Fanni order stream" }));
@@ -73,6 +93,11 @@ wss.on("connection", (ws: WebSocket) => {
   ws.on("message", async (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
+
+      if (msg.type === "pong") {
+        wsLastPong.set(ws, Date.now());
+        return;
+      }
 
       if (msg.type === "register" && msg.role === "client") {
         const token = typeof msg.token === "string" ? msg.token.trim() : "";
@@ -195,6 +220,7 @@ wss.on("connection", (ws: WebSocket) => {
 
   ws.on("close", () => {
     clients.delete(ws);
+    wsLastPong.delete(ws);
     const clientId = wsToClientId.get(ws);
     if (clientId) {
       wsToClientId.delete(ws);
@@ -214,6 +240,7 @@ wss.on("connection", (ws: WebSocket) => {
   ws.on("error", (err) => {
     logger.error({ err }, "WebSocket error");
     clients.delete(ws);
+    wsLastPong.delete(ws);
     const clientId = wsToClientId.get(ws);
     if (clientId) {
       wsToClientId.delete(ws);

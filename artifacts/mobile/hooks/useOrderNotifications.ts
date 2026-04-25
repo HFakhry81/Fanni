@@ -111,6 +111,12 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
         if (!isOnline) return;
         try {
           const data = JSON.parse(event.data as string);
+          if (data.type === "ping") {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "pong" }));
+            }
+            return;
+          }
           if (data.type === "auth_error") {
             console.warn("[Fanni] WebSocket auth rejected:", data.message);
             authRejectedRef.current = true;

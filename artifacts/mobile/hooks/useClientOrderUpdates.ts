@@ -84,6 +84,13 @@ export function useClientOrderUpdates(
         try {
           const data = JSON.parse(event.data as string);
 
+          if (data.type === "ping") {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "pong" }));
+            }
+            return;
+          }
+
           if (data.type === "auth_error") {
             console.warn("[Fanni] Client order updates WS auth rejected:", data.message);
             authRejectedRef.current = true;
