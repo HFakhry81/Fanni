@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
   Modal, TextInput, KeyboardAvoidingView, Alert, Image, type AlertButton,
 } from "react-native";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
@@ -29,6 +30,19 @@ const SERVICE_CATEGORIES = [
   { key: "pest", ar: "مكافحة حشرات", en: "Pest Control" },
   { key: "flooring", ar: "أرضيات", en: "Flooring" },
 ] as const;
+
+function timeStringToDate(hhmm: string): Date {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(isNaN(h) ? 8 : h, isNaN(m) ? 0 : m, 0, 0);
+  return d;
+}
+
+function dateToTimeString(date: Date): string {
+  const h = date.getHours().toString().padStart(2, "0");
+  const m = date.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
 
 export default function TechProfileScreen() {
   const router = useRouter();
@@ -74,6 +88,7 @@ export default function TechProfileScreen() {
   // Work hours edit state
   const [editServiceStart, setEditServiceStart] = useState("08:00");
   const [editServiceEnd, setEditServiceEnd] = useState("22:00");
+  const [activeTimePicker, setActiveTimePicker] = useState<"start" | "end" | null>(null);
 
   // Validation errors
   const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string; serviceStart?: string; serviceEnd?: string }>({});
@@ -931,14 +946,13 @@ export default function TechProfileScreen() {
                   <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
                     {t("register.serviceStart")}
                   </Text>
-                  <TextInput
-                    value={editServiceStart}
-                    onChangeText={(v) => { setEditServiceStart(v); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }}
-                    placeholder="08:00"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="numbers-and-punctuation"
-                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.serviceStart ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-                  />
+                  <TouchableOpacity
+                    onPress={() => setActiveTimePicker("start")}
+                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceStart ? colors.destructive : colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+                  >
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{editServiceStart}</Text>
+                    <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
+                  </TouchableOpacity>
                   {errors.serviceStart ? (
                     <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.serviceStart}</Text>
                   ) : null}
@@ -948,18 +962,63 @@ export default function TechProfileScreen() {
                   <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
                     {t("register.serviceEnd")}
                   </Text>
-                  <TextInput
-                    value={editServiceEnd}
-                    onChangeText={(v) => { setEditServiceEnd(v); setErrors((e) => ({ ...e, serviceEnd: undefined })); }}
-                    placeholder="22:00"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="numbers-and-punctuation"
-                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.serviceEnd ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-                  />
+                  <TouchableOpacity
+                    onPress={() => setActiveTimePicker("end")}
+                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceEnd ? colors.destructive : colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+                  >
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{editServiceEnd}</Text>
+                    <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
+                  </TouchableOpacity>
                   {errors.serviceEnd ? (
                     <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.serviceEnd}</Text>
                   ) : null}
                 </View>
+
+                {/* Android time picker dialog */}
+                {Platform.OS === "android" && activeTimePicker !== null && (
+                  <DateTimePicker
+                    mode="time"
+                    is24Hour
+                    value={timeStringToDate(activeTimePicker === "start" ? editServiceStart : editServiceEnd)}
+                    onChange={(event: DateTimePickerEvent, date?: Date) => {
+                      const which = activeTimePicker;
+                      setActiveTimePicker(null);
+                      if (event.type === "set" && date) {
+                        const ts = dateToTimeString(date);
+                        if (which === "start") { setEditServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
+                        else { setEditServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
+                      }
+                    }}
+                  />
+                )}
+
+                {/* iOS: modal with spinner picker + Done button */}
+                {Platform.OS === "ios" && activeTimePicker !== null && (
+                  <Modal transparent animationType="slide">
+                    <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setActiveTimePicker(null)} />
+                    <View style={{ backgroundColor: colors.card, paddingBottom: 20 }}>
+                      <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 12 }}>
+                        <TouchableOpacity onPress={() => setActiveTimePicker(null)}>
+                          <Text style={{ color: colors.accent, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        mode="time"
+                        is24Hour
+                        display="spinner"
+                        value={timeStringToDate(activeTimePicker === "start" ? editServiceStart : editServiceEnd)}
+                        onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                          if (date) {
+                            const ts = dateToTimeString(date);
+                            if (activeTimePicker === "start") { setEditServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
+                            else { setEditServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
+                          }
+                        }}
+                        style={{ width: "100%" }}
+                      />
+                    </View>
+                  </Modal>
+                )}
 
                 {/* Service Categories */}
                 <View

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Platform, TextInput,
+  TouchableOpacity, Platform, TextInput, Modal,
 } from "react-native";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
@@ -36,6 +37,19 @@ const SERVICE_CATEGORIES = [
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
   return domain ? `https://${domain}` : "";
+}
+
+function timeStringToDate(hhmm: string): Date {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(isNaN(h) ? 8 : h, isNaN(m) ? 0 : m, 0, 0);
+  return d;
+}
+
+function dateToTimeString(date: Date): string {
+  const h = date.getHours().toString().padStart(2, "0");
+  const m = date.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 type RegisterType = "client" | "technician";
@@ -81,6 +95,7 @@ export default function RegisterScreen() {
   // ── Technician service hours ───────────────────────────────────────────────
   const [serviceStart, setServiceStart] = useState("08:00");
   const [serviceEnd, setServiceEnd] = useState("22:00");
+  const [activePicker, setActivePicker] = useState<"start" | "end" | null>(null);
 
   // ── OTP verification state ─────────────────────────────────────────────────
   const [otpMode, setOtpMode] = useState(false);
@@ -658,24 +673,78 @@ export default function RegisterScreen() {
 
       <View style={[styles.timeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
-          <FanniInput
-            label={isRTL ? "بداية العمل" : "Work Start"}
-            value={serviceStart}
-            onChangeText={(v) => { setServiceStart(v); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }}
-            placeholder="08:00"
-            error={errors.serviceStart}
-          />
+          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "بداية العمل" : "Work Start"} <Text style={{ color: colors.destructive }}>*</Text>
+          </Text>
+          <TouchableOpacity
+            onPress={() => setActivePicker("start")}
+            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceStart ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceStart}</Text>
+            <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+          {errors.serviceStart ? <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>{errors.serviceStart}</Text> : null}
         </View>
         <View style={{ flex: 1 }}>
-          <FanniInput
-            label={isRTL ? "نهاية العمل" : "Work End"}
-            value={serviceEnd}
-            onChangeText={(v) => { setServiceEnd(v); setErrors((e) => ({ ...e, serviceEnd: undefined })); }}
-            placeholder="22:00"
-            error={errors.serviceEnd}
-          />
+          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "نهاية العمل" : "Work End"} <Text style={{ color: colors.destructive }}>*</Text>
+          </Text>
+          <TouchableOpacity
+            onPress={() => setActivePicker("end")}
+            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceEnd ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceEnd}</Text>
+            <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+          {errors.serviceEnd ? <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>{errors.serviceEnd}</Text> : null}
         </View>
       </View>
+
+      {/* Android: inline DateTimePicker dialog */}
+      {Platform.OS === "android" && activePicker !== null && (
+        <DateTimePicker
+          mode="time"
+          is24Hour
+          value={timeStringToDate(activePicker === "start" ? serviceStart : serviceEnd)}
+          onChange={(event: DateTimePickerEvent, date?: Date) => {
+            const which = activePicker;
+            setActivePicker(null);
+            if (event.type === "set" && date) {
+              const ts = dateToTimeString(date);
+              if (which === "start") { setServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
+              else { setServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
+            }
+          }}
+        />
+      )}
+
+      {/* iOS: modal with spinner picker + Done button */}
+      {Platform.OS === "ios" && activePicker !== null && (
+        <Modal transparent animationType="slide">
+          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setActivePicker(null)} />
+          <View style={{ backgroundColor: colors.card, paddingBottom: 20 }}>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 12 }}>
+              <TouchableOpacity onPress={() => setActivePicker(null)}>
+                <Text style={{ color: colors.accent, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              mode="time"
+              is24Hour
+              display="spinner"
+              value={timeStringToDate(activePicker === "start" ? serviceStart : serviceEnd)}
+              onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                if (date) {
+                  const ts = dateToTimeString(date);
+                  if (activePicker === "start") { setServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
+                  else { setServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
+                }
+              }}
+              style={{ width: "100%" }}
+            />
+          </View>
+        </Modal>
+      )}
 
       <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
         <VectorIcon name="image" size={24} color={colors.secondary} />
