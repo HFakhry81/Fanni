@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable, loginLogsTable } from "@workspace/db";
+import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable } from "@workspace/db";
 import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -428,6 +428,181 @@ router.get("/admin/login-logs", authMiddleware, requireAuth, requireAdmin, async
     logs,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
+});
+
+// ─── PUBLIC: Service domains list (for registration/profile pickers) ──────────
+router.get("/categories/domains", async (req: Request, res: Response) => {
+  const domains = await db
+    .select({
+      id: serviceDomainsTable.id,
+      nameEn: serviceDomainsTable.nameEn,
+      nameAr: serviceDomainsTable.nameAr,
+      icon: serviceDomainsTable.icon,
+    })
+    .from(serviceDomainsTable)
+    .where(eq(serviceDomainsTable.isActive, true))
+    .orderBy(serviceDomainsTable.nameEn);
+  res.json({ domains });
+});
+
+// ─── PUBLIC: Service specializations list (for pickers) ────────────────────
+router.get("/categories/specializations", async (req: Request, res: Response) => {
+  const domainId = req.query.domainId as string | undefined;
+  const conditions = [eq(serviceSpecializationsTable.isActive, true)];
+  if (domainId) {
+    conditions.push(eq(serviceSpecializationsTable.domainId, domainId));
+  }
+  const specializations = await db
+    .select({
+      id: serviceSpecializationsTable.id,
+      domainId: serviceSpecializationsTable.domainId,
+      nameEn: serviceSpecializationsTable.nameEn,
+      nameAr: serviceSpecializationsTable.nameAr,
+    })
+    .from(serviceSpecializationsTable)
+    .where(and(...conditions))
+    .orderBy(serviceSpecializationsTable.nameEn);
+  res.json({ specializations });
+});
+
+// ─── ADMIN: Get current admin's permissions ────────────────────────────────
+router.get("/admin/me/permissions", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const [admin] = await db
+    .select({ permissions: adminsTable.permissions, isSuperAdmin: adminsTable.isSuperAdmin })
+    .from(adminsTable)
+    .where(eq(adminsTable.id, req.user!.id));
+  res.json({ permissions: admin?.permissions ?? [], isSuperAdmin: admin?.isSuperAdmin ?? false });
+});
+
+// ─── ADMIN: Save current admin's permissions ──────────────────────────────
+router.put("/admin/me/permissions", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const { permissions } = req.body as { permissions?: string[] };
+  if (!Array.isArray(permissions)) {
+    res.status(400).json({ error: "permissions must be an array of strings" });
+    return;
+  }
+  await db
+    .update(adminsTable)
+    .set({ permissions })
+    .where(eq(adminsTable.id, req.user!.id));
+  req.log.info({ adminId: req.user?.id, permCount: permissions.length }, "Admin permissions updated");
+  res.json({ success: true, permissions });
+});
+
+// ─── ADMIN: List all service domains ──────────────────────────────────────
+router.get("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const domains = await db
+    .select()
+    .from(serviceDomainsTable)
+    .orderBy(serviceDomainsTable.nameEn);
+
+  const specCounts = await db
+    .select({
+      domainId: serviceSpecializationsTable.domainId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(serviceSpecializationsTable)
+    .groupBy(serviceSpecializationsTable.domainId);
+
+  const countMap: Record<string, number> = {};
+  for (const row of specCounts) countMap[row.domainId] = row.count;
+
+  const result = domains.map((d) => ({ ...d, specializationCount: countMap[d.id] ?? 0 }));
+  res.json({ domains: result });
+});
+
+// ─── ADMIN: Create service domain ─────────────────────────────────────────
+router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const { nameEn, nameAr, icon } = req.body as { nameEn?: string; nameAr?: string; icon?: string };
+  if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
+  if (!nameAr?.trim()) { res.status(400).json({ error: "nameAr is required" }); return; }
+  const [domain] = await db
+    .insert(serviceDomainsTable)
+    .values({ nameEn: nameEn.trim(), nameAr: nameAr.trim(), icon: icon?.trim() || null })
+    .returning();
+  res.status(201).json({ domain });
+});
+
+// ─── ADMIN: Update service domain ─────────────────────────────────────────
+router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+  const { nameEn, nameAr, icon, isActive } = req.body as { nameEn?: string; nameAr?: string; icon?: string; isActive?: boolean };
+  const updates: Record<string, unknown> = {};
+  if (nameEn !== undefined) updates.nameEn = nameEn.trim();
+  if (nameAr !== undefined) updates.nameAr = nameAr.trim();
+  if (icon !== undefined) updates.icon = icon.trim() || null;
+  if (isActive !== undefined) updates.isActive = isActive;
+  if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+  const [domain] = await db
+    .update(serviceDomainsTable)
+    .set(updates)
+    .where(eq(serviceDomainsTable.id, req.params.id))
+    .returning();
+  if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
+  res.json({ domain });
+});
+
+// ─── ADMIN: Delete service domain ─────────────────────────────────────────
+router.delete("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+  const [deleted] = await db
+    .delete(serviceDomainsTable)
+    .where(eq(serviceDomainsTable.id, req.params.id))
+    .returning({ id: serviceDomainsTable.id });
+  if (!deleted) { res.status(404).json({ error: "Domain not found" }); return; }
+  res.json({ success: true });
+});
+
+// ─── ADMIN: List specializations (optionally filtered by domain) ──────────
+router.get("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const domainId = req.query.domainId as string | undefined;
+  const conditions = domainId ? [eq(serviceSpecializationsTable.domainId, domainId)] : undefined;
+  const specializations = await db
+    .select()
+    .from(serviceSpecializationsTable)
+    .where(conditions ? and(...conditions) : undefined)
+    .orderBy(serviceSpecializationsTable.nameEn);
+  res.json({ specializations });
+});
+
+// ─── ADMIN: Create specialization ─────────────────────────────────────────
+router.post("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const { domainId, nameEn, nameAr } = req.body as { domainId?: string; nameEn?: string; nameAr?: string };
+  if (!domainId?.trim()) { res.status(400).json({ error: "domainId is required" }); return; }
+  if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
+  if (!nameAr?.trim()) { res.status(400).json({ error: "nameAr is required" }); return; }
+  const [domain] = await db.select({ id: serviceDomainsTable.id }).from(serviceDomainsTable).where(eq(serviceDomainsTable.id, domainId.trim()));
+  if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
+  const [spec] = await db
+    .insert(serviceSpecializationsTable)
+    .values({ domainId: domainId.trim(), nameEn: nameEn.trim(), nameAr: nameAr.trim() })
+    .returning();
+  res.status(201).json({ specialization: spec });
+});
+
+// ─── ADMIN: Update specialization ─────────────────────────────────────────
+router.patch("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+  const { nameEn, nameAr, isActive } = req.body as { nameEn?: string; nameAr?: string; isActive?: boolean };
+  const updates: Record<string, unknown> = {};
+  if (nameEn !== undefined) updates.nameEn = nameEn.trim();
+  if (nameAr !== undefined) updates.nameAr = nameAr.trim();
+  if (isActive !== undefined) updates.isActive = isActive;
+  if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+  const [spec] = await db
+    .update(serviceSpecializationsTable)
+    .set(updates)
+    .where(eq(serviceSpecializationsTable.id, req.params.id))
+    .returning();
+  if (!spec) { res.status(404).json({ error: "Specialization not found" }); return; }
+  res.json({ specialization: spec });
+});
+
+// ─── ADMIN: Delete specialization ─────────────────────────────────────────
+router.delete("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+  const [deleted] = await db
+    .delete(serviceSpecializationsTable)
+    .where(eq(serviceSpecializationsTable.id, req.params.id))
+    .returning({ id: serviceSpecializationsTable.id });
+  if (!deleted) { res.status(404).json({ error: "Specialization not found" }); return; }
+  res.json({ success: true });
 });
 
 export default router;

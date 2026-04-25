@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import app from "./app";
 import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
-import { db, adminsTable, pool } from "@workspace/db";
+import { db, adminsTable, serviceDomainsTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
@@ -52,6 +52,133 @@ async function runMigrations(): Promise<void> {
     logger.info("DB migration: users.address ensured");
   } catch (err) {
     logger.error({ err }, "DB migration failed for users.address");
+  }
+  try {
+    await pool.query(
+      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN NOT NULL DEFAULT false`
+    );
+    logger.info("DB migration: admins.is_super_admin ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for admins.is_super_admin");
+  }
+  try {
+    await pool.query(
+      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS permissions JSONB`
+    );
+    logger.info("DB migration: admins.permissions ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for admins.permissions");
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS service_domains (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        name_en VARCHAR(100) NOT NULL,
+        name_ar VARCHAR(100) NOT NULL,
+        icon VARCHAR(50),
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    logger.info("DB migration: service_domains table ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for service_domains");
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS service_specializations (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        domain_id VARCHAR NOT NULL REFERENCES service_domains(id) ON DELETE CASCADE,
+        name_en VARCHAR(100) NOT NULL,
+        name_ar VARCHAR(100) NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS service_specializations_domain_id_idx
+      ON service_specializations (domain_id)
+    `);
+    logger.info("DB migration: service_specializations table ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for service_specializations");
+  }
+  await seedDefaultCategories();
+}
+
+const DEFAULT_DOMAINS = [
+  { nameEn: "Electricity", nameAr: "كهرباء", icon: "zap", specializations: [
+    { nameEn: "Wiring & Circuits", nameAr: "أسلاك ودوائر كهربائية" },
+    { nameEn: "Sockets & Switches", nameAr: "مقابس ومفاتيح" },
+    { nameEn: "Lighting", nameAr: "إضاءة" },
+    { nameEn: "Electrical Panel", nameAr: "لوحة كهربائية" },
+  ]},
+  { nameEn: "Plumbing", nameAr: "سباكة", icon: "droplet", specializations: [
+    { nameEn: "Pipes & Leaks", nameAr: "مواسير وتسربات" },
+    { nameEn: "Water Heaters", nameAr: "سخانات" },
+    { nameEn: "Toilets & Sanitary", nameAr: "حمامات وصحي" },
+    { nameEn: "Water Pumps", nameAr: "طلمبات مياه" },
+  ]},
+  { nameEn: "Air Conditioning", nameAr: "تكييف", icon: "wind", specializations: [
+    { nameEn: "Installation", nameAr: "تركيب" },
+    { nameEn: "Maintenance", nameAr: "صيانة" },
+    { nameEn: "Gas Recharge", nameAr: "شحن غاز" },
+    { nameEn: "Cleaning", nameAr: "تنظيف" },
+  ]},
+  { nameEn: "Carpentry", nameAr: "نجارة", icon: "tool", specializations: [
+    { nameEn: "Doors & Windows", nameAr: "أبواب ونوافذ" },
+    { nameEn: "Furniture Assembly", nameAr: "تجميع أثاث" },
+    { nameEn: "Cabinets & Wardrobes", nameAr: "خزائن ودواليب" },
+  ]},
+  { nameEn: "Appliances", nameAr: "أجهزة منزلية", icon: "monitor", specializations: [
+    { nameEn: "Washing Machines", nameAr: "غسالات" },
+    { nameEn: "Refrigerators", nameAr: "ثلاجات" },
+    { nameEn: "Ovens & Cookers", nameAr: "أفران وطباخات" },
+    { nameEn: "Dishwashers", nameAr: "غسالات أطباق" },
+  ]},
+  { nameEn: "Painting", nameAr: "دهانات", icon: "pen-tool", specializations: [
+    { nameEn: "Interior Walls", nameAr: "جدران داخلية" },
+    { nameEn: "Exterior Walls", nameAr: "جدران خارجية" },
+    { nameEn: "Waterproofing", nameAr: "عزل مائي" },
+  ]},
+  { nameEn: "Pest Control", nameAr: "مكافحة حشرات", icon: "shield", specializations: [
+    { nameEn: "Cockroaches", nameAr: "صراصير" },
+    { nameEn: "Rodents", nameAr: "قوارض" },
+    { nameEn: "Bedbugs", nameAr: "بق الفراش" },
+    { nameEn: "General Fumigation", nameAr: "تدخين عام" },
+  ]},
+  { nameEn: "Flooring", nameAr: "أرضيات", icon: "grid", specializations: [
+    { nameEn: "Tiles", nameAr: "بلاط" },
+    { nameEn: "Marble", nameAr: "رخام" },
+    { nameEn: "Parquet", nameAr: "باركيه" },
+    { nameEn: "Epoxy", nameAr: "إيبوكسي" },
+  ]},
+];
+
+async function seedDefaultCategories(): Promise<void> {
+  try {
+    const existing = await db.select({ id: serviceDomainsTable.id }).from(serviceDomainsTable).limit(1);
+    if (existing.length > 0) return;
+
+    for (const domain of DEFAULT_DOMAINS) {
+      const [inserted] = await db
+        .insert(serviceDomainsTable)
+        .values({ nameEn: domain.nameEn, nameAr: domain.nameAr, icon: domain.icon })
+        .returning({ id: serviceDomainsTable.id });
+      if (inserted) {
+        for (const spec of domain.specializations) {
+          await pool.query(
+            `INSERT INTO service_specializations (domain_id, name_en, name_ar) VALUES ($1, $2, $3)`,
+            [inserted.id, spec.nameEn, spec.nameAr]
+          );
+        }
+      }
+    }
+    logger.info("DB seed: default service domains and specializations seeded");
+  } catch (err) {
+    logger.error({ err }, "DB seed failed for default categories");
   }
 }
 

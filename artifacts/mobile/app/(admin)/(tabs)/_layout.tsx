@@ -28,6 +28,10 @@ function NativeAdminTabs() {
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
         <Label>Stats</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="categories">
+        <Icon sf={{ default: "list.bullet.rectangle", selected: "list.bullet.rectangle.fill" }} />
+        <Label>Categories</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="permissions">
         <Icon sf={{ default: "shield", selected: "shield.fill" }} />
         <Label>Permissions</Label>
@@ -100,6 +104,13 @@ function ClassicAdminTabs() {
         options={{
           title: t("admin.stats"),
           tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📈</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="categories"
+        options={{
+          title: isRTL ? "الفئات" : "Categories",
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🗂️</Text>,
         }}
       />
       <Tabs.Screen

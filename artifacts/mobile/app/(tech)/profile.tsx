@@ -20,16 +20,12 @@ import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 
-const SERVICE_CATEGORIES = [
-  { key: "electricity", ar: "كهرباء", en: "Electricity" },
-  { key: "plumbing", ar: "سباكة", en: "Plumbing" },
-  { key: "ac", ar: "تكييف", en: "Air Conditioning" },
-  { key: "carpentry", ar: "نجارة", en: "Carpentry" },
-  { key: "appliances", ar: "أجهزة منزلية", en: "Appliances" },
-  { key: "painting", ar: "دهانات", en: "Painting" },
-  { key: "pest", ar: "مكافحة حشرات", en: "Pest Control" },
-  { key: "flooring", ar: "أرضيات", en: "Flooring" },
-] as const;
+interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
+
+function getApiBase(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+  return domain ? `https://${domain}` : "";
+}
 
 function timeStringToDate(hhmm: string): Date {
   const [h, m] = hhmm.split(":").map(Number);
@@ -82,6 +78,14 @@ export default function TechProfileScreen() {
   const [editAreaNameAr, setEditAreaNameAr] = useState<string | undefined>(undefined);
   const [editAreaNameEn, setEditAreaNameEn] = useState<string | undefined>(undefined);
   const [editStreet, setEditStreet] = useState("");
+  const [apiDomains, setApiDomains] = useState<ApiDomain[]>([]);
+
+  useEffect(() => {
+    fetch(`${getApiBase()}/api/categories/domains`)
+      .then((r) => r.json())
+      .then((d: { domains?: ApiDomain[] }) => { if (d.domains) setApiDomains(d.domains); })
+      .catch(() => {});
+  }, []);
   const [editCategories, setEditCategories] = useState<string[]>([]);
 
   // Change password state
@@ -716,14 +720,15 @@ export default function TechProfileScreen() {
               {user?.serviceCategories && user.serviceCategories.length > 0 ? (
                 <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 6 }]}>
                   {user.serviceCategories.map((key) => {
-                    const cat = SERVICE_CATEGORIES.find((c) => c.key === key);
+                    const domain = apiDomains.find((d) => d.id === key || d.nameEn.toLowerCase() === key.toLowerCase());
+                    const label = domain ? (isRTL ? domain.nameAr : domain.nameEn) : key;
                     return (
                       <View
                         key={key}
                         style={{ backgroundColor: colors.primary + "22", borderColor: colors.primary, borderWidth: 1, borderRadius: 14, paddingVertical: 4, paddingHorizontal: 10 }}
                       >
                         <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-                          {cat ? (isRTL ? cat.ar : cat.en) : key}
+                          {label}
                         </Text>
                       </View>
                     );
@@ -1084,12 +1089,12 @@ export default function TechProfileScreen() {
                     {isRTL ? "اختر واحدة أو أكثر من الفئات التي تتقنها" : "Select one or more categories you specialize in"}
                   </Text>
                   <View style={[styles.categoryGrid, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                    {SERVICE_CATEGORIES.map((cat) => {
-                      const selected = editCategories.includes(cat.key);
+                    {(apiDomains.length > 0 ? apiDomains : []).map((domain) => {
+                      const selected = editCategories.includes(domain.id);
                       return (
                         <TouchableOpacity
-                          key={cat.key}
-                          onPress={() => toggleCategory(cat.key)}
+                          key={domain.id}
+                          onPress={() => toggleCategory(domain.id)}
                           style={[
                             styles.categoryChip,
                             {
@@ -1109,7 +1114,7 @@ export default function TechProfileScreen() {
                               fontSize: 13,
                             }}
                           >
-                            {isRTL ? cat.ar : cat.en}
+                            {isRTL ? domain.nameAr : domain.nameEn}
                           </Text>
                         </TouchableOpacity>
                       );

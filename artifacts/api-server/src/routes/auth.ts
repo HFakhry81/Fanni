@@ -607,7 +607,7 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
 
 // PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken, serviceCategories } = req.body as {
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken, serviceCategories, profession, specialty } = req.body as {
     name?: string;
     email?: string;
     mobile?: string;
@@ -618,6 +618,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     areaId?: string;
     verificationToken?: string;
     serviceCategories?: string[];
+    profession?: string;
+    specialty?: string;
   };
 
   if (!name || !name.trim()) {
@@ -717,6 +719,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       passwordHash,
       governorate: governorateId ?? null,
       area: areaId ?? null,
+      profession: profession?.trim() || null,
+      specialty: specialty?.trim() || null,
       serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
     })
     .returning();

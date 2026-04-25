@@ -22,16 +22,8 @@ const RESEND_COOLDOWN = 60;
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
-const SERVICE_CATEGORIES = [
-  { key: "electricity", ar: "كهرباء", en: "Electricity" },
-  { key: "plumbing", ar: "سباكة", en: "Plumbing" },
-  { key: "ac", ar: "تكييف", en: "Air Conditioning" },
-  { key: "carpentry", ar: "نجارة", en: "Carpentry" },
-  { key: "appliances", ar: "أجهزة منزلية", en: "Appliances" },
-  { key: "painting", ar: "دهانات", en: "Painting" },
-  { key: "pest", ar: "مكافحة حشرات", en: "Pest Control" },
-  { key: "flooring", ar: "أرضيات", en: "Flooring" },
-] as const;
+interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
+interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
@@ -209,6 +201,26 @@ export default function RegisterScreen() {
     }
   };
 
+  // ── API-fetched domains & specializations ──────────────────────────────────
+  const [apiDomains, setApiDomains] = useState<ApiDomain[]>([]);
+  const [apiSpecs, setApiSpecs] = useState<ApiSpec[]>([]);
+  const [domainPickerVisible, setDomainPickerVisible] = useState(false);
+  const [specPickerVisible, setSpecPickerVisible] = useState(false);
+
+  useEffect(() => {
+    fetch(`${getApiBase()}/api/categories/domains`)
+      .then((r) => r.json())
+      .then((d: { domains?: ApiDomain[] }) => { if (d.domains) setApiDomains(d.domains); })
+      .catch(() => {});
+  }, []);
+
+  const loadSpecs = useCallback((domainId: string) => {
+    fetch(`${getApiBase()}/api/categories/specializations?domainId=${domainId}`)
+      .then((r) => r.json())
+      .then((d: { specializations?: ApiSpec[] }) => { if (d.specializations) setApiSpecs(d.specializations); })
+      .catch(() => {});
+  }, []);
+
   // ── Technician service categories ─────────────────────────────────────────
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
@@ -385,6 +397,8 @@ export default function RegisterScreen() {
             governorateId: governorateId || undefined,
             areaId: areaId || undefined,
             verificationToken: verificationToken || undefined,
+            profession: regType === "technician" && profession.trim() ? profession.trim() : undefined,
+            specialty: regType === "technician" && specialty.trim() ? specialty.trim() : undefined,
             serviceCategories: regType === "technician" && selectedCategories.length > 0 ? selectedCategories : undefined,
           }),
         });
@@ -633,7 +647,13 @@ export default function RegisterScreen() {
   );
 
   // ── Step 2 Tech: Profession info ───────────────────────────────────────────
-  const renderStep2Tech = () => (
+  const renderStep2Tech = () => {
+    const selectedDomain = apiDomains.find((d) => d.nameEn === profession || d.nameAr === profession);
+    const availableSpecs = selectedDomain
+      ? apiSpecs.filter((s) => s.domainId === selectedDomain.id)
+      : apiSpecs;
+
+    return (
     <View>
       <View style={[styles.stepHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={[styles.stepIcon, { backgroundColor: colors.accent }]}>
@@ -644,22 +664,99 @@ export default function RegisterScreen() {
         </Text>
       </View>
 
-      <FanniInput
-        label={t("register.profession")}
-        value={profession}
-        onChangeText={(v) => { setProfession(v); if (v.trim()) setErrors((e) => ({ ...e, profession: undefined })); }}
-        required
-        placeholder={isRTL ? "مثال: كهربائي، سباك" : "e.g. Electrician, Plumber"}
-        error={errors.profession}
-      />
-      <FanniInput
-        label={t("register.specialty")}
-        value={specialty}
-        onChangeText={(v) => { setSpecialty(v); if (v.trim()) setErrors((e) => ({ ...e, specialty: undefined })); }}
-        required
-        placeholder={isRTL ? "مثال: تكييف، سخانات" : "e.g. AC, Water Heaters"}
-        error={errors.specialty}
-      />
+      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+        {t("register.profession")} <Text style={{ color: colors.destructive }}>*</Text>
+      </Text>
+      <TouchableOpacity
+        onPress={() => { setDomainPickerVisible(true); }}
+        style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.profession ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", marginBottom: errors.profession ? 4 : 14 }}
+      >
+        <Text style={{ color: profession ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+          {profession ? (isRTL ? (apiDomains.find((d) => d.nameEn === profession)?.nameAr ?? profession) : profession) : (isRTL ? "اختر المجال" : "Select domain")}
+        </Text>
+        <VectorIcon name="chevron-down" size={16} color={colors.mutedForeground} />
+      </TouchableOpacity>
+      {errors.profession ? <Text style={{ color: colors.destructive, fontSize: 12, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>{errors.profession}</Text> : null}
+
+      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+        {t("register.specialty")} <Text style={{ color: colors.destructive }}>*</Text>
+      </Text>
+      <TouchableOpacity
+        onPress={() => {
+          if (selectedDomain) loadSpecs(selectedDomain.id);
+          setSpecPickerVisible(true);
+        }}
+        style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.specialty ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", marginBottom: errors.specialty ? 4 : 14 }}
+      >
+        <Text style={{ color: specialty ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+          {specialty ? (isRTL ? (apiSpecs.find((s) => s.nameEn === specialty)?.nameAr ?? specialty) : specialty) : (isRTL ? "اختر التخصص" : "Select specialization")}
+        </Text>
+        <VectorIcon name="chevron-down" size={16} color={colors.mutedForeground} />
+      </TouchableOpacity>
+      {errors.specialty ? <Text style={{ color: colors.destructive, fontSize: 12, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>{errors.specialty}</Text> : null}
+
+      {/* Domain picker modal */}
+      <Modal visible={domainPickerVisible} transparent animationType="slide">
+        <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} activeOpacity={1} onPress={() => setDomainPickerVisible(false)} />
+        <View style={{ backgroundColor: colors.card, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 36, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "60%" }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "اختر المجال" : "Select Domain"}
+          </Text>
+          <ScrollView>
+            {(apiDomains.length > 0 ? apiDomains : []).map((d) => (
+              <TouchableOpacity
+                key={d.id}
+                onPress={() => {
+                  setProfession(d.nameEn);
+                  setSpecialty("");
+                  setErrors((e) => ({ ...e, profession: undefined }));
+                  loadSpecs(d.id);
+                  setDomainPickerVisible(false);
+                }}
+                style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}
+              >
+                <VectorIcon name={(d.icon ?? "tool") as any} size={18} color={colors.primary} style={{ marginRight: isRTL ? 0 : 12, marginLeft: isRTL ? 12 : 0 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>{isRTL ? d.nameAr : d.nameEn}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>{isRTL ? d.nameEn : d.nameAr}</Text>
+                </View>
+                {profession === d.nameEn && <VectorIcon name="check" size={16} color={colors.primary} />}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Specialization picker modal */}
+      <Modal visible={specPickerVisible} transparent animationType="slide">
+        <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} activeOpacity={1} onPress={() => setSpecPickerVisible(false)} />
+        <View style={{ backgroundColor: colors.card, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 36, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "60%" }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "اختر التخصص" : "Select Specialization"}
+          </Text>
+          {!profession && (
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left", marginBottom: 16 }}>
+              {isRTL ? "اختر المجال أولاً" : "Please select a domain first"}
+            </Text>
+          )}
+          <ScrollView>
+            {availableSpecs.map((s) => (
+              <TouchableOpacity
+                key={s.id}
+                onPress={() => {
+                  setSpecialty(s.nameEn);
+                  setErrors((e) => ({ ...e, specialty: undefined }));
+                  setSpecPickerVisible(false);
+                }}
+                style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, flex: 1, textAlign: isRTL ? "right" : "left" }}>{isRTL ? s.nameAr : s.nameEn}</Text>
+                {specialty === s.nameEn && <VectorIcon name="check" size={16} color={colors.primary} />}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
       <FanniInput
         label={`${t("register.experience")} (${isRTL ? "سنوات" : "years"})`}
         value={experience}
@@ -759,6 +856,7 @@ export default function RegisterScreen() {
       </TouchableOpacity>
     </View>
   );
+  };
 
   // ── Step 3 Client: Home address ───────────────────────────────────────────
   const renderStep3Client = () => (
@@ -824,12 +922,12 @@ export default function RegisterScreen() {
       </Text>
 
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 10 }}>
-        {SERVICE_CATEGORIES.map((cat) => {
-          const selected = selectedCategories.includes(cat.key);
+        {(apiDomains.length > 0 ? apiDomains : []).map((domain) => {
+          const selected = selectedCategories.includes(domain.id);
           return (
             <TouchableOpacity
-              key={cat.key}
-              onPress={() => toggleCategory(cat.key)}
+              key={domain.id}
+              onPress={() => toggleCategory(domain.id)}
               style={{
                 paddingHorizontal: 14,
                 paddingVertical: 10,
@@ -844,7 +942,7 @@ export default function RegisterScreen() {
             >
               {selected && <VectorIcon name="check" size={13} color={colors.primary} />}
               <Text style={{ color: selected ? colors.primary : colors.foreground, fontFamily: selected ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 13 }}>
-                {isRTL ? cat.ar : cat.en}
+                {isRTL ? domain.nameAr : domain.nameEn}
               </Text>
             </TouchableOpacity>
           );

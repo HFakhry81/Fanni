@@ -64,10 +64,32 @@ export const adminsTable = pgTable("admins", {
   passwordHash: varchar("password_hash"),
   profileImageUrl: varchar("profile_image_url"),
   isActive: boolean("is_active").notNull().default(true),
+  isSuperAdmin: boolean("is_super_admin").notNull().default(false),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
+  permissions: jsonb("permissions").$type<string[]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
+
+export const serviceDomainsTable = pgTable("service_domains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nameEn: varchar("name_en", { length: 100 }).notNull(),
+  nameAr: varchar("name_ar", { length: 100 }).notNull(),
+  icon: varchar("icon", { length: 50 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const serviceSpecializationsTable = pgTable("service_specializations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  domainId: varchar("domain_id").notNull().references(() => serviceDomainsTable.id, { onDelete: "cascade" }),
+  nameEn: varchar("name_en", { length: 100 }).notNull(),
+  nameAr: varchar("name_ar", { length: 100 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [index("service_specializations_domain_id_idx").on(table.domainId)]);
 
 export const phoneVerificationsTable = pgTable(
   "phone_verifications",
@@ -108,3 +130,5 @@ export type Admin = typeof adminsTable.$inferSelect;
 export type UpsertAdmin = typeof adminsTable.$inferInsert;
 export type PhoneVerification = typeof phoneVerificationsTable.$inferSelect;
 export type LoginLog = typeof loginLogsTable.$inferSelect;
+export type ServiceDomain = typeof serviceDomainsTable.$inferSelect;
+export type ServiceSpecialization = typeof serviceSpecializationsTable.$inferSelect;
