@@ -105,6 +105,13 @@ async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "DB migration failed for service_specializations");
   }
+  try {
+    await pool.query(`ALTER TABLE service_domains ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE service_specializations ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    logger.info("DB migration: sort_order columns on service tables ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for sort_order columns");
+  }
   await seedDefaultCategories();
 }
 
@@ -197,12 +204,15 @@ async function seedDefaultAdmin(): Promise<void> {
       .where(eq(adminsTable.email, "admin@fanni.app"));
 
     if (existing) {
+      const updates: Record<string, unknown> = {};
+      if (!existing.isSuperAdmin) updates.isSuperAdmin = true;
       if (!existing.mustChangePassword && existing.passwordHash && verifyPassword("admin", existing.passwordHash)) {
-        await db
-          .update(adminsTable)
-          .set({ mustChangePassword: true })
-          .where(eq(adminsTable.id, existing.id));
+        updates.mustChangePassword = true;
         logger.info("Default admin still using default password — flagged mustChangePassword=true");
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.update(adminsTable).set(updates).where(eq(adminsTable.id, existing.id));
+        logger.info({ updates }, "Default admin record updated");
       } else {
         logger.info("Default admin already exists in admins table, skipping seed");
       }
@@ -220,6 +230,7 @@ async function seedDefaultAdmin(): Promise<void> {
       lastName: null,
       passwordHash,
       mustChangePassword: true,
+      isSuperAdmin: true,
     });
 
     logger.info("Default admin seeded in admins table (email: admin@fanni.app, mobile: admin)");

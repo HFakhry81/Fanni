@@ -463,7 +463,7 @@ router.get("/categories/domains", async (req: Request, res: Response) => {
     })
     .from(serviceDomainsTable)
     .where(eq(serviceDomainsTable.isActive, true))
-    .orderBy(serviceDomainsTable.nameEn);
+    .orderBy(serviceDomainsTable.sortOrder, serviceDomainsTable.nameAr);
   res.json({ domains });
 });
 
@@ -483,8 +483,44 @@ router.get("/categories/specializations", async (req: Request, res: Response) =>
     })
     .from(serviceSpecializationsTable)
     .where(and(...conditions))
-    .orderBy(serviceSpecializationsTable.nameEn);
+    .orderBy(serviceSpecializationsTable.sortOrder, serviceSpecializationsTable.nameAr);
   res.json({ specializations });
+});
+
+// ─── PUBLIC: Nested categories (domains + specializations) ────────────────
+router.get("/categories", async (req: Request, res: Response) => {
+  const domains = await db
+    .select({
+      id: serviceDomainsTable.id,
+      nameEn: serviceDomainsTable.nameEn,
+      nameAr: serviceDomainsTable.nameAr,
+      icon: serviceDomainsTable.icon,
+      sortOrder: serviceDomainsTable.sortOrder,
+    })
+    .from(serviceDomainsTable)
+    .where(eq(serviceDomainsTable.isActive, true))
+    .orderBy(serviceDomainsTable.sortOrder, serviceDomainsTable.nameAr);
+
+  const specializations = await db
+    .select({
+      id: serviceSpecializationsTable.id,
+      domainId: serviceSpecializationsTable.domainId,
+      nameEn: serviceSpecializationsTable.nameEn,
+      nameAr: serviceSpecializationsTable.nameAr,
+      sortOrder: serviceSpecializationsTable.sortOrder,
+    })
+    .from(serviceSpecializationsTable)
+    .where(eq(serviceSpecializationsTable.isActive, true))
+    .orderBy(serviceSpecializationsTable.sortOrder, serviceSpecializationsTable.nameAr);
+
+  const specsByDomain: Record<string, typeof specializations> = {};
+  for (const spec of specializations) {
+    if (!specsByDomain[spec.domainId]) specsByDomain[spec.domainId] = [];
+    specsByDomain[spec.domainId].push(spec);
+  }
+
+  const categories = domains.map((d) => ({ ...d, specializations: specsByDomain[d.id] ?? [] }));
+  res.json({ categories });
 });
 
 // ─── SUPER-ADMIN: List all admins (for permissions management) ────────────
@@ -540,12 +576,12 @@ router.get("/admin/categories", authMiddleware, requireAuth, requireAdmin, async
   const domains = await db
     .select()
     .from(serviceDomainsTable)
-    .orderBy(serviceDomainsTable.nameEn);
+    .orderBy(serviceDomainsTable.sortOrder, serviceDomainsTable.nameAr);
 
   const specializations = await db
     .select()
     .from(serviceSpecializationsTable)
-    .orderBy(serviceSpecializationsTable.nameEn);
+    .orderBy(serviceSpecializationsTable.sortOrder, serviceSpecializationsTable.nameAr);
 
   const specsByDomain: Record<string, typeof specializations> = {};
   for (const spec of specializations) {
@@ -566,7 +602,7 @@ router.get("/admin/categories/domains", authMiddleware, requireAuth, requireAdmi
   const domains = await db
     .select()
     .from(serviceDomainsTable)
-    .orderBy(serviceDomainsTable.nameEn);
+    .orderBy(serviceDomainsTable.sortOrder, serviceDomainsTable.nameAr);
 
   const specCounts = await db
     .select({
@@ -585,22 +621,22 @@ router.get("/admin/categories/domains", authMiddleware, requireAuth, requireAdmi
 
 // ─── ADMIN: Create service domain ─────────────────────────────────────────
 router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request, res: Response) => {
-  const { nameEn, nameAr, icon } = req.body as { nameEn?: string; nameAr?: string; icon?: string };
-  if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
+  const { nameEn, nameAr, icon, sortOrder } = req.body as { nameEn?: string; nameAr?: string; icon?: string; sortOrder?: number };
   if (!nameAr?.trim()) { res.status(400).json({ error: "nameAr is required" }); return; }
   const [domain] = await db
     .insert(serviceDomainsTable)
-    .values({ nameEn: nameEn.trim(), nameAr: nameAr.trim(), icon: icon?.trim() || null })
+    .values({ nameEn: nameEn?.trim() ?? "", nameAr: nameAr.trim(), icon: icon?.trim() || null, sortOrder: sortOrder ?? 0 })
     .returning();
   res.status(201).json({ domain });
 });
 
 // ─── ADMIN: Update service domain ─────────────────────────────────────────
 router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request<{ id: string }>, res: Response) => {
-  const { nameEn, nameAr, icon, isActive } = req.body as { nameEn?: string; nameAr?: string; icon?: string; isActive?: boolean };
+  const { nameEn, nameAr, icon, isActive, sortOrder } = req.body as { nameEn?: string; nameAr?: string; icon?: string; isActive?: boolean; sortOrder?: number };
   const updates: Record<string, unknown> = {};
   if (nameEn !== undefined) updates.nameEn = nameEn.trim();
   if (nameAr !== undefined) updates.nameAr = nameAr.trim();
+  if (sortOrder !== undefined) updates.sortOrder = sortOrder;
   if (icon !== undefined) updates.icon = icon.trim() || null;
   if (isActive !== undefined) updates.isActive = isActive;
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
@@ -631,32 +667,32 @@ router.get("/admin/categories/specializations", authMiddleware, requireAuth, req
     .select()
     .from(serviceSpecializationsTable)
     .where(conditions ? and(...conditions) : undefined)
-    .orderBy(serviceSpecializationsTable.nameEn);
+    .orderBy(serviceSpecializationsTable.sortOrder, serviceSpecializationsTable.nameAr);
   res.json({ specializations });
 });
 
 // ─── ADMIN: Create specialization ─────────────────────────────────────────
 router.post("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request, res: Response) => {
-  const { domainId, nameEn, nameAr } = req.body as { domainId?: string; nameEn?: string; nameAr?: string };
+  const { domainId, nameEn, nameAr, sortOrder } = req.body as { domainId?: string; nameEn?: string; nameAr?: string; sortOrder?: number };
   if (!domainId?.trim()) { res.status(400).json({ error: "domainId is required" }); return; }
-  if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
   if (!nameAr?.trim()) { res.status(400).json({ error: "nameAr is required" }); return; }
   const [domain] = await db.select({ id: serviceDomainsTable.id }).from(serviceDomainsTable).where(eq(serviceDomainsTable.id, domainId.trim()));
   if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
   const [spec] = await db
     .insert(serviceSpecializationsTable)
-    .values({ domainId: domainId.trim(), nameEn: nameEn.trim(), nameAr: nameAr.trim() })
+    .values({ domainId: domainId.trim(), nameEn: nameEn?.trim() ?? "", nameAr: nameAr.trim(), sortOrder: sortOrder ?? 0 })
     .returning();
   res.status(201).json({ specialization: spec });
 });
 
 // ─── ADMIN: Update specialization ─────────────────────────────────────────
 router.patch("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request<{ id: string }>, res: Response) => {
-  const { nameEn, nameAr, isActive } = req.body as { nameEn?: string; nameAr?: string; isActive?: boolean };
+  const { nameEn, nameAr, isActive, sortOrder } = req.body as { nameEn?: string; nameAr?: string; isActive?: boolean; sortOrder?: number };
   const updates: Record<string, unknown> = {};
   if (nameEn !== undefined) updates.nameEn = nameEn.trim();
   if (nameAr !== undefined) updates.nameAr = nameAr.trim();
   if (isActive !== undefined) updates.isActive = isActive;
+  if (sortOrder !== undefined) updates.sortOrder = sortOrder;
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
   const [spec] = await db
     .update(serviceSpecializationsTable)

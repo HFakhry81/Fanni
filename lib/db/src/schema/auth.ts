@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, customType, index, jsonb, pgEnum, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, customType, index, integer, jsonb, pgEnum, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
 
 const geography = customType<{ data: string }>({
   dataType() {
@@ -73,10 +73,11 @@ export const adminsTable = pgTable("admins", {
 
 export const serviceDomainsTable = pgTable("service_domains", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  nameEn: varchar("name_en", { length: 100 }).notNull(),
+  nameEn: varchar("name_en", { length: 100 }).notNull().default(""),
   nameAr: varchar("name_ar", { length: 100 }).notNull(),
   icon: varchar("icon", { length: 50 }),
   isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -84,9 +85,10 @@ export const serviceDomainsTable = pgTable("service_domains", {
 export const serviceSpecializationsTable = pgTable("service_specializations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   domainId: varchar("domain_id").notNull().references(() => serviceDomainsTable.id, { onDelete: "cascade" }),
-  nameEn: varchar("name_en", { length: 100 }).notNull(),
+  nameEn: varchar("name_en", { length: 100 }).notNull().default(""),
   nameAr: varchar("name_ar", { length: 100 }).notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [index("service_specializations_domain_id_idx").on(table.domainId)]);
