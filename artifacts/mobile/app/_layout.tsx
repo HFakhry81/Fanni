@@ -9,14 +9,15 @@ import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { AppState, I18nManager } from "react-native";
+import React, { useEffect, useState } from "react";
+import { AppState, I18nManager, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import NetInfo from "@react-native-community/netinfo";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import Toast from "@/components/Toast";
 import { AppProvider, useApp, type UserType } from "@/context/AppContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
@@ -27,13 +28,15 @@ const queryClient = new QueryClient();
 
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const { user: authUser, sessionToken } = useAuth();
-  const { user: appUser, setUser, syncAvailabilityFromServer, isAvailabilityHydrated } = useApp();
+  const { user: appUser, setUser, syncAvailabilityFromServer, isAvailabilityHydrated, t } = useApp();
   const hasSynced = React.useRef(false);
   const needsRetry = React.useRef(false);
   const sessionTokenRef = React.useRef<string | null | undefined>(null);
   const authUserRef = React.useRef<typeof authUser>(null);
   const lastForegroundSyncRef = React.useRef<number>(0);
   const FOREGROUND_SYNC_DEBOUNCE_MS = 30_000;
+
+  const [syncToastVisible, setSyncToastVisible] = useState(false);
 
   useEffect(() => {
     sessionTokenRef.current = sessionToken;
@@ -96,7 +99,17 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         sessionTokenRef.current
       ) {
         needsRetry.current = false;
-        syncAvailabilityFromServer(sessionTokenRef.current).catch(() => {});
+        syncAvailabilityFromServer(sessionTokenRef.current)
+          .then((ok) => {
+            if (ok) {
+              setSyncToastVisible(true);
+            } else {
+              needsRetry.current = true;
+            }
+          })
+          .catch(() => {
+            needsRetry.current = true;
+          });
       }
     });
     return () => unsubscribe();
@@ -121,7 +134,17 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
     return () => subscription.remove();
   }, []);
 
-  return <>{children}</>;
+  return (
+    <View style={{ flex: 1 }}>
+      {children}
+      <Toast
+        visible={syncToastVisible}
+        message={t("availability.synced")}
+        duration={3000}
+        onHide={() => setSyncToastVisible(false)}
+      />
+    </View>
+  );
 }
 
 function RootLayoutNav() {

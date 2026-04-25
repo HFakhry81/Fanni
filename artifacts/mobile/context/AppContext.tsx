@@ -114,6 +114,7 @@ const translations: Record<string, Record<Language, string>> = {
   "register.clientNextSteps": { ar: "يمكنك الآن تصفح الخدمات وطلب فني متخصص بنقرة واحدة.", en: "You can now browse services and book a specialist with just one tap." },
   "register.techNextSteps": { ar: "أنت جاهز لاستقبال الطلبات. فعّل تواجدك لتبدأ العمل.", en: "You're ready to receive orders. Enable your availability to start working." },
   "register.goHome": { ar: "ابدأ الآن", en: "Get Started" },
+  "availability.synced": { ar: "تمت مزامنة التواجد", en: "Availability synced" },
 
   // Navigation
   "nav.home": { ar: "الرئيسية", en: "Home" },
