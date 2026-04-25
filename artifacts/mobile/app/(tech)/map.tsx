@@ -31,6 +31,7 @@ export default function TechMapScreen() {
   const [loading, setLoading] = useState(false);
   const autoShownRef = useRef<Set<string>>(new Set());
   const [catBannerDismissed, setCatBannerDismissed] = useState(false);
+  const [serverPendingOrders, setServerPendingOrders] = useState<Order[] | null>(null);
 
   const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
   const showCatBanner = !!user && !catBannerDismissed && !hasCategories;
@@ -44,14 +45,62 @@ export default function TechMapScreen() {
 
   useOrderNotifications(isOnline, user, sessionToken);
 
-  const allPendingOrders = allOrders.filter((o) => o.status === "pending");
-  const pendingOrders = hasServiceArea
-    ? allPendingOrders.filter((o) => {
+  const fetchServerPendingOrders = async () => {
+    const apiBase = getApiBaseUrl();
+    if (!apiBase || !sessionToken) return;
+    try {
+      const params = new URLSearchParams();
+      if (user?.governorate) params.set("governorate", user.governorate);
+      if (user?.area) params.set("area", user.area);
+      const res = await fetch(`${apiBase}/api/orders/pending?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setServerPendingOrders(json.orders ?? []);
+      } else {
+        console.warn(`[Fanni] Failed to fetch pending orders from server: ${res.status}`);
+        setServerPendingOrders(null);
+      }
+    } catch (err) {
+      console.warn("[Fanni] Network error fetching pending orders:", err);
+      setServerPendingOrders(null);
+    }
+  };
+
+  useEffect(() => {
+    if (isOnline) {
+      fetchServerPendingOrders();
+    } else {
+      setServerPendingOrders(null);
+    }
+  }, [isOnline, sessionToken, user?.governorate, user?.area]);
+
+  const localPendingOrders = allOrders.filter((o) => o.status === "pending");
+  const localFilteredOrders = hasServiceArea
+    ? localPendingOrders.filter((o) => {
         if (o.governorate && user?.governorate && o.governorate !== user.governorate) return false;
         if (o.area && user?.area && o.area !== user.area) return false;
         return true;
       })
-    : allPendingOrders;
+    : localPendingOrders;
+
+  let pendingOrders: Order[];
+  if (isOnline && serverPendingOrders !== null) {
+    const serverIds = new Set(serverPendingOrders.map((o) => o.id));
+    const realtimeOnly = newPendingOrders
+      .filter((o) => !serverIds.has(o.id))
+      .filter((o) => {
+        if (hasServiceArea) {
+          if (o.governorate && user?.governorate && o.governorate !== user.governorate) return false;
+          if (o.area && user?.area && o.area !== user.area) return false;
+        }
+        return true;
+      });
+    pendingOrders = [...realtimeOnly, ...serverPendingOrders];
+  } else {
+    pendingOrders = localFilteredOrders;
+  }
 
   useEffect(() => {
     if (!isOnline && modalVisible) {
@@ -77,6 +126,7 @@ export default function TechMapScreen() {
     autoShownRef.current.add(order.id);
     setSelectedOrder(order);
     setModalVisible(true);
+    fetchServerPendingOrders();
   }, [newPendingOrders, modalVisible, isOnline, hasServiceArea, user?.governorate, user?.area]);
 
   const handleAccept = async () => {
