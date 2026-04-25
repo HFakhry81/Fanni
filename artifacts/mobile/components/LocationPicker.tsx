@@ -55,6 +55,36 @@ interface StreetSuggestion {
   lon: number;
 }
 
+interface LocationMatchResult {
+  governorateId: string | null;
+  areaId: string | null;
+}
+
+async function fetchLocationMatch(opts: {
+  suburbEn?: string; suburbAr?: string; cityEn?: string; cityAr?: string;
+}): Promise<LocationMatchResult | null> {
+  const base = getApiBase();
+  if (!base) return null;
+  try {
+    const params = new URLSearchParams();
+    if (opts.suburbEn) params.set("suburb_en", opts.suburbEn);
+    if (opts.suburbAr) params.set("suburb_ar", opts.suburbAr);
+    if (opts.cityEn)   params.set("city_en",   opts.cityEn);
+    if (opts.cityAr)   params.set("city_ar",   opts.cityAr);
+    if (!params.toString()) return null;
+    const res = await fetch(`${base}/api/locations/match?${params.toString()}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (typeof json !== "object" || json === null) return null;
+    return {
+      governorateId: typeof json.governorateId === "string" ? json.governorateId : null,
+      areaId: typeof json.areaId === "string" ? json.areaId : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchStreetSuggestions(q: string, cityId: string, lang: string): Promise<StreetSuggestion[]> {
   const base = getApiBase();
   if (!base || q.length < 3) return [];
@@ -516,47 +546,78 @@ export default function LocationPicker({
 
     if (currentGovOptions.length === 0) return;
 
-    const govMatch = currentGovOptions.find(
-      (g) => optionMatches(g, cityEn) || optionMatches(g, cityAr) ||
-             optionMatches(g, suburbEn) || optionMatches(g, suburbAr),
-    );
-
     let anyFilled = false;
 
-    if (govMatch && govMatch.id !== governorateId) {
-      onGovernorateChange(govMatch.id);
-      onGovernorateSelect?.(govMatch);
-      onAreaChange("");
-      anyFilled = true;
+    const serverMatch = await fetchLocationMatch({ suburbEn, suburbAr, cityEn, cityAr });
 
-      const areaRows = await fetchAreas(govMatch.id);
-      const areaOpts = areaRows.map(rowToOption);
-      setAreaOptions(areaOpts);
-
-      const areaMatch = areaOpts.find(
-        (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
-               optionMatches(a, cityEn)   || optionMatches(a, cityAr),
-      );
-      if (areaMatch) {
-        onAreaChange(areaMatch.id);
-        onAreaSelect?.(areaMatch);
+    if (serverMatch?.governorateId) {
+      const govOpt = currentGovOptions.find((g) => g.id === serverMatch.governorateId);
+      if (govOpt && govOpt.id !== governorateId) {
+        onGovernorateChange(govOpt.id);
+        onGovernorateSelect?.(govOpt);
+        onAreaChange("");
+        anyFilled = true;
       }
-    } else if (governorateId) {
-      let currentAreaOptions = areaOptions;
-      if (currentAreaOptions.length === 0) {
-        const areaRows = await fetchAreas(governorateId);
+
+      if (serverMatch.areaId) {
+        let currentAreaOptions = areaOptions;
+        if (!currentAreaOptions.length || (govOpt && govOpt.id !== governorateId)) {
+          const areaRows = await fetchAreas(serverMatch.governorateId);
+          const areaOpts = areaRows.map(rowToOption);
+          setAreaOptions(areaOpts);
+          currentAreaOptions = areaOpts;
+        }
+        const areaOpt = currentAreaOptions.find((a) => a.id === serverMatch.areaId);
+        if (areaOpt && areaOpt.id !== areaId) {
+          onAreaChange(areaOpt.id);
+          onAreaSelect?.(areaOpt);
+          anyFilled = true;
+        }
+      } else if (govOpt && govOpt.id !== governorateId) {
+        const areaRows = await fetchAreas(serverMatch.governorateId);
+        setAreaOptions(areaRows.map(rowToOption));
+      }
+    } else {
+      const govMatch = currentGovOptions.find(
+        (g) => optionMatches(g, cityEn) || optionMatches(g, cityAr) ||
+               optionMatches(g, suburbEn) || optionMatches(g, suburbAr),
+      );
+
+      if (govMatch && govMatch.id !== governorateId) {
+        onGovernorateChange(govMatch.id);
+        onGovernorateSelect?.(govMatch);
+        onAreaChange("");
+        anyFilled = true;
+
+        const areaRows = await fetchAreas(govMatch.id);
         const areaOpts = areaRows.map(rowToOption);
         setAreaOptions(areaOpts);
-        currentAreaOptions = areaOpts;
-      }
-      const areaMatch = currentAreaOptions.find(
-        (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
-               optionMatches(a, cityEn)   || optionMatches(a, cityAr),
-      );
-      if (areaMatch && areaMatch.id !== areaId) {
-        onAreaChange(areaMatch.id);
-        onAreaSelect?.(areaMatch);
-        anyFilled = true;
+
+        const areaMatch = areaOpts.find(
+          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
+                 optionMatches(a, cityEn)   || optionMatches(a, cityAr),
+        );
+        if (areaMatch) {
+          onAreaChange(areaMatch.id);
+          onAreaSelect?.(areaMatch);
+        }
+      } else if (governorateId) {
+        let currentAreaOptions = areaOptions;
+        if (currentAreaOptions.length === 0) {
+          const areaRows = await fetchAreas(governorateId);
+          const areaOpts = areaRows.map(rowToOption);
+          setAreaOptions(areaOpts);
+          currentAreaOptions = areaOpts;
+        }
+        const areaMatch = currentAreaOptions.find(
+          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
+                 optionMatches(a, cityEn)   || optionMatches(a, cityAr),
+        );
+        if (areaMatch && areaMatch.id !== areaId) {
+          onAreaChange(areaMatch.id);
+          onAreaSelect?.(areaMatch);
+          anyFilled = true;
+        }
       }
     }
 

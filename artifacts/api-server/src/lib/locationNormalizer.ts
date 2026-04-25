@@ -200,3 +200,56 @@ export function invalidateLocationCache(): void {
   cacheLoadedAt = 0;
   legacyAliasMap = {};
 }
+
+/**
+ * Finds the best-matching location for one or more raw terms (e.g. suburb, city names
+ * returned by Nominatim). Tries every term against the in-memory cache using the same
+ * scored fuzzy strategy as resolveSync and returns the highest-confidence hit.
+ *
+ * @param terms   Array of raw strings to try (tried in order; highest score across all wins).
+ * @param type    Restrict to "governorate", "area", or "neighborhood". Undefined = any.
+ * @param parentId  When type="area", restrict candidates to this parent governorate ID.
+ * @returns       The matching location row, or null if no term reaches the minimum score.
+ */
+export async function matchLocation(
+  terms: string[],
+  type?: LocationType,
+  parentId?: string,
+): Promise<{ id: string; slug: string; nameEn: string; nameAr: string } | null> {
+  if (!terms.length) return null;
+  const cache = await ensureFresh();
+  if (!cache.length) return null;
+
+  let pool = type ? cache.filter((l) => l.type === type) : cache;
+  if (parentId) {
+    pool = pool.filter((l) => l.parentId === parentId);
+  }
+  if (!pool.length) return null;
+
+  let best: LocationRow | null = null;
+  let bestScore = 0;
+
+  for (const term of terms) {
+    if (!term?.trim()) continue;
+    const rawKey = term.trim().toLowerCase();
+    const aliasHit = legacyAliasMap[rawKey] ?? legacyAliasMap[stripNoise(rawKey)];
+    if (aliasHit) {
+      const loc = pool.find((l) => l.slug === aliasHit);
+      if (loc && 90 > bestScore) {
+        bestScore = 90;
+        best = loc;
+        continue;
+      }
+    }
+    for (const loc of pool) {
+      const score = scoreMatch(term, loc);
+      if (score > bestScore) {
+        bestScore = score;
+        best = loc;
+      }
+    }
+  }
+
+  if (!best || bestScore < 55) return null;
+  return { id: best.id, slug: best.slug, nameEn: best.nameEn, nameAr: best.nameAr };
+}
