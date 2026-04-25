@@ -2,17 +2,29 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { Platform, StyleSheet, View, Text, useColorScheme } from "react-native";
+import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
-import { useClientOrderUpdates } from "@/hooks/useClientOrderUpdates";
+import { useClientOrderUpdates, OrderStatusNotification } from "@/hooks/useClientOrderUpdates";
+import Toast from "@/components/Toast";
 
-function ClientOrderUpdatesListener() {
+interface NotificationState {
+  orderId: string;
+  message: string;
+  visible: boolean;
+}
+
+function ClientOrderUpdatesListener({
+  onNotification,
+}: {
+  onNotification: (n: OrderStatusNotification) => void;
+}) {
   const { user } = useApp();
   const { sessionToken } = useAuth();
-  useClientOrderUpdates(user, sessionToken);
+  useClientOrderUpdates(user, sessionToken, onNotification);
   return null;
 }
 
@@ -105,11 +117,63 @@ function ClassicClientTabs() {
   );
 }
 
+const STATUS_MESSAGES: Record<string, { ar: string; en: string }> = {
+  accepted: {
+    ar: "تم قبول طلبك",
+    en: "Your order has been accepted!",
+  },
+  inProgress: {
+    ar: "الفني في الطريق إليك",
+    en: "Your technician is on the way!",
+  },
+  completed: {
+    ar: "تم إتمام طلبك بنجاح",
+    en: "Your order is complete!",
+  },
+};
+
 export default function ClientLayout() {
+  const router = useRouter();
+  const { language } = useApp();
+  const [notification, setNotification] = useState<NotificationState>({
+    orderId: "",
+    message: "",
+    visible: false,
+  });
+
+  const handleNotification = useCallback(
+    (n: OrderStatusNotification) => {
+      const lang = language === "ar" ? "ar" : "en";
+      const statusMsg = STATUS_MESSAGES[n.status]?.[lang] ?? n.status;
+      const orderLabel = lang === "ar" ? `طلب ${n.orderNumber}` : `Order ${n.orderNumber}`;
+      const message = `${orderLabel} — ${statusMsg}`;
+      setNotification({ orderId: n.orderId, message, visible: true });
+    },
+    [language]
+  );
+
+  const hideNotification = useCallback(() => {
+    setNotification((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const goToOrder = useCallback(() => {
+    if (notification.orderId) {
+      router.push({ pathname: "/order-details", params: { orderId: notification.orderId } });
+    }
+  }, [notification.orderId, router]);
+
   return (
     <>
-      <ClientOrderUpdatesListener />
+      <ClientOrderUpdatesListener onNotification={handleNotification} />
       {isLiquidGlassAvailable() ? <NativeClientTabs /> : <ClassicClientTabs />}
+      <Toast
+        visible={notification.visible}
+        message={notification.message}
+        duration={5000}
+        onHide={hideNotification}
+        onPress={goToOrder}
+        action={{ label: language === "ar" ? "عرض" : "View", onPress: goToOrder }}
+      />
     </>
   );
 }

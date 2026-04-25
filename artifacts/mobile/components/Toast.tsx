@@ -7,13 +7,14 @@ interface ToastProps {
   message: string;
   duration?: number;
   onHide: () => void;
+  onPress?: () => void;
   action?: {
     label: string;
     onPress: () => void;
   };
 }
 
-export default function Toast({ visible, message, duration = 2000, onHide, action }: ToastProps) {
+export default function Toast({ visible, message, duration = 2000, onHide, onPress, action }: ToastProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const dismissedRef = useRef(false);
@@ -54,8 +55,8 @@ export default function Toast({ visible, message, duration = 2000, onHide, actio
 
   if (!visible) return null;
 
-  return (
-    <Animated.View style={[styles.toast, { opacity }]}>
+  const inner = (
+    <>
       <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
       <Text style={[styles.text, { flex: 1 }]}>{message}</Text>
       {action && (
@@ -70,6 +71,29 @@ export default function Toast({ visible, message, duration = 2000, onHide, actio
           <Text style={styles.actionText}>{action.label}</Text>
         </TouchableOpacity>
       )}
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Animated.View style={[styles.toast, { opacity }]}>
+        <TouchableOpacity
+          style={styles.pressableBody}
+          onPress={() => {
+            onPress();
+            dismiss();
+          }}
+          activeOpacity={0.85}
+        >
+          {inner}
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View style={[styles.toast, { opacity }]}>
+      {inner}
     </Animated.View>
   );
 }
@@ -92,6 +116,11 @@ const styles = StyleSheet.create({
     elevation: 6,
     zIndex: 9999,
     maxWidth: 340,
+  },
+  pressableBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   text: {
     color: "#FFF",

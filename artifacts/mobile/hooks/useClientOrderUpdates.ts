@@ -4,18 +4,35 @@ import { User } from "@/context/AppContext";
 
 const WS_RECONNECT_DELAY_MS = 3000;
 
+const NOTIFIABLE_STATUSES = new Set(["accepted", "inProgress", "completed"]);
+
 function getWsUrl(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
   if (!domain) return "";
   return `wss://${domain}/api/ws`;
 }
 
-export function useClientOrderUpdates(user: User | null = null, sessionToken: string | null = null) {
-  const { updateOrder, bumpWsOrderStatusSignal } = useOrders();
+export interface OrderStatusNotification {
+  orderId: string;
+  orderNumber: string;
+  status: "accepted" | "inProgress" | "completed";
+}
+
+export function useClientOrderUpdates(
+  user: User | null = null,
+  sessionToken: string | null = null,
+  onStatusNotification?: (notification: OrderStatusNotification) => void
+) {
+  const { updateOrder, bumpWsOrderStatusSignal, orders } = useOrders();
   const updateOrderRef = useRef(updateOrder);
   const bumpSignalRef = useRef(bumpWsOrderStatusSignal);
+  const onNotificationRef = useRef(onStatusNotification);
+  const ordersRef = useRef(orders);
+
   bumpSignalRef.current = bumpWsOrderStatusSignal;
   updateOrderRef.current = updateOrder;
+  onNotificationRef.current = onStatusNotification;
+  ordersRef.current = orders;
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,6 +95,20 @@ export function useClientOrderUpdates(user: User | null = null, sessionToken: st
             const { id, ...fields } = data.update as { id: string } & Partial<Order>;
             updateOrderRef.current(id, fields);
             bumpSignalRef.current();
+
+            if (
+              fields.status &&
+              NOTIFIABLE_STATUSES.has(fields.status) &&
+              onNotificationRef.current
+            ) {
+              const existing = ordersRef.current.find((o) => o.id === id);
+              const orderNumber = fields.orderNumber ?? existing?.orderNumber ?? id;
+              onNotificationRef.current({
+                orderId: id,
+                orderNumber,
+                status: fields.status as "accepted" | "inProgress" | "completed",
+              });
+            }
           }
         } catch (_) {}
       };
