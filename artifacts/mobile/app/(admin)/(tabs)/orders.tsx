@@ -101,6 +101,11 @@ export default function AdminOrdersScreen() {
                       🔧 {item.technicianName}
                     </Text>
                   )}
+                  {item.technicianMobile && (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: isRTL ? "right" : "left", direction: "ltr" }}>
+                      📞 {item.technicianMobile}
+                    </Text>
+                  )}
                 </View>
                 {item.invoice && (
                   <View style={[styles.totalChip, { backgroundColor: colors.accent, borderRadius: 10 }]}>
