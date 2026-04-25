@@ -222,8 +222,42 @@ export default function NewOrderScreen() {
     else router.back();
   };
 
+  const isLocalUri = (uri: string) => uri.startsWith("file://") || uri.startsWith("content://");
+
   const handleSubmit = async () => {
     setLoading(true);
+
+    let resolvedPhotos = orderPhotos;
+    if (orderPhotos.some((p) => isLocalUri(p.uri))) {
+      if (!sessionToken) {
+        Alert.alert(
+          isRTL ? "يجب تسجيل الدخول" : "Sign In Required",
+          isRTL ? "يرجى تسجيل الدخول لإرسال الطلب مع الصور." : "Please sign in to submit your order with photos."
+        );
+        setLoading(false);
+        return;
+      }
+      const uploaded: OrderPhoto[] = [];
+      for (const photo of orderPhotos) {
+        if (isLocalUri(photo.uri)) {
+          try {
+            const { url } = await uploadPhotoToServer(photo.uri, sessionToken, "image/jpeg");
+            uploaded.push({ ...photo, uri: url });
+          } catch {
+            Alert.alert(
+              isRTL ? "فشل الرفع" : "Upload Failed",
+              isRTL ? "تعذّر رفع إحدى الصور. يرجى إزالتها والمحاولة مرة أخرى." : "Could not upload a photo. Please remove it and try again."
+            );
+            setLoading(false);
+            return;
+          }
+        } else {
+          uploaded.push(photo);
+        }
+      }
+      resolvedPhotos = uploaded;
+    }
+
     await new Promise((r) => setTimeout(r, 1200));
     const orderId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
     const orderNumber = `ORD-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000) + 1000}`;
@@ -244,7 +278,7 @@ export default function NewOrderScreen() {
       subCategory: subCategory as string,
       problemDescription: problemDesc,
       deviceType,
-      photos: orderPhotos,
+      photos: resolvedPhotos,
       street: fullAddress,
       building, floor, apartment, landmark,
       governorate: govOpt ? govOpt.en.toLowerCase() : undefined,
@@ -312,10 +346,7 @@ export default function NewOrderScreen() {
     const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     if (!sessionToken) {
-      Alert.alert(
-        isRTL ? "غير مسجّل" : "Not Signed In",
-        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
-      );
+      setOrderPhotos((prev) => [...prev, { id: photoId, uri: asset.uri }]);
       return;
     }
     setPhotoUploading(true);
