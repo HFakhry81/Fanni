@@ -2,7 +2,7 @@ import * as client from "openid-client";
 import crypto from "crypto";
 import { type Request, type Response } from "express";
 import { db, sessionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import type { AuthUser } from "@workspace/api-zod";
 
 export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
@@ -84,4 +84,19 @@ export function getSessionId(req: Request): string | undefined {
     return authHeader.slice(7);
   }
   return req.cookies?.[SESSION_COOKIE];
+}
+
+export async function deleteOtherSessionsForUser(
+  userId: string,
+  currentSid: string,
+  source?: "admin" | "user",
+): Promise<void> {
+  const conditions = [
+    sql`${sessionsTable.sess}->'user'->>'id' = ${userId}`,
+    ne(sessionsTable.sid, currentSid),
+  ];
+  if (source !== undefined) {
+    conditions.push(sql`${sessionsTable.sess}->>'source' = ${source}`);
+  }
+  await db.delete(sessionsTable).where(and(...conditions));
 }

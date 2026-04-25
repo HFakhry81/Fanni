@@ -20,6 +20,7 @@ import {
   getSessionId,
   createSession,
   deleteSession,
+  deleteOtherSessionsForUser,
   SESSION_COOKIE,
   SESSION_TTL,
   ISSUER_URL,
@@ -1183,6 +1184,10 @@ router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Re
       .set({ passwordHash, mustChangePassword: false, updatedAt: new Date() })
       .where(eq(adminsTable.id, req.user!.id))
       .returning();
+    const currentSid = getSessionId(req);
+    if (currentSid) {
+      await deleteOtherSessionsForUser(req.user!.id, currentSid, "admin");
+    }
     res.json({ user: buildAdminUser(updated) });
     return;
   }
