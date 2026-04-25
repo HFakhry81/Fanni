@@ -31,7 +31,7 @@ const ALL_PERMISSIONS: Omit<Permission, "enabled">[] = [
   { id: "p13", group: "Finance",      groupAr: "المالية",    label: "Export financial reports",  labelAr: "تصدير تقارير مالية"         },
   { id: "p14", group: "System",       groupAr: "النظام",     label: "Manage admin accounts",     labelAr: "إدارة حسابات المسئولين"     },
   { id: "p15", group: "System",       groupAr: "النظام",     label: "Modify app settings",       labelAr: "تعديل إعدادات التطبيق"      },
-  { id: "p16", group: "System",       groupAr: "النظام",     label: "Manage categories",         labelAr: "إدارة الفئات والتخصصات"     },
+  { id: "manage_categories", group: "System",       groupAr: "النظام",     label: "Manage categories",         labelAr: "إدارة الفئات والتخصصات"     },
 ];
 
 const DEFAULT_ENABLED = new Set(["p1","p2","p4","p5","p6","p8","p9","p10","p11","p13"]);

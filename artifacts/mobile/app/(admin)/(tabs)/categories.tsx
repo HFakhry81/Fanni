@@ -71,7 +71,7 @@ export default function AdminCategoriesScreen() {
     fetch(`${getApiBase()}/api/admin/my-permissions`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((d: { permissions?: string[]; isSuperAdmin?: boolean }) => {
-        setCanManage(!!d.isSuperAdmin || !!(d.permissions?.includes("p16")));
+        setCanManage(!!d.isSuperAdmin || !!(d.permissions?.includes("manage_categories")));
       })
       .catch(() => {})
       .finally(() => setPermLoading(false));

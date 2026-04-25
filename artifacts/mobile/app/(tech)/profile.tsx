@@ -1135,11 +1135,12 @@ export default function TechProfileScreen() {
                   </Text>
                   <View style={[styles.categoryGrid, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     {(apiDomains.length > 0 ? apiDomains : []).map((domain) => {
-                      const selected = editCategories.includes(domain.id);
+                      const slug = domain.nameEn.toLowerCase();
+                      const selected = editCategories.includes(slug) || editCategories.includes(domain.id);
                       return (
                         <TouchableOpacity
                           key={domain.id}
-                          onPress={() => toggleCategory(domain.id)}
+                          onPress={() => toggleCategory(slug)}
                           style={[
                             styles.categoryChip,
                             {

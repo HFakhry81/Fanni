@@ -535,6 +535,32 @@ router.put("/admin/:adminId/permissions", authMiddleware, requireAuth, requireAd
   res.json({ success: true, permissions });
 });
 
+// ─── ADMIN: Nested categories (domains + specializations) ─────────────────
+router.get("/admin/categories", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const domains = await db
+    .select()
+    .from(serviceDomainsTable)
+    .orderBy(serviceDomainsTable.nameEn);
+
+  const specializations = await db
+    .select()
+    .from(serviceSpecializationsTable)
+    .orderBy(serviceSpecializationsTable.nameEn);
+
+  const specsByDomain: Record<string, typeof specializations> = {};
+  for (const spec of specializations) {
+    if (!specsByDomain[spec.domainId]) specsByDomain[spec.domainId] = [];
+    specsByDomain[spec.domainId].push(spec);
+  }
+
+  const categories = domains.map((d) => ({
+    ...d,
+    specializations: specsByDomain[d.id] ?? [],
+  }));
+
+  res.json({ categories });
+});
+
 // ─── ADMIN: List all service domains ──────────────────────────────────────
 router.get("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const domains = await db
@@ -558,7 +584,7 @@ router.get("/admin/categories/domains", authMiddleware, requireAuth, requireAdmi
 });
 
 // ─── ADMIN: Create service domain ─────────────────────────────────────────
-router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request, res: Response) => {
+router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request, res: Response) => {
   const { nameEn, nameAr, icon } = req.body as { nameEn?: string; nameAr?: string; icon?: string };
   if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
   if (!nameAr?.trim()) { res.status(400).json({ error: "nameAr is required" }); return; }
@@ -570,7 +596,7 @@ router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdm
 });
 
 // ─── ADMIN: Update service domain ─────────────────────────────────────────
-router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
+router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request<{ id: string }>, res: Response) => {
   const { nameEn, nameAr, icon, isActive } = req.body as { nameEn?: string; nameAr?: string; icon?: string; isActive?: boolean };
   const updates: Record<string, unknown> = {};
   if (nameEn !== undefined) updates.nameEn = nameEn.trim();
@@ -588,7 +614,7 @@ router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requi
 });
 
 // ─── ADMIN: Delete service domain ─────────────────────────────────────────
-router.delete("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
+router.delete("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request<{ id: string }>, res: Response) => {
   const [deleted] = await db
     .delete(serviceDomainsTable)
     .where(eq(serviceDomainsTable.id, req.params.id))
@@ -610,7 +636,7 @@ router.get("/admin/categories/specializations", authMiddleware, requireAuth, req
 });
 
 // ─── ADMIN: Create specialization ─────────────────────────────────────────
-router.post("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request, res: Response) => {
+router.post("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request, res: Response) => {
   const { domainId, nameEn, nameAr } = req.body as { domainId?: string; nameEn?: string; nameAr?: string };
   if (!domainId?.trim()) { res.status(400).json({ error: "domainId is required" }); return; }
   if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
@@ -625,7 +651,7 @@ router.post("/admin/categories/specializations", authMiddleware, requireAuth, re
 });
 
 // ─── ADMIN: Update specialization ─────────────────────────────────────────
-router.patch("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
+router.patch("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request<{ id: string }>, res: Response) => {
   const { nameEn, nameAr, isActive } = req.body as { nameEn?: string; nameAr?: string; isActive?: boolean };
   const updates: Record<string, unknown> = {};
   if (nameEn !== undefined) updates.nameEn = nameEn.trim();
@@ -642,7 +668,7 @@ router.patch("/admin/categories/specializations/:id", authMiddleware, requireAut
 });
 
 // ─── ADMIN: Delete specialization ─────────────────────────────────────────
-router.delete("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
+router.delete("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request<{ id: string }>, res: Response) => {
   const [deleted] = await db
     .delete(serviceSpecializationsTable)
     .where(eq(serviceSpecializationsTable.id, req.params.id))
