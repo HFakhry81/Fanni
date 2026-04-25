@@ -212,7 +212,9 @@ export default function AdminProfileScreen() {
       setToastVisible(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      Alert.alert(t("common.error"), msg || t("profile.saveFailed"));
+      setToastMessage(msg || t("profile.saveFailed"));
+      setToastAction(undefined);
+      setToastVisible(true);
     } finally {
       setChangingPw(false);
     }
