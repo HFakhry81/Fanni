@@ -10,7 +10,6 @@ import {
   Linking,
   Animated,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
@@ -18,44 +17,16 @@ import { useColors, type AppColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders, Order } from "@/context/OrderContext";
 import { GOV_COORDINATES } from "@/constants/egyptLocations";
+import {
+  RouteData,
+  readPersistedRoute,
+  writePersistedRoute,
+} from "@/utils/routeCache";
 
 const ALEX = GOV_COORDINATES.alexandria;
 const TECH_START_OFFSET = 0.018;
 
-interface RouteData {
-  coords: Array<{ lat: number; lng: number }>;
-  durationSec: number;
-  distanceM: number;
-}
-
 const ROUTE_CACHE = new Map<string, RouteData | null>();
-const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const ROUTE_CACHE_KEY_PREFIX = "route_cache:";
-
-async function readPersistedRoute(key: string): Promise<RouteData | null> {
-  try {
-    const raw = await AsyncStorage.getItem(ROUTE_CACHE_KEY_PREFIX + key);
-    if (!raw) return null;
-    const parsed: { data: RouteData; cachedAt: number } = JSON.parse(raw);
-    if (Date.now() - parsed.cachedAt > ROUTE_CACHE_TTL_MS) {
-      await AsyncStorage.removeItem(ROUTE_CACHE_KEY_PREFIX + key);
-      return null;
-    }
-    return parsed.data;
-  } catch {
-    return null;
-  }
-}
-
-async function writePersistedRoute(key: string, data: RouteData): Promise<void> {
-  try {
-    await AsyncStorage.setItem(
-      ROUTE_CACHE_KEY_PREFIX + key,
-      JSON.stringify({ data, cachedAt: Date.now() })
-    );
-  } catch {
-  }
-}
 
 const _savedWebMapState: Record<string, { zoom: number; cx: number; cy: number }> = {};
 const _savedNativeRegion: Record<string, { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }> = {};

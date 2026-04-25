@@ -21,6 +21,7 @@ import Toast from "@/components/Toast";
 import { AppProvider, useApp, type UserType } from "@/context/AppContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
+import { sweepExpiredRouteCache } from "@/utils/routeCache";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -179,6 +180,10 @@ export default function RootLayout() {
     Inter_700Bold,
     ...Feather.font,
   });
+
+  useEffect(() => {
+    sweepExpiredRouteCache();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
