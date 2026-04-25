@@ -6,6 +6,7 @@ import { db, ordersTable, invoicesTable, pool } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug } from "../lib/locationNormalizer";
+import { queryString } from "../lib/queryParams";
 
 const router: IRouter = Router();
 
@@ -30,7 +31,8 @@ router.get("/orders/pending", authMiddleware, requireAuth, async (req, res) => {
     return;
   }
 
-  const { governorate, area } = req.query as { governorate?: string; area?: string };
+  const governorate = queryString(req.query.governorate);
+  const area = queryString(req.query.area);
 
   try {
     const conditions = [eq(ordersTable.status, "pending")];

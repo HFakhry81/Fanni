@@ -5,6 +5,7 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
 import { locationsMatch } from "../lib/locationNormalizer";
+import { queryFloat, queryInt, queryString } from "../lib/queryParams";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -46,16 +47,16 @@ router.patch(
 );
 
 router.get("/technicians/available", authMiddleware, requireAuth, async (req, res) => {
-  const lat = parseFloat(req.query.lat as string);
-  const lon = parseFloat(req.query.lon as string);
-  const radiusKmRaw = parseFloat((req.query.radiusKm as string) ?? "15");
+  const lat = queryFloat(req.query.lat);
+  const lon = queryFloat(req.query.lon);
+  const radiusKmRaw = queryFloat(req.query.radiusKm);
   const radiusKm = isNaN(radiusKmRaw) || radiusKmRaw <= 0 ? 15 : Math.min(radiusKmRaw, 200);
   const hasSpatial =
     !isNaN(lat) && !isNaN(lon) &&
     lat >= -90 && lat <= 90 &&
     lon >= -180 && lon <= 180;
-  const govFilter = (req.query.governorate as string | undefined)?.trim() ?? null;
-  const areaFilter = (req.query.area as string | undefined)?.trim() ?? null;
+  const govFilter = queryString(req.query.governorate)?.trim() ?? null;
+  const areaFilter = queryString(req.query.area)?.trim() ?? null;
 
   if (hasSpatial) {
     try {
@@ -176,10 +177,10 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
       return;
     }
 
-    const limitRaw = parseInt(String(req.query.limit ?? DEFAULT_PAGE_SIZE), 10);
-    const limit = isNaN(limitRaw) || limitRaw < 1 ? DEFAULT_PAGE_SIZE : Math.min(limitRaw, MAX_PAGE_SIZE);
-    const pageRaw = parseInt(String(req.query.page ?? 1), 10);
-    const page = isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
+    const limitRaw = queryInt(req.query.limit, DEFAULT_PAGE_SIZE);
+    const limit = limitRaw < 1 ? DEFAULT_PAGE_SIZE : Math.min(limitRaw, MAX_PAGE_SIZE);
+    const pageRaw = queryInt(req.query.page, 1);
+    const page = pageRaw < 1 ? 1 : pageRaw;
 
     const pendingRows = await db
       .select()

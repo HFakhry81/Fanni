@@ -5,6 +5,7 @@ import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { verifyOtpToken } from "../lib/otp";
+import { queryInt, queryString } from "../lib/queryParams";
 
 interface AdminRecord {
   id: string;
@@ -179,11 +180,11 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
 });
 
 router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-  const role = req.query.role as string | undefined;
-  const search = req.query.search ? String(req.query.search).trim() : undefined;
-  const isActiveParam = req.query.isActive as string | undefined;
+  const page = Math.max(1, queryInt(req.query.page, 1));
+  const limit = Math.min(100, Math.max(1, queryInt(req.query.limit, 20)));
+  const role = queryString(req.query.role);
+  const search = queryString(req.query.search)?.trim();
+  const isActiveParam = queryString(req.query.isActive);
   const offset = (page - 1) * limit;
 
   // Admins are now in a separate table; only list clients and technicians here.
@@ -420,13 +421,13 @@ router.post("/admin/admins/:id/reset-password", authMiddleware, requireAuth, req
 
 // ADMIN ONLY: Get login logs with optional filters
 router.get("/admin/login-logs", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-  const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const page = Math.max(1, queryInt(req.query.page, 1));
+  const limit = Math.min(100, Math.max(1, queryInt(req.query.limit, 50)));
   const offset = (page - 1) * limit;
-  const role = req.query.role as string | undefined;
-  const success = req.query.success as string | undefined;
-  const from = req.query.from as string | undefined;
-  const to = req.query.to as string | undefined;
+  const role = queryString(req.query.role);
+  const success = queryString(req.query.success);
+  const from = queryString(req.query.from);
+  const to = queryString(req.query.to);
 
   const conditions = [];
   if (role && ["client", "technician", "admin"].includes(role)) {
@@ -483,7 +484,7 @@ router.get("/categories/domains", async (req: Request, res: Response) => {
 
 // ─── PUBLIC: Service specializations list (for pickers) ────────────────────
 router.get("/categories/specializations", async (req: Request, res: Response) => {
-  const domainId = req.query.domainId as string | undefined;
+  const domainId = queryString(req.query.domainId);
   const conditions = [eq(serviceSpecializationsTable.isActive, true)];
   if (domainId) {
     conditions.push(eq(serviceSpecializationsTable.domainId, domainId));
@@ -713,7 +714,7 @@ router.delete("/admin/categories/domains/:id", authMiddleware, requireAuth, requ
 
 // ─── ADMIN: List specializations (optionally filtered by domain) ──────────
 router.get("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const domainId = req.query.domainId as string | undefined;
+  const domainId = queryString(req.query.domainId);
   const conditions = domainId ? [eq(serviceSpecializationsTable.domainId, domainId)] : undefined;
   const specializations = await db
     .select()
