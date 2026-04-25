@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  Modal, TextInput, KeyboardAvoidingView, Alert, Image, type AlertButton,
+  Modal, TextInput, KeyboardAvoidingView, Alert, Image, ActivityIndicator, type AlertButton,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -62,6 +62,8 @@ export default function TechProfileScreen() {
   const editScrollRef = useRef<ScrollView>(null);
   const categoriesYRef = useRef<number>(0);
   const [highlightCategories, setHighlightCategories] = useState(false);
+
+  const [resendWelcomeLoading, setResendWelcomeLoading] = useState(false);
 
   // OTP modal state
   const [otpModalVisible, setOtpModalVisible] = useState(false);
@@ -318,6 +320,7 @@ export default function TechProfileScreen() {
       setToastVisible(true);
       return;
     }
+    setResendWelcomeLoading(true);
     try {
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
       const apiBase = domain ? `https://${domain}` : "";
@@ -343,6 +346,8 @@ export default function TechProfileScreen() {
       }
     } catch (_) {
       setToastMessage(t("profile.resendWelcomeError"));
+    } finally {
+      setResendWelcomeLoading(false);
     }
     setToastAction(undefined);
     setToastVisible(true);
@@ -733,9 +738,10 @@ export default function TechProfileScreen() {
 
           {/* Resend Welcome */}
           <TouchableOpacity
-            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
-            onPress={handleResendWelcome}
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, opacity: resendWelcomeLoading ? 0.6 : 1 }]}
+            onPress={resendWelcomeLoading ? undefined : handleResendWelcome}
             activeOpacity={0.8}
+            disabled={resendWelcomeLoading}
           >
             <View style={[styles.menuIcon, { backgroundColor: "#4B7BEC18", borderRadius: 10 }]}>
               <VectorIcon name="mail" size={18} color="#4B7BEC" />
@@ -743,7 +749,10 @@ export default function TechProfileScreen() {
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
               {t("profile.resendWelcome")}
             </Text>
-            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+            {resendWelcomeLoading
+              ? <ActivityIndicator size="small" color={colors.mutedForeground} />
+              : <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+            }
           </TouchableOpacity>
 
           {/* Logout */}

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  Modal, TextInput, KeyboardAvoidingView, Alert, Image, type AlertButton,
+  Modal, TextInput, KeyboardAvoidingView, Alert, Image, ActivityIndicator, type AlertButton,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +32,8 @@ export default function ClientProfileScreen() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastAction, setToastAction] = useState<{ label: string; onPress: () => void } | undefined>(undefined);
   const undoAvatarRef = useRef<string | undefined>(undefined);
+
+  const [resendWelcomeLoading, setResendWelcomeLoading] = useState(false);
 
   // OTP modal state
   const [otpModalVisible, setOtpModalVisible] = useState(false);
@@ -226,6 +228,7 @@ export default function ClientProfileScreen() {
       setToastVisible(true);
       return;
     }
+    setResendWelcomeLoading(true);
     try {
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
       const apiBase = domain ? `https://${domain}` : "";
@@ -251,6 +254,8 @@ export default function ClientProfileScreen() {
       }
     } catch (_) {
       setToastMessage(t("profile.resendWelcomeError"));
+    } finally {
+      setResendWelcomeLoading(false);
     }
     setToastAction(undefined);
     setToastVisible(true);
@@ -390,11 +395,11 @@ export default function ClientProfileScreen() {
   };
 
   const menuItems = [
-    { icon: "list",       label: t("profile.previousOrders"),   color: colors.primary,   action: () => router.push("/(client)/orders") },
-    { icon: "file-text",  label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices") },
-    { icon: "bar-chart-2",label: t("profile.reports"),          color: "#7C5CBF",        action: () => {} },
-    { icon: "lock",       label: t("profile.changePassword"),   color: "#22A36B",        action: openPwSheet },
-    { icon: "mail",       label: t("profile.resendWelcome"),    color: "#4B7BEC",        action: handleResendWelcome },
+    { icon: "list",       label: t("profile.previousOrders"),   color: colors.primary,   action: () => router.push("/(client)/orders"),  loading: false },
+    { icon: "file-text",  label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices"), loading: false },
+    { icon: "bar-chart-2",label: t("profile.reports"),          color: "#7C5CBF",        action: () => {},                               loading: false },
+    { icon: "lock",       label: t("profile.changePassword"),   color: "#22A36B",        action: openPwSheet,                            loading: false },
+    { icon: "mail",       label: t("profile.resendWelcome"),    color: "#4B7BEC",        action: handleResendWelcome,                    loading: resendWelcomeLoading },
   ];
 
   return (
@@ -487,9 +492,10 @@ export default function ClientProfileScreen() {
           {menuItems.map((item) => (
             <TouchableOpacity
               key={item.label}
-              style={[styles.menuItem, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
-              onPress={item.action}
+              style={[styles.menuItem, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", opacity: item.loading ? 0.6 : 1 }]}
+              onPress={item.loading ? undefined : item.action}
               activeOpacity={0.8}
+              disabled={item.loading}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + "18", borderRadius: 10 }]}>
                 <VectorIcon name={item.icon as any} size={18} color={item.color} />
@@ -497,7 +503,10 @@ export default function ClientProfileScreen() {
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0, textAlign: isRTL ? "right" : "left" }}>
                 {item.label}
               </Text>
-              <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+              {item.loading
+                ? <ActivityIndicator size="small" color={colors.mutedForeground} />
+                : <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+              }
             </TouchableOpacity>
           ))}
 
