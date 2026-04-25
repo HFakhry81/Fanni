@@ -63,14 +63,21 @@ export default function TechMapScreen() {
   useEffect(() => {
     if (!isOnline) return;
     if (newPendingOrders.length === 0) return;
-    const unshown = newPendingOrders.filter((o) => !autoShownRef.current.has(o.id));
+    const areaFiltered = hasServiceArea
+      ? newPendingOrders.filter((o) => {
+          if (o.governorate && user?.governorate && o.governorate !== user.governorate) return false;
+          if (o.area && user?.area && o.area !== user.area) return false;
+          return true;
+        })
+      : newPendingOrders;
+    const unshown = areaFiltered.filter((o) => !autoShownRef.current.has(o.id));
     if (unshown.length === 0) return;
     if (modalVisible) return;
     const order = unshown[0];
     autoShownRef.current.add(order.id);
     setSelectedOrder(order);
     setModalVisible(true);
-  }, [newPendingOrders, modalVisible, isOnline]);
+  }, [newPendingOrders, modalVisible, isOnline, hasServiceArea, user?.governorate, user?.area]);
 
   const handleAccept = async () => {
     if (!selectedOrder) return;
