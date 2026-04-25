@@ -121,6 +121,8 @@ const translations: Record<string, Record<Language, string>> = {
   "register.welcomeName": { ar: "مرحباً،", en: "Welcome," },
   "register.clientNextSteps": { ar: "يمكنك الآن تصفح الخدمات وطلب فني متخصص بنقرة واحدة.", en: "You can now browse services and book a specialist with just one tap." },
   "register.techNextSteps": { ar: "أنت جاهز لاستقبال الطلبات. فعّل تواجدك لتبدأ العمل.", en: "You're ready to receive orders. Enable your availability to start working." },
+  "register.savedCategories": { ar: "تخصصاتك المحفوظة", en: "Your Saved Specialties" },
+  "register.noCategoriesHint": { ar: "لم يتم حفظ تخصصات بعد. يمكنك تحديثها من ملفك الشخصي.", en: "No specialties saved yet. You can add them from your profile." },
   "register.goHome": { ar: "ابدأ الآن", en: "Get Started" },
   "availability.synced": { ar: "تمت مزامنة التواجد", en: "Availability synced" },
 

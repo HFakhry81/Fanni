@@ -406,6 +406,7 @@ export default function RegisterScreen() {
         if (data.token) {
           await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
           await refreshUser();
+          let confirmedCategories: string[] = regType === "technician" ? selectedCategories : [];
           if (regType === "technician" && selectedCategories.length > 0) {
             try {
               const profileRes = await fetch(`${apiBase}/api/auth/user`, {
@@ -417,6 +418,7 @@ export default function RegisterScreen() {
                 setApiError(isRTL ? "تعذّر حفظ تخصصاتك، يرجى تحديثها من ملفك الشخصي" : "Could not save your service categories. Please update them from your profile.");
                 return;
               }
+              confirmedCategories = savedCategories;
             } catch {
               setApiError(isRTL ? "تعذّر التحقق من حفظ تخصصاتك" : "Could not verify your service categories were saved.");
               return;
@@ -424,7 +426,11 @@ export default function RegisterScreen() {
           }
           router.replace({
             pathname: "/register-success",
-            params: { name: name.trim(), role: regType },
+            params: {
+              name: name.trim(),
+              role: regType,
+              categories: JSON.stringify(confirmedCategories),
+            },
           });
         } else {
           const msg = data.error ?? "Unknown error";
