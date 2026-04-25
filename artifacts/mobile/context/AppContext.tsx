@@ -372,6 +372,12 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const PENDING_TOGGLE_KEY = "pendingAvailabilityToggle";
 
+const USER_SEED_VERSION = "1";
+const USER_SEED_VERSION_KEY = "user_seed_version";
+// Keep this set in sync with the user IDs in OrderContext SEED_ORDERS.
+// Bump USER_SEED_VERSION whenever seed user profiles change.
+const SEED_USER_IDS = new Set(["tech1", "client1", "client2", "client3"]);
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar");
   const [user, setUserState] = useState<User | null>(null);
@@ -387,10 +393,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setLanguageState(storedLang);
         }
         const storedUser = await AsyncStorage.getItem("user");
+        const storedVersion = await AsyncStorage.getItem(USER_SEED_VERSION_KEY);
+        const versionMismatch = storedVersion !== USER_SEED_VERSION;
+        if (versionMismatch) {
+          await AsyncStorage.setItem(USER_SEED_VERSION_KEY, USER_SEED_VERSION);
+        }
         if (storedUser) {
           const parsed = JSON.parse(storedUser) as User;
-          setUserState(parsed);
-          setUserTypeState(parsed.type);
+          if (versionMismatch && SEED_USER_IDS.has(parsed.id)) {
+            await AsyncStorage.removeItem("user");
+          } else {
+            setUserState(parsed);
+            setUserTypeState(parsed.type);
+          }
         }
         const storedOnline = await AsyncStorage.getItem("techIsOnline");
         setIsOnlineState(storedOnline === "true");
