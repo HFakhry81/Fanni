@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as ImagePicker from "expo-image-picker";
@@ -41,6 +41,10 @@ export default function TechOrdersScreen() {
   const [matInvoicePhotoUploading, setMatInvoicePhotoUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
+  const [phaseUploading, setPhaseUploading] = useState<Record<string, boolean>>({});
+  const [afterPhotos, setAfterPhotos] = useState<string[]>([]);
+  const [afterPhotoUploading, setAfterPhotoUploading] = useState(false);
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
   const orders = getOrdersByTech(user?.id ?? "tech1");
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
@@ -164,6 +168,83 @@ export default function TechOrdersScreen() {
     }
   };
 
+  const pickPhasePhoto = async (orderId: string, phase: "before" | "during") => {
+    if (!sessionToken) {
+      Alert.alert(
+        isRTL ? "غير مسجّل" : "Not Signed In",
+        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
+      );
+      return;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.75,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setPhaseUploading((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      const apiBase = getApiBaseUrl();
+      if (apiBase) {
+        await fetch(`${apiBase}/api/orders/${orderId}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ phase, urls: [url] }),
+        });
+      }
+      const timestamp = new Date().toISOString();
+      const newPhoto = { id: `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`, uri: url, phase, timestamp };
+      const order = orders.find((o) => o.id === orderId);
+      if (order) {
+        await updateOrder(orderId, { photos: [...(order.photos ?? []), newPhoto] });
+      }
+    } catch {
+      Alert.alert(
+        isRTL ? "فشل الرفع" : "Upload Failed",
+        isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
+      );
+    } finally {
+      setPhaseUploading((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const pickAfterPhoto = async () => {
+    if (!sessionToken) {
+      Alert.alert(
+        isRTL ? "غير مسجّل" : "Not Signed In",
+        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
+      );
+      return;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.75,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setAfterPhotoUploading(true);
+    try {
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      setAfterPhotos((prev) => [...prev, url]);
+    } catch {
+      Alert.alert(
+        isRTL ? "فشل الرفع" : "Upload Failed",
+        isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
+      );
+    } finally {
+      setAfterPhotoUploading(false);
+    }
+  };
+
   const addMaterial = () => {
     if (!matDesc || !matAmount) return;
     setMaterials([...materials, { id: Date.now().toString(), description: matDesc, amount: parseFloat(matAmount), invoicePhoto: matInvoicePhoto ?? undefined }]);
@@ -226,12 +307,29 @@ export default function TechOrdersScreen() {
         } else {
           console.warn(`[Fanni] Failed to complete order on server: ${res.status}`);
         }
+        if (afterPhotos.length > 0) {
+          await fetch(`${apiBase}/api/orders/${orderId}/photos`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+            body: JSON.stringify({ phase: "after", urls: afterPhotos }),
+          });
+        }
       }
     } catch (err) {
       console.warn("[Fanni] Network error completing order:", err);
     }
     if (serverSynced || !sessionToken) {
-      await updateOrder(orderId, completionPayload);
+      const existingOrder = orders.find((o) => o.id === orderId);
+      const afterPhotoObjects = afterPhotos.map((url, i) => ({
+        id: `photo_after_${Date.now()}_${i}`,
+        uri: url,
+        phase: "after" as const,
+        timestamp: new Date().toISOString(),
+      }));
+      await updateOrder(orderId, {
+        ...completionPayload,
+        photos: [...(existingOrder?.photos ?? []), ...afterPhotoObjects],
+      });
     }
     setLoading(false);
     setShowComplete(false);
@@ -239,6 +337,7 @@ export default function TechOrdersScreen() {
     setSolutionDesc("");
     setMaterials([]);
     setSatisfaction(null);
+    setAfterPhotos([]);
   };
 
   const renderCard = ({ item }: { item: Order }) => {
@@ -273,29 +372,74 @@ export default function TechOrdersScreen() {
             </Text>
           </View>
           {isActive && (
-            <View style={[styles.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              <TouchableOpacity
-                style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
-                onPress={() => Linking.openURL(`sms:${item.clientMobile}`)}
-              >
-                <VectorIcon name="message-circle" size={14} color={colors.secondary} />
-                <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.messageClient")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
-                onPress={() => Linking.openURL(`tel:${item.clientMobile}`)}
-              >
-                <VectorIcon name="phone" size={14} color={colors.secondary} />
-                <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.callClient")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.completeBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flex: 1 }]}
-                onPress={() => { setSelectedOrderId(item.id); setShowComplete(true); }}
-              >
-                <VectorIcon name="check-circle" size={14} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: 6 }}>{t("tech.complete")}</Text>
-              </TouchableOpacity>
-            </View>
+            <>
+              <View style={[styles.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <TouchableOpacity
+                  style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
+                  onPress={() => Linking.openURL(`sms:${item.clientMobile}`)}
+                >
+                  <VectorIcon name="message-circle" size={14} color={colors.secondary} />
+                  <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.messageClient")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
+                  onPress={() => Linking.openURL(`tel:${item.clientMobile}`)}
+                >
+                  <VectorIcon name="phone" size={14} color={colors.secondary} />
+                  <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.callClient")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.completeBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flex: 1 }]}
+                  onPress={() => { setSelectedOrderId(item.id); setShowComplete(true); }}
+                >
+                  <VectorIcon name="check-circle" size={14} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: 6 }}>{t("tech.complete")}</Text>
+                </TouchableOpacity>
+              </View>
+              {/* Phase photo button */}
+              {item.status === "accepted" && (
+                <TouchableOpacity
+                  style={[styles.phasePhotoBtn, { borderColor: colors.secondary, borderRadius: colors.radius - 4, opacity: phaseUploading[item.id] ? 0.6 : 1 }]}
+                  onPress={() => pickPhasePhoto(item.id, "before")}
+                  disabled={!!phaseUploading[item.id]}
+                >
+                  {phaseUploading[item.id] ? (
+                    <ActivityIndicator size="small" color={colors.secondary} />
+                  ) : (
+                    <VectorIcon name="camera" size={14} color={colors.secondary} />
+                  )}
+                  <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
+                    {phaseUploading[item.id] ? t("photo.uploading") : t("photo.addBefore")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {item.status === "inProgress" && (
+                <TouchableOpacity
+                  style={[styles.phasePhotoBtn, { borderColor: colors.primary, borderRadius: colors.radius - 4, opacity: phaseUploading[item.id] ? 0.6 : 1 }]}
+                  onPress={() => pickPhasePhoto(item.id, "during")}
+                  disabled={!!phaseUploading[item.id]}
+                >
+                  {phaseUploading[item.id] ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <VectorIcon name="camera" size={14} color={colors.primary} />
+                  )}
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
+                    {phaseUploading[item.id] ? t("photo.uploading") : t("photo.addDuring")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* Existing phase thumbnails */}
+              {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                  {(item.photos ?? []).filter((p) => p.phase === "before" || p.phase === "during").map((ph) => (
+                    <TouchableOpacity key={ph.id} onPress={() => setLightboxUri(ph.uri)}>
+                      <Image source={{ uri: ph.uri }} style={styles.miniThumb} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </>
           )}
           {item.status === "completed" && item.invoice && (
             <View style={{ marginTop: 8, gap: 8 }}>
@@ -398,6 +542,36 @@ export default function TechOrdersScreen() {
             ))}
           </View>
 
+          {/* After completion photos */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>{t("photo.phase.after")}</Text>
+            {afterPhotos.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                {afterPhotos.map((url, i) => (
+                  <TouchableOpacity key={i} onPress={() => setLightboxUri(url)}>
+                    <Image source={{ uri: url }} style={styles.afterThumb} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            <TouchableOpacity
+              onPress={pickAfterPhoto}
+              disabled={afterPhotoUploading}
+              style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", padding: 10, borderWidth: 1, borderStyle: "dashed", borderColor: colors.border, borderRadius: 8, backgroundColor: colors.accent }}
+            >
+              {afterPhotoUploading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <VectorIcon name="camera" size={16} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
+                    {t("photo.addAfter")}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
           <FanniButton
             title={isRTL ? "إنهاء وإصدار الفاتورة" : "Complete & Generate Invoice"}
             onPress={() => handleComplete(selectedOrderId)}
@@ -412,6 +586,18 @@ export default function TechOrdersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Lightbox */}
+      <Modal visible={!!lightboxUri} transparent animationType="fade" onRequestClose={() => setLightboxUri(null)}>
+        <TouchableOpacity style={styles.lightboxOverlay} activeOpacity={1} onPress={() => setLightboxUri(null)}>
+          {lightboxUri && (
+            <Image source={{ uri: lightboxUri }} style={styles.lightboxImage} resizeMode="contain" />
+          )}
+          <TouchableOpacity style={styles.lightboxClose} onPress={() => setLightboxUri(null)}>
+            <VectorIcon name="x" size={22} color="#FFF" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <AppHeader
         title={t("nav.orders")}
         subtitle={`${activeOrders.length} ${isRTL ? "طلبات نشطة" : "active"}`}
@@ -461,4 +647,10 @@ const styles = StyleSheet.create({
   matForm: { marginTop: 12, alignItems: "center", gap: 8 },
   addBtn: { padding: 12 },
   satisfactionOption: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center" },
+  phasePhotoBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 9, marginTop: 8, borderWidth: 1.5, borderStyle: "dashed" },
+  miniThumb: { width: 48, height: 48, borderRadius: 6, marginRight: 6 },
+  afterThumb: { width: 72, height: 72, borderRadius: 8, marginRight: 8 },
+  lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },
+  lightboxImage: { width: "100%", height: "80%" },
+  lightboxClose: { position: "absolute", top: 48, right: 20, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 8 },
 });

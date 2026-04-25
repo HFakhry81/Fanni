@@ -346,14 +346,14 @@ export default function NewOrderScreen() {
     const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     if (!sessionToken) {
-      setOrderPhotos((prev) => [...prev, { id: photoId, uri: asset.uri }]);
+      setOrderPhotos((prev) => [...prev, { id: photoId, uri: asset.uri, phase: "problem" as const }]);
       return;
     }
     setPhotoUploading(true);
     try {
       const mimeType = asset.mimeType ?? "image/jpeg";
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
-      setOrderPhotos((prev) => [...prev, { id: photoId, uri: url }]);
+      setOrderPhotos((prev) => [...prev, { id: photoId, uri: url, phase: "problem" as const }]);
     } catch (_) {
       Alert.alert(
         isRTL ? "فشل الرفع" : "Upload Failed",

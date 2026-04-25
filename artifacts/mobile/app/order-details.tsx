@@ -9,6 +9,7 @@ import {
   Linking,
   Image,
   Alert,
+  Modal,
 } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -40,6 +41,7 @@ export default function OrderDetailsScreen() {
   const [clientRating, setClientRating] = useState(0);
   const [clientComment, setClientComment] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -190,8 +192,32 @@ export default function OrderDetailsScreen() {
   const hasInvoice = !!order.invoice;
   const isCompleted = order.status === "completed";
 
+  const phaseLabels: Record<string, string> = {
+    problem: t("photo.phase.problem"),
+    before: t("photo.phase.before"),
+    during: t("photo.phase.during"),
+    after: t("photo.phase.after"),
+  };
+
+  const photosByPhase = (["problem", "before", "during", "after"] as const).map((phase) => ({
+    phase,
+    photos: (order.photos ?? []).filter((p) => (p.phase ?? "problem") === phase),
+  })).filter((g) => g.photos.length > 0);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Lightbox */}
+      <Modal visible={!!lightboxUri} transparent animationType="fade" onRequestClose={() => setLightboxUri(null)}>
+        <TouchableOpacity style={styles.lightboxOverlay} activeOpacity={1} onPress={() => setLightboxUri(null)}>
+          {lightboxUri && (
+            <Image source={{ uri: lightboxUri }} style={styles.lightboxImage} resizeMode="contain" />
+          )}
+          <TouchableOpacity style={styles.lightboxClose} onPress={() => setLightboxUri(null)}>
+            <VectorIcon name="x" size={22} color="#FFF" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <AppHeader
         title={order.orderNumber}
         showBack
@@ -235,6 +261,39 @@ export default function OrderDetailsScreen() {
             </View>
           )}
         </View>
+
+        {/* Photo Gallery */}
+        {photosByPhase.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
+              {t("photo.gallery")}
+            </Text>
+            {photosByPhase.map(({ phase, photos: phasePhotos }) => (
+              <View key={phase} style={{ marginBottom: 14 }}>
+                <View style={[styles.phaseLabelRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <VectorIcon
+                    name={phase === "problem" ? "alert-circle" : phase === "before" ? "eye" : phase === "during" ? "tool" : "check-circle"}
+                    size={13}
+                    color={colors.primary}
+                  />
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
+                    {phaseLabels[phase]}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}>
+                    ({phasePhotos.length})
+                  </Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                  {phasePhotos.map((photo) => (
+                    <TouchableOpacity key={photo.id} onPress={() => setLightboxUri(photo.uri)} activeOpacity={0.85}>
+                      <Image source={{ uri: photo.uri }} style={styles.galleryThumb} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Location */}
         <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
@@ -499,4 +558,9 @@ const styles = StyleSheet.create({
   invoiceRow: { paddingVertical: 10, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
   invoiceTotalRow: { padding: 14, marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   trackBtn: { marginTop: 14, paddingVertical: 12, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", gap: 8 },
+  phaseLabelRow: { alignItems: "center", gap: 4, marginBottom: 2 },
+  galleryThumb: { width: 88, height: 88, borderRadius: 8, marginRight: 8 },
+  lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },
+  lightboxImage: { width: "100%", height: "80%" },
+  lightboxClose: { position: "absolute", top: 48, right: 20, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 8 },
 });

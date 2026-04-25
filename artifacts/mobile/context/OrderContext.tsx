@@ -4,6 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export interface OrderPhoto {
   uri: string;
   id: string;
+  phase?: "problem" | "before" | "during" | "after";
+  timestamp?: string;
 }
 
 export interface MaterialItem {

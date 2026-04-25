@@ -446,6 +446,87 @@ router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, re
   }
 });
 
+router.post("/orders/:id/photos", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  const id = req.params.id as string;
+  const { phase, urls } = req.body as { phase?: string; urls?: unknown[] };
+
+  const validPhases = ["problem", "before", "during", "after"];
+  if (!phase || !validPhases.includes(phase)) {
+    res.status(400).json({ error: "phase must be one of: problem, before, during, after" });
+    return;
+  }
+  if (!Array.isArray(urls) || urls.length === 0) {
+    res.status(400).json({ error: "urls must be a non-empty array of strings" });
+    return;
+  }
+  if (!urls.every((u) => typeof u === "string")) {
+    res.status(400).json({ error: "urls must be an array of strings" });
+    return;
+  }
+
+  try {
+    const [order] = await db
+      .select({ clientId: ordersTable.clientId, technicianId: ordersTable.technicianId })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .limit(1);
+
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+
+    if (user.role === "client") {
+      if (phase !== "problem") {
+        res.status(403).json({ error: "Clients can only add problem phase photos" });
+        return;
+      }
+      if (order.clientId !== user.id) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    } else if (user.role === "technician") {
+      if (phase === "problem") {
+        res.status(403).json({ error: "Technicians cannot add problem phase photos" });
+        return;
+      }
+      if (order.technicianId !== user.id) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    }
+
+    const timestamp = new Date().toISOString();
+    const newPhotos = (urls as string[]).map((url, i) => ({
+      id: `photo_${Date.now()}_${i}_${Math.random().toString(36).slice(2)}`,
+      uri: url,
+      phase,
+      timestamp,
+    }));
+
+    const [updated] = await db
+      .update(ordersTable)
+      .set({
+        updatedAt: new Date(),
+        data: sql`jsonb_set(
+          ${ordersTable.data},
+          '{photos}',
+          coalesce(${ordersTable.data}->'photos', '[]'::jsonb) || ${JSON.stringify(newPhotos)}::jsonb
+        )`,
+      })
+      .where(eq(ordersTable.id, id))
+      .returning({ data: ordersTable.data });
+
+    const updatedData = (updated?.data ?? {}) as Record<string, unknown>;
+    logger.info({ id, phase, count: newPhotos.length }, "Photos appended to order");
+    res.json({ photos: updatedData.photos ?? [] });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to append photos to order");
+    res.status(500).json({ error: "Failed to save photos" });
+  }
+});
+
 router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
   const id = req.params.id as string;
   try {

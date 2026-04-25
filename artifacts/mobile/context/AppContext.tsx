@@ -332,6 +332,16 @@ const translations: Record<string, Record<Language, string>> = {
   "otp.resend": { ar: "إعادة الإرسال", en: "Resend" },
 
   // Service area
+  "photo.gallery": { ar: "معرض الصور", en: "Photo Gallery" },
+  "photo.phase.problem": { ar: "صور المشكلة", en: "Problem Photos" },
+  "photo.phase.before": { ar: "قبل البدء", en: "Before Work" },
+  "photo.phase.during": { ar: "أثناء العمل", en: "During Work" },
+  "photo.phase.after": { ar: "بعد الإنهاء", en: "After Completion" },
+  "photo.addBefore": { ar: "إضافة صور قبل البدء", en: "Add Before Photos" },
+  "photo.addDuring": { ar: "إضافة صور أثناء العمل", en: "Add During Photos" },
+  "photo.addAfter": { ar: "إضافة صور بعد الإنهاء", en: "Add After Photos" },
+  "photo.uploading": { ar: "جاري رفع الصورة...", en: "Uploading photo..." },
+
   "tech.serviceArea": { ar: "منطقة الخدمة النشطة", en: "Active Service Area" },
   "tech.noServiceArea": { ar: "لم يتم تحديد منطقة خدمة بعد", en: "No service area set yet" },
   "tech.noServiceAreaPrompt": { ar: "اضغط هنا لتحديث ملفك الشخصي", en: "Tap here to update your profile" },
