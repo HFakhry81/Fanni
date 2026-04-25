@@ -231,7 +231,10 @@ export default function TechMapScreen() {
 
       {/* Service Area Banner */}
       {hasServiceArea ? (
-        <View style={[styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Pressable
+          style={[styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={() => router.push("/(tech)/profile")}
+        >
           <View style={[styles.serviceAreaIcon, { backgroundColor: colors.primary + "15" }]}>
             <VectorIcon name="map-pin" size={14} color={colors.primary} />
           </View>
@@ -247,7 +250,7 @@ export default function TechMapScreen() {
             </Text>
           </View>
           <View style={[styles.serviceAreaActiveDot, { backgroundColor: "#22A36B" }]} />
-        </View>
+        </Pressable>
       ) : (
         <Pressable
           style={[styles.serviceAreaBanner, styles.serviceAreaWarning, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A", flexDirection: isRTL ? "row-reverse" : "row" }]}
