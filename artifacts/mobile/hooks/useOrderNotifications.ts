@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
 
+
 const WS_RECONNECT_DELAY_MS = 3000;
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
@@ -65,9 +66,13 @@ export function useOrderNotifications(
   onNewOrder?: () => void,
   onOrderCancelled?: (orderId: string) => void,
 ) {
-  const { injectNewOrder, removePendingOrder } = useOrders();
+  const { injectNewOrder, removePendingOrder, bumpWsOrderStatusSignal, updateOrder } = useOrders();
   const injectRef = useRef(injectNewOrder);
   const removeRef = useRef(removePendingOrder);
+  const bumpSignalRef = useRef(bumpWsOrderStatusSignal);
+  const updateOrderRef = useRef(updateOrder);
+  bumpSignalRef.current = bumpWsOrderStatusSignal;
+  updateOrderRef.current = updateOrder;
   const onNewOrderRef = useRef(onNewOrder);
   const onOrderCancelledRef = useRef(onOrderCancelled);
   onNewOrderRef.current = onNewOrder;
@@ -142,6 +147,11 @@ export function useOrderNotifications(
             const oid = data.orderId as string;
             removeRef.current(oid);
             onOrderCancelledRef.current?.(oid);
+          }
+          if (data.type === "order_status_update" && data.update && data.update.id) {
+            const { id, ...fields } = data.update as { id: string } & Partial<Order>;
+            updateOrderRef.current(id, fields);
+            bumpSignalRef.current();
           }
         } catch (_) {}
       };

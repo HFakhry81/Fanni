@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, usersTable, ordersTable, pool } from "@workspace/db";
-import { and, eq, SQL } from "drizzle-orm";
+import { and, eq, ne, SQL } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
@@ -239,6 +239,84 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
   } catch (err) {
     logger.error({ err, techId: user.id }, "Failed to fetch pending orders for technician");
     res.status(500).json({ error: "Failed to fetch pending orders" });
+  }
+});
+
+type DbStatus = "pending" | "acknowledged" | "in_progress" | "completed" | "cancelled";
+type MobileStatus = "pending" | "accepted" | "inProgress" | "completed" | "cancelled";
+
+function toMobileStatus(dbStatus: DbStatus): MobileStatus {
+  switch (dbStatus) {
+    case "acknowledged": return "accepted";
+    case "in_progress": return "inProgress";
+    default: return dbStatus as MobileStatus;
+  }
+}
+
+router.get("/technician/orders", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can access this endpoint" });
+    return;
+  }
+
+  try {
+    const rows = await db
+      .select()
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.technicianId, user.id),
+          ne(ordersTable.status, "pending")
+        )
+      )
+      .orderBy(ordersTable.createdAt);
+
+    const orders = rows.map((row) => {
+      const data = row.data as Record<string, unknown>;
+      return {
+        id: row.id,
+        orderNumber: row.orderNumber,
+        orderSerial: row.orderSerial,
+        status: toMobileStatus(row.status as DbStatus),
+        createdAt: row.createdAt,
+        category: row.category ?? data.category,
+        subCategory: data.subCategory,
+        street: data.street,
+        floor: data.floor,
+        building: data.building,
+        apartment: data.apartment,
+        landmark: data.landmark,
+        visitDate: data.visitDate,
+        visitTime: data.visitTime,
+        technicianId: row.technicianId ?? data.technicianId ?? null,
+        technicianName: data.technicianName ?? null,
+        technicianMobile: data.technicianMobile ?? null,
+        technicianAvatar: data.technicianAvatar ?? null,
+        technicianRating: data.technicianRating ?? null,
+        problemDescription: data.problemDescription,
+        deviceType: data.deviceType,
+        governorate: row.governorate ?? data.governorate ?? null,
+        area: row.area ?? data.area ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        clientId: row.clientId ?? data.clientId,
+        clientName: data.clientName,
+        clientMobile: data.clientMobile,
+        photos: data.photos ?? [],
+        materials: data.materials ?? null,
+        solutionDescription: data.solutionDescription ?? null,
+        invoice: data.invoice ?? null,
+        clientRating: data.clientRating ?? null,
+        clientComment: data.clientComment ?? null,
+      };
+    });
+
+    logger.info({ techId: user.id, count: orders.length }, "Technician fetched assigned orders");
+    res.json({ orders });
+  } catch (err) {
+    logger.error({ err, techId: user.id }, "Failed to fetch assigned orders for technician");
+    res.status(500).json({ error: "Failed to fetch assigned orders" });
   }
 });
 

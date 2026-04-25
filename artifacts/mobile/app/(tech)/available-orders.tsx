@@ -59,7 +59,7 @@ export default function AvailableOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { sessionToken } = useAuth();
-  const { updateOrder, setAvailablePendingCount } = useOrders();
+  const { updateOrder, setAvailablePendingCount, wsOrderStatusSignal } = useOrders();
   const router = useRouter();
 
   const [orders, setOrders] = useState<PendingOrder[]>([]);
@@ -133,6 +133,14 @@ export default function AvailableOrdersScreen() {
       fetchOrders(false, true);
     }
   };
+
+  useEffect(() => {
+    if (wsOrderStatusSignal === 0) return;
+    const timer = setTimeout(() => {
+      silentFetchRef.current();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [wsOrderStatusSignal]);
 
   const onNewOrderCallback = useCallback(() => {
     silentFetchRef.current();

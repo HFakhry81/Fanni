@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -27,7 +27,7 @@ export default function TechOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { sessionToken } = useAuth();
-  const { getOrdersByTech, updateOrder } = useOrders();
+  const { getOrdersByTech, updateOrder, syncOrders, wsOrderStatusSignal } = useOrders();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -47,6 +47,36 @@ export default function TechOrdersScreen() {
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
   const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
   const [expandedInvoices, setExpandedInvoices] = useState<Record<string, boolean>>({});
+
+  const isFetchingRef = useRef(false);
+
+  const fetchOrdersFromApi = useCallback(async () => {
+    const apiBase = getApiBaseUrl();
+    if (!apiBase || !sessionToken || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const res = await fetch(`${apiBase}/api/technician/orders`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json() as { orders: unknown[] };
+      if (Array.isArray(json.orders)) {
+        syncOrders(json.orders as Parameters<typeof syncOrders>[0]);
+      }
+    } catch (err) {
+      console.warn("[Fanni] Failed to re-fetch tech orders:", err);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [sessionToken, syncOrders]);
+
+  useEffect(() => {
+    if (wsOrderStatusSignal === 0) return;
+    const timer = setTimeout(() => {
+      fetchOrdersFromApi();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [wsOrderStatusSignal, fetchOrdersFromApi]);
 
   const orders = getOrdersByTech(user?.id ?? "tech1");
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
