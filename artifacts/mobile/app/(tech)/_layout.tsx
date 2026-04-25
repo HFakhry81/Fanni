@@ -7,7 +7,7 @@ import { AppState, Platform, StyleSheet, View, Text, useColorScheme, Animated } 
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
-import { useOrders } from "@/context/OrderContext";
+import { useOrders, buildSimulatedOrder } from "@/context/OrderContext";
 
 function CountBadge({ count }: { count: number }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -137,6 +137,37 @@ function ClassicTechTabs() {
   );
 }
 
+const DEMO_ORDER_DELAY_MS = 8000;
+
+function useDemoOrderBroadcast() {
+  const { user, isOnline } = useApp();
+  const { injectNewOrder } = useOrders();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const injectedRef = useRef(false);
+
+  useEffect(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (!isOnline) {
+      injectedRef.current = false;
+      return;
+    }
+    if (injectedRef.current) return;
+    timerRef.current = setTimeout(() => {
+      injectedRef.current = true;
+      injectNewOrder(buildSimulatedOrder(user?.serviceCategories));
+    }, DEMO_ORDER_DELAY_MS);
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isOnline, user?.serviceCategories, injectNewOrder]);
+}
+
 function usePendingCountSync() {
   const { sessionToken } = useAuth();
   const { setAvailablePendingCount } = useOrders();
@@ -168,6 +199,7 @@ function usePendingCountSync() {
 export default function TechLayout() {
   const { availablePendingCount } = useOrders();
   usePendingCountSync();
+  useDemoOrderBroadcast();
   if (isLiquidGlassAvailable() && availablePendingCount === 0) return <NativeTechTabs />;
   return <ClassicTechTabs />;
 }

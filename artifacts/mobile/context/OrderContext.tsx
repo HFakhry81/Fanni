@@ -217,38 +217,101 @@ const SEED_ORDERS: Order[] = [
   },
 ];
 
-// NOTE: SIMULATED_NEW_ORDER uses category "electricity" to match the demo technician's
-// registered service categories. The expected demo tech skill set is ["ac", "electricity"],
-// as configured via SERVICE_CATEGORIES in artifacts/mobile/app/register.tsx and
-// app/(tech)/profile.tsx and stored in user.serviceCategories. The broadcaster
-// (useOrderNotifications) filters broadcast orders by these categories — if the demo tech's
-// registered categories change, update the category here to keep demos predictable.
-export const SIMULATED_NEW_ORDER: Order = {
-  id: "ord_sim001",
-  orderNumber: "ORD-2025-004",
-  clientId: "client3",
-  clientName: "سارة إبراهيم",
-  clientMobile: "01155667788",
-  category: "electricity",
-  subCategory: "توصيلات كهربائية",
-  subImageKey: "sub_electrical_wiring",
-  problemDescription: "انقطاع مفاجئ في التيار الكهربائي ببعض الأوتاكات في غرفة المعيشة",
-  deviceType: "توصيلات كهربائية",
-  photos: [],
-  street: "شارع سيدي بشر",
-  building: "3",
-  floor: "4",
-  apartment: "14",
-  landmark: "بجوار مدرسة الأمل",
-  governorate: "alexandria",
-  area: "سيدي بشر",
-  latitude: 31.2310,
-  longitude: 29.9700,
-  visitDate: "2025-04-22",
-  visitTime: "15:00",
-  status: "pending",
-  createdAt: new Date().toISOString(),
+const SIMULATED_ORDER_CATEGORY_CONTENT: Record<
+  string,
+  { subCategory: string; subImageKey: string; problemDescription: string; deviceType: string }
+> = {
+  electricity: {
+    subCategory: "توصيلات كهربائية",
+    subImageKey: "sub_electrical_wiring",
+    problemDescription: "انقطاع مفاجئ في التيار الكهربائي ببعض الأوتاكات في غرفة المعيشة",
+    deviceType: "توصيلات كهربائية",
+  },
+  ac: {
+    subCategory: "صيانة مكيفات",
+    subImageKey: "sub_ac_repair",
+    problemDescription: "المكيف يعمل لكنه لا يبرد بشكل كافٍ ويصدر أصواتاً غريبة من الجسم الخارجي",
+    deviceType: "مكيف سبليت 1.5 حصان",
+  },
+  plumbing: {
+    subCategory: "تسريب مياه",
+    subImageKey: "sub_plumbing_leak",
+    problemDescription: "تسريب مياه أسفل المغسلة في الحمام الرئيسي مع تراكم الماء على الأرضية",
+    deviceType: "صنابير ومواسير",
+  },
+  appliances: {
+    subCategory: "صيانة غسالة",
+    subImageKey: "sub_appliances_washing",
+    problemDescription: "الغسالة لا تعمل وتصدر صوتاً عالياً أثناء الدوران ولا تستكمل الدورة",
+    deviceType: "غسالة أوتوماتيك 7 كيلو",
+  },
+  carpentry: {
+    subCategory: "إصلاح باب",
+    subImageKey: "sub_carpentry_door",
+    problemDescription: "الباب لا يغلق بشكل صحيح ومفصلته مكسورة وتحتاج استبدالاً",
+    deviceType: "باب خشبي داخلي",
+  },
+  painting: {
+    subCategory: "دهان جدران",
+    subImageKey: "sub_painting_walls",
+    problemDescription: "جدران المطبخ تحتاج إعادة دهان بعد تأثر البوية بالرطوبة",
+    deviceType: "جدران داخلية",
+  },
+  pest: {
+    subCategory: "مكافحة حشرات",
+    subImageKey: "sub_pest_cockroach",
+    problemDescription: "انتشار صراصير في المطبخ والحمامات ويحتاج الأمر رش شامل",
+    deviceType: "حشرات زاحفة",
+  },
+  flooring: {
+    subCategory: "تركيب بلاط",
+    subImageKey: "sub_flooring_tiles",
+    problemDescription: "بلاطة مكسورة في الممر الرئيسي تحتاج استبدالاً سريعاً",
+    deviceType: "بلاط سيراميك",
+  },
 };
+
+const SIMULATED_ORDER_FALLBACK_CATEGORY = "ac";
+
+export function buildSimulatedOrder(serviceCategories?: string[]): Order {
+  const categories = (serviceCategories ?? []).filter(
+    (c) => c in SIMULATED_ORDER_CATEGORY_CONTENT
+  );
+  const resolvedCategory =
+    categories.length > 0
+      ? categories[Math.floor(Math.random() * categories.length)]
+      : SIMULATED_ORDER_FALLBACK_CATEGORY;
+
+  const content = SIMULATED_ORDER_CATEGORY_CONTENT[resolvedCategory]!;
+  const category = resolvedCategory;
+
+  return {
+    id: "ord_sim001",
+    orderNumber: "ORD-2025-004",
+    clientId: "client3",
+    clientName: "سارة إبراهيم",
+    clientMobile: "01155667788",
+    category,
+    subCategory: content.subCategory,
+    subImageKey: content.subImageKey,
+    problemDescription: content.problemDescription,
+    deviceType: content.deviceType,
+    photos: [],
+    street: "شارع سيدي بشر",
+    building: "3",
+    floor: "4",
+    apartment: "14",
+    landmark: "بجوار مدرسة الأمل",
+    governorate: "alexandria",
+    area: "سيدي بشر",
+    latitude: 31.231,
+    longitude: 29.97,
+    visitDate: "2025-04-22",
+    visitTime: "15:00",
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
+}
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
