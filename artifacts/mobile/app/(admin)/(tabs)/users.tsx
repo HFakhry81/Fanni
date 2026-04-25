@@ -19,6 +19,7 @@ import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 
 type UserTab = "technicians" | "clients" | "admins";
+type StatusFilter = "all" | "active" | "suspended";
 
 interface ApiUser {
   id: string;
@@ -80,6 +81,7 @@ export default function AdminUsersScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,6 +106,11 @@ export default function AdminUsersScreen() {
   const fetchUsers = useCallback(async (page: number, replace: boolean, search?: string) => {
     if (!sessionToken) return;
 
+    const role = TAB_ROLE_MAP[tab];
+    const apiBase = getApiBaseUrl();
+    const searchParam = search && search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
+    const isActiveParam = statusFilter === "active" ? "&isActive=true" : statusFilter === "suspended" ? "&isActive=false" : "";
+
     if (replace) {
       // Cancel any in-flight replacement request so the latest query always wins
       replaceAbortController.current?.abort();
@@ -114,11 +121,8 @@ export default function AdminUsersScreen() {
       setError(null);
 
       try {
-        const role = TAB_ROLE_MAP[tab];
-        const apiBase = getApiBaseUrl();
-        const searchParam = search && search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
         const res = await fetch(
-          `${apiBase}/api/admin/users?page=${page}&limit=20&role=${role}${searchParam}`,
+          `${apiBase}/api/admin/users?page=${page}&limit=20&role=${role}${searchParam}${isActiveParam}`,
           { headers: { Authorization: `Bearer ${sessionToken}` }, signal: controller.signal }
         );
         if (!res.ok) {
@@ -142,11 +146,8 @@ export default function AdminUsersScreen() {
       setIsLoadingMore(true);
 
       try {
-        const role = TAB_ROLE_MAP[tab];
-        const apiBase = getApiBaseUrl();
-        const searchParam = search && search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
         const res = await fetch(
-          `${apiBase}/api/admin/users?page=${page}&limit=20&role=${role}${searchParam}`,
+          `${apiBase}/api/admin/users?page=${page}&limit=20&role=${role}${searchParam}${isActiveParam}`,
           { headers: { Authorization: `Bearer ${sessionToken}` } }
         );
         if (!res.ok) {
@@ -164,7 +165,7 @@ export default function AdminUsersScreen() {
         isLoadingMoreRef.current = false;
       }
     }
-  }, [sessionToken, tab]);
+  }, [sessionToken, tab, statusFilter]);
 
   useEffect(() => {
     currentPage.current = 1;
@@ -517,6 +518,7 @@ export default function AdminUsersScreen() {
                 if (debounceTimer.current) clearTimeout(debounceTimer.current);
                 setSearchQuery("");
                 setDebouncedSearch("");
+                setStatusFilter("all");
                 setTab(key);
               }
             }}
@@ -551,6 +553,44 @@ export default function AdminUsersScreen() {
             <VectorIcon name="x" size={16} color={colors.mutedForeground} />
           </TouchableOpacity>
         ) : null}
+      </View>
+
+      <View style={[styles.filterRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        {(["all", "active", "suspended"] as StatusFilter[]).map((f) => {
+          const isSelected = statusFilter === f;
+          const label = f === "all"
+            ? (isRTL ? "الكل" : "All")
+            : f === "active"
+            ? (isRTL ? "نشط" : "Active")
+            : (isRTL ? "موقوف" : "Suspended");
+          const selectedBg = f === "suspended" ? "#FFE6E6" : f === "active" ? "#D4EDDA" : colors.secondary;
+          const selectedColor = f === "suspended" ? colors.destructive : f === "active" ? colors.success : "#FFF";
+          return (
+            <TouchableOpacity
+              key={f}
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor: isSelected ? selectedBg : colors.card,
+                  borderColor: isSelected ? selectedBg : colors.border,
+                },
+              ]}
+              onPress={() => {
+                if (statusFilter !== f) {
+                  setStatusFilter(f);
+                }
+              }}
+            >
+              <Text style={{
+                color: isSelected ? selectedColor : colors.mutedForeground,
+                fontFamily: "Inter_600SemiBold",
+                fontSize: 12,
+              }}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <Modal
@@ -721,6 +761,8 @@ const styles = StyleSheet.create({
   actionBtn: { flex: 1, paddingVertical: 8, alignItems: "center", flexDirection: "row", justifyContent: "center" },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 60 },
   retryBtn: { paddingHorizontal: 24, paddingVertical: 10 },
+  filterRow: { gap: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  filterPill: { paddingVertical: 5, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },
   roleBadge: { alignSelf: "flex-start", paddingVertical: 2, paddingHorizontal: 7, borderRadius: 6, marginTop: 3 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
   modalCard: { width: "100%", maxWidth: 440, padding: 24, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },

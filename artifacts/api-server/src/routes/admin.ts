@@ -147,12 +147,18 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
   const role = req.query.role as string | undefined;
   const search = req.query.search ? String(req.query.search).trim() : undefined;
+  const isActiveParam = req.query.isActive as string | undefined;
   const offset = (page - 1) * limit;
 
   // Admins are now in a separate table; only list clients and technicians here.
   // If caller explicitly requests role=admin, return admin list from admins table instead.
   if (role === "admin") {
     const adminConditions = [];
+    if (isActiveParam === "true") {
+      adminConditions.push(eq(adminsTable.isActive, true));
+    } else if (isActiveParam === "false") {
+      adminConditions.push(eq(adminsTable.isActive, false));
+    }
     if (search) {
       const pattern = `%${search}%`;
       adminConditions.push(
@@ -203,6 +209,11 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   const conditions = [];
   if (role && ["client", "technician"].includes(role)) {
     conditions.push(eq(usersTable.role, role as "client" | "technician"));
+  }
+  if (isActiveParam === "true") {
+    conditions.push(eq(usersTable.isActive, true));
+  } else if (isActiveParam === "false") {
+    conditions.push(eq(usersTable.isActive, false));
   }
   if (search) {
     const pattern = `%${search}%`;
