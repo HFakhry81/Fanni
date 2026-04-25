@@ -23,6 +23,7 @@ export interface Order {
   clientMobile: string;
   category: string;
   subCategory: string;
+  subImageKey?: string;
   problemDescription: string;
   deviceType: string;
   photos: OrderPhoto[];
@@ -90,7 +91,7 @@ interface OrderContextType {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-const SEED_VERSION = "2";
+const SEED_VERSION = "3";
 const SEED_VERSION_KEY = "orders_seed_version";
 
 const SEED_ORDERS: Order[] = [
@@ -102,6 +103,7 @@ const SEED_ORDERS: Order[] = [
     clientMobile: "01012345678",
     category: "ac",
     subCategory: "صيانة مكيفات",
+    subImageKey: "sub_ac_repair",
     problemDescription: "المكيف لا يبرد بشكل جيد وتظهر منه روائح كريهة عند التشغيل",
     deviceType: "مكيف سبليت 1.5 حصان",
     photos: [],
@@ -156,6 +158,7 @@ const SEED_ORDERS: Order[] = [
     clientMobile: "01012345678",
     category: "electricity",
     subCategory: "توصيلات كهربائية",
+    subImageKey: "sub_electrical_wiring",
     problemDescription: "انقطاع متكرر في الكهرباء بالغرفة الرئيسية وشرارة عند اللمسات",
     deviceType: "توصيلات كهربائية",
     photos: [],
@@ -191,6 +194,7 @@ const SEED_ORDERS: Order[] = [
     clientMobile: "01211223344",
     category: "ac",
     subCategory: "صيانة مكيفات",
+    subImageKey: "sub_ac_repair",
     problemDescription: "المكيف يعمل لكنه لا يبرد بشكل كافٍ والجسم الخارجي يصدر صوتاً غير طبيعي",
     deviceType: "مكيف سبليت 2 حصان",
     photos: [],
@@ -224,6 +228,7 @@ export const SIMULATED_NEW_ORDER: Order = {
   clientMobile: "01155667788",
   category: "electricity",
   subCategory: "توصيلات كهربائية",
+  subImageKey: "sub_electrical_wiring",
   problemDescription: "انقطاع مفاجئ في التيار الكهربائي ببعض الأوتاكات في غرفة المعيشة",
   deviceType: "توصيلات كهربائية",
   photos: [],

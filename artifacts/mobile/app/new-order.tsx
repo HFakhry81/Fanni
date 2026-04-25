@@ -390,6 +390,7 @@ export default function NewOrderScreen() {
       clientMobile: user?.mobile ?? "",
       category: category as string,
       subCategory: subCategory as string,
+      subImageKey: subImageKey || undefined,
       problemDescription: problemDesc,
       deviceType,
       photos: resolvedPhotos,

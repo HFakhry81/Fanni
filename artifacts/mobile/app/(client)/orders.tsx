@@ -1,5 +1,26 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, ImageSourcePropType } from "react-native";
+
+const SUB_IMAGE_MAP: Record<string, ImageSourcePropType> = {
+  sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.png"),
+  sub_computers:         require("@/assets/images/sub_computers.png"),
+  sub_washing_machine:   require("@/assets/images/sub_washing_machine.png"),
+  sub_water_heater:      require("@/assets/images/sub_water_heater.png"),
+  sub_ac_repair:         require("@/assets/images/sub_ac_repair.png"),
+  sub_ac_cleaning:       require("@/assets/images/sub_ac_cleaning.png"),
+  sub_pipes:             require("@/assets/images/sub_pipes.png"),
+  sub_sanitary:          require("@/assets/images/sub_sanitary.png"),
+  sub_doors:             require("@/assets/images/sub_doors.png"),
+  sub_furniture:         require("@/assets/images/sub_furniture.png"),
+  sub_fridge:            require("@/assets/images/sub_fridge.png"),
+  sub_dishwasher:        require("@/assets/images/sub_dishwasher.png"),
+  sub_interior_paint:    require("@/assets/images/sub_interior_paint.png"),
+  sub_exterior_paint:    require("@/assets/images/sub_exterior_paint.png"),
+  sub_insects:           require("@/assets/images/sub_insects.png"),
+  sub_rodents:           require("@/assets/images/sub_rodents.png"),
+  sub_tiles:             require("@/assets/images/sub_tiles.png"),
+  sub_parquet:           require("@/assets/images/sub_parquet.png"),
+};
 import { useRouter } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -89,6 +110,13 @@ export default function ClientOrdersScreen() {
       <View style={[styles.accentBar, { backgroundColor: item.status === "completed" ? colors.success : item.status === "cancelled" ? colors.destructive : colors.secondary }]} />
       <View style={styles.cardBody}>
         <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          {item.subImageKey && SUB_IMAGE_MAP[item.subImageKey] && (
+            <Image
+              source={SUB_IMAGE_MAP[item.subImageKey]}
+              style={[styles.subThumb, { borderRadius: colors.radius - 4, borderColor: colors.border }]}
+              resizeMode="cover"
+            />
+          )}
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
               {item.orderNumber}
@@ -271,7 +299,8 @@ const styles = StyleSheet.create({
   card: { marginBottom: 12, borderWidth: 1.5, flexDirection: "row", overflow: "hidden", shadowColor: "#0D1B2A", shadowOpacity: 0.07, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   accentBar: { width: 4 },
   cardBody: { flex: 1, padding: 14 },
-  cardTop: { alignItems: "flex-start", marginBottom: 10, gap: 8 },
+  cardTop: { alignItems: "center", marginBottom: 10, gap: 8 },
+  subThumb: { width: 44, height: 44, borderWidth: 1 },
   infoRow: { alignItems: "center", marginBottom: 5, gap: 0 },
   techRow: { alignItems: "center", marginTop: 10, borderTopWidth: 1, paddingTop: 10, gap: 0 },
   techAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
