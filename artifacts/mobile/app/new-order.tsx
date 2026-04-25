@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
+  BackHandler,
 } from "react-native";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -111,10 +112,13 @@ export default function NewOrderScreen() {
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
 
+  const navigation = useNavigation();
+
   const draftRestoredRef      = useRef(false);
   const submittedRef          = useRef(false);
   const loginDraftSavedRef    = useRef(false);
   const hasCheckedBannerRef   = useRef(false);
+  const discardOnLeaveRef     = useRef(false);
 
   // Always-current snapshot of form fields AND route params for unmount auto-save
   const fieldsRef = useRef({
@@ -255,6 +259,7 @@ export default function NewOrderScreen() {
     return () => {
       if (submittedRef.current)       return; // clean submit — no draft needed
       if (loginDraftSavedRef.current) return; // login-flow draft already saved
+      if (discardOnLeaveRef.current)  return; // user explicitly chose to discard
       const f = fieldsRef.current;
       const { category: cat, subCategory: sub } = routeParamsRef.current;
       const hasContent =
@@ -330,10 +335,80 @@ export default function NewOrderScreen() {
     setPendingDraft(null);
   };
 
+  // ── Check whether the user has entered anything worth warning about ──────────
+  const hasFormData = useCallback((): boolean => {
+    return !!(
+      problemDesc || deviceType ||
+      governorateId || areaId ||
+      street || building || floor || apartment || landmark ||
+      visitDate || visitTime ||
+      latitude != null || longitude != null ||
+      orderPhotos.length > 0
+    );
+  }, [
+    problemDesc, deviceType, governorateId, areaId,
+    street, building, floor, apartment, landmark,
+    visitDate, visitTime, latitude, longitude, orderPhotos,
+  ]);
+
+  // ── Intercept ALL navigation-away events (iOS swipe, header back, etc.) ───────
+  // beforeRemove fires for every navigation event that would remove this screen,
+  // including iOS swipe-back gesture and programmatic router.back() calls.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener(
+      "beforeRemove",
+      (e) => {
+        // If form is empty, already submitted, or user explicitly chose to discard → allow.
+        // Do NOT reset discardOnLeaveRef here; it must stay true through unmount so
+        // the auto-save cleanup skips saving after a confirmed "Leave".
+        if (!hasFormData() || submittedRef.current || discardOnLeaveRef.current) {
+          return;
+        }
+        e.preventDefault();
+        Alert.alert(
+          isRTL ? "مغادرة النموذج؟" : "Leave form?",
+          isRTL
+            ? "لديك بيانات غير محفوظة. هل تريد المغادرة وفقدانها؟"
+            : "You have unsaved data. Leave and discard your changes?",
+          [
+            { text: isRTL ? "تابع التعبئة" : "Keep editing", style: "cancel" },
+            {
+              text: isRTL ? "مغادرة" : "Leave",
+              style: "destructive",
+              onPress: () => {
+                discardOnLeaveRef.current = true;
+                navigation.dispatch(e.data.action);
+              },
+            },
+          ]
+        );
+      }
+    );
+    return unsubscribe;
+  }, [navigation, hasFormData, isRTL]);
+
+  // ── Intercept Android hardware back between steps (step 2→1 stays in form) ───
+  useFocusEffect(
+    useCallback(() => {
+      const onHardwareBack = () => {
+        if (step > 1) {
+          setStep((s) => (s - 1) as OrderStep);
+          return true; // handled — move to previous step, no dialog
+        }
+        return false; // let Expo Router handle it → triggers beforeRemove above
+      };
+      const sub = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
+      return () => sub.remove();
+    }, [step])
+  );
+
   const handleNext = () => { if (step < 3) setStep((step + 1) as OrderStep); };
   const handleBack = () => {
-    if (step > 1) setStep((step - 1) as OrderStep);
-    else router.back();
+    if (step > 1) {
+      setStep((step - 1) as OrderStep);
+    } else {
+      router.back(); // beforeRemove listener will prompt if form has data
+    }
   };
 
   const isLocalUri = (uri: string) => uri.startsWith("file://") || uri.startsWith("content://");
