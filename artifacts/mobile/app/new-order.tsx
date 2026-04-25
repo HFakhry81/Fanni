@@ -29,6 +29,29 @@ function getApiBase(): string {
   return domain ? `https://${domain}` : "";
 }
 
+function draftAge(savedAt: unknown, isRTL: boolean): string {
+  if (typeof savedAt !== "number") return "";
+  const diffMs = Date.now() - savedAt;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr  = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr  / 24);
+
+  if (isRTL) {
+    if (diffSec < 60)  return "· تم الحفظ للتو";
+    if (diffMin < 60)  return `· محفوظة منذ ${diffMin} ${diffMin === 1 ? "دقيقة" : "دقائق"}`;
+    if (diffHr  < 24)  return `· محفوظة منذ ${diffHr} ${diffHr  === 1 ? "ساعة" : "ساعات"}`;
+    if (diffDay === 1) return "· محفوظة بالأمس";
+    return `· محفوظة منذ ${diffDay} يوم`;
+  } else {
+    if (diffSec < 60)  return "· Saved just now";
+    if (diffMin < 60)  return `· Saved ${diffMin} ${diffMin === 1 ? "minute" : "minutes"} ago`;
+    if (diffHr  < 24)  return `· Saved ${diffHr} ${diffHr  === 1 ? "hour" : "hours"} ago`;
+    if (diffDay === 1) return "· Saved yesterday";
+    return `· Saved ${diffDay} days ago`;
+  }
+}
+
 interface LocationRow { id: string; nameAr: string; nameEn: string; }
 
 async function apiFetchGovernorates(): Promise<LocationRow[]> {
@@ -75,7 +98,7 @@ const SUB_IMAGE_MAP: Record<string, ReturnType<typeof require>> = {
 type OrderStep = 1 | 2 | 3;
 
 const DRAFT_KEY = "fanni_order_draft";
-const DRAFT_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export default function NewOrderScreen() {
   const { category = "", subCategory = "", subImageKey = "" } = useLocalSearchParams<{ category: string; subCategory: string; subImageKey: string }>();
@@ -852,6 +875,10 @@ export default function NewOrderScreen() {
             <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
               <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
                 {isRTL ? "لديك مسودة محفوظة" : "You have a saved draft"}
+                {"  "}
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, opacity: 0.75 }}>
+                  {draftAge(pendingDraft?.savedAt, isRTL)}
+                </Text>
               </Text>
               <Text style={{ color: colors.secondary, fontFamily: "Inter_400Regular", fontSize: 12, opacity: 0.85, marginTop: 2 }}>
                 {isRTL ? "هل تريد المتابعة من حيث توقفت؟" : "Continue where you left off?"}
