@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, ImageSourcePropType } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, ImageSourcePropType, Alert } from "react-native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { Asset } from "expo-asset";
+import { readAsStringAsync } from "expo-file-system/legacy";
 
 const SUB_IMAGE_MAP: Record<string, ImageSourcePropType> = {
   sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.png"),
@@ -101,6 +105,125 @@ export default function ClientOrdersScreen() {
   const historyOrders = mergedOrders.filter((o) => ["completed", "cancelled"].includes(o.status));
   const displayOrders = tab === "active" ? activeOrders : historyOrders;
 
+  const handleShareInvoice = useCallback(async (item: Order) => {
+    if (!item.invoice) return;
+    const inv = item.invoice;
+    const dir = isRTL ? "rtl" : "ltr";
+
+    let logoDataUri = "";
+    try {
+      const asset = Asset.fromModule(require("@/assets/images/icon.png"));
+      await asset.downloadAsync();
+      if (asset.localUri) {
+        const base64 = await readAsStringAsync(asset.localUri, { encoding: "base64" });
+        logoDataUri = `data:image/png;base64,${base64}`;
+      }
+    } catch (err) {
+      console.warn("[ShareInvoice] Could not load logo asset:", err);
+    }
+
+    const logoImg = logoDataUri
+      ? `<img src="${logoDataUri}" style="width:48px;height:48px;object-fit:contain;margin-${isRTL ? "left" : "right"}:12px" />`
+      : "";
+
+    const categoryKey = `cat.${item.category}`;
+    const categoryLabel = (() => { const l = t(categoryKey); return l === categoryKey ? item.category : l; })();
+
+    const rows = [
+      [t("invoice.materials"), inv.materialsTotal],
+      [t("invoice.materialsMark"), inv.materialsMark],
+      [t("invoice.labor"), inv.laborFee],
+      [t("invoice.tools"), inv.toolRental],
+      [t("invoice.tax"), inv.tax],
+      [t("invoice.vat"), inv.vat],
+    ]
+      .map(
+        ([label, val]) =>
+          `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:${isRTL ? "left" : "right"};font-weight:500">${val} ${t("common.egp")}</td></tr>`
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html dir="${dir}" lang="${isRTL ? "ar" : "en"}">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111827;direction:${dir}}
+  .header{display:flex;flex-direction:${isRTL ? "row-reverse" : "row"};align-items:center;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:24px}
+  .brand{flex:1;font-size:20px;font-weight:700;color:#111827;text-align:${isRTL ? "right" : "left"}}
+  .invoice-num{font-size:12px;color:#6b7280}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px}
+  .total-row{background:#fef3c7;font-weight:700;font-size:16px}
+  .total-row td{padding:12px;color:#d97706}
+  h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}
+  .meta{background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .meta-item{display:flex;flex-direction:column;gap:2px}
+  .meta-label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em}
+  .meta-value{font-size:14px;font-weight:600;color:#111827}
+</style>
+</head>
+<body>
+<div class="header">
+  ${logoImg}
+  <div class="brand">${isRTL ? "فني · FANNI" : "FANNI · فني"}</div>
+  <div class="invoice-num">#${inv.invoiceNumber}</div>
+</div>
+<h2>${t("invoice.title")} #${inv.invoiceNumber}</h2>
+<div class="meta">
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.client")}</span>
+    <span class="meta-value">${item.clientName}</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.orderNumber")}</span>
+    <span class="meta-value">${item.orderNumber}</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.date")}</span>
+    <span class="meta-value">${new Date(item.visitDate).toLocaleDateString(isRTL ? "ar-EG" : "en-GB", { year: "numeric", month: "long", day: "numeric" })}</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">${t("invoice.category")}</span>
+    <span class="meta-value">${categoryLabel}</span>
+  </div>
+  ${item.technicianName ? `<div class="meta-item">
+    <span class="meta-label">${t("invoice.technician")}</span>
+    <span class="meta-value">${item.technicianName}</span>
+  </div>` : ""}
+  ${item.technicianMobile ? `<div class="meta-item">
+    <span class="meta-label">${t("invoice.phone")}</span>
+    <span class="meta-value" style="direction:ltr;unicode-bidi:plaintext">${item.technicianMobile}</span>
+  </div>` : ""}
+</div>
+<table>
+  <tbody>
+    ${rows}
+    <tr class="total-row">
+      <td>${t("invoice.total")}</td>
+      <td style="text-align:${isRTL ? "left" : "right"}">${inv.total} ${t("common.egp")}</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>`;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          dialogTitle: `${t("invoice.title")} #${inv.invoiceNumber}`,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(t("invoice.title"), uri);
+      }
+    } catch {
+      Alert.alert(t("common.error") || "Error", t("invoice.shareError"));
+    }
+  }, [isRTL, t]);
+
   const renderOrder = ({ item }: { item: Order }) => (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
@@ -126,6 +249,16 @@ export default function ClientOrdersScreen() {
             </Text>
           </View>
           <StatusBadge status={item.status} />
+          {item.status === "completed" && item.invoice && (
+            <TouchableOpacity
+              style={[styles.shareBtn, { backgroundColor: colors.accent, borderRadius: 8 }]}
+              onPress={(e) => { e.stopPropagation(); handleShareInvoice(item); }}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <VectorIcon name="share-2" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
         <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <VectorIcon name="map-pin" size={13} color={colors.secondary} />
@@ -307,6 +440,7 @@ const styles = StyleSheet.create({
   ratingChip: { flexDirection: "row", alignItems: "center", paddingVertical: 3, paddingHorizontal: 8 },
   callBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   smsBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  shareBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingTop: 60 },
   bookBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 28, marginTop: 24 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
