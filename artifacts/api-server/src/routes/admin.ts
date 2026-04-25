@@ -6,6 +6,21 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { verifyOtpToken } from "../lib/otp";
 
+interface AdminRecord {
+  id: string;
+  isActive: boolean;
+  isSuperAdmin: boolean | null;
+  permissions: string[] | null;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      __adminRecord?: AdminRecord;
+    }
+  }
+}
+
 const router: IRouter = Router();
 
 const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
@@ -33,13 +48,12 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
     return;
   }
   // Attach to request for downstream use
-  (req as any).__adminRecord = adminRecord;
+  req.__adminRecord = adminRecord;
   next();
 }
 
 function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
-  const rec = (req as any).__adminRecord as { isSuperAdmin?: boolean } | undefined;
-  if (!rec?.isSuperAdmin) {
+  if (!req.__adminRecord?.isSuperAdmin) {
     res.status(403).json({ error: "Super-admin access required" });
     return;
   }
@@ -48,7 +62,7 @@ function requireSuperAdmin(req: Request, res: Response, next: NextFunction): voi
 
 function requirePermission(perm: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const rec = (req as any).__adminRecord as { isSuperAdmin?: boolean; permissions?: string[] } | undefined;
+    const rec = req.__adminRecord;
     if (rec?.isSuperAdmin || (rec?.permissions && rec.permissions.includes(perm))) {
       next();
     } else {
@@ -541,7 +555,7 @@ router.get("/admin/admins-list", authMiddleware, requireAuth, requireAdmin, requ
 
 // ─── ADMIN: Get own permissions & super-admin flag ─────────────────────────
 router.get("/admin/my-permissions", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const rec = (req as any).__adminRecord as { permissions?: string[]; isSuperAdmin?: boolean };
+  const rec = req.__adminRecord;
   res.json({ permissions: rec?.permissions ?? [], isSuperAdmin: rec?.isSuperAdmin ?? false });
 });
 
@@ -571,8 +585,8 @@ router.put("/admin/:adminId/permissions", authMiddleware, requireAuth, requireAd
   res.json({ success: true, permissions });
 });
 
-// ─── ADMIN: Nested categories (domains + specializations) ─────────────────
-router.get("/admin/categories", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+// ─── PUBLIC: Nested categories via admin path (domains + specializations) ─
+router.get("/admin/categories", async (req: Request, res: Response) => {
   const domains = await db
     .select()
     .from(serviceDomainsTable)

@@ -923,12 +923,11 @@ export default function RegisterScreen() {
 
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 10 }}>
         {(apiDomains.length > 0 ? apiDomains : []).map((domain) => {
-          const slug = domain.nameEn.toLowerCase();
-          const selected = selectedCategories.includes(slug);
+          const selected = selectedCategories.includes(domain.id);
           return (
             <TouchableOpacity
               key={domain.id}
-              onPress={() => toggleCategory(slug)}
+              onPress={() => toggleCategory(domain.id)}
               style={{
                 paddingHorizontal: 14,
                 paddingVertical: 10,
