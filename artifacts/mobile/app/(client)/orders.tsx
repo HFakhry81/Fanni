@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, ImageSourcePropType, Alert } from "react-native";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, ImageSourcePropType, Alert, Animated } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Asset } from "expo-asset";
@@ -50,8 +50,29 @@ export default function ClientOrdersScreen() {
   const [apiOrders, setApiOrders] = useState<Order[]>([]);
   const [loadingApi, setLoadingApi] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [updatedOrderIds, setUpdatedOrderIds] = useState<Set<string>>(new Set());
+  const prevStatusMapRef = useRef<Map<string, string>>(new Map());
+  const badgeOpacity = useRef(new Animated.Value(0)).current;
+  const clearUpdatedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchOrdersFromApi = useCallback(async () => {
+  const flashUpdatedBadges = useCallback((ids: Set<string>) => {
+    if (ids.size === 0) return;
+    if (clearUpdatedTimerRef.current) clearTimeout(clearUpdatedTimerRef.current);
+    setUpdatedOrderIds((prev) => new Set([...prev, ...ids]));
+    badgeOpacity.setValue(1);
+    clearUpdatedTimerRef.current = setTimeout(() => {
+      Animated.timing(badgeOpacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        setUpdatedOrderIds(new Set());
+        badgeOpacity.setValue(0);
+      });
+    }, 1500);
+  }, [badgeOpacity]);
+
+  const fetchOrdersFromApi = useCallback(async (detectChanges = false) => {
     if (!isAuthenticated || !sessionToken) return;
     const base = getApiBaseUrl();
     if (!base) return;
@@ -64,6 +85,19 @@ export default function ClientOrdersScreen() {
       if (res.ok) {
         const data = await res.json();
         const fetched = (data.orders ?? []) as Order[];
+
+        if (detectChanges && prevStatusMapRef.current.size > 0) {
+          const changed = new Set<string>();
+          for (const order of fetched) {
+            const prev = prevStatusMapRef.current.get(order.id);
+            if (prev !== undefined && prev !== order.status) {
+              changed.add(order.id);
+            }
+          }
+          flashUpdatedBadges(changed);
+        }
+
+        prevStatusMapRef.current = new Map(fetched.map((o) => [o.id, o.status]));
         setApiOrders(fetched);
         syncOrders(fetched);
       }
@@ -71,22 +105,28 @@ export default function ClientOrdersScreen() {
     } finally {
       setLoadingApi(false);
     }
-  }, [isAuthenticated, sessionToken, syncOrders]);
+  }, [isAuthenticated, sessionToken, syncOrders, flashUpdatedBadges]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchOrdersFromApi();
+    await fetchOrdersFromApi(false);
     setRefreshing(false);
   }, [fetchOrdersFromApi]);
 
   useEffect(() => {
-    fetchOrdersFromApi();
+    fetchOrdersFromApi(false);
   }, [fetchOrdersFromApi]);
+
+  useEffect(() => {
+    return () => {
+      if (clearUpdatedTimerRef.current) clearTimeout(clearUpdatedTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (wsOrderStatusSignal === 0) return;
     const timer = setTimeout(() => {
-      fetchOrdersFromApi();
+      fetchOrdersFromApi(true);
     }, 400);
     return () => clearTimeout(timer);
   }, [wsOrderStatusSignal, fetchOrdersFromApi]);
@@ -224,14 +264,21 @@ export default function ClientOrdersScreen() {
     }
   }, [isRTL, t]);
 
-  const renderOrder = ({ item }: { item: Order }) => (
+  const renderOrder = ({ item }: { item: Order }) => {
+    const isUpdated = updatedOrderIds.has(item.id);
+    return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+      style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: isUpdated ? "#F59E0B" : colors.border }]}
       onPress={() => router.push({ pathname: "/order-details", params: { orderId: item.id } })}
       activeOpacity={0.85}
     >
       <View style={[styles.accentBar, { backgroundColor: item.status === "completed" ? colors.success : item.status === "cancelled" ? colors.destructive : colors.secondary }]} />
       <View style={styles.cardBody}>
+        {isUpdated && (
+          <Animated.View style={[styles.updatedBadge, { opacity: badgeOpacity, alignSelf: isRTL ? "flex-start" : "flex-end" }]}>
+            <Text style={styles.updatedBadgeText}>✦ {t("order.updated")}</Text>
+          </Animated.View>
+        )}
         <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {item.subImageKey && SUB_IMAGE_MAP[item.subImageKey] && (
             <Image
@@ -328,6 +375,7 @@ export default function ClientOrdersScreen() {
       </View>
     </TouchableOpacity>
   );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -445,4 +493,6 @@ const styles = StyleSheet.create({
   bookBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 28, marginTop: 24 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  updatedBadge: { backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#F59E0B", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 6 },
+  updatedBadgeText: { color: "#B45309", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.3 },
 });

@@ -319,6 +319,7 @@ const translations: Record<string, Record<Language, string>> = {
   "common.error": { ar: "حدث خطأ", en: "An error occurred" },
   "common.retry": { ar: "إعادة المحاولة", en: "Retry" },
   "common.noData": { ar: "لا توجد بيانات", en: "No data available" },
+  "order.updated": { ar: "تم التحديث", en: "Updated" },
   "order.noOrdersYet": { ar: "لم تقم بأي طلبات حتى الآن", en: "You haven't placed any orders yet" },
   "order.noOrdersHint": { ar: "ستظهر هنا جميع طلباتك بعد إنشائها", en: "All your orders will appear here once you place them" },
   "order.bookService": { ar: "احجز خدمة", en: "Book a Service" },
