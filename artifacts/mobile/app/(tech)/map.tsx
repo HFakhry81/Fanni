@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import { useRouter } from "expo-router";
@@ -31,10 +32,25 @@ export default function TechMapScreen() {
   const [loading, setLoading] = useState(false);
   const autoShownRef = useRef<Set<string>>(new Set());
   const [catBannerDismissed, setCatBannerDismissed] = useState(false);
+  const [catBannerHydrated, setCatBannerHydrated] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("catBannerDismissed")
+      .then((val) => {
+        if (val === "true") setCatBannerDismissed(true);
+      })
+      .catch(() => {})
+      .finally(() => setCatBannerHydrated(true));
+  }, []);
+
+  const dismissCatBanner = () => {
+    setCatBannerDismissed(true);
+    AsyncStorage.setItem("catBannerDismissed", "true").catch(() => {});
+  };
   const [serverPendingOrders, setServerPendingOrders] = useState<Order[] | null>(null);
 
   const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
-  const showCatBanner = !!user && !catBannerDismissed && !hasCategories;
+  const showCatBanner = catBannerHydrated && !!user && !catBannerDismissed && !hasCategories;
 
   const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
   const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
@@ -346,7 +362,7 @@ export default function TechMapScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={(e) => { e.stopPropagation(); setCatBannerDismissed(true); }}
+            onPress={(e) => { e.stopPropagation(); dismissCatBanner(); }}
             style={{ padding: 4 }}
             hitSlop={8}
           >
