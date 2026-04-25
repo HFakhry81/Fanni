@@ -44,6 +44,9 @@ export default function AdminCategoriesScreen() {
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
+  const [canManage, setCanManage] = useState(false);
+  const [permLoading, setPermLoading] = useState(true);
+
   const [domains, setDomains] = useState<Domain[]>([]);
   const [specializations, setSpecializations] = useState<Record<string, Specialization[]>>({});
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
@@ -63,6 +66,16 @@ export default function AdminCategoriesScreen() {
     "Content-Type": "application/json",
     ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
   }), [sessionToken]);
+
+  useEffect(() => {
+    fetch(`${getApiBase()}/api/admin/my-permissions`, { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d: { permissions?: string[]; isSuperAdmin?: boolean }) => {
+        setCanManage(!!d.isSuperAdmin || !!(d.permissions?.includes("p16")));
+      })
+      .catch(() => {})
+      .finally(() => setPermLoading(false));
+  }, [authHeaders]);
 
   const loadDomains = useCallback(async () => {
     setLoading(true);
@@ -87,7 +100,9 @@ export default function AdminCategoriesScreen() {
     } catch {}
   }, [authHeaders]);
 
-  useEffect(() => { loadDomains(); }, [loadDomains]);
+  useEffect(() => {
+    if (!permLoading) loadDomains();
+  }, [permLoading, loadDomains]);
 
   const toggleExpand = (id: string) => {
     if (expandedDomain === id) {
@@ -167,6 +182,28 @@ export default function AdminCategoriesScreen() {
     }
   };
 
+  const toggleDomainActive = async (domain: Domain) => {
+    try {
+      await fetch(`${getApiBase()}/api/admin/categories/domains/${domain.id}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ isActive: !domain.isActive }),
+      });
+      loadDomains();
+    } catch {}
+  };
+
+  const toggleSpecActive = async (spec: Specialization) => {
+    try {
+      await fetch(`${getApiBase()}/api/admin/categories/specializations/${spec.id}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ isActive: !spec.isActive }),
+      });
+      loadSpecializations(spec.domainId);
+    } catch {}
+  };
+
   const deleteDomain = async (domain: Domain) => {
     Alert.alert(
       isRTL ? "حذف المجال" : "Delete Domain",
@@ -208,6 +245,8 @@ export default function AdminCategoriesScreen() {
     );
   };
 
+  const isPageLoading = permLoading || loading;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
@@ -217,7 +256,7 @@ export default function AdminCategoriesScreen() {
         showLogout
       />
 
-      {loading ? (
+      {isPageLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -230,32 +269,45 @@ export default function AdminCategoriesScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
-          <TouchableOpacity
-            style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-            onPress={() => openDomainModal()}
-            activeOpacity={0.85}
-          >
-            <VectorIcon name="plus" size={18} color="#FFF" />
-            <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: 8 }}>
-              {isRTL ? "إضافة مجال جديد" : "Add New Domain"}
-            </Text>
-          </TouchableOpacity>
+          {!canManage && (
+            <View style={[styles.readOnlyBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <VectorIcon name="lock" size={15} color={colors.mutedForeground} />
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: 8, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL
+                  ? "عرض للقراءة فقط — يتطلب صلاحية 'إدارة الفئات' لإجراء تعديلات"
+                  : "View only — 'Manage categories' permission required to make changes"}
+              </Text>
+            </View>
+          )}
+
+          {canManage && (
+            <TouchableOpacity
+              style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+              onPress={() => openDomainModal()}
+              activeOpacity={0.85}
+            >
+              <VectorIcon name="plus" size={18} color="#FFF" />
+              <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: 8 }}>
+                {isRTL ? "إضافة مجال جديد" : "Add New Domain"}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {domains.map((domain) => {
             const isExpanded = expandedDomain === domain.id;
             const specs = specializations[domain.id] ?? [];
             return (
-              <View key={domain.id} style={[styles.domainCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <View key={domain.id} style={[styles.domainCard, { backgroundColor: colors.card, borderColor: domain.isActive ? colors.border : colors.border + "80", borderRadius: colors.radius, opacity: domain.isActive ? 1 : 0.75 }]}>
                 <TouchableOpacity
                   style={[styles.domainRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}
                   onPress={() => toggleExpand(domain.id)}
                   activeOpacity={0.8}
                 >
-                  <View style={[styles.domainIcon, { backgroundColor: colors.accent }]}>
-                    <VectorIcon name={(domain.icon ?? "tool") as any} size={18} color={colors.primary} />
+                  <View style={[styles.domainIcon, { backgroundColor: domain.isActive ? colors.accent : colors.muted }]}>
+                    <VectorIcon name={(domain.icon ?? "tool") as any} size={18} color={domain.isActive ? colors.primary : colors.mutedForeground} />
                   </View>
                   <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
-                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
+                    <Text style={{ color: domain.isActive ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
                       {isRTL ? domain.nameAr : domain.nameEn}
                     </Text>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
@@ -270,12 +322,19 @@ export default function AdminCategoriesScreen() {
                         </Text>
                       </View>
                     )}
-                    <TouchableOpacity onPress={() => openDomainModal(domain)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <VectorIcon name="edit-2" size={15} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => deleteDomain(domain)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <VectorIcon name="trash-2" size={15} color={colors.destructive} />
-                    </TouchableOpacity>
+                    {canManage && (
+                      <>
+                        <TouchableOpacity onPress={() => toggleDomainActive(domain)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <VectorIcon name={domain.isActive ? "eye-off" : "eye"} size={15} color={domain.isActive ? colors.mutedForeground : colors.success ?? colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => openDomainModal(domain)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <VectorIcon name="edit-2" size={15} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => deleteDomain(domain)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <VectorIcon name="trash-2" size={15} color={colors.destructive} />
+                        </TouchableOpacity>
+                      </>
+                    )}
                     <VectorIcon name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
                   </View>
                 </TouchableOpacity>
@@ -299,29 +358,37 @@ export default function AdminCategoriesScreen() {
                             </Text>
                             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: isRTL ? "right" : "left" }}>
                               {isRTL ? spec.nameEn : spec.nameAr}
+                              {!spec.isActive && ` · ${isRTL ? "معطّل" : "Inactive"}`}
                             </Text>
                           </View>
-                          <View style={{ flexDirection: "row", gap: 8 }}>
-                            <TouchableOpacity onPress={() => openSpecModal(domain.id, spec)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                              <VectorIcon name="edit-2" size={13} color={colors.primary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => deleteSpec(spec)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                              <VectorIcon name="trash-2" size={13} color={colors.destructive} />
-                            </TouchableOpacity>
-                          </View>
+                          {canManage && (
+                            <View style={{ flexDirection: "row", gap: 8 }}>
+                              <TouchableOpacity onPress={() => toggleSpecActive(spec)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <VectorIcon name={spec.isActive ? "eye-off" : "eye"} size={13} color={spec.isActive ? colors.mutedForeground : colors.success ?? colors.primary} />
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => openSpecModal(domain.id, spec)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <VectorIcon name="edit-2" size={13} color={colors.primary} />
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => deleteSpec(spec)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <VectorIcon name="trash-2" size={13} color={colors.destructive} />
+                              </TouchableOpacity>
+                            </View>
+                          )}
                         </View>
                       ))
                     )}
-                    <TouchableOpacity
-                      style={[styles.addSpecBtn, { borderColor: colors.primary }]}
-                      onPress={() => openSpecModal(domain.id)}
-                      activeOpacity={0.85}
-                    >
-                      <VectorIcon name="plus" size={14} color={colors.primary} />
-                      <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
-                        {isRTL ? "إضافة تخصص" : "Add Specialization"}
-                      </Text>
-                    </TouchableOpacity>
+                    {canManage && (
+                      <TouchableOpacity
+                        style={[styles.addSpecBtn, { borderColor: colors.primary }]}
+                        onPress={() => openSpecModal(domain.id)}
+                        activeOpacity={0.85}
+                      >
+                        <VectorIcon name="plus" size={14} color={colors.primary} />
+                        <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
+                          {isRTL ? "إضافة تخصص" : "Add Specialization"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </View>
@@ -466,6 +533,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   content: { paddingHorizontal: 16, paddingTop: 16 },
+  readOnlyBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
   addBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, marginBottom: 20 },
   domainCard: { marginBottom: 12, borderWidth: 1.5, overflow: "hidden" },
   domainRow: { padding: 14, alignItems: "center" },

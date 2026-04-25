@@ -25,14 +25,36 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
   }
   // Live check: verify admin still exists and is active in the admins table
   const [adminRecord] = await db
-    .select({ id: adminsTable.id, isActive: adminsTable.isActive })
+    .select({ id: adminsTable.id, isActive: adminsTable.isActive, isSuperAdmin: adminsTable.isSuperAdmin, permissions: adminsTable.permissions })
     .from(adminsTable)
     .where(eq(adminsTable.id, req.user.id));
   if (!adminRecord || !adminRecord.isActive) {
     res.status(403).json({ error: "Admin account not found or suspended" });
     return;
   }
+  // Attach to request for downstream use
+  (req as any).__adminRecord = adminRecord;
   next();
+}
+
+function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
+  const rec = (req as any).__adminRecord as { isSuperAdmin?: boolean } | undefined;
+  if (!rec?.isSuperAdmin) {
+    res.status(403).json({ error: "Super-admin access required" });
+    return;
+  }
+  next();
+}
+
+function requirePermission(perm: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const rec = (req as any).__adminRecord as { isSuperAdmin?: boolean; permissions?: string[] } | undefined;
+    if (rec?.isSuperAdmin || (rec?.permissions && rec.permissions.includes(perm))) {
+      next();
+    } else {
+      res.status(403).json({ error: `Permission '${perm}' required` });
+    }
+  };
 }
 
 router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
@@ -465,27 +487,51 @@ router.get("/categories/specializations", async (req: Request, res: Response) =>
   res.json({ specializations });
 });
 
-// ─── ADMIN: Get current admin's permissions ────────────────────────────────
-router.get("/admin/me/permissions", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const [admin] = await db
-    .select({ permissions: adminsTable.permissions, isSuperAdmin: adminsTable.isSuperAdmin })
+// ─── SUPER-ADMIN: List all admins (for permissions management) ────────────
+router.get("/admin/admins-list", authMiddleware, requireAuth, requireAdmin, requireSuperAdmin, async (_req: Request, res: Response) => {
+  const rows = await db
+    .select({ id: adminsTable.id, firstName: adminsTable.firstName, lastName: adminsTable.lastName, email: adminsTable.email, isSuperAdmin: adminsTable.isSuperAdmin, isActive: adminsTable.isActive })
     .from(adminsTable)
-    .where(eq(adminsTable.id, req.user!.id));
-  res.json({ permissions: admin?.permissions ?? [], isSuperAdmin: admin?.isSuperAdmin ?? false });
+    .orderBy(adminsTable.firstName);
+  const admins = rows.map((r) => ({
+    id: r.id,
+    name: [r.firstName, r.lastName].filter(Boolean).join(" ") || r.email || r.id,
+    email: r.email,
+    isSuperAdmin: r.isSuperAdmin,
+    isActive: r.isActive,
+  }));
+  res.json({ admins });
 });
 
-// ─── ADMIN: Save current admin's permissions ──────────────────────────────
-router.put("/admin/me/permissions", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+// ─── ADMIN: Get own permissions & super-admin flag ─────────────────────────
+router.get("/admin/my-permissions", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const rec = (req as any).__adminRecord as { permissions?: string[]; isSuperAdmin?: boolean };
+  res.json({ permissions: rec?.permissions ?? [], isSuperAdmin: rec?.isSuperAdmin ?? false });
+});
+
+// ─── SUPER-ADMIN: Get any admin's permissions ──────────────────────────────
+router.get("/admin/:adminId/permissions", authMiddleware, requireAuth, requireAdmin, requireSuperAdmin, async (req: Request<{ adminId: string }>, res: Response) => {
+  const [admin] = await db
+    .select({ id: adminsTable.id, firstName: adminsTable.firstName, lastName: adminsTable.lastName, permissions: adminsTable.permissions, isSuperAdmin: adminsTable.isSuperAdmin })
+    .from(adminsTable)
+    .where(eq(adminsTable.id, req.params.adminId));
+  if (!admin) { res.status(404).json({ error: "Admin not found" }); return; }
+  const adminName = [admin.firstName, admin.lastName].filter(Boolean).join(" ") || req.params.adminId;
+  res.json({ permissions: admin.permissions ?? [], isSuperAdmin: admin.isSuperAdmin, adminId: admin.id, adminName });
+});
+
+// ─── SUPER-ADMIN: Set any admin's permissions ─────────────────────────────
+router.put("/admin/:adminId/permissions", authMiddleware, requireAuth, requireAdmin, requireSuperAdmin, async (req: Request<{ adminId: string }>, res: Response) => {
   const { permissions } = req.body as { permissions?: string[] };
   if (!Array.isArray(permissions)) {
     res.status(400).json({ error: "permissions must be an array of strings" });
     return;
   }
-  await db
-    .update(adminsTable)
-    .set({ permissions })
-    .where(eq(adminsTable.id, req.user!.id));
-  req.log.info({ adminId: req.user?.id, permCount: permissions.length }, "Admin permissions updated");
+  const [target] = await db.select({ id: adminsTable.id, isSuperAdmin: adminsTable.isSuperAdmin }).from(adminsTable).where(eq(adminsTable.id, req.params.adminId));
+  if (!target) { res.status(404).json({ error: "Admin not found" }); return; }
+  if (target.isSuperAdmin) { res.status(400).json({ error: "Cannot modify super-admin permissions" }); return; }
+  await db.update(adminsTable).set({ permissions }).where(eq(adminsTable.id, req.params.adminId));
+  req.log.info({ byAdmin: req.user?.id, targetAdmin: req.params.adminId, permCount: permissions.length }, "Admin permissions updated by super-admin");
   res.json({ success: true, permissions });
 });
 
@@ -512,7 +558,7 @@ router.get("/admin/categories/domains", authMiddleware, requireAuth, requireAdmi
 });
 
 // ─── ADMIN: Create service domain ─────────────────────────────────────────
-router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request, res: Response) => {
   const { nameEn, nameAr, icon } = req.body as { nameEn?: string; nameAr?: string; icon?: string };
   if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
   if (!nameAr?.trim()) { res.status(400).json({ error: "nameAr is required" }); return; }
@@ -524,7 +570,7 @@ router.post("/admin/categories/domains", authMiddleware, requireAuth, requireAdm
 });
 
 // ─── ADMIN: Update service domain ─────────────────────────────────────────
-router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
   const { nameEn, nameAr, icon, isActive } = req.body as { nameEn?: string; nameAr?: string; icon?: string; isActive?: boolean };
   const updates: Record<string, unknown> = {};
   if (nameEn !== undefined) updates.nameEn = nameEn.trim();
@@ -542,7 +588,7 @@ router.patch("/admin/categories/domains/:id", authMiddleware, requireAuth, requi
 });
 
 // ─── ADMIN: Delete service domain ─────────────────────────────────────────
-router.delete("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+router.delete("/admin/categories/domains/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
   const [deleted] = await db
     .delete(serviceDomainsTable)
     .where(eq(serviceDomainsTable.id, req.params.id))
@@ -564,7 +610,7 @@ router.get("/admin/categories/specializations", authMiddleware, requireAuth, req
 });
 
 // ─── ADMIN: Create specialization ─────────────────────────────────────────
-router.post("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request, res: Response) => {
   const { domainId, nameEn, nameAr } = req.body as { domainId?: string; nameEn?: string; nameAr?: string };
   if (!domainId?.trim()) { res.status(400).json({ error: "domainId is required" }); return; }
   if (!nameEn?.trim()) { res.status(400).json({ error: "nameEn is required" }); return; }
@@ -579,7 +625,7 @@ router.post("/admin/categories/specializations", authMiddleware, requireAuth, re
 });
 
 // ─── ADMIN: Update specialization ─────────────────────────────────────────
-router.patch("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+router.patch("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
   const { nameEn, nameAr, isActive } = req.body as { nameEn?: string; nameAr?: string; isActive?: boolean };
   const updates: Record<string, unknown> = {};
   if (nameEn !== undefined) updates.nameEn = nameEn.trim();
@@ -596,7 +642,7 @@ router.patch("/admin/categories/specializations/:id", authMiddleware, requireAut
 });
 
 // ─── ADMIN: Delete specialization ─────────────────────────────────────────
-router.delete("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+router.delete("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("p16"), async (req: Request<{ id: string }>, res: Response) => {
   const [deleted] = await db
     .delete(serviceSpecializationsTable)
     .where(eq(serviceSpecializationsTable.id, req.params.id))

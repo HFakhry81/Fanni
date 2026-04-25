@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -13,6 +13,7 @@ function getApiBase(): string {
 }
 
 interface Permission { id: string; group: string; groupAr: string; label: string; labelAr: string; enabled: boolean; }
+interface AdminEntry { id: string; name: string; email: string | null; isSuperAdmin: boolean; isActive: boolean; }
 
 const ALL_PERMISSIONS: Omit<Permission, "enabled">[] = [
   { id: "p1",  group: "Clients",      groupAr: "العملاء",    label: "View all clients",          labelAr: "عرض جميع العملاء"           },
@@ -49,10 +50,17 @@ export default function AdminPermissionsScreen() {
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [ownPermissions, setOwnPermissions] = useState<string[]>([]);
+  const [initLoading, setInitLoading] = useState(true);
+
+  const [adminsList, setAdminsList] = useState<AdminEntry[]>([]);
+  const [selectedAdmin, setSelectedAdmin] = useState<AdminEntry | null>(null);
+  const [adminPickerVisible, setAdminPickerVisible] = useState(false);
   const [perms, setPerms] = useState<Permission[]>(() =>
     ALL_PERMISSIONS.map((p) => ({ ...p, enabled: DEFAULT_ENABLED.has(p.id) }))
   );
-  const [loading, setLoading] = useState(true);
+  const [permsLoading, setPermsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -64,17 +72,37 @@ export default function AdminPermissionsScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${getApiBase()}/api/admin/me/permissions`, { headers: authHeaders() });
+        const res = await fetch(`${getApiBase()}/api/admin/my-permissions`, { headers: authHeaders() });
         if (res.ok) {
-          const data = await res.json() as { permissions?: string[] };
-          const saved = data.permissions;
-          if (saved && saved.length > 0) {
-            setPerms(ALL_PERMISSIONS.map((p) => ({ ...p, enabled: saved.includes(p.id) })));
+          const data = await res.json() as { permissions?: string[]; isSuperAdmin?: boolean };
+          setIsSuperAdmin(!!data.isSuperAdmin);
+          setOwnPermissions(data.permissions ?? []);
+          if (data.isSuperAdmin) {
+            const adminsRes = await fetch(`${getApiBase()}/api/admin/admins-list`, { headers: authHeaders() });
+            if (adminsRes.ok) {
+              const adminsData = await adminsRes.json() as { admins?: AdminEntry[] };
+              const nonSuper = (adminsData.admins ?? []).filter((a) => !a.isSuperAdmin && a.isActive);
+              setAdminsList(nonSuper);
+            }
           }
         }
       } catch {}
-      setLoading(false);
+      setInitLoading(false);
     })();
+  }, [authHeaders]);
+
+  const loadAdminPerms = useCallback(async (admin: AdminEntry) => {
+    setSelectedAdmin(admin);
+    setPermsLoading(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/admin/${admin.id}/permissions`, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json() as { permissions?: string[] };
+        const saved = data.permissions ?? [];
+        setPerms(ALL_PERMISSIONS.map((p) => ({ ...p, enabled: saved.includes(p.id) })));
+      }
+    } catch {}
+    setPermsLoading(false);
   }, [authHeaders]);
 
   const toggle = (id: string) => setPerms((prev) => prev.map((p) => p.id === id ? { ...p, enabled: !p.enabled } : p));
@@ -82,11 +110,12 @@ export default function AdminPermissionsScreen() {
   const enabledCount = perms.filter((p) => p.enabled).length;
 
   const handleSave = async () => {
+    if (!selectedAdmin) return;
     setSaving(true);
     setSaveMsg("");
     try {
       const enabledIds = perms.filter((p) => p.enabled).map((p) => p.id);
-      const res = await fetch(`${getApiBase()}/api/admin/me/permissions`, {
+      const res = await fetch(`${getApiBase()}/api/admin/${selectedAdmin.id}/permissions`, {
         method: "PUT",
         headers: authHeaders(),
         body: JSON.stringify({ permissions: enabledIds }),
@@ -105,7 +134,7 @@ export default function AdminPermissionsScreen() {
     }
   };
 
-  if (loading) {
+  if (initLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader title={t("admin.permissions")} showHome showLogout />
@@ -116,87 +145,227 @@ export default function AdminPermissionsScreen() {
     );
   }
 
+  if (!isSuperAdmin) {
+    const ownPermsDisplay = ALL_PERMISSIONS.map((p) => ({ ...p, enabled: ownPermissions.includes(p.id) }));
+    const ownGroups = [...new Set(ownPermsDisplay.map((p) => p.group))];
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppHeader
+          title={t("admin.permissions")}
+          subtitle={isRTL ? "عرض فقط" : "View only"}
+          showHome
+          showLogout
+        />
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+          <View style={[styles.readOnlyBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <VectorIcon name="lock" size={15} color={colors.mutedForeground} />
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: 8, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL
+                ? "صلاحياتك الحالية — فقط المسئول الأعلى يمكنه تعديل الصلاحيات"
+                : "Your current permissions — only a super-admin can edit permissions"}
+            </Text>
+          </View>
+          {ownGroups.map((group) => {
+            const groupPerms = ownPermsDisplay.filter((p) => p.group === group);
+            const groupColor = GROUP_COLORS[group] ?? colors.primary;
+            const groupAr = groupPerms[0]!.groupAr;
+            return (
+              <View key={group} style={styles.groupBlock}>
+                <View style={[styles.groupHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+                  <View style={[styles.groupIcon, { backgroundColor: groupColor + "18", borderRadius: 10 }]}>
+                    <VectorIcon name={GROUP_ICONS[group] as any} size={16} color={groupColor} />
+                  </View>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
+                    {isRTL ? groupAr : group}
+                  </Text>
+                </View>
+                {groupPerms.map((perm) => (
+                  <View
+                    key={perm.id}
+                    style={[styles.permRow, {
+                      backgroundColor: perm.enabled ? colors.card : colors.muted + "80",
+                      borderRadius: colors.radius - 4,
+                      borderColor: perm.enabled ? groupColor + "44" : colors.border,
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                    }]}
+                  >
+                    <View style={[styles.permDot, { backgroundColor: perm.enabled ? groupColor : colors.border }]} />
+                    <Text style={{ color: perm.enabled ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
+                      {isRTL ? perm.labelAr : perm.label}
+                    </Text>
+                    <VectorIcon name={perm.enabled ? "check-circle" : "circle"} size={16} color={perm.enabled ? groupColor : colors.border} />
+                  </View>
+                ))}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title={t("admin.permissions")}
-        subtitle={`${enabledCount}/${perms.length} ${isRTL ? "مفعلة" : "enabled"}`}
+        subtitle={selectedAdmin ? (enabledCount + "/" + perms.length + (isRTL ? " مفعلة" : " enabled")) : (isRTL ? "اختر مسئولاً" : "Select an admin")}
         showHome
         showLogout
       />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
-        {groups.map((group) => {
-          const groupPerms = perms.filter((p) => p.group === group);
-          const groupColor = GROUP_COLORS[group] ?? colors.primary;
-          const groupAr = groupPerms[0]!.groupAr;
-          const enabledInGroup = groupPerms.filter((p) => p.enabled).length;
-          return (
-            <View key={group} style={styles.groupBlock}>
-              <View style={[styles.groupHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-                <View style={[styles.groupIcon, { backgroundColor: groupColor + "18", borderRadius: 10 }]}>
-                  <VectorIcon name={GROUP_ICONS[group] as any} size={16} color={groupColor} />
-                </View>
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
-                  {isRTL ? groupAr : group}
-                </Text>
-                <View style={[styles.groupCountBadge, { backgroundColor: groupColor + "18" }]}>
-                  <Text style={{ color: groupColor, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-                    {enabledInGroup}/{groupPerms.length}
-                  </Text>
-                </View>
-              </View>
-              {groupPerms.map((perm) => (
-                <View
-                  key={perm.id}
-                  style={[
-                    styles.permRow,
-                    {
-                      backgroundColor: perm.enabled ? colors.card : colors.muted + "80",
-                      borderRadius: colors.radius - 4,
-                      borderColor: perm.enabled ? groupColor + "44" : colors.border,
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                    },
-                  ]}
-                >
-                  <View style={[styles.permDot, { backgroundColor: perm.enabled ? groupColor : colors.border }]} />
-                  <Text style={{ color: perm.enabled ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
-                    {isRTL ? perm.labelAr : perm.label}
-                  </Text>
-                  <Switch
-                    value={perm.enabled}
-                    onValueChange={() => toggle(perm.id)}
-                    trackColor={{ false: colors.border, true: groupColor + "88" }}
-                    thumbColor={perm.enabled ? groupColor : "#C8D8E8"}
-                  />
-                </View>
-              ))}
-            </View>
-          );
-        })}
+        <TouchableOpacity
+          style={[styles.adminPicker, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={() => setAdminPickerVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.groupIcon, { backgroundColor: colors.accent, borderRadius: 8 }]}>
+            <VectorIcon name="user" size={16} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL ? "تحرير صلاحيات" : "Editing permissions for"}
+            </Text>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+              {selectedAdmin ? selectedAdmin.name : (isRTL ? "اختر مسئولاً..." : "Select an admin...")}
+            </Text>
+          </View>
+          <VectorIcon name="chevron-down" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
 
-        {!!saveMsg && (
-          <Text style={{ color: saveMsg.includes("✓") ? colors.success : colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "center", marginBottom: 12 }}>
-            {saveMsg}
+        {adminsList.length === 0 && (
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "center", marginTop: 8, marginBottom: 16 }}>
+            {isRTL ? "لا يوجد مسئولون آخرون" : "No other admins found"}
           </Text>
         )}
 
-        <TouchableOpacity
-          style={[styles.saveBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: saving ? 0.7 : 1 }]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving
-            ? <ActivityIndicator size="small" color="#FFF" />
-            : (
-              <>
-                <VectorIcon name="save" size={18} color="#FFF" />
-                <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16, marginLeft: 8 }}>{t("common.save")}</Text>
-              </>
-            )
-          }
-        </TouchableOpacity>
+        {selectedAdmin && (
+          permsLoading ? (
+            <View style={{ alignItems: "center", paddingVertical: 32 }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <>
+              {groups.map((group) => {
+                const groupPerms = perms.filter((p) => p.group === group);
+                const groupColor = GROUP_COLORS[group] ?? colors.primary;
+                const groupAr = groupPerms[0]!.groupAr;
+                const enabledInGroup = groupPerms.filter((p) => p.enabled).length;
+                return (
+                  <View key={group} style={styles.groupBlock}>
+                    <View style={[styles.groupHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+                      <View style={[styles.groupIcon, { backgroundColor: groupColor + "18", borderRadius: 10 }]}>
+                        <VectorIcon name={GROUP_ICONS[group] as any} size={16} color={groupColor} />
+                      </View>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
+                        {isRTL ? groupAr : group}
+                      </Text>
+                      <View style={[styles.groupCountBadge, { backgroundColor: groupColor + "18" }]}>
+                        <Text style={{ color: groupColor, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                          {enabledInGroup}/{groupPerms.length}
+                        </Text>
+                      </View>
+                    </View>
+                    {groupPerms.map((perm) => (
+                      <View
+                        key={perm.id}
+                        style={[styles.permRow, {
+                          backgroundColor: perm.enabled ? colors.card : colors.muted + "80",
+                          borderRadius: colors.radius - 4,
+                          borderColor: perm.enabled ? groupColor + "44" : colors.border,
+                          flexDirection: isRTL ? "row-reverse" : "row",
+                        }]}
+                      >
+                        <View style={[styles.permDot, { backgroundColor: perm.enabled ? groupColor : colors.border }]} />
+                        <Text style={{ color: perm.enabled ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
+                          {isRTL ? perm.labelAr : perm.label}
+                        </Text>
+                        <Switch
+                          value={perm.enabled}
+                          onValueChange={() => toggle(perm.id)}
+                          trackColor={{ false: colors.border, true: groupColor + "88" }}
+                          thumbColor={perm.enabled ? groupColor : "#C8D8E8"}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+
+              {!!saveMsg && (
+                <Text style={{ color: saveMsg.includes("✓") ? colors.success ?? colors.primary : colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "center", marginBottom: 12 }}>
+                  {saveMsg}
+                </Text>
+              )}
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: saving ? 0.7 : 1 }]}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                {saving
+                  ? <ActivityIndicator size="small" color="#FFF" />
+                  : (
+                    <>
+                      <VectorIcon name="save" size={18} color="#FFF" />
+                      <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16, marginLeft: 8 }}>{t("common.save")}</Text>
+                    </>
+                  )
+                }
+              </TouchableOpacity>
+            </>
+          )
+        )}
       </ScrollView>
+
+      <Modal visible={adminPickerVisible} transparent animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setAdminPickerVisible(false)} />
+        <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "اختر مسئولاً" : "Select Admin"}
+          </Text>
+          <ScrollView style={{ maxHeight: 360 }}>
+            {adminsList.length === 0 ? (
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, textAlign: "center", paddingVertical: 24 }}>
+                {isRTL ? "لا يوجد مسئولون" : "No admins found"}
+              </Text>
+            ) : (
+              adminsList.map((admin) => (
+                <TouchableOpacity
+                  key={admin.id}
+                  style={[styles.adminRow, {
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    backgroundColor: selectedAdmin?.id === admin.id ? colors.accent : "transparent",
+                    borderRadius: colors.radius - 4,
+                  }]}
+                  onPress={() => {
+                    setAdminPickerVisible(false);
+                    loadAdminPerms(admin);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.adminAvatar, { backgroundColor: colors.primary + "22" }]}>
+                    <VectorIcon name="user" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                      {admin.name}
+                    </Text>
+                    {admin.email && (
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                        {admin.email}
+                      </Text>
+                    )}
+                  </View>
+                  {selectedAdmin?.id === admin.id && (
+                    <VectorIcon name="check" size={16} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -204,6 +373,8 @@ export default function AdminPermissionsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 16 },
+  readOnlyBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
+  adminPicker: { flexDirection: "row", alignItems: "center", padding: 14, borderWidth: 1.5, marginBottom: 20 },
   groupBlock: { marginBottom: 20 },
   groupHeader: { alignItems: "center", paddingBottom: 12, marginBottom: 10, borderBottomWidth: 1 },
   groupIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
@@ -211,4 +382,8 @@ const styles = StyleSheet.create({
   permRow: { padding: 12, marginBottom: 8, borderWidth: 1.5, alignItems: "center" },
   permDot: { width: 8, height: 8, borderRadius: 4 },
   saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 16, marginTop: 8 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
+  modalSheet: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 36, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  adminRow: { flexDirection: "row", alignItems: "center", padding: 12, marginBottom: 4 },
+  adminAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 });

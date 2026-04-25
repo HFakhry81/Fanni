@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
   Modal, TextInput, KeyboardAvoidingView, Alert, Image, ActivityIndicator, type AlertButton,
@@ -21,6 +21,7 @@ import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
+interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
@@ -70,6 +71,7 @@ export default function TechProfileScreen() {
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editMobile, setEditMobile] = useState("");
+  const [editProfession, setEditProfession] = useState("");
   const [editSpecialty, setEditSpecialty] = useState("");
   const [editGov, setEditGov] = useState("");
   const [editGovNameAr, setEditGovNameAr] = useState<string | undefined>(undefined);
@@ -78,7 +80,10 @@ export default function TechProfileScreen() {
   const [editAreaNameAr, setEditAreaNameAr] = useState<string | undefined>(undefined);
   const [editAreaNameEn, setEditAreaNameEn] = useState<string | undefined>(undefined);
   const [editStreet, setEditStreet] = useState("");
+  const [editDomainPickerVisible, setEditDomainPickerVisible] = useState(false);
+  const [editSpecPickerVisible, setEditSpecPickerVisible] = useState(false);
   const [apiDomains, setApiDomains] = useState<ApiDomain[]>([]);
+  const [apiSpecs, setApiSpecs] = useState<ApiSpec[]>([]);
 
   useEffect(() => {
     fetch(`${getApiBase()}/api/categories/domains`)
@@ -86,6 +91,14 @@ export default function TechProfileScreen() {
       .then((d: { domains?: ApiDomain[] }) => { if (d.domains) setApiDomains(d.domains); })
       .catch(() => {});
   }, []);
+
+  const loadProfileSpecs = useCallback((domainId: string) => {
+    fetch(`${getApiBase()}/api/categories/specializations?domainId=${domainId}`)
+      .then((r) => r.json())
+      .then((d: { specializations?: ApiSpec[] }) => { if (d.specializations) setApiSpecs(d.specializations); })
+      .catch(() => {});
+  }, []);
+
   const [editCategories, setEditCategories] = useState<string[]>([]);
 
   // Change password state
@@ -135,7 +148,12 @@ export default function TechProfileScreen() {
     if (!user) return;
     setEditName(user.name ?? "");
     setEditMobile(user.mobile ?? "");
+    setEditProfession(user.profession ?? "");
     setEditSpecialty(user.specialty ?? "");
+    if (user.profession) {
+      const dom = apiDomains.find((d) => d.nameEn === user.profession || d.nameAr === user.profession || d.id === user.profession);
+      if (dom) loadProfileSpecs(dom.id);
+    }
     setEditGov(user.governorate ?? "");
     setEditGovNameAr(user.governorateNameAr);
     setEditGovNameEn(user.governorateNameEn);
@@ -218,6 +236,7 @@ export default function TechProfileScreen() {
     const body: Record<string, unknown> = {
       firstName,
       lastName,
+      profession: editProfession.trim() || user.profession || null,
       specialty: editSpecialty.trim() || user.specialty || null,
       governorate: editGov || null,
       area: editArea || null,
@@ -981,18 +1000,44 @@ export default function TechProfileScreen() {
                   ) : null}
                 </View>
 
-                {/* Specialty */}
+                {/* Profession (domain) picker */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("register.profession")}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setEditDomainPickerVisible(true)}
+                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+                  >
+                    <Text style={{ color: editProfession ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+                      {editProfession
+                        ? (isRTL ? (apiDomains.find((d) => d.nameEn === editProfession || d.id === editProfession)?.nameAr ?? editProfession) : editProfession)
+                        : (isRTL ? "اختر المجال" : "Select domain")}
+                    </Text>
+                    <VectorIcon name="chevron-down" size={16} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Specialty picker */}
                 <View style={styles.fieldWrap}>
                   <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
                     {t("register.specialty")}
                   </Text>
-                  <TextInput
-                    value={editSpecialty}
-                    onChangeText={setEditSpecialty}
-                    placeholder={isRTL ? "مثال: صيانة مكيفات" : "e.g. AC Maintenance"}
-                    placeholderTextColor={colors.mutedForeground}
-                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-                  />
+                  <TouchableOpacity
+                    onPress={() => {
+                      const dom = apiDomains.find((d) => d.nameEn === editProfession || d.id === editProfession);
+                      if (dom) loadProfileSpecs(dom.id);
+                      setEditSpecPickerVisible(true);
+                    }}
+                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+                  >
+                    <Text style={{ color: editSpecialty ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+                      {editSpecialty
+                        ? (isRTL ? (apiSpecs.find((s) => s.nameEn === editSpecialty || s.id === editSpecialty)?.nameAr ?? editSpecialty) : editSpecialty)
+                        : (isRTL ? "اختر التخصص" : "Select specialization")}
+                    </Text>
+                    <VectorIcon name="chevron-down" size={16} color={colors.mutedForeground} />
+                  </TouchableOpacity>
                 </View>
 
                 {/* Work Hours */}
@@ -1172,6 +1217,68 @@ export default function TechProfileScreen() {
         onHide={() => { setToastVisible(false); setToastAction(undefined); }}
         action={toastAction}
       />
+
+      {/* Domain picker modal for profile edit */}
+      <Modal visible={editDomainPickerVisible} transparent animationType="slide">
+        <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} activeOpacity={1} onPress={() => setEditDomainPickerVisible(false)} />
+        <View style={{ backgroundColor: colors.card, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 36, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginBottom: 14, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "اختر المجال" : "Select Domain"}
+          </Text>
+          <ScrollView style={{ maxHeight: 320 }}>
+            {apiDomains.map((d) => (
+              <TouchableOpacity
+                key={d.id}
+                onPress={() => {
+                  setEditProfession(d.nameEn);
+                  setEditSpecialty("");
+                  loadProfileSpecs(d.id);
+                  setEditDomainPickerVisible(false);
+                }}
+                style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+                  {isRTL ? d.nameAr : d.nameEn}
+                </Text>
+                {editProfession === d.nameEn && <VectorIcon name="check" size={16} color={colors.primary} />}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Specialty picker modal for profile edit */}
+      <Modal visible={editSpecPickerVisible} transparent animationType="slide">
+        <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} activeOpacity={1} onPress={() => setEditSpecPickerVisible(false)} />
+        <View style={{ backgroundColor: colors.card, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 36, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginBottom: 14, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "اختر التخصص" : "Select Specialization"}
+          </Text>
+          <ScrollView style={{ maxHeight: 320 }}>
+            {apiSpecs.length === 0 ? (
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, textAlign: "center", paddingVertical: 20 }}>
+                {isRTL ? "اختر المجال أولاً" : "Select a domain first"}
+              </Text>
+            ) : (
+              apiSpecs.map((s) => (
+                <TouchableOpacity
+                  key={s.id}
+                  onPress={() => {
+                    setEditSpecialty(s.nameEn);
+                    setEditSpecPickerVisible(false);
+                  }}
+                  style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+                    {isRTL ? s.nameAr : s.nameEn}
+                  </Text>
+                  {editSpecialty === s.nameEn && <VectorIcon name="check" size={16} color={colors.primary} />}
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
