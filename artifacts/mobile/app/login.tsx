@@ -204,6 +204,17 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <View style={[styles.registerHint, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <Text style={[styles.registerHintText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            {t("login.noAccount")}{" "}
+          </Text>
+          <TouchableOpacity onPress={() => router.push("/register")}>
+            <Text style={[styles.registerHintLink, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+              {t("login.register")}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -255,4 +266,7 @@ const styles = StyleSheet.create({
   forgotText: { fontSize: 14 },
   eyeBtn: { position: "absolute", bottom: 18, zIndex: 1 },
   error: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -4 },
+  registerHint: { justifyContent: "center", alignItems: "center", paddingVertical: 4 },
+  registerHintText: { fontSize: 14 },
+  registerHintLink: { fontSize: 14 },
 });
