@@ -265,15 +265,16 @@ export default function AdminProfileScreen() {
     try {
       const mimeType = asset.mimeType ?? "image/jpeg";
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
-      if (user) await setUser({ ...user, avatar: url });
       const apiBase = getApiBaseUrl();
       if (apiBase) {
-        await fetch(`${apiBase}/api/auth/me`, {
+        const patchRes = await fetch(`${apiBase}/api/auth/me`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ profileImageUrl: url }),
-        }).catch(() => {});
+        });
+        if (!patchRes.ok) throw new Error(`Server update failed: ${patchRes.status}`);
       }
+      if (user) await setUser({ ...user, avatar: url });
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
     } catch (_) {
       setToastMessage(isRTL ? "فشل رفع الصورة، يرجى المحاولة مرة أخرى" : "Upload failed, please try again");

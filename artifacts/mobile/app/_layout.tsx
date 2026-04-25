@@ -53,6 +53,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         name: displayName,
         mobile: authUser.mobile ?? "",
         email: authUser.email ?? "",
+        avatar: authUser.profileImageUrl ?? undefined,
         governorate: authUser.governorate ?? undefined,
         area: authUser.area ?? undefined,
         district: authUser.district ?? undefined,
