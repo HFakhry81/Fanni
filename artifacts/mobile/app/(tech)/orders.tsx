@@ -14,6 +14,7 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 
@@ -803,10 +804,25 @@ export default function TechOrdersScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 36 }]}>
-              <VectorIcon name="inbox" size={36} color={colors.mutedForeground} />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.accent, borderRadius: 40 }]}>
+              <VectorIcon name="briefcase" size={40} color={colors.primary} />
             </View>
-            <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>{t("common.noData")}</Text>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginTop: 16, textAlign: "center" }}>
+              {t("tech.noJobsYet")}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 6, textAlign: "center", paddingHorizontal: 32 }}>
+              {t("tech.noJobsHint")}
+            </Text>
+            <TouchableOpacity
+              style={[styles.profileBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+              onPress={() => router.push("/(tech)/profile")}
+              activeOpacity={0.85}
+            >
+              <VectorIcon name="user" size={16} color="#FFF" />
+              <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
+                {t("tech.completeProfile")}
+              </Text>
+            </TouchableOpacity>
           </View>
         }
         renderItem={renderCard}
@@ -835,6 +851,7 @@ const styles = StyleSheet.create({
   shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10 },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 72, height: 72, alignItems: "center", justifyContent: "center" },
+  profileBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, paddingHorizontal: 24, marginTop: 20 },
   completeContent: { paddingHorizontal: 16, paddingTop: 16, gap: 12 },
   section: { padding: 16, borderWidth: 1.5 },
   sectionTitle: { fontSize: 16, marginBottom: 14 },
