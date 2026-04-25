@@ -157,7 +157,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         name: displayName,
         mobile: authUser.mobile ?? "",
         email: authUser.email ?? "",
-        avatar: authUser.profileImageUrl ?? undefined,
+        avatar: authUser.profileImageUrl ?? appUser?.avatar ?? undefined,
         governorate: govId,
         governorateNameAr: govLabels?.governorateNameAr ?? (appUserGovMatches ? appUser?.governorateNameAr : undefined),
         governorateNameEn: govLabels?.governorateNameEn ?? (appUserGovMatches ? appUser?.governorateNameEn : undefined),
