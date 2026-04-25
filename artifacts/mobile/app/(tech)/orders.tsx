@@ -46,6 +46,7 @@ export default function TechOrdersScreen() {
   const [afterPhotoUploading, setAfterPhotoUploading] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
   const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
+  const [expandedInvoices, setExpandedInvoices] = useState<Record<string, boolean>>({});
 
   const orders = getOrdersByTech(user?.id ?? "tech1");
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
@@ -484,26 +485,70 @@ export default function TechOrdersScreen() {
               )}
             </>
           )}
-          {item.status === "completed" && item.invoice && (
-            <View style={{ marginTop: 8, gap: 8 }}>
-              <View style={[styles.invoiceSummary, { backgroundColor: colors.accent, borderRadius: colors.radius - 4 }]}>
-                <VectorIcon name="file-text" size={13} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
-                  {t("invoice.total")}: {item.invoice.total.toFixed(0)} {t("common.egp")}
-                </Text>
+          {item.status === "completed" && item.invoice && (() => {
+            const invoiceExpanded = expandedInvoices[item.id] ?? false;
+            return (
+              <View style={[styles.invoiceBlock, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
+                {/* Tap-to-expand header row */}
+                <TouchableOpacity
+                  style={[styles.invoiceLogoRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: invoiceExpanded ? colors.border : "transparent" }]}
+                  onPress={() => setExpandedInvoices((prev) => ({ ...prev, [item.id]: !invoiceExpanded }))}
+                  activeOpacity={0.75}
+                >
+                  <Image
+                    source={require("@/assets/images/icon.png")}
+                    style={styles.invoiceLogo}
+                    resizeMode="contain"
+                  />
+                  <View style={{ flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+                      {t("invoice.title")} #{item.invoice.invoiceNumber}
+                    </Text>
+                    <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                      {t("invoice.total")}: {item.invoice.total.toFixed(2)} {t("common.egp")}
+                    </Text>
+                  </View>
+                  <VectorIcon name={invoiceExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                {/* Expanded: full line-item breakdown */}
+                {invoiceExpanded && (
+                  <>
+                    {[
+                      [t("invoice.materials"), item.invoice.materialsTotal],
+                      [t("invoice.materialsMark"), item.invoice.materialsMark],
+                      [t("invoice.labor"), item.invoice.laborFee],
+                      [t("invoice.tools"), item.invoice.toolRental],
+                      [t("invoice.tax"), item.invoice.tax],
+                      [t("invoice.vat"), item.invoice.vat],
+                    ].map(([label, val]) => (
+                      <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label as string}</Text>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
+                      </View>
+                    ))}
+                    {/* Total row */}
+                    <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius - 6, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("invoice.total")}</Text>
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>
+                        {item.invoice.total.toFixed(2)} {t("common.egp")}
+                      </Text>
+                    </View>
+                    {/* Share button */}
+                    <TouchableOpacity
+                      style={[styles.shareBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10 }]}
+                      onPress={() => handleShareInvoice(item)}
+                      activeOpacity={0.8}
+                    >
+                      <VectorIcon name="share-2" size={14} color={colors.primary} />
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
+                        {t("invoice.share")}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
-              <TouchableOpacity
-                style={[styles.shareBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flexDirection: isRTL ? "row-reverse" : "row" }]}
-                onPress={() => handleShareInvoice(item)}
-                activeOpacity={0.8}
-              >
-                <VectorIcon name="share-2" size={14} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
-                  {t("invoice.share")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            );
+          })()}
           {/* Four-phase gallery for completed orders */}
           {item.status === "completed" && (item.photos ?? []).length > 0 && (() => {
             const phaseDef = [
@@ -752,6 +797,11 @@ const styles = StyleSheet.create({
   messageBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10 },
   completeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10 },
   invoiceSummary: { flexDirection: "row", alignItems: "center", padding: 10 },
+  invoiceBlock: { marginTop: 10, borderWidth: 1, padding: 12 },
+  invoiceLogoRow: { flexDirection: "row", alignItems: "center", marginBottom: 10, paddingBottom: 10, borderBottomWidth: 1 },
+  invoiceLogo: { width: 32, height: 32, borderRadius: 6 },
+  invoiceRow: { paddingVertical: 8, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
+  invoiceTotalRow: { padding: 10, marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10 },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 72, height: 72, alignItems: "center", justifyContent: "center" },
