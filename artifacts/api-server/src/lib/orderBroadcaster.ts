@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { IncomingMessage } from "node:http";
 import { logger } from "./logger";
-import { db, ordersTable } from "@workspace/db";
+import { db, ordersTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "./auth";
 import { locationsMatchSync, warmLocationCache } from "./locationNormalizer";
@@ -9,6 +9,7 @@ import { locationsMatchSync, warmLocationCache } from "./locationNormalizer";
 interface TechnicianMeta {
   registered: boolean;
   isAvailable: boolean;
+  technicianId?: string;
   categories?: string[];
   governorate?: string;
   area?: string;
@@ -62,12 +63,15 @@ const clients = new Map<WebSocket, TechnicianMeta>();
 const clientSessions = new Map<string, Set<WebSocket>>();
 const wsToClientId = new Map<WebSocket, string>();
 
+const technicianSockets = new Map<string, Set<WebSocket>>();
+
 const wsLastPong = new Map<WebSocket, number>();
 
 let pendingOrders: unknown[] = [];
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEARTBEAT_TIMEOUT_MS = 60_000;
+const BROADCAST_RADIUS_KM = parseInt(process.env.BROADCAST_RADIUS_KM ?? "50", 10) || 50;
 
 setInterval(() => {
   const now = Date.now();
@@ -169,7 +173,7 @@ wss.on("connection", (ws: WebSocket) => {
         logger.info({ userId: session.user.id, role: session.user.role }, "WebSocket technician authenticated");
 
         const isAvailable = msg.isAvailable !== false;
-        const meta: TechnicianMeta = { registered: true, isAvailable };
+        const meta: TechnicianMeta = { registered: true, isAvailable, technicianId: session.user.id };
 
         if (Array.isArray(msg.categories) && msg.categories.length > 0) {
           meta.categories = (msg.categories as unknown[])
@@ -188,6 +192,11 @@ wss.on("connection", (ws: WebSocket) => {
         }
 
         clients.set(ws, meta);
+
+        const techId = session.user.id;
+        const techSet = technicianSockets.get(techId) ?? new Set<WebSocket>();
+        techSet.add(ws);
+        technicianSockets.set(techId, techSet);
 
         const hasConstraints = hasRoutingConstraints(meta);
         logger.info({ categories: meta.categories, governorate: meta.governorate, area: meta.area, hasConstraints }, "Technician registered with metadata");
@@ -219,8 +228,16 @@ wss.on("connection", (ws: WebSocket) => {
   });
 
   ws.on("close", () => {
+    const meta = clients.get(ws);
     clients.delete(ws);
     wsLastPong.delete(ws);
+    if (meta?.technicianId) {
+      const sockets = technicianSockets.get(meta.technicianId);
+      if (sockets) {
+        sockets.delete(ws);
+        if (sockets.size === 0) technicianSockets.delete(meta.technicianId);
+      }
+    }
     const clientId = wsToClientId.get(ws);
     if (clientId) {
       wsToClientId.delete(ws);
@@ -239,8 +256,16 @@ wss.on("connection", (ws: WebSocket) => {
 
   ws.on("error", (err) => {
     logger.error({ err }, "WebSocket error");
+    const meta = clients.get(ws);
     clients.delete(ws);
     wsLastPong.delete(ws);
+    if (meta?.technicianId) {
+      const sockets = technicianSockets.get(meta.technicianId);
+      if (sockets) {
+        sockets.delete(ws);
+        if (sockets.size === 0) technicianSockets.delete(meta.technicianId);
+      }
+    }
     const clientId = wsToClientId.get(ws);
     if (clientId) {
       wsToClientId.delete(ws);
@@ -276,18 +301,148 @@ export function broadcastOrderCancelledToTechnicians(orderId: string): void {
   logger.info({ orderId, sent }, "Broadcast order cancellation to connected technicians");
 }
 
-export function broadcastNewOrder(order: unknown): void {
+async function resolveOrderCoordinates(
+  orderId: string | undefined,
+  payloadLat: number,
+  payloadLon: number,
+): Promise<{ lat: number; lon: number } | null> {
+  if (orderId) {
+    try {
+      const client = await pool.connect();
+      try {
+        const { rows } = await client.query<{ lat: number; lon: number }>(
+          `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon
+           FROM orders
+           WHERE id = $1 AND location IS NOT NULL
+           LIMIT 1`,
+          [orderId],
+        );
+        if (rows.length > 0 && rows[0].lat != null && rows[0].lon != null) {
+          return { lat: rows[0].lat, lon: rows[0].lon };
+        }
+      } finally {
+        client.release();
+      }
+    } catch {
+    }
+  }
+  const validPayload =
+    !isNaN(payloadLat) && !isNaN(payloadLon) &&
+    payloadLat >= -90 && payloadLat <= 90 &&
+    payloadLon >= -180 && payloadLon <= 180;
+  return validPayload ? { lat: payloadLat, lon: payloadLon } : null;
+}
+
+export async function broadcastNewOrder(order: unknown): Promise<void> {
   pendingOrders.push(order);
 
   const o = order as Record<string, unknown>;
+  const payload = JSON.stringify({ type: "new_order", order });
+
+  const payloadLat = parseFloat(String(o["latitude"] ?? ""));
+  const payloadLon = parseFloat(String(o["longitude"] ?? ""));
+  const orderId = typeof o["id"] === "string" ? o["id"] : undefined;
+
+  const coords = await resolveOrderCoordinates(orderId, payloadLat, payloadLon);
+
+  if (coords) {
+    const { lat, lon } = coords;
+    try {
+      const radiusM = BROADCAST_RADIUS_KM * 1000;
+      const client = await pool.connect();
+      let spatialRows: Array<{ id: string; distance_m: number }> = [];
+      try {
+        const { rows } = await client.query<{ id: string; distance_m: number }>(
+          `SELECT u.id,
+                  ST_Distance(
+                    u.location,
+                    ST_SetSRID(ST_MakePoint($1,$2),4326)::geography
+                  ) AS distance_m
+           FROM users u
+           WHERE u.role = 'technician'
+             AND u.is_available = true
+             AND u.location IS NOT NULL
+             AND ST_DWithin(
+               u.location,
+               ST_SetSRID(ST_MakePoint($1,$2),4326)::geography,
+               $3
+             )
+           ORDER BY distance_m ASC`,
+          [lon, lat, radiusM],
+        );
+        spatialRows = rows;
+      } finally {
+        client.release();
+      }
+
+      if (spatialRows.length > 0) {
+        const orderCategory = (o["category"] as string | undefined)?.toLowerCase();
+        let sent = 0;
+        let skipped = 0;
+
+        for (const row of spatialRows) {
+          const sockets = technicianSockets.get(row.id);
+          if (!sockets) continue;
+
+          for (const ws of sockets) {
+            if (ws.readyState !== WebSocket.OPEN) continue;
+            const meta = clients.get(ws);
+            if (!meta?.registered || !meta.isAvailable) {
+              skipped++;
+              continue;
+            }
+            if (!hasRoutingConstraints(meta)) {
+              skipped++;
+              continue;
+            }
+            if (meta.categories && meta.categories.length > 0) {
+              if (!orderCategory || !meta.categories.includes(orderCategory)) {
+                skipped++;
+                continue;
+              }
+            }
+            ws.send(payload);
+            sent++;
+          }
+        }
+
+        logger.info(
+          {
+            connectedClients: clients.size,
+            spatialCandidates: spatialRows.length,
+            sent,
+            skipped,
+            lat,
+            lon,
+            radiusKm: radiusM / 1000,
+            orderCategory: o["category"],
+          },
+          "Routed new order to nearest technicians (spatial)"
+        );
+
+        if (sent > 0) {
+          return;
+        }
+
+        logger.info(
+          { spatialCandidates: spatialRows.length, lat, lon },
+          "Spatial candidates found but none were connected — falling back to text-based matching"
+        );
+      } else {
+        logger.info({ lat, lon, radiusKm: BROADCAST_RADIUS_KM }, "No spatially-indexed technicians within radius — falling back to text-based matching");
+      }
+    } catch (err) {
+      logger.warn({ err, lat, lon }, "Spatial technician lookup failed — falling back to text-based matching");
+    }
+  }
 
   let sent = 0;
   let skipped = 0;
   let unregistered = 0;
   let unconstrained = 0;
 
-  for (const [client, meta] of clients) {
-    if (client.readyState !== WebSocket.OPEN) continue;
+  for (const [ws, meta] of clients) {
+    if (ws.readyState !== WebSocket.OPEN) continue;
     if (!meta.registered) {
       unregistered++;
       continue;
@@ -301,7 +456,7 @@ export function broadcastNewOrder(order: unknown): void {
       continue;
     }
     if (orderMatchesTech(o, meta)) {
-      client.send(JSON.stringify({ type: "new_order", order }));
+      ws.send(payload);
       sent++;
     } else {
       skipped++;
@@ -319,7 +474,7 @@ export function broadcastNewOrder(order: unknown): void {
       orderGovernorate: o["governorate"],
       orderArea: o["area"],
     },
-    "Routed new order to matching technicians"
+    "Routed new order to matching technicians (text-based)"
   );
 }
 

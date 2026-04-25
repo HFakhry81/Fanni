@@ -224,11 +224,11 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
       }
 
       const fullOrder = { ...order, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial };
-      broadcastNewOrder(fullOrder);
+      void broadcastNewOrder(fullOrder);
       logger.info({ orderId: order.id, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial }, "Order saved to database");
       res.status(201).json({ success: true, orderId: order.id, orderNumber: dbOrderNumber });
     } else {
-      broadcastNewOrder(order);
+      void broadcastNewOrder(order);
       res.status(201).json({ success: true, orderId: order.id });
     }
   } catch (err) {
