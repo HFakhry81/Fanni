@@ -10,10 +10,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { AppState, I18nManager } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { I18nManager } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -32,6 +32,8 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const needsRetry = React.useRef(false);
   const sessionTokenRef = React.useRef<string | null | undefined>(null);
   const authUserRef = React.useRef<typeof authUser>(null);
+  const lastForegroundSyncRef = React.useRef<number>(0);
+  const FOREGROUND_SYNC_DEBOUNCE_MS = 30_000;
 
   useEffect(() => {
     sessionTokenRef.current = sessionToken;
@@ -98,6 +100,25 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       }
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (
+        nextState === "active" &&
+        authUserRef.current?.role === "technician" &&
+        sessionTokenRef.current
+      ) {
+        const now = Date.now();
+        if (now - lastForegroundSyncRef.current >= FOREGROUND_SYNC_DEBOUNCE_MS) {
+          lastForegroundSyncRef.current = now;
+          syncAvailabilityFromServer(sessionTokenRef.current).catch(() => {
+            needsRetry.current = true;
+          });
+        }
+      }
+    });
+    return () => subscription.remove();
   }, []);
 
   return <>{children}</>;
