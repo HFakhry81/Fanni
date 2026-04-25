@@ -161,17 +161,6 @@ function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function computeEtaFallback(
-  techLat: number,
-  techLng: number,
-  clientLat: number,
-  clientLng: number
-): number {
-  const distKm = haversineKm(techLat, techLng, clientLat, clientLng);
-  const speedKmH = 20;
-  const minutes = (distKm / speedKmH) * 60;
-  return Math.max(1, Math.round(minutes));
-}
 
 interface MapProps {
   order: Order;
@@ -204,6 +193,15 @@ export default function OrderTrackingScreen() {
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
 
+  const [displayEtaSec, setDisplayEtaSec] = useState<number | null>(null);
+  const etaFromRouteRef = useRef(false);
+
+  useEffect(() => {
+    setDisplayEtaSec(null);
+    etaFromRouteRef.current = false;
+    progressRef.current = 0;
+  }, [orderId]);
+
   useEffect(() => {
     if (!order) return;
     let cancelled = false;
@@ -214,11 +212,27 @@ export default function OrderTrackingScreen() {
   }, [order, techStartLat, techStartLng, clientLat, clientLng]);
 
   useEffect(() => {
+    if (!routeData) return;
+    const sec = Math.max(0, Math.round(routeData.durationSec * (1 - progressRef.current)));
+    setDisplayEtaSec(sec);
+    etaFromRouteRef.current = true;
+  }, [routeData]);
+
+  useEffect(() => {
+    if (!order || etaFromRouteRef.current) return;
+    const distKm = haversineKm(techStartLat, techStartLng, clientLat, clientLng);
+    const sec = Math.max(0, Math.round((distKm / 20) * 3600));
+    setDisplayEtaSec(sec);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order]);
+
+  useEffect(() => {
     if (!order) return;
     const interval = setInterval(() => {
       progressRef.current = Math.min(progressRef.current + 0.005, 0.95);
       const p = progressRef.current;
       setProgress(p);
+      setDisplayEtaSec((prev) => (prev !== null ? Math.max(0, prev - 1) : null));
 
       if (routeData && routeData.coords.length > 1) {
         const pos = interpolateAlongRoute(routeData.coords, p);
@@ -244,14 +258,13 @@ export default function OrderTrackingScreen() {
     );
   }
 
-  let eta: number;
+  const etaSec = displayEtaSec ?? 0;
+  const etaMins = Math.floor(etaSec / 60);
+  const etaRemSec = etaSec % 60;
   let remainingKm: number;
   if (routeData) {
-    const remaining = routeData.durationSec * (1 - progress);
-    eta = Math.max(1, Math.round(remaining / 60));
     remainingKm = Math.max(0, (routeData.distanceM * (1 - progress)) / 1000);
   } else {
-    eta = computeEtaFallback(techLat, techLng, clientLat, clientLng);
     remainingKm = haversineKm(techLat, techLng, clientLat, clientLng);
   }
   const distanceLabel = remainingKm >= 1
@@ -320,7 +333,7 @@ export default function OrderTrackingScreen() {
         <View style={[styles.etaBanner, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
           <VectorIcon name="clock" size={15} color={colors.primary} />
           <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-            {t("order.arrivingIn")}{eta} {t("order.minutes")}
+            {t("order.arrivingIn")}{displayEtaSec === null ? "…" : `${etaMins > 0 ? `${etaMins} ${t("order.minutes")} ` : ""}${etaRemSec} ${t("order.seconds")}`}
           </Text>
           <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
           <VectorIcon name="map-pin" size={15} color={colors.primary} />

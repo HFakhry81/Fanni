@@ -182,6 +182,7 @@ const translations: Record<string, Record<Language, string>> = {
   "order.onTheWay": { ar: "في الطريق إليك", en: "On the way to you" },
   "order.arrivingIn": { ar: "الوصول خلال ~", en: "Arriving in ~" },
   "order.minutes": { ar: "دقيقة", en: "min" },
+  "order.seconds": { ar: "ث", en: "s" },
   "order.km": { ar: "كم", en: "km" },
   "order.m": { ar: "م", en: "m" },
   "order.routeLine": { ar: "مسار الفني", en: "Tech Route" },
