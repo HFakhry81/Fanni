@@ -174,6 +174,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       setUser(null);
       hasSynced.current = false;
       needsRetry.current = false;
+      lastForegroundSyncRef.current = 0;
     }
   }, [authUser, isAvailabilityHydrated, locationLabels]);
 
