@@ -510,6 +510,12 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   const routeAnimToRef = useRef({ lat: techLat, lng: techLng });
   const routeAnimStartRef = useRef<number | null>(null);
   const routeRafRef = useRef<number | null>(null);
+  const polylineRef = useRef<SVGPolylineElement | null>(null);
+  const routeCoordsRef = useRef(routeCoords);
+
+  useEffect(() => {
+    routeCoordsRef.current = routeCoords;
+  }, [routeCoords]);
 
   useEffect(() => {
     routeAnimFromRef.current = { ...smoothRouteFirstRef.current };
@@ -521,6 +527,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     if (Platform.OS !== "web") return;
     if (routeRafRef.current) cancelAnimationFrame(routeRafRef.current);
     const DURATION = 950;
+    const PIN_HALF = 14;
     const tick = (now: number) => {
       if (routeAnimStartRef.current !== null) {
         const t = Math.min(1, (now - routeAnimStartRef.current) / DURATION);
@@ -530,7 +537,28 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           lat: from.lat + (to.lat - from.lat) * t,
           lng: from.lng + (to.lng - from.lng) * t,
         };
-        setRenderTick((n) => n + 1);
+
+        const polylineEl = polylineRef.current;
+        const coords = routeCoordsRef.current;
+        if (polylineEl && coords.length > 1) {
+          const zoom = zoomRef.current;
+          const cx = centerRef.current.x;
+          const cy = centerRef.current.y;
+          const { w: mapW, h: mapH } = sizeRef.current;
+          const toScreenLocal = (lat: number, lng: number) => {
+            const wld = geoToWorld(lat, lng, zoom);
+            return { x: wld.x - cx + mapW / 2, y: wld.y - cy + mapH / 2 };
+          };
+          const allCoords = [smoothRouteFirstRef.current, ...coords.slice(1)];
+          const points = allCoords
+            .map((c) => {
+              const s = toScreenLocal(c.lat, c.lng);
+              return `${s.x + PIN_HALF},${s.y + PIN_HALF}`;
+            })
+            .join(" ");
+          polylineEl.setAttribute("points", points);
+        }
+
         if (t < 1) {
           routeRafRef.current = requestAnimationFrame(tick);
           return;
@@ -824,6 +852,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           {hasRoute ? (
             // @ts-ignore
             <polyline
+              ref={polylineRef}
               points={routePoints!}
               fill="none"
               stroke={ROUTE_COLOR}
