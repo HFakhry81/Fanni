@@ -89,6 +89,8 @@ export default function AdminUsersScreen() {
   const replaceAbortController = useRef<AbortController | null>(null);
   const isLoadingMoreRef = useRef(false);
 
+  const [baselineTotals, setBaselineTotals] = useState<Partial<Record<UserTab, number>>>({});
+
   const [resetTarget, setResetTarget] = useState<ApiUser | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -133,6 +135,9 @@ export default function AdminUsersScreen() {
         setUsers(data.users);
         setPagination(data.pagination);
         currentPage.current = page;
+        if (!search?.trim() && statusFilter === "all") {
+          setBaselineTotals((prev) => ({ ...prev, [tab]: data.pagination.total }));
+        }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Failed to load users");
@@ -499,11 +504,17 @@ export default function AdminUsersScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title={t("admin.users")}
-        subtitle={
-          pagination
-            ? `${pagination.total} ${isRTL ? "مستخدم" : "users"}`
-            : isRTL ? "جارٍ التحميل..." : "Loading..."
-        }
+        subtitle={(() => {
+          if (!pagination) return isRTL ? "جارٍ التحميل..." : "Loading...";
+          const isFiltered = debouncedSearch.trim().length > 0 || statusFilter !== "all";
+          const baseline = baselineTotals[tab] ?? null;
+          if (isFiltered && baseline !== null) {
+            return isRTL
+              ? `${pagination.total} من ${baseline} مستخدم`
+              : `${pagination.total} of ${baseline} users`;
+          }
+          return `${pagination.total} ${isRTL ? "مستخدم" : "users"}`;
+        })()}
         showHome
         showLogout
       />
