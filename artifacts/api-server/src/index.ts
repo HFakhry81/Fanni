@@ -54,43 +54,11 @@ async function runMigrations(): Promise<void> {
   }
   try {
     await pool.query(
-      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`
-    );
-    logger.info("DB migration: admins.must_change_password ensured");
-  } catch (err) {
-    logger.error({ err }, "DB migration failed for admins.must_change_password");
-  }
-  try {
-    await pool.query(
-      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS profile_image_url VARCHAR`
-    );
-    logger.info("DB migration: admins.profile_image_url ensured");
-  } catch (err) {
-    logger.error({ err }, "DB migration failed for admins.profile_image_url");
-  }
-  try {
-    await pool.query(
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS address VARCHAR(500)`
     );
     logger.info("DB migration: users.address ensured");
   } catch (err) {
     logger.error({ err }, "DB migration failed for users.address");
-  }
-  try {
-    await pool.query(
-      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN NOT NULL DEFAULT false`
-    );
-    logger.info("DB migration: admins.is_super_admin ensured");
-  } catch (err) {
-    logger.error({ err }, "DB migration failed for admins.is_super_admin");
-  }
-  try {
-    await pool.query(
-      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS permissions JSONB`
-    );
-    logger.info("DB migration: admins.permissions ensured");
-  } catch (err) {
-    logger.error({ err }, "DB migration failed for admins.permissions");
   }
   try {
     await pool.query(`

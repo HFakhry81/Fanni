@@ -61,14 +61,14 @@ router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
 
     if (user.role === "technician") {
       conditions.push(eq(invoicesTable.technicianId, user.id));
-      conditions.push(or(eq(invoicesTable.invoiceType, "technician"), isNull(invoicesTable.invoiceType)));
+      conditions.push(or(eq(invoicesTable.invoiceType, "technician"), isNull(invoicesTable.invoiceType))!);
     } else if (user.role === "admin") {
       if (invoiceType && ["technician", "client", "admin"].includes(invoiceType)) {
         conditions.push(eq(invoicesTable.invoiceType, invoiceType as "technician" | "client" | "admin"));
       }
     } else {
       conditions.push(eq(invoicesTable.clientId, user.id));
-      conditions.push(or(eq(invoicesTable.invoiceType, "client"), isNull(invoicesTable.invoiceType)));
+      conditions.push(or(eq(invoicesTable.invoiceType, "client"), isNull(invoicesTable.invoiceType))!);
     }
 
     const rows = await db
