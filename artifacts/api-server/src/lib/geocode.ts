@@ -13,8 +13,6 @@ import { eq } from "drizzle-orm";
 import { db, locationsTable } from "@workspace/db";
 import { NOMINATIM_BASE, nominatimFetch, getCached, setCache } from "./nominatim";
 
-const CACHE_DAYS = 30;
-
 export interface GeoPoint {
   lat: number;
   lon: number;
