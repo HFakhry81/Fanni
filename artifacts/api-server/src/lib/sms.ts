@@ -71,6 +71,10 @@ async function sendSmsViaProvider(to: string, body: string): Promise<boolean> {
   }
 }
 
+export async function sendSms(to: string, body: string): Promise<boolean> {
+  return sendSmsViaProvider(to, body);
+}
+
 export async function sendWelcomeSms(opts: SendWelcomeSmsOptions): Promise<boolean> {
   const { to, name, role } = opts;
   const firstName = name.trim().split(/\s+/)[0] ?? name.trim();

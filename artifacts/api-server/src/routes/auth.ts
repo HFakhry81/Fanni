@@ -13,7 +13,7 @@ import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificatio
 import { eq, and, gt, isNull, lt, desc, sql } from "drizzle-orm";
 import { geocodeArea } from "../lib/geocode";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
-import { sendWelcomeSms } from "../lib/sms";
+import { sendWelcomeSms, sendSms } from "../lib/sms";
 import {
   clearSession,
   getOidcConfig,
@@ -357,14 +357,6 @@ function hashOtpCode(code: string): string {
   return crypto.createHash("sha256").update(`otp:${code}`).digest("hex");
 }
 
-async function sendSmsOtp(mobile: string, code: string): Promise<boolean> {
-  if (!process.env.SMS_API_KEY) {
-    console.log(`[OTP] SMS not configured. Code for ${mobile}: ${code}`);
-    return false;
-  }
-  return false;
-}
-
 // PUBLIC: Returns feature flags relevant to the mobile client.
 router.get("/config", (_req: Request, res: Response) => {
   res.json({ otpEnabled: OTP_ENABLED });
@@ -392,7 +384,7 @@ router.post("/auth/send-otp", async (req: Request, res: Response) => {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   await db.insert(phoneVerificationsTable).values({ mobile: normalizedMobile, codeHash, expiresAt });
-  await sendSmsOtp(normalizedMobile, code);
+  await sendSms(normalizedMobile, `رمز التحقق الخاص بك في فني هو: ${code}\nYour Fanni verification code is: ${code}`);
   req.log.info({ mobile: normalizedMobile }, "OTP sent");
   res.json({ success: true });
 });
