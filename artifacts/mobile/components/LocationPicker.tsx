@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
-  FlatList, TextInput, ActivityIndicator,
+  FlatList, TextInput, ActivityIndicator, Animated,
 } from "react-native";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -429,6 +429,22 @@ export default function LocationPicker({
   const [govLoading, setGovLoading] = useState(false);
   const [areaLoading, setAreaLoading] = useState(false);
 
+  const autoFillOpacity = useRef(new Animated.Value(0)).current;
+  const [autoFillVisible, setAutoFillVisible] = useState(false);
+
+  const showAutoFillBanner = useCallback(() => {
+    autoFillOpacity.stopAnimation();
+    autoFillOpacity.setValue(0);
+    setAutoFillVisible(true);
+    Animated.sequence([
+      Animated.timing(autoFillOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.delay(2500),
+      Animated.timing(autoFillOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) setAutoFillVisible(false);
+    });
+  }, [autoFillOpacity]);
+
   const loadGovernorates = useCallback(async () => {
     setGovLoading(true);
     const rows = await fetchGovernorates();
@@ -505,10 +521,13 @@ export default function LocationPicker({
              optionMatches(g, suburbEn) || optionMatches(g, suburbAr),
     );
 
+    let anyFilled = false;
+
     if (govMatch && govMatch.id !== governorateId) {
       onGovernorateChange(govMatch.id);
       onGovernorateSelect?.(govMatch);
       onAreaChange("");
+      anyFilled = true;
 
       const areaRows = await fetchAreas(govMatch.id);
       const areaOpts = areaRows.map(rowToOption);
@@ -537,7 +556,12 @@ export default function LocationPicker({
       if (areaMatch && areaMatch.id !== areaId) {
         onAreaChange(areaMatch.id);
         onAreaSelect?.(areaMatch);
+        anyFilled = true;
       }
+    }
+
+    if (anyFilled) {
+      showAutoFillBanner();
     }
   };
 
@@ -562,6 +586,25 @@ export default function LocationPicker({
         loading={areaLoading}
         required
       />
+
+      {autoFillVisible && (
+        <Animated.View
+          style={[
+            styles.autoFillBanner,
+            {
+              backgroundColor: colors.primary + "18",
+              borderColor: colors.primary + "40",
+              opacity: autoFillOpacity,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <VectorIcon name="check-circle" size={14} color={colors.primary} />
+          <Text style={[styles.autoFillText, { color: colors.primary, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }]}>
+            {isRTL ? "تم تعبئة الموقع تلقائياً من الخريطة" : "Location auto-filled from map pin"}
+          </Text>
+        </Animated.View>
+      )}
 
       <StreetAutocomplete
         value={street}
@@ -699,6 +742,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8,
     marginTop: 4,
+  },
+  autoFillBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  autoFillText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    flex: 1,
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalContent: { height: "75%", paddingHorizontal: 16, paddingBottom: 20 },
