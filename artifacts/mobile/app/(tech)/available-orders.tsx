@@ -138,7 +138,17 @@ export default function AvailableOrdersScreen() {
     silentFetchRef.current();
   }, []);
 
-  useOrderNotifications(true, user, sessionToken, onNewOrderCallback);
+  const onOrderCancelledCallback = useCallback((orderId: string) => {
+    setOrders((prev) => {
+      const next = prev.filter((o) => o.id !== orderId);
+      if (next.length !== prev.length) {
+        setAvailablePendingCount(next.length);
+      }
+      return next;
+    });
+  }, [setAvailablePendingCount]);
+
+  useOrderNotifications(true, user, sessionToken, onNewOrderCallback, onOrderCancelledCallback);
 
   const handleAccept = async (order: PendingOrder) => {
     setAcceptingId(order.id);

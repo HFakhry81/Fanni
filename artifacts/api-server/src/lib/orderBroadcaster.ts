@@ -263,6 +263,19 @@ export function removeOrderFromPending(orderId: string): void {
   logger.info({ orderId }, "Removed order from pending broadcast list");
 }
 
+export function broadcastOrderCancelledToTechnicians(orderId: string): void {
+  const payload = JSON.stringify({ type: "order_cancelled", orderId });
+  let sent = 0;
+  for (const [ws, meta] of clients) {
+    if (ws.readyState !== WebSocket.OPEN) continue;
+    if (!meta.registered) continue;
+    if (wsToClientId.has(ws)) continue;
+    ws.send(payload);
+    sent++;
+  }
+  logger.info({ orderId, sent }, "Broadcast order cancellation to connected technicians");
+}
+
 export function broadcastNewOrder(order: unknown): void {
   pendingOrders.push(order);
 

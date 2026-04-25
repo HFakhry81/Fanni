@@ -83,6 +83,7 @@ interface OrderContextType {
   markPendingOrdersSeen: () => void;
   markOrderSeen: (orderId: string) => void;
   injectNewOrder: (order: Order) => void;
+  removePendingOrder: (orderId: string) => void;
   mergeOrders: (incoming: Order[]) => void;
   syncOrders: (incoming: Order[]) => void;
   wsOrderStatusSignal: number;
@@ -349,6 +350,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const removePendingOrder = (orderId: string) => {
+    const wasInjected = injectedOrderIdsRef.current.has(orderId);
+    if (wasInjected) {
+      injectedOrderIdsRef.current.delete(orderId);
+    }
+    setNewPendingOrders((prev) => prev.filter((o) => o.id !== orderId));
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    if (wasInjected) {
+      setAvailablePendingCount((prev) => Math.max(0, prev - 1));
+    }
+  };
+
   const mergeOrders = (incoming: Order[]) => {
     setOrders((prev) => {
       const existingIds = new Set(prev.map((o) => o.id));
@@ -408,6 +421,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         markPendingOrdersSeen,
         markOrderSeen,
         injectNewOrder,
+        removePendingOrder,
         mergeOrders,
         syncOrders,
         wsOrderStatusSignal,

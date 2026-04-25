@@ -58,12 +58,22 @@ function buildRegisterMessage(user: User | null, sessionToken: string | null): s
   return JSON.stringify(payload);
 }
 
-export function useOrderNotifications(isOnline: boolean = true, user: User | null = null, sessionToken: string | null = null, onNewOrder?: () => void) {
-  const { injectNewOrder } = useOrders();
+export function useOrderNotifications(
+  isOnline: boolean = true,
+  user: User | null = null,
+  sessionToken: string | null = null,
+  onNewOrder?: () => void,
+  onOrderCancelled?: (orderId: string) => void,
+) {
+  const { injectNewOrder, removePendingOrder } = useOrders();
   const injectRef = useRef(injectNewOrder);
+  const removeRef = useRef(removePendingOrder);
   const onNewOrderRef = useRef(onNewOrder);
+  const onOrderCancelledRef = useRef(onOrderCancelled);
   onNewOrderRef.current = onNewOrder;
+  onOrderCancelledRef.current = onOrderCancelled;
   injectRef.current = injectNewOrder;
+  removeRef.current = removePendingOrder;
 
   const userRef = useRef(user);
   userRef.current = user;
@@ -127,6 +137,11 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
             const order = data.order as Order;
             injectRef.current({ ...order, createdAt: order.createdAt ?? new Date().toISOString() });
             onNewOrderRef.current?.();
+          }
+          if (data.type === "order_cancelled" && data.orderId) {
+            const oid = data.orderId as string;
+            removeRef.current(oid);
+            onOrderCancelledRef.current?.(oid);
           }
         } catch (_) {}
       };

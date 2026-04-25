@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and } from "drizzle-orm";
-import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending } from "../lib/orderBroadcaster";
+import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable, pool } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -536,9 +536,15 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Requ
       .where(eq(ordersTable.id, id))
       .returning({ clientId: ordersTable.clientId });
 
-    removeOrderFromPending(id);
+    if (!updated) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
 
-    if (updated?.clientId) {
+    removeOrderFromPending(id);
+    broadcastOrderCancelledToTechnicians(id);
+
+    if (updated.clientId) {
       broadcastOrderStatusToClient(updated.clientId, { id, status: "cancelled" });
     }
 
