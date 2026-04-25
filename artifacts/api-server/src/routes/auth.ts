@@ -1144,6 +1144,15 @@ router.post("/auth/resend-welcome", authMiddleware, requireAuth, async (req: Req
 
 // PROTECTED: Change own password (admin only for now, but works for any session).
 router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const fwd = req.headers["x-forwarded-for"];
+  const ip = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+  if (!checkRateLimit(`change-password:user:${userId}`, 5, 15 * 60 * 1000) ||
+      !checkRateLimit(`change-password:ip:${ip}`, 5, 15 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many password change attempts. Please wait 15 minutes before trying again." });
+    return;
+  }
+
   const { currentPassword, newPassword } = req.body as {
     currentPassword?: string;
     newPassword?: string;
