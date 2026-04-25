@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -45,6 +45,8 @@ export default function AdminProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastAction, setToastAction] = useState<{ label: string; onPress: () => void } | undefined>(undefined);
+  const undoAvatarRef = useRef<string | undefined>(undefined);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [changePwMode, setChangePwMode] = useState(false);
@@ -243,9 +245,10 @@ export default function AdminProfileScreen() {
 
   const avatarUri: string | null = (user as { avatar?: string | null })?.avatar ?? null;
 
-  const pickAdminPhoto = async () => {
+  const doPickPhoto = async () => {
     if (!sessionToken) {
       setToastMessage(isRTL ? "يجب تسجيل الدخول لرفع الصورة" : "Sign in required to upload photo");
+      setToastAction(undefined);
       setToastVisible(true);
       return;
     }
@@ -261,6 +264,7 @@ export default function AdminProfileScreen() {
     const asset = result.assets[0];
     setAvatarUploading(true);
     setToastMessage(isRTL ? "جاري رفع الصورة..." : "Uploading photo...");
+    setToastAction(undefined);
     setToastVisible(true);
     try {
       const mimeType = asset.mimeType ?? "image/jpeg";
@@ -282,6 +286,56 @@ export default function AdminProfileScreen() {
       setAvatarUploading(false);
       setToastVisible(true);
     }
+  };
+
+  const pickAdminPhoto = () => {
+    const hasPhoto = !!avatarUri;
+    const buttons: Array<{ text: string; style?: "cancel" | "destructive" | "default"; onPress?: () => void }> = [
+      { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+      { text: isRTL ? "اختيار صورة" : "Choose Photo", onPress: doPickPhoto },
+    ];
+    if (hasPhoto) {
+      buttons.push({
+        text: isRTL ? "حذف الصورة" : "Remove Photo",
+        style: "destructive",
+        onPress: () => {
+          Alert.alert(
+            isRTL ? "حذف الصورة" : "Remove Photo",
+            isRTL ? "هل أنت متأكد أنك تريد حذف صورتك الشخصية؟" : "Are you sure you want to remove your photo?",
+            [
+              { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+              {
+                text: isRTL ? "حذف" : "Remove",
+                style: "destructive",
+                onPress: async () => {
+                  if (user) {
+                    const previousAvatar = (user as { avatar?: string | null }).avatar ?? undefined;
+                    undoAvatarRef.current = previousAvatar;
+                    await setUser({ ...user, avatar: undefined });
+                    setToastMessage(isRTL ? "تم حذف صورة الملف الشخصي" : "Profile photo removed");
+                    setToastAction({
+                      label: isRTL ? "تراجع" : "Undo",
+                      onPress: async () => {
+                        if (user && undoAvatarRef.current !== undefined) {
+                          await setUser({ ...user, avatar: undoAvatarRef.current });
+                          undoAvatarRef.current = undefined;
+                        }
+                      },
+                    });
+                    setToastVisible(true);
+                  }
+                },
+              },
+            ]
+          );
+        },
+      });
+    }
+    Alert.alert(
+      isRTL ? "صورة الملف الشخصي" : "Profile Photo",
+      undefined,
+      buttons
+    );
   };
 
   return (
@@ -512,7 +566,9 @@ export default function AdminProfileScreen() {
       <Toast
         visible={toastVisible}
         message={toastMessage}
-        onHide={() => setToastVisible(false)}
+        duration={toastAction ? 4000 : 2000}
+        onHide={() => { setToastVisible(false); setToastAction(undefined); }}
+        action={toastAction}
       />
     </View>
   );
