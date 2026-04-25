@@ -45,6 +45,7 @@ export default function TechOrdersScreen() {
   const [afterPhotos, setAfterPhotos] = useState<string[]>([]);
   const [afterPhotoUploading, setAfterPhotoUploading] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
+  const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
 
   const orders = getOrdersByTech(user?.id ?? "tech1");
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
@@ -320,11 +321,14 @@ export default function TechOrdersScreen() {
           console.warn(`[Fanni] Failed to complete order on server: ${res.status}`);
         }
         if (afterPhotos.length > 0) {
-          await fetch(`${apiBase}/api/orders/${orderId}/photos`, {
+          const photoRes = await fetch(`${apiBase}/api/orders/${orderId}/photos`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
             body: JSON.stringify({ phase: "after", urls: afterPhotos }),
           });
+          if (!photoRes.ok) {
+            console.warn(`[Fanni] After-photos save failed: ${photoRes.status}`);
+          }
         }
       }
     } catch (err) {
