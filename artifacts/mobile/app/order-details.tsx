@@ -95,6 +95,9 @@ export default function OrderDetailsScreen() {
       ? `<img src="${logoDataUri}" style="width:48px;height:48px;object-fit:contain;margin-${isRTL ? "left" : "right"}:12px" />`
       : "";
 
+    const categoryKey = `cat.${order.category}`;
+    const categoryLabel = (() => { const l = t(categoryKey); return l === categoryKey ? order.category : l; })();
+
     const rows = [
       [t("invoice.materials"), inv.materialsTotal],
       [t("invoice.materialsMark"), inv.materialsMark],
@@ -150,7 +153,7 @@ export default function OrderDetailsScreen() {
   </div>
   <div class="meta-item">
     <span class="meta-label">${t("invoice.category")}</span>
-    <span class="meta-value">${t(`cat.${order.category}`) || order.category}</span>
+    <span class="meta-value">${categoryLabel}</span>
   </div>
   ${order.technicianName ? `<div class="meta-item">
     <span class="meta-label">${t("invoice.technician")}</span>
