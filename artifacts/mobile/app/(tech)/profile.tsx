@@ -15,7 +15,6 @@ import StarRating from "@/components/StarRating";
 import AppHeader from "@/components/AppHeader";
 import LocationPicker from "@/components/LocationPicker";
 import Toast from "@/components/Toast";
-import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
@@ -77,7 +76,11 @@ export default function TechProfileScreen() {
   const [editMobile, setEditMobile] = useState("");
   const [editSpecialty, setEditSpecialty] = useState("");
   const [editGov, setEditGov] = useState("");
+  const [editGovNameAr, setEditGovNameAr] = useState<string | undefined>(undefined);
+  const [editGovNameEn, setEditGovNameEn] = useState<string | undefined>(undefined);
   const [editArea, setEditArea] = useState("");
+  const [editAreaNameAr, setEditAreaNameAr] = useState<string | undefined>(undefined);
+  const [editAreaNameEn, setEditAreaNameEn] = useState<string | undefined>(undefined);
   const [editStreet, setEditStreet] = useState("");
   const [editCategories, setEditCategories] = useState<string[]>([]);
 
@@ -130,7 +133,11 @@ export default function TechProfileScreen() {
     setEditMobile(user.mobile ?? "");
     setEditSpecialty(user.specialty ?? "");
     setEditGov(user.governorate ?? "");
+    setEditGovNameAr(user.governorateNameAr);
+    setEditGovNameEn(user.governorateNameEn);
     setEditArea(user.area ?? "");
+    setEditAreaNameAr(user.areaNameAr);
+    setEditAreaNameEn(user.areaNameEn);
     setEditStreet(user.address ?? "");
     setEditCategories(user.serviceCategories ?? []);
     setEditServiceStart(user.serviceStart ?? "08:00");
@@ -242,7 +249,11 @@ export default function TechProfileScreen() {
           mobile: normalizedMobile,
           specialty: editSpecialty.trim() || user.specialty,
           governorate: editGov,
+          governorateNameAr: editGovNameAr,
+          governorateNameEn: editGovNameEn,
           area: editArea,
+          areaNameAr: editAreaNameAr,
+          areaNameEn: editAreaNameEn,
           address: editStreet.trim(),
           serviceCategories: editCategories,
           serviceStart: editServiceStart.trim(),
@@ -260,15 +271,11 @@ export default function TechProfileScreen() {
     setToastVisible(true);
   };
 
-  const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
-  const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
-  const govText = govData ? (isRTL ? govData.ar : govData.en) : (isRTL ? "الإسكندرية" : "Alexandria");
-  const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : (isRTL ? "حي شرق" : "Al Sharq District");
-  const hasServiceArea = !!(govData && areaData);
+  const govText = (isRTL ? user?.governorateNameAr : user?.governorateNameEn) ?? (isRTL ? "الإسكندرية" : "Alexandria");
+  const areaText = (isRTL ? user?.areaNameAr : user?.areaNameEn) ?? (isRTL ? "حي شرق" : "Al Sharq District");
+  const hasServiceArea = !!(user?.governorate && user?.area);
   const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
-  const serviceAreaDisplay = hasServiceArea
-    ? `${isRTL ? govData!.ar : govData!.en} — ${isRTL ? areaData!.ar : areaData!.en}`
-    : null;
+  const serviceAreaDisplay = hasServiceArea ? `${govText} — ${areaText}` : null;
 
   const openPwSheet = () => {
     setCurrentPw("");
@@ -1126,8 +1133,10 @@ export default function TechProfileScreen() {
                 <LocationPicker
                   governorateId={editGov}
                   areaId={editArea}
-                  onGovernorateChange={setEditGov}
+                  onGovernorateChange={(id) => { setEditGov(id); setEditArea(""); setEditAreaNameAr(undefined); setEditAreaNameEn(undefined); }}
                   onAreaChange={setEditArea}
+                  onGovernorateSelect={(opt) => { setEditGovNameAr(opt.ar); setEditGovNameEn(opt.en); }}
+                  onAreaSelect={(opt) => { setEditAreaNameAr(opt.ar); setEditAreaNameEn(opt.en); }}
                   street={editStreet}
                   onStreetChange={setEditStreet}
                   showDetails={false}

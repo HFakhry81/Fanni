@@ -10,7 +10,6 @@ import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
-import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 
 type Category = {
   id: string;
@@ -116,16 +115,10 @@ export default function ClientHomeScreen() {
 
   const subs = selectedCat ? (SUB_CATEGORIES[selectedCat] ?? []) : [];
 
-  const govLabel = user?.governorate
-    ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate)
-    : null;
-  const areaLabel = govLabel && user?.area
-    ? govLabel.areas.find((a) => a.id === user.area)
-    : null;
-  const locationText = govLabel
-    ? isRTL
-      ? `${govLabel.ar}${areaLabel ? ` — ${areaLabel.ar}` : ""}`
-      : `${govLabel.en}${areaLabel ? ` — ${areaLabel.en}` : ""}`
+  const govName = isRTL ? user?.governorateNameAr : user?.governorateNameEn;
+  const areaName = isRTL ? user?.areaNameAr : user?.areaNameEn;
+  const locationText = govName
+    ? `${govName}${areaName ? ` — ${areaName}` : ""}`
     : isRTL ? "الإسكندرية — مصر" : "Alexandria — Egypt";
 
   return (

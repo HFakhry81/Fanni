@@ -16,7 +16,6 @@ import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
-import { DEFAULT_GOVERNORATE } from "@/constants/egyptLocations";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -85,7 +84,7 @@ export default function RegisterScreen() {
   const [experience, setExperience] = useState("");
 
   // ── Location (shared) ──────────────────────────────────────────────────────
-  const [governorateId, setGovernorateId] = useState(DEFAULT_GOVERNORATE);
+  const [governorateId, setGovernorateId] = useState("alexandria");
   const [areaId, setAreaId] = useState("");
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");

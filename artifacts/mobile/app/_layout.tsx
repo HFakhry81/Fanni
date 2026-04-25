@@ -27,6 +27,20 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+interface LocationLabels {
+  governorateId: string | null;
+  governorateNameAr: string | undefined;
+  governorateNameEn: string | undefined;
+  areaId: string | null;
+  areaNameAr: string | undefined;
+  areaNameEn: string | undefined;
+}
+
+function getApiBase(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  return domain ? `https://${domain}` : "";
+}
+
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const { user: authUser, sessionToken, refreshUser } = useAuth();
   const { user: appUser, setUser, syncAvailabilityFromServer, retryPendingAvailabilityToggle, isAvailabilityHydrated, t } = useApp();
@@ -37,6 +51,17 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const refreshUserRef = React.useRef(refreshUser);
   const lastForegroundSyncRef = React.useRef<number>(0);
   const FOREGROUND_SYNC_DEBOUNCE_MS = 30_000;
+
+  const govCacheRef = React.useRef<Map<string, { ar: string; en: string }>>(new Map());
+  const areaCacheRef = React.useRef<Map<string, { ar: string; en: string }>>(new Map());
+  const [locationLabels, setLocationLabels] = useState<LocationLabels>({
+    governorateId: null,
+    governorateNameAr: undefined,
+    governorateNameEn: undefined,
+    areaId: null,
+    areaNameAr: undefined,
+    areaNameEn: undefined,
+  });
 
   const [syncToastVisible, setSyncToastVisible] = useState(false);
 
@@ -53,11 +78,78 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   }, [refreshUser]);
 
   useEffect(() => {
+    const govId = authUser?.governorate ?? null;
+    const areaId = authUser?.area ?? null;
+    if (!govId) {
+      setLocationLabels({ governorateId: null, governorateNameAr: undefined, governorateNameEn: undefined, areaId: null, areaNameAr: undefined, areaNameEn: undefined });
+      return;
+    }
+
+    const govCached = govCacheRef.current.get(govId);
+    const areaCacheKey = areaId ? `${govId}:${areaId}` : null;
+    const areaCached = areaCacheKey ? areaCacheRef.current.get(areaCacheKey) : undefined;
+
+    if (govCached && (!areaId || areaCached)) {
+      setLocationLabels({
+        governorateId: govId,
+        governorateNameAr: govCached.ar,
+        governorateNameEn: govCached.en,
+        areaId,
+        areaNameAr: areaCached?.ar,
+        areaNameEn: areaCached?.en,
+      });
+      return;
+    }
+
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+
+    (async () => {
+      try {
+        let govLabel = govCached;
+        if (!govLabel) {
+          const res = await fetch(`${apiBase}/api/locations/governorates`);
+          const json = await res.json() as { governorates?: { id: string; nameAr: string; nameEn: string }[] };
+          for (const g of json.governorates ?? []) {
+            govCacheRef.current.set(g.id, { ar: g.nameAr, en: g.nameEn });
+          }
+          govLabel = govCacheRef.current.get(govId);
+        }
+
+        let areaLabel = areaCached;
+        if (areaId && areaCacheKey && !areaLabel) {
+          const res = await fetch(`${apiBase}/api/locations/${govId}/areas`);
+          const json = await res.json() as { areas?: { id: string; nameAr: string; nameEn: string }[] };
+          for (const a of json.areas ?? []) {
+            areaCacheRef.current.set(`${govId}:${a.id}`, { ar: a.nameAr, en: a.nameEn });
+          }
+          areaLabel = areaCacheKey ? areaCacheRef.current.get(areaCacheKey) : undefined;
+        }
+
+        setLocationLabels({
+          governorateId: govId,
+          governorateNameAr: govLabel?.ar,
+          governorateNameEn: govLabel?.en,
+          areaId,
+          areaNameAr: areaLabel?.ar,
+          areaNameEn: areaLabel?.en,
+        });
+      } catch {}
+    })();
+  }, [authUser?.governorate, authUser?.area]);
+
+  useEffect(() => {
     if (!isAvailabilityHydrated) return;
     if (authUser) {
       const displayName = [authUser.firstName, authUser.lastName]
         .filter(Boolean)
         .join(" ") || authUser.email || "User";
+      const govId = authUser.governorate ?? undefined;
+      const areaId = authUser.area ?? undefined;
+      const govLabels = govId && locationLabels.governorateId === govId ? locationLabels : null;
+      const areaLabels = areaId && locationLabels.areaId === areaId ? locationLabels : null;
+      const appUserGovMatches = appUser?.governorate === govId;
+      const appUserAreaMatches = appUser?.area === areaId;
       setUser({
         ...(appUser ?? {}),
         id: authUser.id,
@@ -66,8 +158,12 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         mobile: authUser.mobile ?? "",
         email: authUser.email ?? "",
         avatar: authUser.profileImageUrl ?? undefined,
-        governorate: authUser.governorate ?? undefined,
-        area: authUser.area ?? undefined,
+        governorate: govId,
+        governorateNameAr: govLabels?.governorateNameAr ?? (appUserGovMatches ? appUser?.governorateNameAr : undefined),
+        governorateNameEn: govLabels?.governorateNameEn ?? (appUserGovMatches ? appUser?.governorateNameEn : undefined),
+        area: areaId,
+        areaNameAr: areaLabels?.areaNameAr ?? (appUserAreaMatches ? appUser?.areaNameAr : undefined),
+        areaNameEn: areaLabels?.areaNameEn ?? (appUserAreaMatches ? appUser?.areaNameEn : undefined),
         district: authUser.district ?? undefined,
         profession: authUser.profession ?? undefined,
         specialty: authUser.specialty ?? undefined,
@@ -78,7 +174,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       hasSynced.current = false;
       needsRetry.current = false;
     }
-  }, [authUser, isAvailabilityHydrated]);
+  }, [authUser, isAvailabilityHydrated, locationLabels]);
 
   useEffect(() => {
     if (

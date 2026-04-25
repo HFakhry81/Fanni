@@ -17,7 +17,11 @@ export interface User {
   specialty?: string;
   experience?: number;
   governorate?: string;
+  governorateNameAr?: string;
+  governorateNameEn?: string;
   area?: string;
+  areaNameAr?: string;
+  areaNameEn?: string;
   district?: string;
   rating?: number;
   avatar?: string;

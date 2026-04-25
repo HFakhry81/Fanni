@@ -6,7 +6,6 @@ import VectorIcon from "@/components/VectorIcon";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
@@ -52,10 +51,8 @@ export default function TechMapScreen() {
   const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
   const showCatBanner = catBannerHydrated && !!user && !catBannerDismissed && !hasCategories;
 
-  const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
-  const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
-  const govLabel = govData ? (isRTL ? govData.ar : govData.en) : (user?.governorate ?? null);
-  const areaLabel = areaData ? (isRTL ? areaData.ar : areaData.en) : (user?.area ?? null);
+  const govLabel = (isRTL ? user?.governorateNameAr : user?.governorateNameEn) ?? user?.governorate ?? null;
+  const areaLabel = (isRTL ? user?.areaNameAr : user?.areaNameEn) ?? user?.area ?? null;
   const hasServiceArea = !!(govLabel && areaLabel);
   const serviceAreaDisplay = [govLabel, areaLabel].filter(Boolean).join(" — ");
 

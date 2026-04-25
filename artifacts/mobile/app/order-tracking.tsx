@@ -18,14 +18,13 @@ import VectorIcon from "@/components/VectorIcon";
 import { useColors, type AppColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders, Order } from "@/context/OrderContext";
-import { GOV_COORDINATES } from "@/constants/egyptLocations";
 import {
   RouteData,
   readPersistedRoute,
   writePersistedRoute,
 } from "@/utils/routeCache";
 
-const ALEX = GOV_COORDINATES.alexandria;
+const ALEX = { lat: 31.2001, lng: 29.9187 };
 const TECH_START_OFFSET = 0.018;
 
 const ROUTE_CACHE = new Map<string, RouteData | null>();

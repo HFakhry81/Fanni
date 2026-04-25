@@ -48,7 +48,7 @@ Bilingual (Arabic RTL + English LTR) home maintenance service app built with Exp
 
 ### Geography — Egypt Focus
 - Default region: **Alexandria** (lat 31.2001, lng 29.9187)
-- `constants/egyptLocations.ts` — 27 Egyptian governorates seed source (also seeded into DB)
+- Location data is served exclusively from the database via `/api/locations/*` routes (the former `constants/egyptLocations.ts` bundled file has been removed; data lives in DB only)
 - **PostGIS** enabled on the database; `orders.location GEOGRAPHY(POINT,4326)` column stores pin coordinates
 - `lib/db/src/schema/locations.ts` — `locationsTable` (237 rows: govs/areas/neighborhoods) + `nominatimCacheTable`
 - **API routes** (no auth required):

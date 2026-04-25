@@ -13,7 +13,6 @@ import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import LocationPicker from "@/components/LocationPicker";
 import Toast from "@/components/Toast";
-import { EGYPT_LOCATIONS } from "@/constants/egyptLocations";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
@@ -46,7 +45,11 @@ export default function ClientProfileScreen() {
   const [editName, setEditName] = useState("");
   const [editMobile, setEditMobile] = useState("");
   const [editGov, setEditGov] = useState("");
+  const [editGovNameAr, setEditGovNameAr] = useState<string | undefined>(undefined);
+  const [editGovNameEn, setEditGovNameEn] = useState<string | undefined>(undefined);
   const [editArea, setEditArea] = useState("");
+  const [editAreaNameAr, setEditAreaNameAr] = useState<string | undefined>(undefined);
+  const [editAreaNameEn, setEditAreaNameEn] = useState<string | undefined>(undefined);
   const [editStreet, setEditStreet] = useState("");
 
   // Change password state
@@ -68,7 +71,11 @@ export default function ClientProfileScreen() {
     setEditName(user.name ?? "");
     setEditMobile(user.mobile ?? "");
     setEditGov(user.governorate ?? "");
+    setEditGovNameAr(user.governorateNameAr);
+    setEditGovNameEn(user.governorateNameEn);
     setEditArea(user.area ?? "");
+    setEditAreaNameAr(user.areaNameAr);
+    setEditAreaNameEn(user.areaNameEn);
     setEditStreet(user.address ?? "");
     setErrors({});
     setEditVisible(true);
@@ -161,10 +168,8 @@ export default function ClientProfileScreen() {
     setToastVisible(true);
   };
 
-  const govData = user?.governorate ? EGYPT_LOCATIONS.find((g) => g.id === user.governorate) : null;
-  const areaData = govData && user?.area ? govData.areas.find((a) => a.id === user.area) : null;
-  const govText = govData ? (isRTL ? govData.ar : govData.en) : (isRTL ? "الإسكندرية" : "Alexandria");
-  const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : "";
+  const govText = (isRTL ? user?.governorateNameAr : user?.governorateNameEn) ?? (isRTL ? "الإسكندرية" : "Alexandria");
+  const areaText = (isRTL ? user?.areaNameAr : user?.areaNameEn) ?? "";
 
   const openPwSheet = () => {
     setCurrentPw("");
@@ -700,8 +705,10 @@ export default function ClientProfileScreen() {
                 <LocationPicker
                   governorateId={editGov}
                   areaId={editArea}
-                  onGovernorateChange={setEditGov}
+                  onGovernorateChange={(id) => { setEditGov(id); setEditArea(""); setEditAreaNameAr(undefined); setEditAreaNameEn(undefined); }}
                   onAreaChange={setEditArea}
+                  onGovernorateSelect={(opt) => { setEditGovNameAr(opt.ar); setEditGovNameEn(opt.en); }}
+                  onAreaSelect={(opt) => { setEditAreaNameAr(opt.ar); setEditAreaNameEn(opt.en); }}
                   street={editStreet}
                   onStreetChange={setEditStreet}
                   showDetails={false}
