@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
+import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
 import { useRouter } from "expo-router";
@@ -67,15 +68,24 @@ export default function AvailableOrdersScreen() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async (isRefresh = false) => {
+  const fetchOrders = useCallback(async (isRefresh = false, silent = false) => {
     const apiBase = getApiBaseUrl();
     if (!apiBase || !sessionToken) {
       setOrders([]);
       setAvailablePendingCount(0);
       return;
     }
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    let didSetLoading = false;
+    let didSetRefreshing = false;
+    if (!silent) {
+      if (isRefresh) {
+        setRefreshing(true);
+        didSetRefreshing = true;
+      } else {
+        setLoading(true);
+        didSetLoading = true;
+      }
+    }
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/technician/pending-orders?limit=50`, {
@@ -90,8 +100,8 @@ export default function AvailableOrdersScreen() {
       console.warn("[Fanni] Failed to fetch pending orders:", err);
       setError(isRTL ? "تعذّر تحميل الطلبات المتاحة" : "Could not load available orders");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (didSetLoading) setLoading(false);
+      if (didSetRefreshing) setRefreshing(false);
     }
   }, [sessionToken, isRTL]);
 
@@ -103,8 +113,8 @@ export default function AvailableOrdersScreen() {
       isFocusedRef.current = true;
       fetchOrders();
       pollTimerRef.current = setInterval(() => {
-        if (isFocusedRef.current && !refreshing) {
-          fetchOrders(true);
+        if (isFocusedRef.current) {
+          fetchOrders(false, true);
         }
       }, 60_000);
       return () => {
@@ -116,6 +126,19 @@ export default function AvailableOrdersScreen() {
       };
     }, [fetchOrders])
   );
+
+  const silentFetchRef = useRef<() => void>(() => {});
+  silentFetchRef.current = () => {
+    if (isFocusedRef.current) {
+      fetchOrders(false, true);
+    }
+  };
+
+  const onNewOrderCallback = useCallback(() => {
+    silentFetchRef.current();
+  }, []);
+
+  useOrderNotifications(true, user, sessionToken, onNewOrderCallback);
 
   const handleAccept = async (order: PendingOrder) => {
     setAcceptingId(order.id);

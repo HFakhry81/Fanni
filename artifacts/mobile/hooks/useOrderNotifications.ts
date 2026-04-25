@@ -58,9 +58,11 @@ function buildRegisterMessage(user: User | null, sessionToken: string | null): s
   return JSON.stringify(payload);
 }
 
-export function useOrderNotifications(isOnline: boolean = true, user: User | null = null, sessionToken: string | null = null) {
+export function useOrderNotifications(isOnline: boolean = true, user: User | null = null, sessionToken: string | null = null, onNewOrder?: () => void) {
   const { injectNewOrder } = useOrders();
   const injectRef = useRef(injectNewOrder);
+  const onNewOrderRef = useRef(onNewOrder);
+  onNewOrderRef.current = onNewOrder;
   injectRef.current = injectNewOrder;
 
   const userRef = useRef(user);
@@ -118,6 +120,7 @@ export function useOrderNotifications(isOnline: boolean = true, user: User | nul
           if (data.type === "new_order" && data.order) {
             const order = data.order as Order;
             injectRef.current({ ...order, createdAt: order.createdAt ?? new Date().toISOString() });
+            onNewOrderRef.current?.();
           }
         } catch (_) {}
       };
