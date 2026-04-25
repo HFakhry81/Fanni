@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, invoicesTable, ordersTable, usersTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -68,9 +68,9 @@ router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
   }
 });
 
-router.get("/invoices/:id", authMiddleware, requireAuth, async (req, res) => {
+router.get("/invoices/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
-  const id = req.params.id as string;
+  const id = req.params.id;
   try {
     const rows = await db
       .select()
@@ -196,9 +196,9 @@ router.post("/invoices", authMiddleware, requireAuth, async (req, res) => {
   }
 });
 
-router.patch("/invoices/:id/pay", authMiddleware, requireAuth, async (req, res) => {
+router.patch("/invoices/:id/pay", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
-  const id = req.params.id as string;
+  const id = req.params.id;
   try {
     const rows = await db
       .select()
@@ -234,9 +234,9 @@ router.patch("/invoices/:id/pay", authMiddleware, requireAuth, async (req, res) 
   }
 });
 
-router.patch("/invoices/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
+router.patch("/invoices/:id/cancel", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
-  const id = req.params.id as string;
+  const id = req.params.id;
   try {
     const rows = await db
       .select()

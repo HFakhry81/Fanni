@@ -773,18 +773,18 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     }).then((sent) => {
       if (!sent) {
         req.log.warn({ userId: newUser.id }, "Welcome email failed — sending SMS fallback");
-        sendWelcomeSms({ to: newUser.mobile, name: name.trim(), role: userRole }).catch((err) =>
+        sendWelcomeSms({ to: newUser.mobile!, name: name.trim(), role: userRole }).catch((err) =>
           req.log.warn({ err }, "Welcome SMS fallback also failed"),
         );
       }
     }).catch((err) => {
       req.log.warn({ err }, "Welcome email threw — sending SMS fallback");
-      sendWelcomeSms({ to: newUser.mobile, name: name.trim(), role: userRole }).catch((smsErr) =>
+      sendWelcomeSms({ to: newUser.mobile!, name: name.trim(), role: userRole }).catch((smsErr) =>
         req.log.warn({ smsErr }, "Welcome SMS fallback also failed"),
       );
     });
   } else {
-    sendWelcomeSms({ to: newUser.mobile, name: name.trim(), role: userRole }).catch((err) =>
+    sendWelcomeSms({ to: newUser.mobile!, name: name.trim(), role: userRole }).catch((err) =>
       req.log.warn({ err }, "Welcome SMS failed to send"),
     );
   }

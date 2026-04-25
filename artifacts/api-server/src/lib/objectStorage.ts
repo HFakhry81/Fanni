@@ -16,6 +16,6 @@ export const objectStorageClient = new Storage({
       },
     },
   },
-  universe_domain: "googleapis.com",
+  universeDomain: "googleapis.com",
   projectId: "",
 });

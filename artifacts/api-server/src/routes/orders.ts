@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
@@ -237,9 +237,9 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   }
 });
 
-router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req, res) => {
+router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
-  const id = req.params.id as string;
+  const id = req.params.id;
 
   if (user.role !== "technician" && user.role !== "admin") {
     res.status(403).json({ error: "Only technicians can acknowledge orders" });
@@ -302,9 +302,9 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req,
   }
 });
 
-router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req, res) => {
+router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
-  const id = req.params.id as string;
+  const id = req.params.id;
 
   if (user.role !== "technician" && user.role !== "admin") {
     res.status(403).json({ error: "Only technicians can start orders" });
@@ -335,9 +335,9 @@ router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req, res) 
   }
 });
 
-router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, res) => {
+router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
-  const id = req.params.id as string;
+  const id = req.params.id;
 
   if (user.role !== "technician" && user.role !== "admin") {
     res.status(403).json({ error: "Only technicians can complete orders" });
@@ -382,8 +382,8 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req, re
   }
 });
 
-router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, res) => {
-  const id = req.params.id as string;
+router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const id = req.params.id;
   const user = req.user!;
   const { latitude, longitude } = req.body as { latitude?: unknown; longitude?: unknown };
   const lat = parseFloat(String(latitude));
@@ -446,9 +446,9 @@ router.patch("/orders/:id/location", authMiddleware, requireAuth, async (req, re
   }
 });
 
-router.post("/orders/:id/photos", authMiddleware, requireAuth, async (req, res) => {
+router.post("/orders/:id/photos", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
-  const id = req.params.id as string;
+  const id = req.params.id;
   const { phase, urls } = req.body as { phase?: string; urls?: unknown[] };
 
   const validPhases = ["problem", "before", "during", "after"];
@@ -527,8 +527,8 @@ router.post("/orders/:id/photos", authMiddleware, requireAuth, async (req, res) 
   }
 });
 
-router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req, res) => {
-  const id = req.params.id as string;
+router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const id = req.params.id;
   try {
     const [updated] = await db
       .update(ordersTable)

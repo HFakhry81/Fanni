@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db, usersTable, ordersTable, pool } from "@workspace/db";
 import { and, eq, SQL } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -15,7 +15,7 @@ router.patch(
   "/technicians/:id/availability",
   authMiddleware,
   requireAuth,
-  async (req, res) => {
+  async (req: Request<{ id: string }>, res) => {
     const { id } = req.params;
 
     if (req.user!.id !== id) {

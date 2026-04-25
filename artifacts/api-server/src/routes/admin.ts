@@ -256,8 +256,8 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   });
 });
 
-router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const id = req.params.id as string;
+router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+  const id = req.params.id;
   const { role, isActive } = req.body as { role?: string; isActive?: boolean };
 
   if (!id) {
