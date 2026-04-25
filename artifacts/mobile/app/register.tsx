@@ -84,7 +84,7 @@ export default function RegisterScreen() {
   const [experience, setExperience] = useState("");
 
   // ── Location (shared) ──────────────────────────────────────────────────────
-  const [governorateId, setGovernorateId] = useState("alexandria");
+  const [governorateId, setGovernorateId] = useState("");
   const [areaId, setAreaId] = useState("");
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");
