@@ -21,9 +21,10 @@ interface Props {
   mobile: string;
   onCancel: () => void;
   onVerified: (token: string) => void;
+  subtitle?: string;
 }
 
-export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified }: Props) {
+export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified, subtitle }: Props) {
   const colors = useColors();
   const { isRTL } = useApp();
 
@@ -156,6 +157,14 @@ export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified }
             </View>
 
             <View style={{ padding: 20 }}>
+              {!!subtitle && (
+                <View style={[styles.subtitleBox, { backgroundColor: "#FEF3C7", borderColor: "#FCD34D" }]}>
+                  <VectorIcon name="alert-triangle" size={14} color="#D97706" />
+                  <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#92400E", textAlign: isRTL ? "right" : "left" }}>
+                    {subtitle}
+                  </Text>
+                </View>
+              )}
               <View style={[styles.iconRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <View style={[styles.iconWrap, { backgroundColor: colors.accent }]}>
                   <VectorIcon name="smartphone" size={20} color={colors.primary} />
@@ -249,4 +258,5 @@ const styles = StyleSheet.create({
   otpRow: { gap: 10, justifyContent: "center", marginBottom: 8 },
   digitBox: { width: 44, height: 52, borderRadius: 10, borderWidth: 1.5, fontSize: 22, fontFamily: "Inter_700Bold" },
   errorBox: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, marginTop: 12 },
+  subtitleBox: { flexDirection: "row", alignItems: "flex-start", gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, marginBottom: 16 },
 });

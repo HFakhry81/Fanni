@@ -70,6 +70,7 @@ export default function TechProfileScreen() {
   // OTP modal state
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [pendingMobile, setPendingMobile] = useState("");
+  const [otpSubtitle, setOtpSubtitle] = useState<string | undefined>(undefined);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -188,6 +189,7 @@ export default function TechProfileScreen() {
 
     if (normalizedMobile !== (user.mobile ?? "")) {
       setPendingMobile(normalizedMobile);
+      setOtpSubtitle(undefined);
       setOtpModalVisible(true);
       return;
     }
@@ -224,6 +226,15 @@ export default function TechProfileScreen() {
     });
 
     if (!result.ok) {
+      if (result.error && result.error.toLowerCase().includes("expired verification token")) {
+        setOtpSubtitle(
+          isRTL
+            ? "انتهت صلاحية رمز التحقق. سيتم إرسال رمز جديد إلى رقمك."
+            : "Your verification code expired. A new code will be sent to your number."
+        );
+        setOtpModalVisible(true);
+        return;
+      }
       if (result.error === "offline") {
         await setUser({
           ...user,
@@ -1130,9 +1141,11 @@ export default function TechProfileScreen() {
       <OtpVerifyModal
         visible={otpModalVisible}
         mobile={pendingMobile}
-        onCancel={() => setOtpModalVisible(false)}
+        subtitle={otpSubtitle}
+        onCancel={() => { setOtpModalVisible(false); setOtpSubtitle(undefined); }}
         onVerified={async (token) => {
           setOtpModalVisible(false);
+          setOtpSubtitle(undefined);
           await applyProfileSave(pendingMobile, token);
         }}
       />
