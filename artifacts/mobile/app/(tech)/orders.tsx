@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import * as ImagePicker from "expo-image-picker";
 import { Asset } from "expo-asset";
 import { readAsStringAsync } from "expo-file-system/legacy";
 import VectorIcon from "@/components/VectorIcon";
@@ -16,6 +15,7 @@ import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
+import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 
 function getApiBaseUrl(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
@@ -145,19 +145,11 @@ export default function TechOrdersScreen() {
       );
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.75,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
+    const asset = await pickPhotoWithSourceChooser(isRTL);
+    if (!asset) return;
     setMatInvoicePhotoUploading(true);
     try {
-      const mimeType = asset.mimeType ?? "image/jpeg";
-      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
       setMatInvoicePhoto(url);
     } catch (_) {
       Alert.alert(
@@ -177,19 +169,11 @@ export default function TechOrdersScreen() {
       );
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.75,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
+    const asset = await pickPhotoWithSourceChooser(isRTL);
+    if (!asset) return;
     setPhaseUploading((prev) => ({ ...prev, [orderId]: true }));
     try {
-      const mimeType = asset.mimeType ?? "image/jpeg";
-      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
       const apiBase = getApiBaseUrl();
       let savedOnServer = false;
       if (apiBase) {
@@ -234,19 +218,11 @@ export default function TechOrdersScreen() {
       );
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.75,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
+    const asset = await pickPhotoWithSourceChooser(isRTL);
+    if (!asset) return;
     setAfterPhotoUploading(true);
     try {
-      const mimeType = asset.mimeType ?? "image/jpeg";
-      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
       setAfterPhotos((prev) => [...prev, url]);
     } catch {
       Alert.alert(
@@ -299,6 +275,7 @@ export default function TechOrdersScreen() {
       },
     };
     let serverSynced = false;
+    let afterPhotosSaved = false;
     try {
       const apiBase = getApiBaseUrl();
       if (apiBase && sessionToken) {
@@ -326,22 +303,36 @@ export default function TechOrdersScreen() {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
             body: JSON.stringify({ phase: "after", urls: afterPhotos }),
           });
+          afterPhotosSaved = photoRes.ok;
           if (!photoRes.ok) {
             console.warn(`[Fanni] After-photos save failed: ${photoRes.status}`);
+            Alert.alert(
+              isRTL ? "تحذير" : "Warning",
+              isRTL
+                ? "اكتمل الطلب لكن تعذّر حفظ صور \"بعد العمل\". يرجى إعادة رفعها."
+                : "Order completed but after-work photos could not be saved. Please re-upload them."
+            );
           }
+        } else {
+          afterPhotosSaved = true;
         }
+      } else {
+        afterPhotosSaved = true;
       }
     } catch (err) {
       console.warn("[Fanni] Network error completing order:", err);
     }
     if (serverSynced || !sessionToken) {
       const existingOrder = orders.find((o) => o.id === orderId);
-      const afterPhotoObjects = afterPhotos.map((url, i) => ({
-        id: `photo_after_${Date.now()}_${i}`,
-        uri: url,
-        phase: "after" as const,
-        timestamp: new Date().toISOString(),
-      }));
+      const afterPhotoObjects =
+        afterPhotosSaved && afterPhotos.length > 0
+          ? afterPhotos.map((url, i) => ({
+              id: `photo_after_${Date.now()}_${i}`,
+              uri: url,
+              phase: "after" as const,
+              timestamp: new Date().toISOString(),
+            }))
+          : [];
       await updateOrder(orderId, {
         ...completionPayload,
         photos: [...(existingOrder?.photos ?? []), ...afterPhotoObjects],

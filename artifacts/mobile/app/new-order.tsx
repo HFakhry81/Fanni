@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
+import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -328,21 +328,8 @@ export default function NewOrderScreen() {
       );
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert(
-        isRTL ? "لا يوجد إذن" : "Permission Required",
-        isRTL ? "يرجى السماح للتطبيق بالوصول إلى معرض الصور من الإعدادات." : "Please allow photo library access in your settings."
-      );
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.75,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
+    const asset = await pickPhotoWithSourceChooser(isRTL);
+    if (!asset) return;
     const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     if (!sessionToken) {
@@ -351,8 +338,7 @@ export default function NewOrderScreen() {
     }
     setPhotoUploading(true);
     try {
-      const mimeType = asset.mimeType ?? "image/jpeg";
-      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
       setOrderPhotos((prev) => [...prev, { id: photoId, uri: url, phase: "problem" as const }]);
     } catch (_) {
       Alert.alert(
