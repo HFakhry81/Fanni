@@ -26,6 +26,7 @@ interface ApiUser {
   mobile: string | null;
   role: "client" | "technician" | "admin" | null;
   isActive: boolean;
+  isAvailable: boolean | null;
   area: string | null;
   governorate: string | null;
   specialty: string | null;
@@ -225,6 +226,55 @@ export default function AdminUsersScreen() {
     );
   }, [isRTL, updateUser]);
 
+  const toggleAvailability = useCallback(async (user: ApiUser) => {
+    if (!sessionToken) return;
+    const newValue = !user.isAvailable;
+    const action = newValue
+      ? (isRTL ? "تفعيل التواجد" : "Set Available")
+      : (isRTL ? "إيقاف التواجد" : "Set Unavailable");
+    Alert.alert(
+      action,
+      isRTL
+        ? `هل تريد ${newValue ? "تفعيل" : "إيقاف"} تواجد ${user.firstName ?? "الفني"}؟`
+        : `Mark ${user.firstName ?? "this technician"} as ${newValue ? "available" : "unavailable"}?`,
+      [
+        { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+        {
+          text: action,
+          style: "default",
+          onPress: async () => {
+            setUpdatingId(user.id);
+            try {
+              const apiBase = getApiBaseUrl();
+              const res = await fetch(`${apiBase}/api/technicians/${user.id}/availability`, {
+                method: "PATCH",
+                headers: {
+                  Authorization: `Bearer ${sessionToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ isAvailable: newValue }),
+              });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+              }
+              setUsers((prev) =>
+                prev.map((u) => u.id === user.id ? { ...u, isAvailable: newValue } : u)
+              );
+            } catch (err) {
+              Alert.alert(
+                isRTL ? "خطأ" : "Error",
+                err instanceof Error ? err.message : "Failed to update availability"
+              );
+            } finally {
+              setUpdatingId(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [sessionToken, isRTL]);
+
   const formatDate = (iso: string) => {
     try {
       return new Date(iso).toLocaleDateString(isRTL ? "ar-EG" : "en-GB", {
@@ -244,6 +294,8 @@ export default function AdminUsersScreen() {
 
   const renderItem = ({ item }: { item: ApiUser }) => {
     const isActive = item.isActive;
+    const isTechnician = item.role === "technician";
+    const isAvailable = item.isAvailable === true;
     const name = displayName(item);
     const isUpdating = updatingId === item.id;
 
@@ -287,10 +339,19 @@ export default function AdminUsersScreen() {
                 </Text>
               </View>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: isActive ? "#D4EDDA" : "#FFE6E6", borderRadius: 8 }]}>
-              <Text style={{ color: isActive ? colors.success : colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
-                {isActive ? (isRTL ? "نشط" : "Active") : (isRTL ? "موقوف" : "Suspended")}
-              </Text>
+            <View style={{ alignItems: "flex-end", gap: 4 }}>
+              <View style={[styles.statusBadge, { backgroundColor: isActive ? "#D4EDDA" : "#FFE6E6", borderRadius: 8 }]}>
+                <Text style={{ color: isActive ? colors.success : colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                  {isActive ? (isRTL ? "نشط" : "Active") : (isRTL ? "موقوف" : "Suspended")}
+                </Text>
+              </View>
+              {isTechnician ? (
+                <View style={[styles.statusBadge, { backgroundColor: isAvailable ? "#E6F4FF" : "#F5F5F5", borderRadius: 8 }]}>
+                  <Text style={{ color: isAvailable ? "#0284C7" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                    {isAvailable ? (isRTL ? "متاح" : "Available") : (isRTL ? "غير متاح" : "Unavailable")}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -327,6 +388,18 @@ export default function AdminUsersScreen() {
                 </>
               )}
             </TouchableOpacity>
+            {isTechnician ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: isAvailable ? "#F0F9FF" : "#E6F4FF", borderRadius: colors.radius - 4, opacity: isUpdating ? 0.5 : 1 }]}
+                onPress={() => toggleAvailability(item)}
+                disabled={isUpdating}
+              >
+                <VectorIcon name={isAvailable ? "wifi-off" : "wifi"} size={14} color="#0284C7" />
+                <Text style={{ color: "#0284C7", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 4 }}>
+                  {isAvailable ? (isRTL ? "إيقاف التواجد" : "Set Offline") : (isRTL ? "تفعيل التواجد" : "Set Online")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </View>
@@ -366,7 +439,7 @@ export default function AdminUsersScreen() {
               }
             }}
           >
-            <Feather
+            <VectorIcon
               name={key === "technicians" ? "tool" : key === "admins" ? "shield" : "users"}
               size={14}
               color={tab === key ? "#FFF" : colors.mutedForeground}

@@ -230,6 +230,7 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
       mobile: usersTable.mobile,
       role: usersTable.role,
       isActive: usersTable.isActive,
+      isAvailable: usersTable.isAvailable,
       area: usersTable.area,
       governorate: usersTable.governorate,
       specialty: usersTable.specialty,

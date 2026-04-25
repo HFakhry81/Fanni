@@ -67,6 +67,7 @@ const ICON_MAP: Record<string, string> = {
   "user":           "👤",
   "user-plus":      "👤",
   "users":          "👥",
+  "wifi":           "📶",
   "wifi-off":       "📵",
   "wind":           "🌬",
   "x":              "✕",

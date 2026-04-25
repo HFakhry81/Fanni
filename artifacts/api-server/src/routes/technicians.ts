@@ -17,8 +17,9 @@ router.patch(
   requireAuth,
   async (req: Request<{ id: string }>, res) => {
     const { id } = req.params;
+    const requestingUser = req.user!;
 
-    if (req.user!.id !== id) {
+    if (requestingUser.id !== id && requestingUser.role !== "admin") {
       res.status(403).json({ error: "Forbidden: cannot update another technician's availability" });
       return;
     }
@@ -32,7 +33,7 @@ router.patch(
     const [updated] = await db
       .update(usersTable)
       .set({ isAvailable, updatedAt: new Date() })
-      .where(eq(usersTable.id, id))
+      .where(and(eq(usersTable.id, id), eq(usersTable.role, "technician")))
       .returning({ id: usersTable.id, isAvailable: usersTable.isAvailable });
 
     if (!updated) {
