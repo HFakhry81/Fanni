@@ -17,6 +17,7 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
+import ImageLightbox from "@/components/ImageLightbox";
 import type { LocationOption } from "@/components/LocationPicker";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import type { OrderPhoto } from "@/context/OrderContext";
@@ -125,6 +126,7 @@ export default function NewOrderScreen() {
   const routeParamsRef = useRef({ category, subCategory });
 
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -678,20 +680,29 @@ export default function NewOrderScreen() {
 
       {/* Service preview banner */}
       {bannerImage && (
-        <ImageBackground
-          source={bannerImage}
-          style={styles.banner}
-          resizeMode="cover"
-        >
-          <LinearGradient
-            colors={["rgba(0,0,0,0.18)", "rgba(0,0,0,0.62)"]}
-            style={styles.bannerGradient}
-          >
-            <Text style={styles.bannerLabel} numberOfLines={2}>
-              {subCategory}
-            </Text>
-          </LinearGradient>
-        </ImageBackground>
+        <>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => setLightboxVisible(true)}>
+            <ImageBackground
+              source={bannerImage}
+              style={styles.banner}
+              resizeMode="cover"
+            >
+              <LinearGradient
+                colors={["rgba(0,0,0,0.18)", "rgba(0,0,0,0.62)"]}
+                style={styles.bannerGradient}
+              >
+                <Text style={styles.bannerLabel} numberOfLines={2}>
+                  {subCategory}
+                </Text>
+              </LinearGradient>
+            </ImageBackground>
+          </TouchableOpacity>
+          <ImageLightbox
+            visible={lightboxVisible}
+            source={bannerImage}
+            onClose={() => setLightboxVisible(false)}
+          />
+        </>
       )}
 
       {/* Step indicator */}
