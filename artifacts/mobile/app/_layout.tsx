@@ -28,7 +28,7 @@ const queryClient = new QueryClient();
 
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const { user: authUser, sessionToken } = useAuth();
-  const { user: appUser, setUser, syncAvailabilityFromServer, isAvailabilityHydrated, t } = useApp();
+  const { user: appUser, setUser, syncAvailabilityFromServer, retryPendingAvailabilityToggle, isAvailabilityHydrated, t } = useApp();
   const hasSynced = React.useRef(false);
   const needsRetry = React.useRef(false);
   const sessionTokenRef = React.useRef<string | null | undefined>(null);
@@ -92,24 +92,26 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
-      if (
-        state.isConnected &&
-        needsRetry.current &&
-        authUserRef.current?.role === "technician" &&
-        sessionTokenRef.current
-      ) {
-        needsRetry.current = false;
-        syncAvailabilityFromServer(sessionTokenRef.current)
-          .then((ok) => {
-            if (ok) {
-              setSyncToastVisible(true);
-            } else {
+      if (state.isConnected) {
+        retryPendingAvailabilityToggle().catch(() => {});
+        if (
+          needsRetry.current &&
+          authUserRef.current?.role === "technician" &&
+          sessionTokenRef.current
+        ) {
+          needsRetry.current = false;
+          syncAvailabilityFromServer(sessionTokenRef.current)
+            .then((ok) => {
+              if (ok) {
+                setSyncToastVisible(true);
+              } else {
+                needsRetry.current = true;
+              }
+            })
+            .catch(() => {
               needsRetry.current = true;
-            }
-          })
-          .catch(() => {
-            needsRetry.current = true;
-          });
+            });
+        }
       }
     });
     return () => unsubscribe();

@@ -37,6 +37,7 @@ interface AppContextType {
   setIsOnline: (value: boolean, sessionToken?: string) => Promise<void>;
   isAvailabilityHydrated: boolean;
   syncAvailabilityFromServer: (sessionToken: string) => Promise<boolean>;
+  retryPendingAvailabilityToggle: () => Promise<boolean>;
 }
 
 const translations: Record<string, Record<Language, string>> = {
@@ -356,6 +357,8 @@ const translations: Record<string, Record<Language, string>> = {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const PENDING_TOGGLE_KEY = "pendingAvailabilityToggle";
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar");
   const [user, setUserState] = useState<User | null>(null);
@@ -401,6 +404,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.setItem("user", JSON.stringify(u));
       } else {
         await AsyncStorage.removeItem("user");
+        await AsyncStorage.removeItem(PENDING_TOGGLE_KEY);
       }
     } catch (_) {}
   };
@@ -438,20 +442,70 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem("techIsOnline", String(value));
     } catch (_) {}
     if (user?.id && sessionToken) {
-      try {
-        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-        const apiBase = domain ? `https://${domain}` : "";
-        if (apiBase) {
-          await fetch(`${apiBase}/api/technicians/${user.id}/availability`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify({ isAvailable: value }),
-          });
+      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+      const apiBase = domain ? `https://${domain}` : "";
+      if (apiBase) {
+        try {
+          const res = await fetch(
+            `${apiBase}/api/technicians/${user.id}/availability`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionToken}`,
+              },
+              body: JSON.stringify({ isAvailable: value }),
+            }
+          );
+          if (res.ok) {
+            try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
+          }
+        } catch (_networkErr) {
+          try {
+            await AsyncStorage.setItem(
+              PENDING_TOGGLE_KEY,
+              JSON.stringify({ value, sessionToken, userId: user.id })
+            );
+          } catch (_) {}
         }
-      } catch (_) {}
+      }
+    }
+  };
+
+  const retryPendingAvailabilityToggle = async (): Promise<boolean> => {
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_TOGGLE_KEY);
+      if (!raw) return false;
+      const { value, sessionToken, userId } = JSON.parse(raw) as {
+        value: boolean;
+        sessionToken: string;
+        userId: string;
+      };
+      if (!user?.id || user.id !== userId) {
+        try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
+        return false;
+      }
+      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+      const apiBase = domain ? `https://${domain}` : "";
+      if (!apiBase) return false;
+      const res = await fetch(
+        `${apiBase}/api/technicians/${userId}/availability`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify({ isAvailable: value }),
+        }
+      );
+      if (res.ok) {
+        try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   };
 
@@ -479,6 +533,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsOnline,
         isAvailabilityHydrated,
         syncAvailabilityFromServer,
+        retryPendingAvailabilityToggle,
       }}
     >
       {children}
