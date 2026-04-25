@@ -4,7 +4,7 @@ import { db, usersTable, adminsTable, loginLogsTable } from "@workspace/db";
 import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
-import { verifyOtpToken, OTP_ENABLED } from "../lib/otp";
+import { verifyOtpToken } from "../lib/otp";
 
 const router: IRouter = Router();
 
@@ -84,7 +84,7 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
   const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
 
   // Gate on OTP verification when enabled
-  if (OTP_ENABLED) {
+  if (process.env.ENABLE_OTP === "true") {
     if (!verificationToken) {
       res.status(400).json({ error: "Phone verification is required" });
       return;

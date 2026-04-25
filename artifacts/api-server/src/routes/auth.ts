@@ -1,7 +1,7 @@
 import * as oidc from "openid-client";
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
-import { signOtpToken, verifyOtpToken, OTP_ENABLED } from "../lib/otp";
+import { signOtpToken, verifyOtpToken } from "../lib/otp";
 import {
   GetCurrentAuthUserResponse,
   ExchangeMobileAuthorizationCodeBody,
@@ -360,7 +360,7 @@ function hashOtpCode(code: string): string {
 
 // PUBLIC: Returns feature flags relevant to the mobile client.
 router.get("/config", (_req: Request, res: Response) => {
-  res.json({ otpEnabled: OTP_ENABLED });
+  res.json({ otpEnabled: process.env.ENABLE_OTP === "true" });
 });
 
 // PUBLIC: Sends a 6-digit OTP to a mobile number. No auth required.
@@ -651,7 +651,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   }
 
   // OTP gate: when ENABLE_OTP=true, verificationToken is mandatory and must match the mobile number
-  if (OTP_ENABLED) {
+  if (process.env.ENABLE_OTP === "true") {
     if (!verificationToken) {
       res.status(400).json({ error: "Phone verification is required. Please verify your mobile number first." });
       return;

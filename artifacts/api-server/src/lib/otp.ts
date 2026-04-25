@@ -1,7 +1,5 @@
 import crypto from "node:crypto";
 
-export const OTP_ENABLED = process.env.ENABLE_OTP === "true";
-
 const JWT_HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
 
 export function signOtpToken(mobile: string): string {
