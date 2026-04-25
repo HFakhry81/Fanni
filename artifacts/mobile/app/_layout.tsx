@@ -28,12 +28,13 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
-  const { user: authUser, sessionToken } = useAuth();
+  const { user: authUser, sessionToken, refreshUser } = useAuth();
   const { user: appUser, setUser, syncAvailabilityFromServer, retryPendingAvailabilityToggle, isAvailabilityHydrated, t } = useApp();
   const hasSynced = React.useRef(false);
   const needsRetry = React.useRef(false);
   const sessionTokenRef = React.useRef<string | null | undefined>(null);
   const authUserRef = React.useRef<typeof authUser>(null);
+  const refreshUserRef = React.useRef(refreshUser);
   const lastForegroundSyncRef = React.useRef<number>(0);
   const FOREGROUND_SYNC_DEBOUNCE_MS = 30_000;
 
@@ -46,6 +47,10 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     authUserRef.current = authUser;
   }, [authUser]);
+
+  useEffect(() => {
+    refreshUserRef.current = refreshUser;
+  }, [refreshUser]);
 
   useEffect(() => {
     if (!isAvailabilityHydrated) return;
@@ -120,17 +125,19 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (
-        nextState === "active" &&
-        authUserRef.current?.role === "technician" &&
-        sessionTokenRef.current
-      ) {
+      if (nextState === "active" && authUserRef.current) {
         const now = Date.now();
         if (now - lastForegroundSyncRef.current >= FOREGROUND_SYNC_DEBOUNCE_MS) {
           lastForegroundSyncRef.current = now;
-          syncAvailabilityFromServer(sessionTokenRef.current).catch(() => {
-            needsRetry.current = true;
-          });
+          refreshUserRef.current().catch(() => {});
+          if (
+            authUserRef.current.role === "technician" &&
+            sessionTokenRef.current
+          ) {
+            syncAvailabilityFromServer(sessionTokenRef.current).catch(() => {
+              needsRetry.current = true;
+            });
+          }
         }
       }
     });

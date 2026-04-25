@@ -164,7 +164,7 @@ router.get("/auth/user", async (req: Request, res: Response) => {
     return;
   }
   const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user.id));
-  if (!dbUser) {
+  if (!dbUser || !dbUser.isActive) {
     res.json(GetCurrentAuthUserResponse.parse({ user: null }));
     return;
   }
