@@ -129,7 +129,6 @@ export default function AdminCategoriesScreen() {
   };
 
   const saveDomain = async () => {
-    if (!formNameEn.trim()) { setFormError(isRTL ? "الاسم بالإنجليزية مطلوب" : "English name is required"); return; }
     if (!formNameAr.trim()) { setFormError(isRTL ? "الاسم بالعربية مطلوب" : "Arabic name is required"); return; }
     setFormSaving(true);
     setFormError("");
@@ -156,7 +155,6 @@ export default function AdminCategoriesScreen() {
   };
 
   const saveSpec = async () => {
-    if (!formNameEn.trim()) { setFormError(isRTL ? "الاسم بالإنجليزية مطلوب" : "English name is required"); return; }
     if (!formNameAr.trim()) { setFormError(isRTL ? "الاسم بالعربية مطلوب" : "Arabic name is required"); return; }
     setFormSaving(true);
     setFormError("");

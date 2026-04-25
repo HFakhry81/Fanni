@@ -585,16 +585,18 @@ router.put("/admin/:adminId/permissions", authMiddleware, requireAuth, requireAd
   res.json({ success: true, permissions });
 });
 
-// ─── PUBLIC: Nested categories via admin path (domains + specializations) ─
+// ─── PUBLIC: Nested categories via admin path (active domains + specializations only) ─
 router.get("/admin/categories", async (req: Request, res: Response) => {
   const domains = await db
     .select()
     .from(serviceDomainsTable)
+    .where(eq(serviceDomainsTable.isActive, true))
     .orderBy(serviceDomainsTable.sortOrder, serviceDomainsTable.nameAr);
 
   const specializations = await db
     .select()
     .from(serviceSpecializationsTable)
+    .where(eq(serviceSpecializationsTable.isActive, true))
     .orderBy(serviceSpecializationsTable.sortOrder, serviceSpecializationsTable.nameAr);
 
   const specsByDomain: Record<string, typeof specializations> = {};
