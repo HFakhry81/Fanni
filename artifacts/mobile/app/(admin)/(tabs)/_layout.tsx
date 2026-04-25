@@ -1,11 +1,13 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import React from "react";
-import { Platform, StyleSheet, View, Text, useColorScheme } from "react-native";
+import React, { useState } from "react";
+import { Platform, StyleSheet, View, Text, TouchableOpacity, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import VectorIcon from "@/components/VectorIcon";
 
 function NativeAdminTabs() {
   return (
@@ -126,10 +128,75 @@ function ClassicAdminTabs() {
 }
 
 export default function AdminTabsLayout() {
-  if (isLiquidGlassAvailable()) return <NativeAdminTabs />;
-  return <ClassicAdminTabs />;
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const { user } = useAuth();
+  const { t, isRTL } = useApp();
+  const router = useRouter();
+  const colors = useColors();
+
+  const showBanner = !bannerDismissed && user?.mustChangePassword === true;
+
+  return (
+    <View style={styles.root}>
+      {showBanner && (
+        <View
+          style={[
+            styles.banner,
+            { flexDirection: isRTL ? "row-reverse" : "row" },
+          ]}
+        >
+          <VectorIcon name="alert-triangle" size={18} color="#C8880A" style={{ marginTop: 1 }} />
+          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+            <Text style={[styles.bannerText, { textAlign: isRTL ? "right" : "left" }]}>
+              {t("admin.defaultPasswordBanner")}
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({ pathname: "/(admin)/(tabs)/profile", params: { mode: "change-password" } })
+              }
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.bannerLink, { textAlign: isRTL ? "right" : "left" }]}>
+                {t("admin.changePasswordNow")} →
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={() => setBannerDismissed(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <VectorIcon name="x" size={18} color="#C8880A" />
+          </TouchableOpacity>
+        </View>
+      )}
+      {isLiquidGlassAvailable() ? <NativeAdminTabs /> : <ClassicAdminTabs />}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   tabIcon: { fontSize: 22 },
+  banner: {
+    backgroundColor: "#FFF3CD",
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#F5A623",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: "flex-start",
+    gap: 4,
+    zIndex: 10,
+  },
+  bannerText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: "#7A5200",
+    lineHeight: 18,
+  },
+  bannerLink: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+    color: "#C8880A",
+    marginTop: 4,
+  },
 });

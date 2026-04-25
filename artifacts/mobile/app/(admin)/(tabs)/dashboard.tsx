@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 import AppHeader from "@/components/AppHeader";
 import StatusBadge from "@/components/StatusBadge";
@@ -14,13 +13,9 @@ export default function AdminDashboardScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
-  const { user } = useAuth();
   const { allOrders } = useOrders();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
-
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const showDefaultPasswordBanner = !bannerDismissed && user?.mustChangePassword === true;
 
   const completed = allOrders.filter((o) => o.status === "completed");
   const pending = allOrders.filter((o) => o.status === "pending");
@@ -47,29 +42,6 @@ export default function AdminDashboardScreen() {
       />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
-        {/* Default password warning banner */}
-        {showDefaultPasswordBanner && (
-          <View style={[styles.banner, { backgroundColor: "#FFF3CD", borderColor: "#F5A623", flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <VectorIcon name="alert-triangle" size={18} color="#C8880A" style={{ marginTop: 1 }} />
-            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
-              <Text style={[styles.bannerText, { textAlign: isRTL ? "right" : "left" }]}>
-                {t("admin.defaultPasswordBanner")}
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.push({ pathname: "/(admin)/(tabs)/profile", params: { mode: "change-password" } })}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.bannerLink, { textAlign: isRTL ? "right" : "left" }]}>
-                  {t("admin.changePasswordNow")} →
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity onPress={() => setBannerDismissed(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <VectorIcon name="x" size={18} color="#C8880A" />
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* KPI grid */}
         <View style={styles.kpiGrid}>
           {kpis.map((kpi) => (
@@ -158,26 +130,6 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 16 },
-  banner: {
-    borderRadius: 10,
-    borderWidth: 1.5,
-    padding: 12,
-    marginBottom: 16,
-    alignItems: "flex-start",
-    gap: 4,
-  },
-  bannerText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#7A5200",
-    lineHeight: 18,
-  },
-  bannerLink: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 13,
-    color: "#C8880A",
-    marginTop: 4,
-  },
   kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
   kpiCard: { width: "47%", padding: 16, borderWidth: 1.5, alignItems: "center" },
   kpiIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
