@@ -32,28 +32,30 @@ function getWsUrl(): string {
   return `wss://${domain}/api/ws`;
 }
 
-function buildRegisterMessage(user: User | null, sessionToken: string | null): string {
-  const payload: Record<string, unknown> = { type: "register", isAvailable: true };
+function buildRegisterMessage(user: User | null, sessionToken: string | null, forceUnavailable?: boolean): string {
+  const payload: Record<string, unknown> = { type: "register", isAvailable: forceUnavailable ? false : true };
 
   if (sessionToken) {
     payload.token = sessionToken;
   }
 
-  if (user?.serviceCategories && user.serviceCategories.length > 0) {
-    payload.categories = user.serviceCategories.map((c) => c.toLowerCase());
-  } else if (user?.profession) {
-    const category = professionToCategory(user.profession);
-    if (category) {
-      payload.categories = [category];
+  if (!forceUnavailable) {
+    if (user?.serviceCategories && user.serviceCategories.length > 0) {
+      payload.categories = user.serviceCategories.map((c) => c.toLowerCase());
+    } else if (user?.profession) {
+      const category = professionToCategory(user.profession);
+      if (category) {
+        payload.categories = [category];
+      }
     }
-  }
 
-  if (user?.governorate) {
-    payload.governorate = user.governorate.toLowerCase();
-  }
+    if (user?.governorate) {
+      payload.governorate = user.governorate.toLowerCase();
+    }
 
-  if (user?.area) {
-    payload.area = user.area.toLowerCase();
+    if (user?.area) {
+      payload.area = user.area.toLowerCase();
+    }
   }
 
   return JSON.stringify(payload);
@@ -65,6 +67,8 @@ export function useOrderNotifications(
   sessionToken: string | null = null,
   onNewOrder?: () => void,
   onOrderCancelled?: (orderId: string) => void,
+  onAvailabilityChangedByAdmin?: (isAvailable: boolean) => void,
+  alwaysConnect: boolean = false,
 ) {
   const { injectNewOrder, removePendingOrder, bumpWsOrderStatusSignal, updateOrder } = useOrders();
   const injectRef = useRef(injectNewOrder);
@@ -75,8 +79,10 @@ export function useOrderNotifications(
   updateOrderRef.current = updateOrder;
   const onNewOrderRef = useRef(onNewOrder);
   const onOrderCancelledRef = useRef(onOrderCancelled);
+  const onAvailabilityChangedByAdminRef = useRef(onAvailabilityChangedByAdmin);
   onNewOrderRef.current = onNewOrder;
   onOrderCancelledRef.current = onOrderCancelled;
+  onAvailabilityChangedByAdminRef.current = onAvailabilityChangedByAdmin;
   injectRef.current = injectNewOrder;
   removeRef.current = removePendingOrder;
 
@@ -119,11 +125,11 @@ export function useOrderNotifications(
           clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = null;
         }
-        ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current));
+        ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current, alwaysConnect));
       };
 
       ws.onmessage = (event) => {
-        if (!isOnline) return;
+        if (!isOnline && !alwaysConnect) return;
         try {
           const data = JSON.parse(event.data as string);
           if (data.type === "ping") {
@@ -153,6 +159,9 @@ export function useOrderNotifications(
             updateOrderRef.current(id, fields);
             bumpSignalRef.current();
           }
+          if (data.type === "availability_changed_by_admin" && typeof data.isAvailable === "boolean") {
+            onAvailabilityChangedByAdminRef.current?.(data.isAvailable as boolean);
+          }
         } catch (_) {}
       };
 
@@ -170,7 +179,7 @@ export function useOrderNotifications(
       };
     }
 
-    if (isOnline) {
+    if (isOnline || alwaysConnect) {
       connect();
     } else {
       disconnect();
@@ -180,13 +189,13 @@ export function useOrderNotifications(
       mountedRef.current = false;
       disconnect();
     };
-  }, [isOnline, sessionToken]);
+  }, [isOnline, alwaysConnect, sessionToken]);
 
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline && !alwaysConnect) return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     authRejectedRef.current = false;
-    ws.send(buildRegisterMessage(user, sessionTokenRef.current));
-  }, [user?.id, user?.profession, user?.serviceCategories, user?.governorate, user?.area, isOnline]);
+    ws.send(buildRegisterMessage(user, sessionTokenRef.current, alwaysConnect));
+  }, [user?.id, user?.profession, user?.serviceCategories, user?.governorate, user?.area, isOnline, alwaysConnect]);
 }

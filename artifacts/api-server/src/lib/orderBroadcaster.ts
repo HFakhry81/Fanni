@@ -201,6 +201,8 @@ wss.on("connection", (ws: WebSocket) => {
         const hasConstraints = hasRoutingConstraints(meta);
         logger.info({ categories: meta.categories, governorate: meta.governorate, area: meta.area, hasConstraints }, "Technician registered with metadata");
 
+        deliverPendingNotifications(session.user.id, ws).catch(() => {});
+
         if (!hasConstraints) {
           logger.info("Technician registered with no routing constraints — no orders will be delivered");
           return;
@@ -476,6 +478,104 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
     },
     "Routed new order to matching technicians (text-based)"
   );
+}
+
+async function saveTechnicianNotification(technicianId: string, type: string, payload: Record<string, unknown>): Promise<string | null> {
+  try {
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query<{ id: string }>(
+        `INSERT INTO technician_notifications (technician_id, type, payload)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+        [technicianId, type, JSON.stringify(payload)],
+      );
+      return rows[0]?.id ?? null;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    logger.error({ err, technicianId, type }, "Failed to persist technician notification");
+    return null;
+  }
+}
+
+async function markNotificationsDelivered(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query(
+        `UPDATE technician_notifications SET delivered_at = now() WHERE id = ANY($1)`,
+        [ids],
+      );
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    logger.warn({ err, ids }, "Failed to mark technician notifications as delivered");
+  }
+}
+
+async function deliverPendingNotifications(technicianId: string, ws: WebSocket): Promise<void> {
+  try {
+    const client = await pool.connect();
+    let rows: Array<{ id: string; type: string; payload: unknown }> = [];
+    try {
+      const result = await client.query<{ id: string; type: string; payload: unknown }>(
+        `SELECT id, type, payload FROM technician_notifications
+         WHERE technician_id = $1 AND delivered_at IS NULL
+         ORDER BY created_at ASC`,
+        [technicianId],
+      );
+      rows = result.rows;
+    } finally {
+      client.release();
+    }
+
+    if (rows.length === 0) return;
+
+    const delivered: string[] = [];
+    for (const row of rows) {
+      if (ws.readyState !== WebSocket.OPEN) break;
+      const msg = JSON.stringify({ type: row.type, ...(row.payload as Record<string, unknown>) });
+      ws.send(msg);
+      delivered.push(row.id);
+    }
+
+    if (delivered.length > 0) {
+      logger.info({ technicianId, count: delivered.length }, "Delivered pending notifications to technician on connect");
+      await markNotificationsDelivered(delivered);
+    }
+  } catch (err) {
+    logger.warn({ err, technicianId }, "Failed to deliver pending notifications on technician connect");
+  }
+}
+
+export async function broadcastAvailabilityChangedToTechnician(technicianId: string, isAvailable: boolean): Promise<void> {
+  const notificationPayload = { isAvailable };
+
+  const notificationId = await saveTechnicianNotification(technicianId, "availability_changed_by_admin", notificationPayload);
+
+  const sockets = technicianSockets.get(technicianId);
+  if (!sockets || sockets.size === 0) {
+    logger.info({ technicianId }, "Technician not connected — admin availability change notification persisted for next login");
+    return;
+  }
+  const wirePayload = JSON.stringify({ type: "availability_changed_by_admin", isAvailable });
+  let sent = 0;
+  for (const ws of sockets) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(wirePayload);
+      sent++;
+    }
+  }
+
+  if (sent > 0 && notificationId) {
+    await markNotificationsDelivered([notificationId]);
+  }
+
+  logger.info({ technicianId, isAvailable, sent }, "Sent admin availability change notification to technician");
 }
 
 export function broadcastOrderStatusToClient(clientId: string, update: Record<string, unknown>): void {

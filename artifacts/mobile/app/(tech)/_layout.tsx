@@ -2,12 +2,14 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Platform, StyleSheet, View, Text, useColorScheme, Animated } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, buildSimulatedOrder } from "@/context/OrderContext";
+import { useOrderNotifications } from "@/hooks/useOrderNotifications";
+import Toast from "@/components/Toast";
 
 function CountBadge({ count }: { count: number }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -137,6 +139,72 @@ function ClassicTechTabs() {
   );
 }
 
+const ADMIN_AVAILABILITY_MESSAGES = {
+  online: {
+    en: "An admin has set you as available",
+    ar: "قام المشرف بتعيينك كمتاح",
+  },
+  offline: {
+    en: "An admin has set you as unavailable",
+    ar: "قام المشرف بتعيينك كغير متاح",
+  },
+};
+
+const DEDUP_WINDOW_MS = 2000;
+
+function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => void) {
+  const { user } = useApp();
+  const { sessionToken } = useAuth();
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
+  const lastShownAtRef = useRef<number>(0);
+
+  const deduplicatedCallback = useCallback((isAvailable: boolean) => {
+    const now = Date.now();
+    if (now - lastShownAtRef.current < DEDUP_WINDOW_MS) return;
+    lastShownAtRef.current = now;
+    onChangedRef.current(isAvailable);
+  }, []);
+
+  const stableCallback = deduplicatedCallback;
+
+  useOrderNotifications(
+    true,
+    user,
+    sessionToken,
+    undefined,
+    undefined,
+    stableCallback,
+    true,
+  );
+
+  useEffect(() => {
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+    if (!domain || !sessionToken) return;
+
+    async function fetchPending() {
+      try {
+        const res = await fetch(`https://${domain}/api/technician/notifications`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        if (!res.ok) return;
+        const json = await res.json() as { notifications?: Array<{ type: string; payload: { isAvailable?: boolean } }> };
+        for (const n of json.notifications ?? []) {
+          if (n.type === "availability_changed_by_admin" && typeof n.payload?.isAvailable === "boolean") {
+            deduplicatedCallback(n.payload.isAvailable);
+          }
+        }
+      } catch (_) {}
+    }
+
+    fetchPending();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") fetchPending();
+    });
+    return () => sub.remove();
+  }, [sessionToken]);
+}
+
 const DEMO_ORDER_DELAY_MS = 8000;
 
 function useDemoOrderBroadcast() {
@@ -198,10 +266,46 @@ function usePendingCountSync() {
 
 export default function TechLayout() {
   const { availablePendingCount } = useOrders();
+  const { language } = useApp();
+  const [adminNotification, setAdminNotification] = useState<{ message: string; visible: boolean }>({
+    message: "",
+    visible: false,
+  });
+
   usePendingCountSync();
   useDemoOrderBroadcast();
-  if (isLiquidGlassAvailable() && availablePendingCount === 0) return <NativeTechTabs />;
-  return <ClassicTechTabs />;
+
+  const handleAdminAvailabilityChange = useCallback(
+    (isAvailable: boolean) => {
+      const lang = language === "ar" ? "ar" : "en";
+      const key = isAvailable ? "online" : "offline";
+      const arMsg = ADMIN_AVAILABILITY_MESSAGES[key].ar;
+      const enMsg = ADMIN_AVAILABILITY_MESSAGES[key].en;
+      const message = lang === "ar" ? `${arMsg}\n${enMsg}` : `${enMsg}\n${arMsg}`;
+      setAdminNotification({ message, visible: true });
+    },
+    [language],
+  );
+
+  useAdminAvailabilityNotification(handleAdminAvailabilityChange);
+
+  const hideAdminNotification = useCallback(() => {
+    setAdminNotification((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const tabs = isLiquidGlassAvailable() && availablePendingCount === 0 ? <NativeTechTabs /> : <ClassicTechTabs />;
+
+  return (
+    <>
+      {tabs}
+      <Toast
+        visible={adminNotification.visible}
+        message={adminNotification.message}
+        duration={6000}
+        onHide={hideAdminNotification}
+      />
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

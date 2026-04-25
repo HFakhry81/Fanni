@@ -6,6 +6,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
 import { locationsMatch } from "../lib/locationNormalizer";
 import { queryFloat, queryInt, queryString } from "../lib/queryParams";
+import { broadcastAvailabilityChangedToTechnician } from "../lib/orderBroadcaster";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -42,9 +43,64 @@ router.patch(
       return;
     }
 
+    if (requestingUser.id !== id && requestingUser.role === "admin") {
+      broadcastAvailabilityChangedToTechnician(updated.id, updated.isAvailable).catch(() => {});
+    }
+
     res.json({ success: true, id: updated.id, isAvailable: updated.isAvailable });
   },
 );
+
+router.get("/technician/notifications", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can access this endpoint" });
+    return;
+  }
+
+  try {
+    const client = await pool.connect();
+    let rows: Array<{ id: string; type: string; payload: unknown; created_at: Date }> = [];
+    try {
+      const result = await client.query<{ id: string; type: string; payload: unknown; created_at: Date }>(
+        `SELECT id, type, payload, created_at
+         FROM technician_notifications
+         WHERE technician_id = $1 AND delivered_at IS NULL
+         ORDER BY created_at ASC`,
+        [user.id],
+      );
+      rows = result.rows;
+    } finally {
+      client.release();
+    }
+
+    if (rows.length > 0) {
+      const ids = rows.map((r) => r.id);
+      const markClient = await pool.connect();
+      try {
+        await markClient.query(
+          `UPDATE technician_notifications SET delivered_at = now() WHERE id = ANY($1)`,
+          [ids],
+        );
+      } finally {
+        markClient.release();
+      }
+      logger.info({ techId: user.id, count: rows.length }, "Delivered pending notifications to technician via HTTP");
+    }
+
+    const notifications = rows.map((r) => ({
+      id: r.id,
+      type: r.type,
+      payload: r.payload,
+      createdAt: r.created_at,
+    }));
+
+    res.json({ notifications });
+  } catch (err) {
+    logger.error({ err, techId: user.id }, "Failed to fetch technician notifications");
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+});
 
 router.get("/technicians/available", authMiddleware, requireAuth, async (req, res) => {
   const lat = queryFloat(req.query.lat);

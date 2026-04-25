@@ -103,6 +103,26 @@ async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "DB migration failed for sort_order columns");
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS technician_notifications (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        technician_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(100) NOT NULL,
+        payload JSONB NOT NULL,
+        delivered_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS technician_notifications_technician_id_idx
+      ON technician_notifications (technician_id)
+      WHERE delivered_at IS NULL
+    `);
+    logger.info("DB migration: technician_notifications table ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for technician_notifications");
+  }
   await seedDefaultCategories();
 }
 
