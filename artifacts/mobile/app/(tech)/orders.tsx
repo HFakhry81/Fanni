@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as ImagePicker from "expo-image-picker";
 import { Asset } from "expo-asset";
 import { readAsStringAsync } from "expo-file-system/legacy";
 import VectorIcon from "@/components/VectorIcon";
@@ -14,6 +15,7 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 
 function getApiBaseUrl(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
@@ -35,6 +37,8 @@ export default function TechOrdersScreen() {
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [matDesc, setMatDesc] = useState("");
   const [matAmount, setMatAmount] = useState("");
+  const [matInvoicePhoto, setMatInvoicePhoto] = useState<string | null>(null);
+  const [matInvoicePhotoUploading, setMatInvoicePhotoUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
 
@@ -128,11 +132,44 @@ export default function TechOrdersScreen() {
     }
   };
 
+  const pickInvoicePhoto = async () => {
+    if (!sessionToken) {
+      Alert.alert(
+        isRTL ? "غير مسجّل" : "Not Signed In",
+        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
+      );
+      return;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.75,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setMatInvoicePhotoUploading(true);
+    try {
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      setMatInvoicePhoto(url);
+    } catch (_) {
+      Alert.alert(
+        isRTL ? "فشل الرفع" : "Upload Failed",
+        isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
+      );
+    } finally {
+      setMatInvoicePhotoUploading(false);
+    }
+  };
+
   const addMaterial = () => {
     if (!matDesc || !matAmount) return;
-    setMaterials([...materials, { id: Date.now().toString(), description: matDesc, amount: parseFloat(matAmount) }]);
+    setMaterials([...materials, { id: Date.now().toString(), description: matDesc, amount: parseFloat(matAmount), invoicePhoto: matInvoicePhoto ?? undefined }]);
     setMatDesc("");
     setMatAmount("");
+    setMatInvoicePhoto(null);
   };
 
   const handleComplete = async (orderId: string) => {
@@ -295,6 +332,9 @@ export default function TechOrdersScreen() {
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>{t("tech.materials")}</Text>
             {materials.map((m) => (
               <View key={m.id} style={[styles.matItem, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                {m.invoicePhoto ? (
+                  <Image source={{ uri: m.invoicePhoto }} style={{ width: 32, height: 32, borderRadius: 4, marginRight: isRTL ? 0 : 6, marginLeft: isRTL ? 6 : 0 }} />
+                ) : null}
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14, flex: 1 }}>{m.description}</Text>
                 <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{m.amount} {t("common.egp")}</Text>
                 <TouchableOpacity onPress={() => setMaterials(materials.filter((x) => x.id !== m.id))} style={{ marginLeft: 10 }}>
@@ -309,6 +349,30 @@ export default function TechOrdersScreen() {
                 <VectorIcon name="plus" size={18} color="#FFF" />
               </TouchableOpacity>
             </View>
+            {/* Invoice receipt photo for current material being added */}
+            <TouchableOpacity
+              onPress={matInvoicePhoto ? () => setMatInvoicePhoto(null) : pickInvoicePhoto}
+              disabled={matInvoicePhotoUploading}
+              style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginTop: 8, padding: 8, borderWidth: 1, borderStyle: "dashed", borderColor: colors.border, borderRadius: 8, backgroundColor: colors.accent }}
+            >
+              {matInvoicePhotoUploading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : matInvoicePhoto ? (
+                <>
+                  <Image source={{ uri: matInvoicePhoto }} style={{ width: 40, height: 40, borderRadius: 6, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }} />
+                  <Text style={{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                    {isRTL ? "إزالة صورة الفاتورة" : "Remove receipt photo"}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <VectorIcon name="camera" size={16} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
+                    {isRTL ? "إضافة صورة فاتورة (اختياري)" : "Add receipt photo (optional)"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Solution */}

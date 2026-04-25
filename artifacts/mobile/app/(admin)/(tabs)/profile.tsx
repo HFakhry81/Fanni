@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
+import * as ImagePicker from "expo-image-picker";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -20,6 +23,7 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import Toast from "@/components/Toast";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
+import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -33,7 +37,7 @@ export default function AdminProfileScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language } = useApp();
-  const { logout, refreshUser } = useAuth();
+  const { logout, refreshUser, sessionToken } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -41,6 +45,7 @@ export default function AdminProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [changePwMode, setChangePwMode] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -236,6 +241,48 @@ export default function AdminProfileScreen() {
     .join("")
     .toUpperCase();
 
+  const avatarUri: string | null = (user as { avatar?: string | null })?.avatar ?? null;
+
+  const pickAdminPhoto = async () => {
+    if (!sessionToken) {
+      setToastMessage(isRTL ? "يجب تسجيل الدخول لرفع الصورة" : "Sign in required to upload photo");
+      setToastVisible(true);
+      return;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setAvatarUploading(true);
+    setToastMessage(isRTL ? "جاري رفع الصورة..." : "Uploading photo...");
+    setToastVisible(true);
+    try {
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      if (user) await setUser({ ...user, avatar: url });
+      const apiBase = getApiBaseUrl();
+      if (apiBase) {
+        await fetch(`${apiBase}/api/auth/me`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ profileImageUrl: url }),
+        }).catch(() => {});
+      }
+      setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
+    } catch (_) {
+      setToastMessage(isRTL ? "فشل رفع الصورة، يرجى المحاولة مرة أخرى" : "Upload failed, please try again");
+    } finally {
+      setAvatarUploading(false);
+      setToastVisible(true);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={t("admin.profile")} showHome showLangToggle onBack={() => router.replace("/(admin)/(tabs)/dashboard")} />
@@ -243,11 +290,22 @@ export default function AdminProfileScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Avatar hero */}
         <View style={[styles.hero, { backgroundColor: colors.darkMid }]}>
-          <View style={[styles.avatarRing, { borderColor: colors.primary }]}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              <Text style={styles.avatarText}>{initials}</Text>
+          <TouchableOpacity onPress={pickAdminPhoto} disabled={avatarUploading} style={[styles.avatarRing, { borderColor: colors.primary }]}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={[styles.avatar, { borderRadius: 40 }]} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                {avatarUploading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.avatarText}>{initials}</Text>
+                )}
+              </View>
+            )}
+            <View style={{ position: "absolute", bottom: 2, right: 2, backgroundColor: colors.primary, borderRadius: 10, padding: 3 }}>
+              <VectorIcon name="camera" size={10} color="#FFF" />
             </View>
-          </View>
+          </TouchableOpacity>
           <Text style={styles.heroName}>{user?.name ?? ""}</Text>
           <View style={[styles.roleBadge, { backgroundColor: "rgba(245,166,35,0.2)", borderColor: colors.primary }]}>
             <Text style={[styles.roleText, { color: colors.primary }]}>

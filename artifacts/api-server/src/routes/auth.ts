@@ -139,7 +139,7 @@ function buildAdminUser(admin: typeof adminsTable.$inferSelect) {
     email: admin.email ?? null,
     firstName: admin.firstName ?? null,
     lastName: admin.lastName ?? null,
-    profileImageUrl: null,
+    profileImageUrl: admin.profileImageUrl ?? null,
     role: "admin" as const,
     mobile: admin.mobile ?? null,
     governorate: null,
@@ -1019,6 +1019,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     if (firstNameVal !== undefined) adminUpdates.firstName = firstNameVal;
     if (lastNameVal !== undefined) adminUpdates.lastName = lastNameVal;
     if (emailVal !== undefined) adminUpdates.email = emailVal;
+    if (profileImageUrl !== undefined) adminUpdates.profileImageUrl = profileImageUrl ?? null;
 
     const [updatedAdmin] = await db
       .update(adminsTable)

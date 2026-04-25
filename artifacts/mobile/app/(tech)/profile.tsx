@@ -314,27 +314,27 @@ export default function TechProfileScreen() {
 
   const handlePickedPhoto = async (uri: string, mimeType: string) => {
     if (!user) return;
-    await setUser({ ...user, avatar: uri });
+    if (!sessionToken) {
+      setToastMessage(isRTL ? "يجب تسجيل الدخول لرفع الصورة" : "Sign in required to upload photo");
+      setToastVisible(true);
+      return;
+    }
     setToastMessage(isRTL ? "جاري رفع الصورة..." : "Uploading photo...");
     setToastVisible(true);
-    if (sessionToken) {
-      try {
-        const { url } = await uploadPhotoToServer(uri, sessionToken, mimeType);
-        await setUser({ ...user, avatar: url });
-        const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-        if (domain) {
-          await fetch(`https://${domain}/api/auth/me`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-            body: JSON.stringify({ profileImageUrl: url }),
-          }).catch(() => {});
-        }
-        setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
-      } catch (_) {
-        setToastMessage(isRTL ? "تم حفظ الصورة محلياً فقط" : "Photo saved locally only");
+    try {
+      const { url } = await uploadPhotoToServer(uri, sessionToken, mimeType);
+      await setUser({ ...user, avatar: url });
+      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
+      if (domain) {
+        await fetch(`https://${domain}/api/auth/me`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ profileImageUrl: url }),
+        }).catch(() => {});
       }
-    } else {
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
+    } catch (_) {
+      setToastMessage(isRTL ? "فشل رفع الصورة، يرجى المحاولة مرة أخرى" : "Upload failed, please try again");
     }
     setToastVisible(true);
   };

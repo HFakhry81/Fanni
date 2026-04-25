@@ -311,19 +311,25 @@ export default function NewOrderScreen() {
     const asset = result.assets[0];
     const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-    if (sessionToken) {
-      setPhotoUploading(true);
-      try {
-        const mimeType = asset.mimeType ?? "image/jpeg";
-        const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
-        setOrderPhotos((prev) => [...prev, { id: photoId, uri: url }]);
-      } catch (_) {
-        setOrderPhotos((prev) => [...prev, { id: photoId, uri: asset.uri }]);
-      } finally {
-        setPhotoUploading(false);
-      }
-    } else {
-      setOrderPhotos((prev) => [...prev, { id: photoId, uri: asset.uri }]);
+    if (!sessionToken) {
+      Alert.alert(
+        isRTL ? "غير مسجّل" : "Not Signed In",
+        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
+      );
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
+      setOrderPhotos((prev) => [...prev, { id: photoId, uri: url }]);
+    } catch (_) {
+      Alert.alert(
+        isRTL ? "فشل الرفع" : "Upload Failed",
+        isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
+      );
+    } finally {
+      setPhotoUploading(false);
     }
   };
 

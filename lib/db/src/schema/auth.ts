@@ -61,6 +61,7 @@ export const adminsTable = pgTable("admins", {
   lastName: varchar("last_name"),
   mobile: varchar("mobile", { length: 20 }).unique(),
   passwordHash: varchar("password_hash"),
+  profileImageUrl: varchar("profile_image_url"),
   isActive: boolean("is_active").notNull().default(true),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

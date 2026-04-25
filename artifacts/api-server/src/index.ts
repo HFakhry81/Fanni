@@ -37,6 +37,14 @@ async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "DB migration failed for admins.must_change_password");
   }
+  try {
+    await pool.query(
+      `ALTER TABLE admins ADD COLUMN IF NOT EXISTS profile_image_url VARCHAR`
+    );
+    logger.info("DB migration: admins.profile_image_url ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for admins.profile_image_url");
+  }
 }
 
 function verifyPassword(password: string, storedHash: string): boolean {
