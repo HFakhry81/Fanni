@@ -347,6 +347,18 @@ export default function TechOrdersScreen() {
     setAfterPhotos([]);
   };
 
+  const handleCancelComplete = () => {
+    setShowComplete(false);
+    setSelectedOrderId(null);
+    setSolutionDesc("");
+    setMaterials([]);
+    setMatDesc("");
+    setMatAmount("");
+    setMatInvoicePhoto(null);
+    setSatisfaction(null);
+    setAfterPhotos([]);
+  };
+
   const renderCard = ({ item }: { item: Order }) => {
     const isActive = ["accepted", "inProgress"].includes(item.status);
     return (
@@ -552,7 +564,7 @@ export default function TechOrdersScreen() {
   if (showComplete && selectedOrderId) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <AppHeader title={t("tech.complete")} showBack onBack={() => setShowComplete(false)} />
+        <AppHeader title={t("tech.complete")} showBack onBack={handleCancelComplete} />
         <ScrollView contentContainerStyle={[styles.completeContent, { paddingBottom: botPad + 24 }]} keyboardShouldPersistTaps="handled">
           {/* Materials */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
