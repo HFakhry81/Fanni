@@ -22,6 +22,7 @@ import ImageLightbox from "@/components/ImageLightbox";
 import type { LocationOption } from "@/components/LocationPicker";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import type { OrderPhoto } from "@/context/OrderContext";
+import * as FileSystem from "expo-file-system";
 
 // ── API helpers (mirror of LocationPicker) ────────────────────────────────────
 function getApiBase(): string {
@@ -150,6 +151,7 @@ export default function NewOrderScreen() {
     governorateId, areaId, govOpt, areaOpt,
     street, building, floor, apartment, landmark,
     latitude, longitude, visitDate, visitTime,
+    orderPhotos,
   });
   const routeParamsRef = useRef({ category, subCategory });
 
@@ -207,6 +209,8 @@ export default function NewOrderScreen() {
       if (draft.longitude != null) setLongitude(draft.longitude as number);
       if (draft.visitDate)      setVisitDate(draft.visitDate as string);
       if (draft.visitTime)      setVisitTime(draft.visitTime as string);
+      const restoredPhotos = await restorePhotosFromDraft(draft.photoUris);
+      setOrderPhotos(restoredPhotos);
       setStep(3);
       await AsyncStorage.removeItem(DRAFT_KEY);
       // Re-enable autosave now that the login-handoff draft has been consumed.
@@ -255,6 +259,7 @@ export default function NewOrderScreen() {
       governorateId, areaId, govOpt, areaOpt,
       street, building, floor, apartment, landmark,
       latitude, longitude, visitDate, visitTime,
+      orderPhotos,
     };
     routeParamsRef.current = { category, subCategory };
   });
@@ -298,14 +303,17 @@ export default function NewOrderScreen() {
       f.governorateId || f.areaId ||
       f.street || f.building || f.floor || f.apartment || f.landmark ||
       f.visitDate || f.visitTime ||
-      f.latitude != null || f.longitude != null;
+      f.latitude != null || f.longitude != null ||
+      f.orderPhotos.length > 0;
     if (!hasContent) return;                        // nothing to save
+    const { orderPhotos: _photos, ...fieldData } = f;
     const draft = {
-      ...f,
+      ...fieldData,
       step: stepOverride ?? f.step,
       category: cat, subCategory: sub,
       savedAt: Date.now(),
       loginFlow: false,
+      photoUris: f.orderPhotos.map((p) => ({ id: p.id, uri: p.uri, phase: p.phase })),
     };
     AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -328,6 +336,31 @@ export default function NewOrderScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Validate draft photo entries: check local URIs still exist on disk ────────
+  const restorePhotosFromDraft = async (
+    raw: unknown,
+  ): Promise<OrderPhoto[]> => {
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    const results: OrderPhoto[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry.uri !== "string") continue;
+      const uri: string = entry.uri;
+      const id: string = typeof entry.id === "string" ? entry.id : `photo_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const phase = entry.phase === "after" ? "after" as const : "problem" as const;
+      if (uri.startsWith("file://") || uri.startsWith("content://")) {
+        try {
+          const info = await FileSystem.getInfoAsync(uri);
+          if (info.exists) results.push({ id, uri, phase });
+        } catch {
+          // silently skip inaccessible URIs
+        }
+      } else {
+        results.push({ id, uri, phase });
+      }
+    }
+    return results;
+  };
+
   // ── Save draft and trigger login ─────────────────────────────────────────────
   const handleLoginToSubmit = async () => {
     loginDraftSavedRef.current = true;
@@ -341,6 +374,7 @@ export default function NewOrderScreen() {
       visitDate, visitTime,
       savedAt: Date.now(),
       loginFlow: true,
+      photoUris: orderPhotos.map((p) => ({ id: p.id, uri: p.uri, phase: p.phase })),
     };
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     const result = await login();
@@ -374,6 +408,8 @@ export default function NewOrderScreen() {
     if (d.visitDate)      setVisitDate(d.visitDate as string);
     if (d.visitTime)      setVisitTime(d.visitTime as string);
     if (d.step && (d.step === 1 || d.step === 2 || d.step === 3)) setStep(d.step as OrderStep);
+    const restoredPhotos = await restorePhotosFromDraft(d.photoUris);
+    setOrderPhotos(restoredPhotos);
     await AsyncStorage.removeItem(DRAFT_KEY);
     setShowDraftBanner(false);
     setPendingDraft(null);
