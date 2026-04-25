@@ -9,6 +9,8 @@ import {
   Image,
   Linking,
   Animated,
+  Share,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -309,6 +311,32 @@ export default function OrderTrackingScreen() {
     : [];
   const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng, routeCoords };
 
+  const handleShare = useCallback(async () => {
+    const deepLink = `mobile://order-tracking?orderId=${orderId}`;
+    const message = t("order.shareTrackingMsg");
+    if (Platform.OS === "web") {
+      const url = typeof window !== "undefined" ? window.location.href : deepLink;
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({ title: t("order.shareTracking"), text: message, url });
+          return;
+        } catch {}
+      }
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(url);
+          Alert.alert(t("order.shareTrackingCopied"), url);
+          return;
+        } catch {}
+      }
+      Alert.alert(t("order.shareTracking"), url);
+    } else {
+      try {
+        await Share.share({ message: `${message}\n${deepLink}`, url: deepLink, title: t("order.shareTracking") });
+      } catch {}
+    }
+  }, [orderId, t]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 10, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -322,7 +350,14 @@ export default function OrderTrackingScreen() {
         <Text style={[styles.headerTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
           {t("order.trackMap")}
         </Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity
+          onPress={handleShare}
+          style={[styles.backBtn, { backgroundColor: colors.muted, borderRadius: 10 }]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel={t("order.shareTracking")}
+        >
+          <VectorIcon name="share-2" size={20} color={colors.foreground} />
+        </TouchableOpacity>
       </View>
 
       {Platform.OS === "web" ? (
