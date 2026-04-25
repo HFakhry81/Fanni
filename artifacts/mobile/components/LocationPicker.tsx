@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
   FlatList, TextInput, ActivityIndicator,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import MapPickerModal, { type PickedLocation } from "@/components/MapPickerModal";
@@ -145,7 +145,7 @@ function Dropdown({
         <View style={[styles.dropdownIcon, { backgroundColor: colors.accentBlue, borderRadius: 8 }]}>
           {loading
             ? <ActivityIndicator size="small" color={colors.secondary} />
-            : <Feather name="map-pin" size={14} color={colors.secondary} />}
+            : <VectorIcon name="map-pin" size={14} color={colors.secondary} />}
         </View>
         <Text
           style={[
@@ -163,7 +163,7 @@ function Dropdown({
         >
           {value || placeholder}
         </Text>
-        <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+        <VectorIcon name="chevron-down" size={16} color={colors.mutedForeground} />
       </TouchableOpacity>
     </View>
   );
@@ -196,11 +196,11 @@ function ModalPicker({
           <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1 }}>{title}</Text>
             <TouchableOpacity onPress={onClose}>
-              <Feather name="x" size={22} color={colors.mutedForeground} />
+              <VectorIcon name="x" size={22} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
           <View style={[styles.searchWrap, { backgroundColor: colors.muted, borderRadius: 10, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Feather name="search" size={16} color={colors.mutedForeground} />
+            <VectorIcon name="search" size={16} color={colors.mutedForeground} />
             <TextInput
               value={search}
               onChangeText={setSearch}
@@ -234,7 +234,7 @@ function ModalPicker({
                     activeOpacity={0.8}
                   >
                     <View style={[styles.optionIcon, { backgroundColor: isSelected ? colors.primary + "20" : colors.muted, borderRadius: 8 }]}>
-                      <Feather name="map-pin" size={14} color={isSelected ? colors.primary : colors.mutedForeground} />
+                      <VectorIcon name="map-pin" size={14} color={isSelected ? colors.primary : colors.mutedForeground} />
                     </View>
                     <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
                       <Text style={{ color: isSelected ? colors.primary : colors.foreground, fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 15 }}>
@@ -244,13 +244,13 @@ function ModalPicker({
                         {isRTL ? item.en : item.ar}
                       </Text>
                     </View>
-                    {isSelected && <Feather name="check" size={16} color={colors.primary} />}
+                    {isSelected && <VectorIcon name="check" size={16} color={colors.primary} />}
                   </TouchableOpacity>
                 );
               }}
               ListEmptyComponent={
                 <View style={{ alignItems: "center", paddingTop: 40 }}>
-                  <Feather name="search" size={32} color={colors.border} />
+                  <VectorIcon name="search" size={32} color={colors.border} />
                   <Text style={{ color: colors.mutedForeground, fontSize: 14, marginTop: 10 }}>
                     {isRTL ? "لا توجد نتائج" : "No results"}
                   </Text>
@@ -379,7 +379,7 @@ function StreetAutocomplete({
             <ActivityIndicator size="small" color={colors.primary} style={{ marginHorizontal: 8 }} />
           )}
           {!loading && (
-            <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginHorizontal: 8 }} />
+            <VectorIcon name="search" size={16} color={colors.mutedForeground} style={{ marginHorizontal: 8 }} />
           )}
         </View>
 
@@ -392,7 +392,7 @@ function StreetAutocomplete({
                 onPress={() => onSelect(s)}
                 activeOpacity={0.8}
               >
-                <Feather name="map-pin" size={13} color={colors.primary} style={{ marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0, marginTop: 2 }} />
+                <VectorIcon name="map-pin" size={13} color={colors.primary} style={{ marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0, marginTop: 2 }} />
                 <Text style={{ color: colors.foreground, fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
                   {s.label}
                 </Text>
@@ -598,7 +598,7 @@ export default function LocationPicker({
         onPress={() => setShowMapPicker(true)}
         activeOpacity={0.8}
       >
-        <Feather
+        <VectorIcon
           name={hasPinnedLocation ? "check-circle" : "navigation"}
           size={22}
           color={hasPinnedLocation ? colors.primary : colors.secondary}

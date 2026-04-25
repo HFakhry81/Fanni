@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -49,7 +49,7 @@ export default function StatusBadge({ status, size = "sm" }: StatusBadgeProps) {
         },
       ]}
     >
-      <Feather name={cfg.icon as any} size={isSm ? 11 : 13} color={cfg.text} />
+      <VectorIcon name={cfg.icon} size={isSm ? 11 : 13} color={cfg.text} />
       <Text
         style={{
           color: cfg.text,

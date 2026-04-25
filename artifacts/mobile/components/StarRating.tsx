@@ -1,6 +1,6 @@
 import React from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 
@@ -37,8 +37,8 @@ export default function StarRating({
           disabled={readonly}
           activeOpacity={0.7}
         >
-          <Feather
-            name={star <= rating ? "star" : "star"}
+          <VectorIcon
+            name="star"
             size={size}
             color={star <= rating ? colors.primary : colors.border}
             style={styles.star}

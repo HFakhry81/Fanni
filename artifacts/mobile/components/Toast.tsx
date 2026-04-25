@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Text, StyleSheet, Platform, TouchableOpacity } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 
 interface ToastProps {
   visible: boolean;
@@ -57,7 +57,7 @@ export default function Toast({ visible, message, duration = 2000, onHide, onPre
 
   const inner = (
     <>
-      <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
+      <VectorIcon name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
       <Text style={[styles.text, { flex: 1 }]}>{message}</Text>
       {action && (
         <TouchableOpacity

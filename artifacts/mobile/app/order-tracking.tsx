@@ -417,7 +417,7 @@ export default function OrderTrackingScreen() {
                     styles.trafficBadge,
                     { backgroundColor: trafficLabel === "slow" ? "#FF6F00" : "#2E7D32" },
                   ]}>
-                    <Feather
+                    <VectorIcon
                       name={trafficLabel === "slow" ? "alert-triangle" : "zap"}
                       size={11}
                       color="#FFF"

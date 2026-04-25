@@ -131,7 +131,7 @@ export default function SelectRoleScreen() {
                     },
                   ]}
                 >
-                  <Feather
+                  <VectorIcon
                     name={opt.icon as any}
                     size={24}
                     color={isSelected ? "#fff" : colors.primary}
@@ -164,7 +164,7 @@ export default function SelectRoleScreen() {
                   </Text>
                 </View>
                 {isSelected && (
-                  <Feather
+                  <VectorIcon
                     name="check-circle"
                     size={20}
                     color="#fff"

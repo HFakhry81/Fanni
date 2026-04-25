@@ -7,7 +7,7 @@ import {
   ViewStyle,
   TouchableOpacity,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
@@ -108,7 +108,7 @@ export default function FanniInput({
             onPress={() => setShowPassword(!showPassword)}
             style={styles.eyeIcon}
           >
-            <Feather
+            <VectorIcon
               name={showPassword ? "eye" : "eye-off"}
               size={18}
               color={colors.mutedForeground}

@@ -3,7 +3,7 @@ import {
   View, Text, Modal, TouchableOpacity, TextInput,
   StyleSheet, FlatList, ActivityIndicator, Platform,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
@@ -209,7 +209,7 @@ export default function MapPickerModal({
         {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-            <Feather name="x" size={22} color={colors.mutedForeground} />
+            <VectorIcon name="x" size={22} color={colors.mutedForeground} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
             {isRTL ? "تحديد الموقع" : "Pin Location"}
@@ -218,13 +218,13 @@ export default function MapPickerModal({
             onPress={handleConfirm}
             style={[styles.headerBtn, { backgroundColor: colors.primary, borderRadius: 10 }]}
           >
-            <Feather name="check" size={20} color="#fff" />
+            <VectorIcon name="check" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
 
         {/* Search bar */}
         <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+          <VectorIcon name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
           <TextInput
             value={searchQ}
             onChangeText={onSearchChange}
@@ -247,7 +247,7 @@ export default function MapPickerModal({
                   style={[styles.searchItem, { borderBottomColor: colors.border }]}
                   onPress={() => selectSearchResult(item)}
                 >
-                  <Feather name="map-pin" size={14} color={colors.primary} style={{ marginRight: 8 }} />
+                  <VectorIcon name="map-pin" size={14} color={colors.primary} style={{ marginRight: 8 }} />
                   <Text style={{ color: colors.foreground, fontSize: 13, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
                     {item.display_name}
                   </Text>
@@ -261,7 +261,7 @@ export default function MapPickerModal({
         <View style={styles.mapWrap}>
           {isWeb ? (
             <View style={[styles.webFallback, { backgroundColor: colors.muted }]}>
-              <Feather name="map" size={48} color={colors.border} />
+              <VectorIcon name="map" size={48} color={colors.border} />
               <Text style={{ color: colors.mutedForeground, marginTop: 12, fontSize: 14, textAlign: "center" }}>
                 {isRTL ? "الخريطة التفاعلية متاحة على تطبيق الهاتف فقط" : "Interactive map is available on the mobile app"}
               </Text>
@@ -300,7 +300,7 @@ export default function MapPickerModal({
         {/* Bottom info bar */}
         <View style={[styles.infoBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <View style={styles.coordsRow}>
-            <Feather name="navigation" size={14} color={colors.primary} />
+            <VectorIcon name="navigation" size={14} color={colors.primary} />
             <Text style={[styles.coordsText, { color: colors.mutedForeground }]}>
               {markerCoords.latitude.toFixed(5)}, {markerCoords.longitude.toFixed(5)}
             </Text>
