@@ -562,9 +562,29 @@ export default function TechOrdersScreen() {
   };
 
   if (showComplete && selectedOrderId) {
+    const completeOrder = orders.find((o) => o.id === selectedOrderId);
+    const clientMobile = completeOrder?.clientMobile ?? null;
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader title={t("tech.complete")} showBack onBack={handleCancelComplete} />
+        {clientMobile ? (
+          <View style={[styles.contactStrip, { backgroundColor: colors.card, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <TouchableOpacity
+              style={[styles.contactBtn, { borderColor: colors.border }]}
+              onPress={() => Linking.openURL(`tel:${clientMobile}`).catch(() => Alert.alert(isRTL ? "تعذّر الاتصال" : "Cannot Call", isRTL ? "لا يمكن فتح تطبيق الاتصال." : "Unable to open the phone app."))}
+            >
+              <VectorIcon name="phone" size={16} color={colors.primary} />
+              <Text style={[styles.contactBtnText, { color: colors.primary }]}>{isRTL ? "اتصل بالعميل" : "Call Client"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.contactBtn, { borderColor: colors.border }]}
+              onPress={() => Linking.openURL(`sms:${clientMobile}`).catch(() => Alert.alert(isRTL ? "تعذّر الإرسال" : "Cannot Message", isRTL ? "لا يمكن فتح تطبيق الرسائل." : "Unable to open the messaging app."))}
+            >
+              <VectorIcon name="message-circle" size={16} color={colors.primary} />
+              <Text style={[styles.contactBtnText, { color: colors.primary }]}>{isRTL ? "راسل العميل" : "Message Client"}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <ScrollView contentContainerStyle={[styles.completeContent, { paddingBottom: botPad + 24 }]} keyboardShouldPersistTaps="handled">
           {/* Materials */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
@@ -749,4 +769,7 @@ const styles = StyleSheet.create({
   lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },
   lightboxImage: { width: "100%", height: "80%" },
   lightboxClose: { position: "absolute", top: 48, right: 20, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 8 },
+  contactStrip: { flexDirection: "row", borderBottomWidth: 1 },
+  contactBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 6, borderRightWidth: 0 },
+  contactBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
 });
