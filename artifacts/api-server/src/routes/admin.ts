@@ -317,6 +317,60 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, asyn
   res.json({ success: true, user: updated });
 });
 
+// ADMIN ONLY: Reset another admin's password
+router.post("/admin/admins/:id/reset-password", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+  const targetId = req.params.id;
+  const { password } = req.body as { password?: string };
+
+  if (!targetId) {
+    res.status(400).json({ error: "Admin ID is required" });
+    return;
+  }
+
+  if (targetId === req.user?.id) {
+    res.status(400).json({ error: "Use the profile screen to change your own password" });
+    return;
+  }
+
+  if (!password) {
+    res.status(400).json({ error: "New password is required" });
+    return;
+  }
+
+  if (
+    password.length < 8 ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[^A-Za-z0-9]/.test(password)
+  ) {
+    res.status(400).json({ error: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character" });
+    return;
+  }
+
+  const [target] = await db
+    .select({ id: adminsTable.id, isActive: adminsTable.isActive })
+    .from(adminsTable)
+    .where(eq(adminsTable.id, targetId));
+
+  if (!target) {
+    res.status(404).json({ error: "Admin not found" });
+    return;
+  }
+
+  const salt = generateSalt();
+  const hashedPassword = hashPassword(password, salt);
+  const passwordHash = `${salt}:${hashedPassword}`;
+
+  await db
+    .update(adminsTable)
+    .set({ passwordHash, mustChangePassword: true })
+    .where(eq(adminsTable.id, targetId));
+
+  req.log.info({ targetAdminId: targetId, resetBy: req.user?.id }, "Admin password reset by another admin");
+  res.json({ success: true });
+});
+
 // ADMIN ONLY: Get login logs with optional filters
 router.get("/admin/login-logs", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));

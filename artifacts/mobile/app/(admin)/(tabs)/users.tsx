@@ -9,6 +9,8 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Modal,
+  KeyboardAvoidingView,
 } from "react-native";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -54,10 +56,22 @@ const TAB_ROLE_MAP: Record<UserTab, string> = {
   admins: "admin",
 };
 
+function generateStrongPassword(): string {
+  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lower = "abcdefghijklmnopqrstuvwxyz";
+  const digits = "0123456789";
+  const special = "!@#$%^&*";
+  const all = upper + lower + digits + special;
+  const rand = (set: string) => set[Math.floor(Math.random() * set.length)];
+  const base = [rand(upper), rand(lower), rand(digits), rand(special)];
+  for (let i = 0; i < 8; i++) base.push(rand(all));
+  return base.sort(() => Math.random() - 0.5).join("");
+}
+
 export default function AdminUsersScreen() {
   const colors = useColors();
   const { t, isRTL } = useApp();
-  const { sessionToken } = useAuth();
+  const { sessionToken, user: currentUser } = useAuth();
 
   const [tab, setTab] = useState<UserTab>("technicians");
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -72,6 +86,12 @@ export default function AdminUsersScreen() {
   const currentPage = useRef(1);
   const replaceAbortController = useRef<AbortController | null>(null);
   const isLoadingMoreRef = useRef(false);
+
+  const [resetTarget, setResetTarget] = useState<ApiUser | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchQuery(text);
@@ -205,6 +225,56 @@ export default function AdminUsersScreen() {
       setUpdatingId(null);
     }
   }, [sessionToken, isRTL]);
+
+  const openResetModal = useCallback((user: ApiUser) => {
+    setResetTarget(user);
+    setResetPassword("");
+    setShowResetPassword(false);
+    setResetError(null);
+  }, []);
+
+  const closeResetModal = useCallback(() => {
+    setResetTarget(null);
+    setResetPassword("");
+    setResetError(null);
+  }, []);
+
+  const submitPasswordReset = useCallback(async () => {
+    if (!resetTarget || !sessionToken) return;
+    if (!resetPassword.trim()) {
+      setResetError(isRTL ? "أدخل كلمة المرور الجديدة" : "Enter a new password");
+      return;
+    }
+    setIsResetting(true);
+    setResetError(null);
+    try {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/admin/admins/${resetTarget.id}/reset-password`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password: resetPassword }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) {
+        setResetError(data.error ?? (isRTL ? "فشل إعادة تعيين كلمة المرور" : "Failed to reset password"));
+        return;
+      }
+      closeResetModal();
+      Alert.alert(
+        isRTL ? "تم بنجاح" : "Password Reset",
+        isRTL
+          ? `تم إعادة تعيين كلمة مرور ${resetTarget.firstName ?? "المدير"} بنجاح. سيُطلب منهم تغييرها عند تسجيل الدخول.`
+          : `${resetTarget.firstName ?? "Admin"}'s password has been reset. They will be prompted to change it on next login.`
+      );
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : (isRTL ? "فشل إعادة تعيين كلمة المرور" : "Failed to reset password"));
+    } finally {
+      setIsResetting(false);
+    }
+  }, [resetTarget, sessionToken, resetPassword, isRTL, closeResetModal]);
 
   const toggleStatus = useCallback((user: ApiUser) => {
     const action = user.isActive
@@ -400,6 +470,18 @@ export default function AdminUsersScreen() {
                 </Text>
               </TouchableOpacity>
             ) : null}
+            {item.role === "admin" && item.id !== currentUser?.id ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: "#F5F3FF", borderRadius: colors.radius - 4, opacity: isUpdating ? 0.5 : 1 }]}
+                onPress={() => openResetModal(item)}
+                disabled={isUpdating}
+              >
+                <VectorIcon name="key" size={14} color="#7C3AED" />
+                <Text style={{ color: "#7C3AED", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 4 }}>
+                  {isRTL ? "إعادة تعيين" : "Reset PW"}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </View>
@@ -470,6 +552,88 @@ export default function AdminUsersScreen() {
           </TouchableOpacity>
         ) : null}
       </View>
+
+      <Modal
+        visible={resetTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeResetModal}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+              <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <VectorIcon name="key" size={18} color="#7C3AED" />
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                  {isRTL ? "إعادة تعيين كلمة المرور" : "Reset Password"}
+                </Text>
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL
+                  ? `إعادة تعيين كلمة مرور ${resetTarget?.firstName ?? "المدير"}. سيُطلب منهم تغييرها عند تسجيل الدخول التالي.`
+                  : `Reset password for ${resetTarget?.firstName ?? "this admin"}. They will be required to change it on next login.`}
+              </Text>
+
+              <View style={[styles.passwordRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  style={[styles.passwordInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  placeholder={isRTL ? "كلمة المرور الجديدة" : "New password"}
+                  placeholderTextColor={colors.mutedForeground}
+                  value={resetPassword}
+                  onChangeText={(t) => { setResetPassword(t); setResetError(null); }}
+                  secureTextEntry={!showResetPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity onPress={() => setShowResetPassword((v) => !v)} style={{ padding: 4 }}>
+                  <VectorIcon name={showResetPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.generateBtn, { borderColor: "#7C3AED" }]}
+                onPress={() => { setResetPassword(generateStrongPassword()); setShowResetPassword(true); setResetError(null); }}
+              >
+                <VectorIcon name="refresh-cw" size={14} color="#7C3AED" />
+                <Text style={{ color: "#7C3AED", fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
+                  {isRTL ? "توليد كلمة مرور" : "Generate password"}
+                </Text>
+              </TouchableOpacity>
+
+              {resetError ? (
+                <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left" }}>
+                  {resetError}
+                </Text>
+              ) : null}
+
+              <View style={[styles.modalActions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: colors.muted, borderRadius: colors.radius - 4 }]}
+                  onPress={closeResetModal}
+                  disabled={isResetting}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                    {isRTL ? "إلغاء" : "Cancel"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: "#7C3AED", borderRadius: colors.radius - 4, opacity: isResetting ? 0.6 : 1 }]}
+                  onPress={submitPasswordReset}
+                  disabled={isResetting}
+                >
+                  {isResetting ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                      {isRTL ? "إعادة تعيين" : "Reset"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -558,4 +722,12 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 60 },
   retryBtn: { paddingHorizontal: 24, paddingVertical: 10 },
   roleBadge: { alignSelf: "flex-start", paddingVertical: 2, paddingHorizontal: 7, borderRadius: 6, marginTop: 3 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
+  modalCard: { width: "100%", maxWidth: 440, padding: 24, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
+  modalHeader: { alignItems: "center", marginBottom: 12 },
+  passwordRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 2, marginBottom: 10 },
+  passwordInput: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 14, paddingVertical: 10 },
+  generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 10, paddingVertical: 10, marginBottom: 4 },
+  modalActions: { gap: 10, marginTop: 20 },
+  modalBtn: { flex: 1, paddingVertical: 12, alignItems: "center" },
 });
