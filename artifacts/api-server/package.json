@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "pnpm --filter @workspace/db build && tsc -p tsconfig.json --noEmit",
-    "normalize-areas": "pnpm --filter @workspace/db build && tsx src/scripts/normalizeOrderAreas.ts"
+    "normalize-areas": "pnpm --filter @workspace/db build && tsx src/scripts/normalizeOrderAreas.ts",
+    "backfill-locations": "pnpm --filter @workspace/db build && tsx migrations/010-backfill-user-locations.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
