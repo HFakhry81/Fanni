@@ -254,6 +254,7 @@ export default function TechProfileScreen() {
   const govText = govData ? (isRTL ? govData.ar : govData.en) : (isRTL ? "الإسكندرية" : "Alexandria");
   const areaText = areaData ? (isRTL ? areaData.ar : areaData.en) : (isRTL ? "حي شرق" : "Al Sharq District");
   const hasServiceArea = !!(govData && areaData);
+  const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
   const serviceAreaDisplay = hasServiceArea
     ? `${isRTL ? govData!.ar : govData!.en} — ${isRTL ? areaData!.ar : areaData!.en}`
     : null;
@@ -583,6 +584,34 @@ export default function TechProfileScreen() {
               </Text>
             </View>
             <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#D97706" />
+          </TouchableOpacity>
+        )}
+
+        {/* Categories reminder banner */}
+        {!hasCategories && (
+          <TouchableOpacity
+            style={[styles.serviceAreaBanner, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA", flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={() => {
+              setHighlightCategories(true);
+              openEdit();
+              setTimeout(() => {
+                editScrollRef.current?.scrollTo({ y: categoriesYRef.current, animated: true });
+              }, 400);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.serviceAreaIcon, { backgroundColor: "#FFEDD5" }]}>
+              <VectorIcon name="grid" size={14} color="#EA580C" />
+            </View>
+            <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
+              <Text style={{ color: "#7C2D12", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                {t("tech.noCategories")}
+              </Text>
+              <Text style={{ color: "#C2410C", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
+                {t("tech.noCategoriesPrompt")}
+              </Text>
+            </View>
+            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#EA580C" />
           </TouchableOpacity>
         )}
 
