@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable } from "@workspace/db";
+import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable } from "@workspace/db";
 import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -304,7 +304,7 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   });
 });
 
-router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, async (req: Request<{ id: string }>, res: Response) => {
+router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_users"), async (req: Request<{ id: string }>, res: Response) => {
   const id = req.params.id;
   const { role, isActive } = req.body as { role?: string; isActive?: boolean };
 
@@ -585,6 +585,42 @@ router.put("/admin/:adminId/permissions", authMiddleware, requireAuth, requireAd
   res.json({ success: true, permissions });
 });
 
+// ─── PATCH alias: PATCH /admin/users/:id/permissions (task spec contract) ─────
+router.patch("/admin/users/:id/permissions", authMiddleware, requireAuth, requireAdmin, requireSuperAdmin, async (req: Request<{ id: string }>, res: Response) => {
+  const { permissions } = req.body as { permissions?: string[] };
+  if (!Array.isArray(permissions)) {
+    res.status(400).json({ error: "permissions must be an array of strings" });
+    return;
+  }
+  const [target] = await db.select({ id: adminsTable.id, isSuperAdmin: adminsTable.isSuperAdmin }).from(adminsTable).where(eq(adminsTable.id, req.params.id));
+  if (!target) { res.status(404).json({ error: "Admin not found" }); return; }
+  if (target.isSuperAdmin) { res.status(400).json({ error: "Cannot modify super-admin permissions" }); return; }
+  await db.update(adminsTable).set({ permissions }).where(eq(adminsTable.id, req.params.id));
+  req.log.info({ byAdmin: req.user?.id, targetAdmin: req.params.id, permCount: permissions.length }, "Admin permissions updated via PATCH alias");
+  res.json({ success: true, permissions });
+});
+
+// ─── Admin order force-status override (requires override_orders permission) ──
+const ALLOWED_FORCE_STATUSES = ["pending", "acknowledged", "in_progress", "completed", "cancelled"] as const;
+type ForceStatus = typeof ALLOWED_FORCE_STATUSES[number];
+
+router.patch("/admin/orders/:id/force-status", authMiddleware, requireAuth, requireAdmin, requirePermission("override_orders"), async (req: Request<{ id: string }>, res: Response) => {
+  const { status, reason } = req.body as { status?: string; reason?: string };
+  if (!status || !(ALLOWED_FORCE_STATUSES as readonly string[]).includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${ALLOWED_FORCE_STATUSES.join(", ")}` });
+    return;
+  }
+  const [order] = await db.select({ id: ordersTable.id, status: ordersTable.status }).from(ordersTable).where(eq(ordersTable.id, req.params.id));
+  if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+  const [updated] = await db
+    .update(ordersTable)
+    .set({ status: status as ForceStatus, updatedAt: new Date() })
+    .where(eq(ordersTable.id, req.params.id))
+    .returning({ id: ordersTable.id, status: ordersTable.status });
+  req.log.info({ byAdmin: req.user?.id, orderId: req.params.id, from: order.status, to: status, reason }, "Admin force-overrode order status");
+  res.json({ success: true, order: updated });
+});
+
 // ─── PUBLIC: Nested categories via admin path (active domains + specializations only) ─
 router.get("/admin/categories", async (req: Request, res: Response) => {
   const domains = await db
@@ -727,6 +763,187 @@ router.delete("/admin/categories/specializations/:id", authMiddleware, requireAu
     .returning({ id: serviceSpecializationsTable.id });
   if (!deleted) { res.status(404).json({ error: "Specialization not found" }); return; }
   res.json({ success: true });
+});
+
+// ─── ADMIN: P&L Report ────────────────────────────────────────────────────
+router.get("/admin/reports/pnl", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (req: Request, res: Response) => {
+  const { from, to, period } = req.query as { from?: string; to?: string; period?: string };
+
+  // Determine date range
+  let fromDate: Date;
+  let toDate: Date = new Date();
+
+  if (from && to) {
+    fromDate = new Date(from);
+    toDate = new Date(to);
+  } else {
+    fromDate = new Date();
+    if (period === "week") {
+      fromDate.setDate(fromDate.getDate() - 7);
+    } else if (period === "year") {
+      fromDate.setFullYear(fromDate.getFullYear() - 1);
+    } else {
+      // default: month
+      fromDate.setMonth(fromDate.getMonth() - 1);
+    }
+  }
+
+  const conditions = [
+    eq(invoicesTable.invoiceType, "admin"),
+    gte(invoicesTable.createdAt, fromDate),
+    lte(invoicesTable.createdAt, toDate),
+  ];
+
+  const [totals] = await db
+    .select({
+      orderCount: sql<number>`count(*)::int`,
+      totalLabour: sql<string>`coalesce(sum(${invoicesTable.labourFee}::numeric), 0)`,
+      totalServiceFee: sql<string>`coalesce(sum(${invoicesTable.serviceFeeAmount}::numeric), 0)`,
+      totalVat: sql<string>`coalesce(sum(${invoicesTable.vatAmount}::numeric), 0)`,
+      totalRevenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
+    })
+    .from(invoicesTable)
+    .where(and(...conditions));
+
+  // Category breakdown
+  const catRows = await db
+    .select({
+      category: invoicesTable.category,
+      orderCount: sql<number>`count(*)::int`,
+      revenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
+    })
+    .from(invoicesTable)
+    .where(and(...conditions))
+    .groupBy(invoicesTable.category)
+    .orderBy(desc(sql`sum(${invoicesTable.total}::numeric)`));
+
+  const totalLabour = parseFloat(totals?.totalLabour ?? "0");
+  const combinedServiceFee = parseFloat(totals?.totalServiceFee ?? "0");
+  const vatCollected = parseFloat(totals?.totalVat ?? "0");
+  const totalPlatformRevenue = parseFloat(totals?.totalRevenue ?? "0");
+
+  // Platform charges 15% from technician and 15% from client; serviceFeeAmount is the combined amount
+  const technicianServiceFee = combinedServiceFee / 2;
+  const clientServiceFee = combinedServiceFee / 2;
+  // Net platform profit = service fees (excluding VAT which is a pass-through to tax authority)
+  const netPlatformProfit = combinedServiceFee;
+
+  res.json({
+    period: { from: fromDate.toISOString(), to: toDate.toISOString() },
+    orderCount: totals?.orderCount ?? 0,
+    totalLabour,
+    technicianServiceFee,
+    clientServiceFee,
+    vatCollected,
+    totalPlatformRevenue,
+    netPlatformProfit,
+    categoryBreakdown: catRows.map((r) => ({
+      category: r.category ?? "unknown",
+      orderCount: r.orderCount,
+      revenue: parseFloat(r.revenue),
+    })),
+  });
+});
+
+// ─── ADMIN: Balance Sheet Report ──────────────────────────────────────────
+router.get("/admin/reports/balance-sheet", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (req: Request, res: Response) => {
+  const { year } = req.query as { year?: string };
+  const targetYear = year ? parseInt(year, 10) : new Date().getFullYear();
+
+  const fromDate = new Date(`${targetYear}-01-01T00:00:00Z`);
+  const toDate = new Date(`${targetYear}-12-31T23:59:59Z`);
+
+  const monthlyRows = await db
+    .select({
+      month: sql<number>`extract(month from ${invoicesTable.createdAt})::int`,
+      orderCount: sql<number>`count(*)::int`,
+      revenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
+      serviceFees: sql<string>`coalesce(sum(${invoicesTable.serviceFeeAmount}::numeric), 0)`,
+      vat: sql<string>`coalesce(sum(${invoicesTable.vatAmount}::numeric), 0)`,
+    })
+    .from(invoicesTable)
+    .where(and(
+      eq(invoicesTable.invoiceType, "admin"),
+      gte(invoicesTable.createdAt, fromDate),
+      lte(invoicesTable.createdAt, toDate),
+    ))
+    .groupBy(sql`extract(month from ${invoicesTable.createdAt})`)
+    .orderBy(sql`extract(month from ${invoicesTable.createdAt})`);
+
+  const catRows = await db
+    .select({
+      category: invoicesTable.category,
+      revenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
+    })
+    .from(invoicesTable)
+    .where(and(
+      eq(invoicesTable.invoiceType, "admin"),
+      gte(invoicesTable.createdAt, fromDate),
+      lte(invoicesTable.createdAt, toDate),
+    ))
+    .groupBy(invoicesTable.category)
+    .orderBy(desc(sql`sum(${invoicesTable.total}::numeric)`));
+
+  // Build 12-month grid with running totals
+  let runningTotal = 0;
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const row = monthlyRows.find((r) => r.month === i + 1);
+    const revenue = parseFloat(row?.revenue ?? "0");
+    runningTotal += revenue;
+    return {
+      month: i + 1,
+      orderCount: row?.orderCount ?? 0,
+      revenue,
+      serviceFees: parseFloat(row?.serviceFees ?? "0"),
+      vat: parseFloat(row?.vat ?? "0"),
+      runningTotal,
+    };
+  });
+
+  res.json({
+    year: targetYear,
+    months,
+    totalRevenue: runningTotal,
+    categoryBreakdown: catRows.map((r) => ({
+      category: r.category ?? "unknown",
+      revenue: parseFloat(r.revenue),
+    })),
+  });
+});
+
+// ─── ADMIN: Annual Report ─────────────────────────────────────────────────
+router.get("/admin/reports/annual", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (req: Request, res: Response) => {
+  const { year, from, to } = req.query as { year?: string; from?: string; to?: string };
+
+  const conditions: ReturnType<typeof eq>[] = [eq(invoicesTable.invoiceType, "admin") as ReturnType<typeof eq>];
+  if (year) {
+    const y = parseInt(year, 10);
+    conditions.push(gte(invoicesTable.createdAt, new Date(`${y}-01-01T00:00:00Z`)) as ReturnType<typeof eq>);
+    conditions.push(lte(invoicesTable.createdAt, new Date(`${y}-12-31T23:59:59Z`)) as ReturnType<typeof eq>);
+  } else {
+    if (from) conditions.push(gte(invoicesTable.createdAt, new Date(from)) as ReturnType<typeof eq>);
+    if (to) conditions.push(lte(invoicesTable.createdAt, new Date(to)) as ReturnType<typeof eq>);
+  }
+
+  const yearlyRows = await db
+    .select({
+      year: sql<number>`extract(year from ${invoicesTable.createdAt})::int`,
+      orderCount: sql<number>`count(*)::int`,
+      totalRevenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
+    })
+    .from(invoicesTable)
+    .where(and(...conditions))
+    .groupBy(sql`extract(year from ${invoicesTable.createdAt})`)
+    .orderBy(sql`extract(year from ${invoicesTable.createdAt})`);
+
+  const years = yearlyRows.map((r) => ({
+    year: r.year,
+    orderCount: r.orderCount,
+    totalRevenue: parseFloat(r.totalRevenue),
+    avgRevenuePerOrder: r.orderCount > 0 ? parseFloat(r.totalRevenue) / r.orderCount : 0,
+  }));
+
+  res.json({ years });
 });
 
 export default router;

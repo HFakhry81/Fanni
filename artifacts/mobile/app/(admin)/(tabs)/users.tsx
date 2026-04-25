@@ -11,6 +11,8 @@ import {
   Alert,
   Modal,
   KeyboardAvoidingView,
+  Switch,
+  ScrollView,
 } from "react-native";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -18,7 +20,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 
-type UserTab = "technicians" | "clients" | "admins";
+type UserTab = "technicians" | "clients" | "admins" | "permissions";
 type StatusFilter = "all" | "active" | "suspended";
 
 interface ApiUser {
@@ -51,7 +53,7 @@ function getApiBaseUrl(): string {
   return "";
 }
 
-const TAB_ROLE_MAP: Record<UserTab, string> = {
+const TAB_ROLE_MAP: Partial<Record<UserTab, string>> = {
   technicians: "technician",
   clients: "client",
   admins: "admin",
@@ -97,6 +99,103 @@ export default function AdminUsersScreen() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
+  // Permissions tab state
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [adminsList, setAdminsList] = useState<{ id: string; name: string; email: string | null; permissions: string[] }[]>([]);
+  const [permsLoading, setPermsLoading] = useState(false);
+  const [permsSaving, setPermsSaving] = useState<string | null>(null);
+  const [permsMsg, setPermsMsg] = useState<{ id: string; msg: string } | null>(null);
+
+  const NAMED_PERMISSIONS = [
+    { id: "view_reports",    label: isRTL ? "عرض التقارير المالية" : "View Reports",  color: "#22A36B" },
+    { id: "manage_users",    label: isRTL ? "إدارة المستخدمين"    : "Manage Users",   color: "#4DADD9" },
+    { id: "override_orders", label: isRTL ? "تجاوز الطلبات"       : "Override Orders", color: "#7C5CBF" },
+  ];
+
+  // Fetch super-admin status and admins list for permissions tab
+  useEffect(() => {
+    if (!sessionToken) return;
+    const apiBase = getApiBaseUrl();
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/admin/my-permissions`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json() as { isSuperAdmin?: boolean };
+          setIsSuperAdmin(!!data.isSuperAdmin);
+        }
+      } catch {}
+    })();
+  }, [sessionToken]);
+
+  const fetchAdminsPerms = useCallback(async () => {
+    if (!sessionToken || !isSuperAdmin) return;
+    setPermsLoading(true);
+    try {
+      const apiBase = getApiBaseUrl();
+      const [listRes] = await Promise.all([
+        fetch(`${apiBase}/api/admin/admins-list`, { headers: { Authorization: `Bearer ${sessionToken}` } }),
+      ]);
+      if (listRes.ok) {
+        const listData = await listRes.json() as { admins?: { id: string; name: string; email: string | null; isSuperAdmin: boolean; isActive: boolean }[] };
+        const nonSuper = (listData.admins ?? []).filter((a) => !a.isSuperAdmin && a.isActive);
+        const permsResults = await Promise.all(
+          nonSuper.map(async (admin) => {
+            try {
+              const r = await fetch(`${apiBase}/api/admin/${admin.id}/permissions`, {
+                headers: { Authorization: `Bearer ${sessionToken}` },
+              });
+              const d = await r.json() as { permissions?: string[] };
+              return { ...admin, permissions: d.permissions ?? [] };
+            } catch {
+              return { ...admin, permissions: [] };
+            }
+          })
+        );
+        setAdminsList(permsResults);
+      }
+    } catch {}
+    setPermsLoading(false);
+  }, [sessionToken, isSuperAdmin]);
+
+  useEffect(() => {
+    if (tab === "permissions" && isSuperAdmin) {
+      fetchAdminsPerms();
+    }
+  }, [tab, isSuperAdmin, fetchAdminsPerms]);
+
+  const toggleAdminPermission = useCallback(async (adminId: string, permId: string, currentPerms: string[]) => {
+    if (!sessionToken) return;
+    const newPerms = currentPerms.includes(permId)
+      ? currentPerms.filter((p) => p !== permId)
+      : [...currentPerms, permId];
+
+    setAdminsList((prev) => prev.map((a) => a.id === adminId ? { ...a, permissions: newPerms } : a));
+    setPermsSaving(adminId + ":" + permId);
+    try {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/admin/users/${adminId}/permissions`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${sessionToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ permissions: newPerms }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        setPermsMsg({ id: adminId, msg: data.error ?? (isRTL ? "فشل الحفظ" : "Save failed") });
+        // Revert
+        setAdminsList((prev) => prev.map((a) => a.id === adminId ? { ...a, permissions: currentPerms } : a));
+      } else {
+        setPermsMsg({ id: adminId, msg: isRTL ? "تم الحفظ ✓" : "Saved ✓" });
+        setTimeout(() => setPermsMsg(null), 2000);
+      }
+    } catch {
+      setAdminsList((prev) => prev.map((a) => a.id === adminId ? { ...a, permissions: currentPerms } : a));
+    } finally {
+      setPermsSaving(null);
+    }
+  }, [sessionToken, isRTL]);
+
   const handleSearchChange = useCallback((text: string) => {
     setSearchQuery(text);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -107,6 +206,7 @@ export default function AdminUsersScreen() {
 
   const fetchUsers = useCallback(async (page: number, replace: boolean, search?: string) => {
     if (!sessionToken) return;
+    if (tab === "permissions") return;
 
     const role = TAB_ROLE_MAP[tab];
     const apiBase = getApiBaseUrl();
@@ -498,55 +598,121 @@ export default function AdminUsersScreen() {
     ["technicians", t("admin.technicians")],
     ["clients", t("admin.clients")],
     ["admins", isRTL ? "مديرون" : "Admins"],
+    ...(isSuperAdmin ? [["permissions", isRTL ? "الصلاحيات" : "Permissions"] as [UserTab, string]] : []),
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title={t("admin.users")}
-        subtitle={(() => {
-          if (!pagination) return isRTL ? "جارٍ التحميل..." : "Loading...";
-          const isFiltered = debouncedSearch.trim().length > 0 || statusFilter !== "all";
-          const baseline = baselineTotals[tab] ?? null;
-          if (isFiltered && baseline !== null) {
-            return isRTL
-              ? `${pagination.total} من ${baseline} مستخدم`
-              : `${pagination.total} of ${baseline} users`;
-          }
-          return `${pagination.total} ${isRTL ? "مستخدم" : "users"}`;
-        })()}
+        subtitle={tab === "permissions"
+          ? (isRTL ? "إدارة الصلاحيات" : "Manage Permissions")
+          : (() => {
+            if (!pagination) return isRTL ? "جارٍ التحميل..." : "Loading...";
+            const isFiltered = debouncedSearch.trim().length > 0 || statusFilter !== "all";
+            const baseline = baselineTotals[tab] ?? null;
+            if (isFiltered && baseline !== null) {
+              return isRTL
+                ? `${pagination.total} من ${baseline} مستخدم`
+                : `${pagination.total} of ${baseline} users`;
+            }
+            return `${pagination.total} ${isRTL ? "مستخدم" : "users"}`;
+          })()}
         showHome
         showLogout
       />
 
-      <View style={[styles.tabBar, { backgroundColor: colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        {tabs.map(([key, label]) => (
-          <TouchableOpacity
-            key={key}
-            style={[styles.tab, { backgroundColor: tab === key ? colors.secondary : "transparent", borderRadius: colors.radius - 4 }]}
-            onPress={() => {
-              if (tab !== key) {
-                if (debounceTimer.current) clearTimeout(debounceTimer.current);
-                setSearchQuery("");
-                setDebouncedSearch("");
-                setStatusFilter("all");
-                setTab(key);
-              }
-            }}
-          >
-            <VectorIcon
-              name={key === "technicians" ? "tool" : key === "admins" ? "shield" : "users"}
-              size={14}
-              color={tab === key ? "#FFF" : colors.mutedForeground}
-            />
-            <Text style={{ color: tab === key ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>
-              {label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.tabBarScroll, { backgroundColor: colors.card }]}
+        contentContainerStyle={{ paddingHorizontal: 4, paddingVertical: 4, gap: 4, flexDirection: isRTL ? "row-reverse" : "row" }}
+      >
+        {tabs.map(([key, label]) => {
+          const icons: Record<string, string> = { technicians: "tool", clients: "users", admins: "shield", permissions: "lock" };
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[styles.tab, { backgroundColor: tab === key ? colors.secondary : "transparent", borderRadius: colors.radius - 4 }]}
+              onPress={() => {
+                if (tab !== key) {
+                  if (debounceTimer.current) clearTimeout(debounceTimer.current);
+                  setSearchQuery("");
+                  setDebouncedSearch("");
+                  setStatusFilter("all");
+                  setTab(key);
+                }
+              }}
+            >
+              <VectorIcon
+                name={icons[key] ?? "users"}
+                size={14}
+                color={tab === key ? "#FFF" : colors.mutedForeground}
+              />
+              <Text style={{ color: tab === key ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
-      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {tab === "permissions" ? (
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}>
+          {permsLoading ? (
+            <View style={{ alignItems: "center", paddingTop: 60 }}>
+              <ActivityIndicator size="large" color={colors.secondary} />
+            </View>
+          ) : adminsList.length === 0 ? (
+            <View style={{ alignItems: "center", paddingTop: 60 }}>
+              <VectorIcon name="users" size={48} color={colors.border} />
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 12, textAlign: "center" }}>
+                {isRTL ? "لا يوجد مسئولون آخرون" : "No other admins to manage"}
+              </Text>
+            </View>
+          ) : (
+            adminsList.map((admin) => (
+              <View key={admin.id} style={[{ backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, borderWidth: 1.5, marginBottom: 14, padding: 16 }]}>
+                <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 14 }]}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#7C3AED22", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ color: "#7C3AED", fontFamily: "Inter_700Bold", fontSize: 18 }}>{admin.name[0]?.toUpperCase() ?? "?"}</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>{admin.name}</Text>
+                    {admin.email ? <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>{admin.email}</Text> : null}
+                  </View>
+                  {permsMsg?.id === admin.id ? (
+                    <Text style={{ color: permsMsg.msg.includes("✓") ? colors.success : colors.destructive, fontFamily: "Inter_500Medium", fontSize: 12 }}>{permsMsg.msg}</Text>
+                  ) : null}
+                </View>
+                {NAMED_PERMISSIONS.map((perm) => {
+                  const enabled = admin.permissions.includes(perm.id);
+                  const isSavingThis = permsSaving === admin.id + ":" + perm.id;
+                  return (
+                    <View key={perm.id} style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }]}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: enabled ? perm.color : colors.border, marginRight: isRTL ? 0 : 10, marginLeft: isRTL ? 10 : 0 }} />
+                      <Text style={{ flex: 1, color: enabled ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+                        {perm.label}
+                      </Text>
+                      {isSavingThis ? (
+                        <ActivityIndicator size="small" color={perm.color} />
+                      ) : (
+                        <Switch
+                          value={enabled}
+                          onValueChange={() => toggleAdminPermission(admin.id, perm.id, admin.permissions)}
+                          trackColor={{ false: colors.border, true: perm.color + "88" }}
+                          thumbColor={enabled ? perm.color : "#C8D8E8"}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            ))
+          )}
+        </ScrollView>
+      ) : (
+      <><View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <VectorIcon name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
         <TextInput
           style={[styles.searchInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
@@ -735,14 +901,16 @@ export default function AdminUsersScreen() {
           }
         />
       )}
+      </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  tabBar: { margin: 12, marginBottom: 0, padding: 4, borderRadius: 14 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: "center", flexDirection: "row", justifyContent: "center" },
+  tabBarScroll: { maxHeight: 56, margin: 12, marginBottom: 0, borderRadius: 14 },
+  tab: { paddingHorizontal: 14, paddingVertical: 10, alignItems: "center", flexDirection: "row", justifyContent: "center" },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",

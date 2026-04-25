@@ -16,22 +16,25 @@ interface Permission { id: string; group: string; groupAr: string; label: string
 interface AdminEntry { id: string; name: string; email: string | null; isSuperAdmin: boolean; isActive: boolean; }
 
 const ALL_PERMISSIONS: Omit<Permission, "enabled">[] = [
-  { id: "p1",  group: "Clients",      groupAr: "العملاء",    label: "View all clients",          labelAr: "عرض جميع العملاء"           },
-  { id: "p2",  group: "Clients",      groupAr: "العملاء",    label: "Suspend clients",           labelAr: "إيقاف العملاء"              },
-  { id: "p3",  group: "Clients",      groupAr: "العملاء",    label: "Delete clients",            labelAr: "حذف العملاء"                },
-  { id: "p4",  group: "Technicians",  groupAr: "الفنيون",    label: "View all technicians",      labelAr: "عرض جميع الفنيين"           },
-  { id: "p5",  group: "Technicians",  groupAr: "الفنيون",    label: "Approve technicians",       labelAr: "الموافقة على الفنيين"       },
-  { id: "p6",  group: "Technicians",  groupAr: "الفنيون",    label: "Suspend technicians",       labelAr: "إيقاف الفنيين"              },
-  { id: "p7",  group: "Technicians",  groupAr: "الفنيون",    label: "Delete technicians",        labelAr: "حذف الفنيين"                },
-  { id: "p8",  group: "Orders",       groupAr: "الطلبات",    label: "View all orders",           labelAr: "عرض جميع الطلبات"           },
-  { id: "p9",  group: "Orders",       groupAr: "الطلبات",    label: "Cancel orders",             labelAr: "إلغاء الطلبات"              },
-  { id: "p10", group: "Orders",       groupAr: "الطلبات",    label: "Assign technicians",        labelAr: "تعيين الفنيين"              },
-  { id: "p11", group: "Finance",      groupAr: "المالية",    label: "View invoices",             labelAr: "عرض الفواتير"               },
-  { id: "p12", group: "Finance",      groupAr: "المالية",    label: "Issue refunds",             labelAr: "إصدار مستردات"              },
-  { id: "p13", group: "Finance",      groupAr: "المالية",    label: "Export financial reports",  labelAr: "تصدير تقارير مالية"         },
-  { id: "p14", group: "System",       groupAr: "النظام",     label: "Manage admin accounts",     labelAr: "إدارة حسابات المسئولين"     },
-  { id: "p15", group: "System",       groupAr: "النظام",     label: "Modify app settings",       labelAr: "تعديل إعدادات التطبيق"      },
-  { id: "manage_categories", group: "System",       groupAr: "النظام",     label: "Manage categories",         labelAr: "إدارة الفئات والتخصصات"     },
+  { id: "p1",               group: "Clients",      groupAr: "العملاء",    label: "View all clients",          labelAr: "عرض جميع العملاء"           },
+  { id: "p2",               group: "Clients",      groupAr: "العملاء",    label: "Suspend clients",           labelAr: "إيقاف العملاء"              },
+  { id: "p3",               group: "Clients",      groupAr: "العملاء",    label: "Delete clients",            labelAr: "حذف العملاء"                },
+  { id: "p4",               group: "Technicians",  groupAr: "الفنيون",    label: "View all technicians",      labelAr: "عرض جميع الفنيين"           },
+  { id: "p5",               group: "Technicians",  groupAr: "الفنيون",    label: "Approve technicians",       labelAr: "الموافقة على الفنيين"       },
+  { id: "p6",               group: "Technicians",  groupAr: "الفنيون",    label: "Suspend technicians",       labelAr: "إيقاف الفنيين"              },
+  { id: "p7",               group: "Technicians",  groupAr: "الفنيون",    label: "Delete technicians",        labelAr: "حذف الفنيين"                },
+  { id: "p8",               group: "Orders",       groupAr: "الطلبات",    label: "View all orders",           labelAr: "عرض جميع الطلبات"           },
+  { id: "p9",               group: "Orders",       groupAr: "الطلبات",    label: "Cancel orders",             labelAr: "إلغاء الطلبات"              },
+  { id: "p10",              group: "Orders",       groupAr: "الطلبات",    label: "Assign technicians",        labelAr: "تعيين الفنيين"              },
+  { id: "override_orders",  group: "Orders",       groupAr: "الطلبات",    label: "Override orders",           labelAr: "تجاوز الطلبات"              },
+  { id: "p11",              group: "Finance",      groupAr: "المالية",    label: "View invoices",             labelAr: "عرض الفواتير"               },
+  { id: "view_reports",     group: "Finance",      groupAr: "المالية",    label: "View financial reports",    labelAr: "عرض التقارير المالية"       },
+  { id: "p12",              group: "Finance",      groupAr: "المالية",    label: "Issue refunds",             labelAr: "إصدار مستردات"              },
+  { id: "p13",              group: "Finance",      groupAr: "المالية",    label: "Export financial reports",  labelAr: "تصدير تقارير مالية"         },
+  { id: "manage_users",     group: "System",       groupAr: "النظام",     label: "Manage users",              labelAr: "إدارة المستخدمين"           },
+  { id: "p14",              group: "System",       groupAr: "النظام",     label: "Manage admin accounts",     labelAr: "إدارة حسابات المسئولين"     },
+  { id: "p15",              group: "System",       groupAr: "النظام",     label: "Modify app settings",       labelAr: "تعديل إعدادات التطبيق"      },
+  { id: "manage_categories",group: "System",       groupAr: "النظام",     label: "Manage categories",         labelAr: "إدارة الفئات والتخصصات"     },
 ];
 
 const DEFAULT_ENABLED = new Set(["p1","p2","p4","p5","p6","p8","p9","p10","p11","p13"]);
@@ -146,60 +149,25 @@ export default function AdminPermissionsScreen() {
   }
 
   if (!isSuperAdmin) {
-    const ownPermsDisplay = ALL_PERMISSIONS.map((p) => ({ ...p, enabled: ownPermissions.includes(p.id) }));
-    const ownGroups = [...new Set(ownPermsDisplay.map((p) => p.group))];
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader
           title={t("admin.permissions")}
-          subtitle={isRTL ? "عرض فقط" : "View only"}
+          subtitle={isRTL ? "وصول محظور" : "Access Restricted"}
           showHome
           showLogout
         />
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
-          <View style={[styles.readOnlyBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-            <VectorIcon name="lock" size={15} color={colors.mutedForeground} />
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: 8, textAlign: isRTL ? "right" : "left" }}>
-              {isRTL
-                ? "صلاحياتك الحالية — فقط المسئول الأعلى يمكنه تعديل الصلاحيات"
-                : "Your current permissions — only a super-admin can edit permissions"}
-            </Text>
-          </View>
-          {ownGroups.map((group) => {
-            const groupPerms = ownPermsDisplay.filter((p) => p.group === group);
-            const groupColor = GROUP_COLORS[group] ?? colors.primary;
-            const groupAr = groupPerms[0]!.groupAr;
-            return (
-              <View key={group} style={styles.groupBlock}>
-                <View style={[styles.groupHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-                  <View style={[styles.groupIcon, { backgroundColor: groupColor + "18", borderRadius: 10 }]}>
-                    <VectorIcon name={GROUP_ICONS[group] as any} size={16} color={groupColor} />
-                  </View>
-                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
-                    {isRTL ? groupAr : group}
-                  </Text>
-                </View>
-                {groupPerms.map((perm) => (
-                  <View
-                    key={perm.id}
-                    style={[styles.permRow, {
-                      backgroundColor: perm.enabled ? colors.card : colors.muted + "80",
-                      borderRadius: colors.radius - 4,
-                      borderColor: perm.enabled ? groupColor + "44" : colors.border,
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                    }]}
-                  >
-                    <View style={[styles.permDot, { backgroundColor: perm.enabled ? groupColor : colors.border }]} />
-                    <Text style={{ color: perm.enabled ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
-                      {isRTL ? perm.labelAr : perm.label}
-                    </Text>
-                    <VectorIcon name={perm.enabled ? "check-circle" : "circle"} size={16} color={perm.enabled ? groupColor : colors.border} />
-                  </View>
-                ))}
-              </View>
-            );
-          })}
-        </ScrollView>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
+          <VectorIcon name="lock" size={48} color={colors.mutedForeground} />
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 18, marginTop: 16, textAlign: "center" }}>
+            {isRTL ? "الوصول محظور" : "Access Restricted"}
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 8, textAlign: "center", lineHeight: 22 }}>
+            {isRTL
+              ? "إدارة الصلاحيات متاحة للمسئول الأعلى فقط.\nراجع مسئولك الأعلى إذا كنت بحاجة إلى صلاحيات إضافية."
+              : "Permission management is only available to super-admins.\nContact your super-admin if you need additional access."}
+          </Text>
+        </View>
       </View>
     );
   }
@@ -255,7 +223,7 @@ export default function AdminPermissionsScreen() {
                   <View key={group} style={styles.groupBlock}>
                     <View style={[styles.groupHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
                       <View style={[styles.groupIcon, { backgroundColor: groupColor + "18", borderRadius: 10 }]}>
-                        <VectorIcon name={GROUP_ICONS[group] as any} size={16} color={groupColor} />
+                        <VectorIcon name={GROUP_ICONS[group] ?? "settings"} size={16} color={groupColor} />
                       </View>
                       <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
                         {isRTL ? groupAr : group}
