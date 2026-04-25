@@ -434,7 +434,16 @@ export default function AddAdminScreen() {
             title={isRTL ? "إنشاء المسئول" : "Create Admin"}
             onPress={handleSubmit}
             loading={loading}
-            disabled={password.length > 0 && !getPasswordStrength(password, isRTL).isStrong}
+            disabled={
+              !name.trim() ||
+              !email.trim() ||
+              !EMAIL_RE.test(email.trim()) ||
+              !mobile.trim().replace(/\s|-/g, "").match(EGYPT_MOBILE_RE) ||
+              !password ||
+              !getPasswordStrength(password, isRTL).isStrong ||
+              !confirmPassword ||
+              password !== confirmPassword
+            }
           />
         )}
       </ScrollView>
