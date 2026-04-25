@@ -110,7 +110,22 @@ export default function NewOrderScreen() {
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
 
-  const draftRestoredRef = useRef(false);
+  const draftRestoredRef      = useRef(false);
+  const submittedRef          = useRef(false);
+  const loginDraftSavedRef    = useRef(false);
+  const hasCheckedBannerRef   = useRef(false);
+
+  // Always-current snapshot of form fields AND route params for unmount auto-save
+  const fieldsRef = useRef({
+    problemDesc, deviceType,
+    governorateId, areaId, govOpt, areaOpt,
+    street, building, floor, apartment, landmark,
+    latitude, longitude, visitDate, visitTime,
+  });
+  const routeParamsRef = useRef({ category, subCategory });
+
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -143,6 +158,9 @@ export default function NewOrderScreen() {
       if (draft.category !== category || draft.subCategory !== subCategory) {
         return; // leave draft untouched — it belongs to a different order flow
       }
+      // Only auto-restore drafts explicitly saved by the login flow;
+      // navigation-away drafts are handled by the banner prompt.
+      if (!draft.loginFlow) return;
       draftRestoredRef.current = true;
       if (draft.problemDesc)    setProblemDesc(draft.problemDesc as string);
       if (draft.deviceType)     setDeviceType(draft.deviceType as string);
@@ -194,8 +212,69 @@ export default function NewOrderScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [governorateId, areaId]);
 
+  // ── Keep fieldsRef and routeParamsRef in sync so the unmount cleanup always has fresh values ──
+  useEffect(() => {
+    fieldsRef.current = {
+      problemDesc, deviceType,
+      governorateId, areaId, govOpt, areaOpt,
+      street, building, floor, apartment, landmark,
+      latitude, longitude, visitDate, visitTime,
+    };
+    routeParamsRef.current = { category, subCategory };
+  });
+
+  // ── On mount: check for a previously auto-saved (non-login) draft ─────────────
+  // Depends on category/subCategory so it re-runs if params settle after the first
+  // render, but hasCheckedBannerRef ensures it only acts once.
+  useEffect(() => {
+    if (!category && !subCategory) return;          // params not yet settled
+    if (hasCheckedBannerRef.current) return;        // already ran once
+    hasCheckedBannerRef.current = true;
+    (async () => {
+      const raw = await AsyncStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      let draft: Record<string, unknown>;
+      try { draft = JSON.parse(raw); } catch { return; }
+      // Login-flow drafts are handled by the authenticated restore above
+      if (draft.loginFlow) return;
+      if (draft.category !== category || draft.subCategory !== subCategory) return;
+      if (typeof draft.savedAt === "number" && Date.now() - draft.savedAt > DRAFT_TTL_MS) {
+        await AsyncStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      setPendingDraft(draft);
+      setShowDraftBanner(true);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, subCategory]);
+
+  // ── Auto-save on unmount ──────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (submittedRef.current)       return; // clean submit — no draft needed
+      if (loginDraftSavedRef.current) return; // login-flow draft already saved
+      const f = fieldsRef.current;
+      const { category: cat, subCategory: sub } = routeParamsRef.current;
+      const hasContent =
+        f.problemDesc || f.deviceType ||
+        f.governorateId || f.areaId ||
+        f.street || f.building || f.floor || f.apartment || f.landmark ||
+        f.visitDate || f.visitTime ||
+        f.latitude != null || f.longitude != null;
+      if (!hasContent) return;                      // nothing to save
+      const draft = {
+        ...f, category: cat, subCategory: sub,
+        savedAt: Date.now(),
+        loginFlow: false,
+      };
+      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Save draft and trigger login ─────────────────────────────────────────────
   const handleLoginToSubmit = async () => {
+    loginDraftSavedRef.current = true;
     const draft = {
       category, subCategory,
       problemDesc, deviceType,
@@ -205,6 +284,7 @@ export default function NewOrderScreen() {
       latitude, longitude,
       visitDate, visitTime,
       savedAt: Date.now(),
+      loginFlow: true,
     };
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     const result = await login();
@@ -213,7 +293,39 @@ export default function NewOrderScreen() {
     // For any other unexpected result we keep the draft to avoid data loss.
     if (result === "cancel" || result === "dismiss" || result === "error" || result === "locked") {
       await AsyncStorage.removeItem(DRAFT_KEY);
+      // Re-enable unmount auto-save so further edits aren't silently dropped.
+      loginDraftSavedRef.current = false;
     }
+  };
+
+  // ── Draft banner handlers ─────────────────────────────────────────────────────
+  const handleRestoreDraft = async () => {
+    if (!pendingDraft) return;
+    const d = pendingDraft;
+    if (d.problemDesc)    setProblemDesc(d.problemDesc as string);
+    if (d.deviceType)     setDeviceType(d.deviceType as string);
+    if (d.governorateId)  setGovernorateId(d.governorateId as string);
+    if (d.areaId)         setAreaId(d.areaId as string);
+    if (d.govOpt)         setGovOpt(d.govOpt as LocationOption);
+    if (d.areaOpt)        setAreaOpt(d.areaOpt as LocationOption);
+    if (d.street)         setStreet(d.street as string);
+    if (d.building)       setBuilding(d.building as string);
+    if (d.floor)          setFloor(d.floor as string);
+    if (d.apartment)      setApartment(d.apartment as string);
+    if (d.landmark)       setLandmark(d.landmark as string);
+    if (d.latitude  != null) setLatitude(d.latitude as number);
+    if (d.longitude != null) setLongitude(d.longitude as number);
+    if (d.visitDate)      setVisitDate(d.visitDate as string);
+    if (d.visitTime)      setVisitTime(d.visitTime as string);
+    await AsyncStorage.removeItem(DRAFT_KEY);
+    setShowDraftBanner(false);
+    setPendingDraft(null);
+  };
+
+  const handleDiscardDraft = async () => {
+    await AsyncStorage.removeItem(DRAFT_KEY);
+    setShowDraftBanner(false);
+    setPendingDraft(null);
   };
 
   const handleNext = () => { if (step < 3) setStep((step + 1) as OrderStep); };
@@ -313,6 +425,7 @@ export default function NewOrderScreen() {
     }
 
     await AsyncStorage.removeItem(DRAFT_KEY);
+    submittedRef.current = true;
     setLoading(false);
     router.replace("/(client)/orders");
   };
@@ -609,6 +722,35 @@ export default function NewOrderScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
+        {showDraftBanner && (
+          <View style={[styles.draftBanner, { backgroundColor: colors.accentBlue, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <View style={{ marginTop: 2 }}><VectorIcon name="clock" size={18} color={colors.secondary} /></View>
+            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+              <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                {isRTL ? "لديك مسودة محفوظة" : "You have a saved draft"}
+              </Text>
+              <Text style={{ color: colors.secondary, fontFamily: "Inter_400Regular", fontSize: 12, opacity: 0.85, marginTop: 2 }}>
+                {isRTL ? "هل تريد المتابعة من حيث توقفت؟" : "Continue where you left off?"}
+              </Text>
+              <View style={[styles.draftBannerActions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <TouchableOpacity
+                  onPress={handleRestoreDraft}
+                  style={[styles.draftBtn, { backgroundColor: colors.secondary }]}
+                >
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                    {isRTL ? "متابعة" : "Continue"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDiscardDraft} style={styles.draftBtnOutline}>
+                  <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                    {isRTL ? "بدء جديد" : "Start fresh"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}
@@ -666,4 +808,8 @@ const styles = StyleSheet.create({
   loginNotice: { padding: 12, marginTop: 14, flexDirection: "row", alignItems: "center" },
   navBtns: { gap: 8, marginBottom: 8 },
   authGate: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 16 },
+  draftBanner: { padding: 14, marginBottom: 12, alignItems: "flex-start" },
+  draftBannerActions: { marginTop: 10, gap: 8 },
+  draftBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
+  draftBtnOutline: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.5)" },
 });
