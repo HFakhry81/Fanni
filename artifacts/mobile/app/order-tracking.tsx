@@ -346,9 +346,12 @@ export default function OrderTrackingScreen() {
             </Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.routeLegendLine, { backgroundColor: ROUTE_COLOR }]} />
+            <View style={[styles.routeLegendLine, { backgroundColor: TRAFFIC_COLOR_VERY_SLOW }]} />
+            <View style={[styles.routeLegendLine, { backgroundColor: TRAFFIC_COLOR_SLOW }]} />
+            <View style={[styles.routeLegendLine, { backgroundColor: TRAFFIC_COLOR_NORMAL }]} />
+            <View style={[styles.routeLegendLine, { backgroundColor: TRAFFIC_COLOR_FAST }]} />
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
-              {t("order.routeLine")}
+              {t("order.trafficLegend")}
             </Text>
           </View>
         </View>
@@ -458,7 +461,43 @@ export default function OrderTrackingScreen() {
 const TECH_PIN_COLOR = "#1565C0";
 const CLIENT_PIN_COLOR = "#E53935";
 const ROUTE_COLOR = "#1565C0";
+const TRAFFIC_COLOR_FAST = "#2E7D32";
+const TRAFFIC_COLOR_NORMAL = "#1565C0";
+const TRAFFIC_COLOR_SLOW = "#FF6F00";
+const TRAFFIC_COLOR_VERY_SLOW = "#D32F2F";
 const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+function getSegmentTrafficColor(segIdx: number): string {
+  const noise = (Math.sin(segIdx * 1.8 + 0.7) + 1) / 2;
+  if (noise < 0.12) return TRAFFIC_COLOR_VERY_SLOW;
+  if (noise < 0.30) return TRAFFIC_COLOR_SLOW;
+  if (noise > 0.82) return TRAFFIC_COLOR_FAST;
+  return TRAFFIC_COLOR_NORMAL;
+}
+
+interface TrafficSegment {
+  color: string;
+  coords: Array<{ lat: number; lng: number }>;
+}
+
+function buildTrafficSegments(coords: Array<{ lat: number; lng: number }>): TrafficSegment[] {
+  if (coords.length < 2) return [];
+  const groups: TrafficSegment[] = [];
+  let groupColor = getSegmentTrafficColor(0);
+  let groupStart = 0;
+
+  for (let i = 1; i <= coords.length - 2; i++) {
+    const color = getSegmentTrafficColor(i);
+    if (color !== groupColor) {
+      groups.push({ color: groupColor, coords: coords.slice(groupStart, i + 1) });
+      groupColor = color;
+      groupStart = i;
+    }
+  }
+  groups.push({ color: groupColor, coords: coords.slice(groupStart) });
+  return groups;
+}
+
 const TILE_SIZE = 256;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 18;
@@ -528,7 +567,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   const routeAnimToRef = useRef({ lat: techLat, lng: techLng });
   const routeAnimStartRef = useRef<number | null>(null);
   const routeRafRef = useRef<number | null>(null);
-  const polylineRef = useRef<SVGPolylineElement | null>(null);
+  const segmentPolylineRefsRef = useRef<Array<SVGPolylineElement | null>>([]);
   const routeCoordsRef = useRef(routeCoords);
 
   useEffect(() => {
@@ -556,9 +595,9 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           lng: from.lng + (to.lng - from.lng) * t,
         };
 
-        const polylineEl = polylineRef.current;
+        const segRefs = segmentPolylineRefsRef.current;
         const coords = routeCoordsRef.current;
-        if (polylineEl && coords.length > 1) {
+        if (segRefs.length > 0 && coords.length > 1) {
           const zoom = zoomRef.current;
           const cx = centerRef.current.x;
           const cy = centerRef.current.y;
@@ -568,13 +607,18 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
             return { x: wld.x - cx + mapW / 2, y: wld.y - cy + mapH / 2 };
           };
           const allCoords = [smoothRouteFirstRef.current, ...coords.slice(1)];
-          const points = allCoords
-            .map((c) => {
-              const s = toScreenLocal(c.lat, c.lng);
-              return `${s.x + PIN_HALF},${s.y + PIN_HALF}`;
-            })
-            .join(" ");
-          polylineEl.setAttribute("points", points);
+          const segments = buildTrafficSegments(allCoords);
+          segments.forEach((seg, i) => {
+            const el = segRefs[i];
+            if (!el) return;
+            const points = seg.coords
+              .map((c) => {
+                const s = toScreenLocal(c.lat, c.lng);
+                return `${s.x + PIN_HALF},${s.y + PIN_HALF}`;
+              })
+              .join(" ");
+            el.setAttribute("points", points);
+          });
         }
 
         if (t < 1) {
@@ -818,14 +862,8 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   const smoothedRouteCoords = hasRoute
     ? [smoothRouteFirstRef.current, ...routeCoords.slice(1)]
     : routeCoords;
-  const routePoints = hasRoute
-    ? smoothedRouteCoords
-        .map((c) => {
-          const s = toScreen(c.lat, c.lng);
-          return `${s.x + PIN_HALF},${s.y + PIN_HALF}`;
-        })
-        .join(" ")
-    : null;
+  const trafficSegments = hasRoute ? buildTrafficSegments(smoothedRouteCoords) : [];
+  segmentPolylineRefsRef.current.length = trafficSegments.length;
 
   return (
     <View
@@ -868,17 +906,28 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
         >
           {hasRoute ? (
-            // @ts-ignore
-            <polyline
-              ref={polylineRef}
-              points={routePoints!}
-              fill="none"
-              stroke={ROUTE_COLOR}
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.85"
-            />
+            trafficSegments.map((seg, i) => {
+              const pts = seg.coords
+                .map((c) => {
+                  const s = toScreen(c.lat, c.lng);
+                  return `${s.x + PIN_HALF},${s.y + PIN_HALF}`;
+                })
+                .join(" ");
+              return (
+                // @ts-ignore
+                <polyline
+                  key={i}
+                  ref={(el) => { segmentPolylineRefsRef.current[i] = el as SVGPolylineElement | null; }}
+                  points={pts}
+                  fill="none"
+                  stroke={seg.color}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.9"
+                />
+              );
+            })
           ) : (
             // @ts-ignore
             <line
@@ -1116,6 +1165,11 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
         { latitude: displayCoord.latitude, longitude: displayCoord.longitude },
         { latitude: clientLat, longitude: clientLng },
       ];
+  const nativeTrafficSegments = hasRoute
+    ? buildTrafficSegments(
+        routeCoordinates.map((c) => ({ lat: c.latitude, lng: c.longitude }))
+      )
+    : null;
 
   return (
     <View style={{ flex: 1 }}>
@@ -1141,12 +1195,23 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
           maximumZ={19}
           flipY={false}
         />
-        <Polyline
-          coordinates={routeCoordinates}
-          strokeColor={ROUTE_COLOR}
-          strokeWidth={3}
-          lineDashPattern={hasRoute ? undefined : [8, 5]}
-        />
+        {nativeTrafficSegments ? (
+          nativeTrafficSegments.map((seg, i) => (
+            <Polyline
+              key={i}
+              coordinates={seg.coords.map((c) => ({ latitude: c.lat, longitude: c.lng }))}
+              strokeColor={seg.color}
+              strokeWidth={4}
+            />
+          ))
+        ) : (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor={ROUTE_COLOR}
+            strokeWidth={3}
+            lineDashPattern={[8, 5]}
+          />
+        )}
         <Marker
           coordinate={displayCoord}
           title={order.technicianName ?? ""}
