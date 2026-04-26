@@ -432,9 +432,13 @@ export default function OrderTrackingScreen() {
 
   const handleShare = useCallback(async () => {
     const deepLink = `mobile://order-tracking?orderId=${orderId}`;
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+    const webLink = domain
+      ? `https://${domain}/order-tracking?orderId=${orderId}`
+      : null;
     const message = t("order.shareTrackingMsg");
     if (Platform.OS === "web") {
-      const url = typeof window !== "undefined" ? window.location.href : deepLink;
+      const url = typeof window !== "undefined" ? window.location.href : (webLink ?? deepLink);
       if (typeof navigator !== "undefined" && navigator.share) {
         try {
           await navigator.share({ title: t("order.shareTracking"), text: message, url });
@@ -450,8 +454,13 @@ export default function OrderTrackingScreen() {
       }
       Alert.alert(t("order.shareTracking"), url);
     } else {
+      // Deep link opens the app directly when installed (mobile:// scheme).
+      // Web URL is included as fallback for recipients without the app.
+      const shareText = webLink
+        ? `${message}\n${deepLink}\n\n${webLink}`
+        : `${message}\n${deepLink}`;
       try {
-        await Share.share({ message: `${message}\n${deepLink}`, url: deepLink, title: t("order.shareTracking") });
+        await Share.share({ message: shareText, url: deepLink, title: t("order.shareTracking") });
       } catch {}
     }
   }, [orderId, t]);
