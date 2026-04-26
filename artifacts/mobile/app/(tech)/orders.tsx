@@ -1,10 +1,31 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput, ImageSourcePropType } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Asset } from "expo-asset";
 import { readAsStringAsync } from "expo-file-system/legacy";
 import VectorIcon from "@/components/VectorIcon";
+
+const SUB_IMAGE_MAP: Record<string, ImageSourcePropType> = {
+  sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.png"),
+  sub_computers:         require("@/assets/images/sub_computers.png"),
+  sub_washing_machine:   require("@/assets/images/sub_washing_machine.png"),
+  sub_water_heater:      require("@/assets/images/sub_water_heater.png"),
+  sub_ac_repair:         require("@/assets/images/sub_ac_repair.png"),
+  sub_ac_cleaning:       require("@/assets/images/sub_ac_cleaning.png"),
+  sub_pipes:             require("@/assets/images/sub_pipes.png"),
+  sub_sanitary:          require("@/assets/images/sub_sanitary.png"),
+  sub_doors:             require("@/assets/images/sub_doors.png"),
+  sub_furniture:         require("@/assets/images/sub_furniture.png"),
+  sub_fridge:            require("@/assets/images/sub_fridge.png"),
+  sub_dishwasher:        require("@/assets/images/sub_dishwasher.png"),
+  sub_interior_paint:    require("@/assets/images/sub_interior_paint.png"),
+  sub_exterior_paint:    require("@/assets/images/sub_exterior_paint.png"),
+  sub_insects:           require("@/assets/images/sub_insects.png"),
+  sub_rodents:           require("@/assets/images/sub_rodents.png"),
+  sub_tiles:             require("@/assets/images/sub_tiles.png"),
+  sub_parquet:           require("@/assets/images/sub_parquet.png"),
+};
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -494,6 +515,13 @@ export default function TechOrdersScreen() {
         <View style={[styles.accentBar, { backgroundColor: isActive ? colors.primary : colors.success }]} />
         <View style={styles.cardBody}>
           <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            {item.subImageKey && SUB_IMAGE_MAP[item.subImageKey] && (
+              <Image
+                source={SUB_IMAGE_MAP[item.subImageKey]}
+                style={[styles.subThumb, { borderRadius: colors.radius - 4, borderColor: colors.border }]}
+                resizeMode="cover"
+              />
+            )}
             <View style={{ flex: 1 }}>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>{item.orderNumber}</Text>
               <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
@@ -1188,6 +1216,7 @@ const styles = StyleSheet.create({
   satisfactionOption: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center" },
   phasePhotoBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 9, marginTop: 8, borderWidth: 1.5, borderStyle: "dashed" },
   completedGallery: { marginTop: 8, padding: 10, borderWidth: 1, borderRadius: 8 },
+  subThumb: { width: 44, height: 44, borderWidth: 1 },
   miniThumb: { width: 48, height: 48, borderRadius: 6, marginRight: 6 },
   afterThumb: { width: 72, height: 72, borderRadius: 8, marginRight: 8 },
   lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },

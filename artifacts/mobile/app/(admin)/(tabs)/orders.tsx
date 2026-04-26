@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image, ImageSourcePropType } from "react-native";
 import { useRouter } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -7,6 +7,27 @@ import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
 import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
+
+const SUB_IMAGE_MAP: Record<string, ImageSourcePropType> = {
+  sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.png"),
+  sub_computers:         require("@/assets/images/sub_computers.png"),
+  sub_washing_machine:   require("@/assets/images/sub_washing_machine.png"),
+  sub_water_heater:      require("@/assets/images/sub_water_heater.png"),
+  sub_ac_repair:         require("@/assets/images/sub_ac_repair.png"),
+  sub_ac_cleaning:       require("@/assets/images/sub_ac_cleaning.png"),
+  sub_pipes:             require("@/assets/images/sub_pipes.png"),
+  sub_sanitary:          require("@/assets/images/sub_sanitary.png"),
+  sub_doors:             require("@/assets/images/sub_doors.png"),
+  sub_furniture:         require("@/assets/images/sub_furniture.png"),
+  sub_fridge:            require("@/assets/images/sub_fridge.png"),
+  sub_dishwasher:        require("@/assets/images/sub_dishwasher.png"),
+  sub_interior_paint:    require("@/assets/images/sub_interior_paint.png"),
+  sub_exterior_paint:    require("@/assets/images/sub_exterior_paint.png"),
+  sub_insects:           require("@/assets/images/sub_insects.png"),
+  sub_rodents:           require("@/assets/images/sub_rodents.png"),
+  sub_tiles:             require("@/assets/images/sub_tiles.png"),
+  sub_parquet:           require("@/assets/images/sub_parquet.png"),
+};
 
 export default function AdminOrdersScreen() {
   const router = useRouter();
@@ -83,6 +104,13 @@ export default function AdminOrdersScreen() {
             <View style={[styles.accentBar, { backgroundColor: filterColors[item.status] ?? colors.secondary }]} />
             <View style={styles.cardBody}>
               <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                {item.subImageKey && SUB_IMAGE_MAP[item.subImageKey] && (
+                  <Image
+                    source={SUB_IMAGE_MAP[item.subImageKey]}
+                    style={[styles.subThumb, { borderRadius: colors.radius - 4, borderColor: colors.border }]}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>{item.orderNumber}</Text>
                   <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
@@ -135,7 +163,8 @@ const styles = StyleSheet.create({
   card: { marginBottom: 10, borderWidth: 1.5, flexDirection: "row", overflow: "hidden" },
   accentBar: { width: 4 },
   cardBody: { flex: 1, padding: 12 },
-  cardTop: { alignItems: "flex-start", marginBottom: 8, gap: 8 },
+  cardTop: { alignItems: "center", marginBottom: 8, gap: 8 },
+  subThumb: { width: 44, height: 44, borderWidth: 1 },
   cardMid: { alignItems: "center", marginBottom: 6, gap: 8 },
   cardFoot: { alignItems: "center", gap: 4 },
   totalChip: { paddingVertical: 6, paddingHorizontal: 12 },
