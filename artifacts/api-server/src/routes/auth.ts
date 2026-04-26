@@ -1238,4 +1238,26 @@ router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Re
   res.json({ user: buildAuthUser(updatedUser) });
 });
 
+router.post("/auth/push-token", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "client") {
+    res.status(403).json({ error: "Only clients can register push tokens" });
+    return;
+  }
+  const { token } = req.body as { token?: string };
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "token is required" });
+    return;
+  }
+  try {
+    await db
+      .update(usersTable)
+      .set({ expoPushToken: token, updatedAt: new Date() })
+      .where(eq(usersTable.id, user.id));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to save push token" });
+  }
+});
+
 export default router;

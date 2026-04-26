@@ -2,11 +2,12 @@ import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
-import { db, ordersTable, invoicesTable, pool } from "@workspace/db";
+import { db, ordersTable, invoicesTable, pool, usersTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug, isSlug } from "../lib/locationNormalizer";
 import { queryString } from "../lib/queryParams";
+import { sendOrderStatusPushNotification } from "../lib/pushNotifications";
 
 const router: IRouter = Router();
 
@@ -324,6 +325,28 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
         ...(technicianAvatar !== undefined && { technicianAvatar }),
         ...(technicianRating !== undefined && { technicianRating }),
       });
+
+      void (async () => {
+        try {
+          const [orderRow] = await db
+            .select({ orderNumber: ordersTable.orderNumber, clientId: ordersTable.clientId })
+            .from(ordersTable)
+            .where(eq(ordersTable.id, id))
+            .limit(1);
+          if (orderRow?.clientId) {
+            const [clientRow] = await db
+              .select({ expoPushToken: usersTable.expoPushToken })
+              .from(usersTable)
+              .where(eq(usersTable.id, orderRow.clientId))
+              .limit(1);
+            if (clientRow?.expoPushToken) {
+              await sendOrderStatusPushNotification(clientRow.expoPushToken, id, orderRow.orderNumber ?? id, "accepted");
+            }
+          }
+        } catch (pushErr) {
+          logger.warn({ pushErr, orderId: id }, "Failed to send accepted push notification");
+        }
+      })();
     }
 
     res.json({ success: true });
@@ -377,6 +400,26 @@ router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (
 
     broadcastOrderStatusToClient(user.id, { id, status: "inProgress" });
 
+    void (async () => {
+      try {
+        const [orderRow] = await db
+          .select({ orderNumber: ordersTable.orderNumber })
+          .from(ordersTable)
+          .where(eq(ordersTable.id, id))
+          .limit(1);
+        const [clientRow] = await db
+          .select({ expoPushToken: usersTable.expoPushToken })
+          .from(usersTable)
+          .where(eq(usersTable.id, user.id))
+          .limit(1);
+        if (clientRow?.expoPushToken) {
+          await sendOrderStatusPushNotification(clientRow.expoPushToken, id, orderRow?.orderNumber ?? id, "inProgress");
+        }
+      } catch (pushErr) {
+        logger.warn({ pushErr, orderId: id }, "Failed to send inProgress push notification (confirm-arrival)");
+      }
+    })();
+
     res.json({ success: true });
   } catch (err) {
     logger.error({ err, id }, "Failed to confirm arrival");
@@ -408,6 +451,26 @@ router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req: Reque
 
     if (updated?.clientId) {
       broadcastOrderStatusToClient(updated.clientId, { id, status: "inProgress" });
+
+      void (async () => {
+        try {
+          const [orderRow] = await db
+            .select({ orderNumber: ordersTable.orderNumber })
+            .from(ordersTable)
+            .where(eq(ordersTable.id, id))
+            .limit(1);
+          const [clientRow] = await db
+            .select({ expoPushToken: usersTable.expoPushToken })
+            .from(usersTable)
+            .where(eq(usersTable.id, updated.clientId!))
+            .limit(1);
+          if (clientRow?.expoPushToken) {
+            await sendOrderStatusPushNotification(clientRow.expoPushToken, id, orderRow?.orderNumber ?? id, "inProgress");
+          }
+        } catch (pushErr) {
+          logger.warn({ pushErr, orderId: id }, "Failed to send inProgress push notification (start)");
+        }
+      })();
     }
 
     res.json({ success: true });
@@ -616,6 +679,21 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
           clientTotal,
         },
       });
+
+      void (async () => {
+        try {
+          const [clientRow] = await db
+            .select({ expoPushToken: usersTable.expoPushToken })
+            .from(usersTable)
+            .where(eq(usersTable.id, finalClientId!))
+            .limit(1);
+          if (clientRow?.expoPushToken) {
+            await sendOrderStatusPushNotification(clientRow.expoPushToken, id, finalOrderNumber ?? id, "completed");
+          }
+        } catch (pushErr) {
+          logger.warn({ pushErr, orderId: id }, "Failed to send completed push notification");
+        }
+      })();
     }
 
     res.json({

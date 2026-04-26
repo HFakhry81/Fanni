@@ -9,6 +9,8 @@ import React, {
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -221,6 +223,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
     if (token) await fetchUser(token);
   }, [fetchUser]);
+
+  useEffect(() => {
+    if (!user || user.role !== "client" || !sessionToken) return;
+
+    const apiBase = getApiBaseUrl();
+    if (!apiBase) return;
+
+    (async () => {
+      try {
+        if (Platform.OS === "web") return;
+
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== "granted") return;
+
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        const expoPushToken = tokenData.data;
+        if (!expoPushToken) return;
+
+        const storedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+        if (!storedToken) return;
+
+        await fetch(`${apiBase}/api/auth/push-token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${storedToken}`,
+          },
+          body: JSON.stringify({ token: expoPushToken }),
+        });
+      } catch {
+      }
+    })();
+  }, [user?.id, user?.role, sessionToken]);
 
   return (
     <AuthContext.Provider

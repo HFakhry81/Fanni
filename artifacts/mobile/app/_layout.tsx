@@ -7,10 +7,11 @@ import {
 } from "@expo-google-fonts/inter";
 import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
-import { AppState, I18nManager, View } from "react-native";
+import { AppState, I18nManager, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -24,6 +25,18 @@ import { OrderProvider } from "@/context/OrderContext";
 import { sweepExpiredRouteCache } from "@/utils/routeCache";
 
 SplashScreen.preventAutoHideAsync();
+
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 const queryClient = new QueryClient();
 
@@ -296,10 +309,34 @@ export default function RootLayout() {
     Inter_700Bold,
     ...Feather.font,
   });
+  const router = useRouter();
 
   useEffect(() => {
     sweepExpiredRouteCache();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+      const orderId = data?.orderId;
+      if (orderId && typeof orderId === "string") {
+        router.push({ pathname: "/order-details", params: { orderId } });
+      }
+    }).catch(() => {});
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+      const orderId = data?.orderId;
+      if (orderId && typeof orderId === "string") {
+        router.push({ pathname: "/order-details", params: { orderId } });
+      }
+    });
+
+    return () => subscription.remove();
+  }, [router]);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

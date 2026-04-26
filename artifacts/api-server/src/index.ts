@@ -154,6 +154,12 @@ async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "DB migration failed for availability_audit_logs");
   }
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token VARCHAR`);
+    logger.info("DB migration: users.expo_push_token ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for users.expo_push_token");
+  }
   await seedDefaultCategories();
 }
 
