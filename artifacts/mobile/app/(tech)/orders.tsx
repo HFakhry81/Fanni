@@ -36,7 +36,7 @@ import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 
@@ -131,6 +131,12 @@ export default function TechOrdersScreen() {
     }, 400);
     return () => clearTimeout(timer);
   }, [wsOrderStatusSignal, fetchOrdersFromApi]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrdersFromApi();
+    }, [fetchOrdersFromApi])
+  );
 
   const orders = getOrdersByTech(user?.id ?? "tech1");
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
