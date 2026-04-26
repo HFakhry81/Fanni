@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
-import { db, locationsTable, nominatimCacheTable } from "@workspace/db";
-import { NOMINATIM_BASE, nominatimFetch, getCached, cachedNominatim } from "../lib/nominatim";
+import { eq } from "drizzle-orm";
+import { db, locationsTable } from "@workspace/db";
+import { NOMINATIM_BASE, nominatimFetch, getCached, setCache, cachedNominatim } from "../lib/nominatim";
 
 const router: IRouter = Router();
 
@@ -45,7 +45,7 @@ router.get("/geo/search", async (req, res) => {
 
 // ─── GET /geo/streets?q=...&city_id=...&lang=ar ───────────────────────────────
 // Looks up the city by ID, calls Nominatim /search scoped to that city,
-// caches results 7 days, returns up to 8 { label, lat, lon } results.
+// caches results via the shared setCache helper, returns up to 8 { label, lat, lon } results.
 
 router.get("/geo/streets", async (req, res) => {
   const q = (req.query.q as string | undefined)?.trim();
@@ -90,7 +90,6 @@ router.get("/geo/streets", async (req, res) => {
       `&accept-language=${lang}` +
       `&limit=8`;
 
-    const STREETS_CACHE_DAYS = 7;
     const cached = await getCached(cacheKey);
     if (cached) {
       const arr = Array.isArray(cached) ? cached : [];
@@ -104,14 +103,7 @@ router.get("/geo/streets", async (req, res) => {
     }
 
     const data = await nominatimFetch(url) as Array<Record<string, unknown>>;
-    const expiresAt = new Date(Date.now() + STREETS_CACHE_DAYS * 24 * 60 * 60 * 1000);
-    await db
-      .insert(nominatimCacheTable)
-      .values({ cacheKey, lang, responseJson: data as Record<string, unknown>[], expiresAt })
-      .onConflictDoUpdate({
-        target: nominatimCacheTable.cacheKey,
-        set: { responseJson: data as Record<string, unknown>[], cachedAt: sql`now()`, expiresAt },
-      });
+    await setCache(cacheKey, lang, data);
 
     const results = (Array.isArray(data) ? data : []).slice(0, 8).map((r) => ({
       label: r.display_name,
