@@ -10,6 +10,7 @@ import {
   Image,
   Alert,
   Modal,
+  ImageSourcePropType,
 } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -27,6 +28,27 @@ import StarRating from "@/components/StarRating";
 import FanniButton from "@/components/FanniButton";
 import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
+
+const SUB_IMAGE_MAP: Record<string, ImageSourcePropType> = {
+  sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.png"),
+  sub_computers:         require("@/assets/images/sub_computers.png"),
+  sub_washing_machine:   require("@/assets/images/sub_washing_machine.png"),
+  sub_water_heater:      require("@/assets/images/sub_water_heater.png"),
+  sub_ac_repair:         require("@/assets/images/sub_ac_repair.png"),
+  sub_ac_cleaning:       require("@/assets/images/sub_ac_cleaning.png"),
+  sub_pipes:             require("@/assets/images/sub_pipes.png"),
+  sub_sanitary:          require("@/assets/images/sub_sanitary.png"),
+  sub_doors:             require("@/assets/images/sub_doors.png"),
+  sub_furniture:         require("@/assets/images/sub_furniture.png"),
+  sub_fridge:            require("@/assets/images/sub_fridge.png"),
+  sub_dishwasher:        require("@/assets/images/sub_dishwasher.png"),
+  sub_interior_paint:    require("@/assets/images/sub_interior_paint.png"),
+  sub_exterior_paint:    require("@/assets/images/sub_exterior_paint.png"),
+  sub_insects:           require("@/assets/images/sub_insects.png"),
+  sub_rodents:           require("@/assets/images/sub_rodents.png"),
+  sub_tiles:             require("@/assets/images/sub_tiles.png"),
+  sub_parquet:           require("@/assets/images/sub_parquet.png"),
+};
 
 export default function OrderDetailsScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -389,6 +411,13 @@ export default function OrderDetailsScreen() {
         {/* Status */}
         <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
           <View style={[styles.row, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            {order.subImageKey && SUB_IMAGE_MAP[order.subImageKey] && (
+              <Image
+                source={SUB_IMAGE_MAP[order.subImageKey]}
+                style={[styles.subThumb, { borderRadius: colors.radius - 4, borderColor: colors.border }]}
+                resizeMode="cover"
+              />
+            )}
             <Text style={[styles.sectionLabel, { color: colors.foreground, fontFamily: "Inter_700Bold", flex: 1, textAlign: isRTL ? "right" : "left" }]}>
               {t("order.tracking")}
             </Text>
@@ -836,6 +865,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, marginBottom: 12 },
   sectionLabel: { fontSize: 16 },
   row: { alignItems: "center", marginBottom: 10, gap: 8 },
+  subThumb: { width: 44, height: 44, borderWidth: 1 },
   infoRow: { alignItems: "center", marginTop: 6, gap: 6 },
   infoText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   detailRow: { paddingVertical: 10, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
