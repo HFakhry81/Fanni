@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
-  BackHandler, AppState, Modal,
+  BackHandler, AppState, Modal, Animated,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
@@ -191,6 +191,23 @@ export default function NewOrderScreen() {
       .then((val) => setLightboxOpened(val === "1"))
       .catch(() => setLightboxOpened(false));
   }, [subCategory]);
+
+  const bannerPulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (lightboxOpened) {
+      bannerPulseAnim.stopAnimation();
+      bannerPulseAnim.setValue(1);
+      return;
+    }
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bannerPulseAnim, { toValue: 1.18, duration: 700, useNativeDriver: true }),
+        Animated.timing(bannerPulseAnim, { toValue: 1,    duration: 700, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [lightboxOpened, bannerPulseAnim]);
 
   const [photoLightboxVisible, setPhotoLightboxVisible] = useState(false);
   const [photoLightboxIndex, setPhotoLightboxIndex] = useState(0);
@@ -995,9 +1012,9 @@ export default function NewOrderScreen() {
                 </Text>
               </LinearGradient>
               {!lightboxOpened && (
-                <View style={styles.bannerHint}>
+                <Animated.View style={[styles.bannerHint, { transform: [{ scale: bannerPulseAnim }] }]}>
                   <VectorIcon name="maximize-2" size={14} color="#FFFFFF" />
-                </View>
+                </Animated.View>
               )}
             </ImageBackground>
           </TouchableOpacity>
