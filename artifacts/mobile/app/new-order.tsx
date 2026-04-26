@@ -21,6 +21,7 @@ import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import ImageLightbox from "@/components/ImageLightbox";
+import Toast from "@/components/Toast";
 import type { LocationOption } from "@/components/LocationPicker";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import type { OrderPhoto } from "@/context/OrderContext";
@@ -185,6 +186,7 @@ export default function NewOrderScreen() {
   const [photoLightboxVisible, setPhotoLightboxVisible] = useState(false);
   const [photoLightboxUri, setPhotoLightboxUri] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
+  const [photosMissingToast, setPhotosMissingToast] = useState<{ visible: boolean; key: number }>({ visible: false, key: 0 });
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -236,8 +238,11 @@ export default function NewOrderScreen() {
       if (draft.longitude != null) setLongitude(draft.longitude as number);
       if (draft.visitDate)      setVisitDate(draft.visitDate as string);
       if (draft.visitTime)      setVisitTime(draft.visitTime as string);
-      const restoredPhotos = await restorePhotosFromDraft(draft.photoUris);
+      const { photos: restoredPhotos, hadMissing } = await restorePhotosFromDraft(draft.photoUris);
       setOrderPhotos(restoredPhotos);
+      if (hadMissing) {
+        setPhotosMissingToast((prev) => ({ visible: true, key: prev.key + 1 }));
+      }
       setStep(3);
       await AsyncStorage.removeItem(DRAFT_KEY);
       // Re-enable autosave now that the login-handoff draft has been consumed.
@@ -369,8 +374,8 @@ export default function NewOrderScreen() {
   // ── Validate draft photo entries: check local URIs still exist on disk ────────
   const restorePhotosFromDraft = async (
     raw: unknown,
-  ): Promise<OrderPhoto[]> => {
-    if (!Array.isArray(raw) || raw.length === 0) return [];
+  ): Promise<{ photos: OrderPhoto[]; hadMissing: boolean }> => {
+    if (!Array.isArray(raw) || raw.length === 0) return { photos: [], hadMissing: false };
     const results: OrderPhoto[] = [];
     for (const entry of raw) {
       if (!entry || typeof entry.uri !== "string") continue;
@@ -388,7 +393,8 @@ export default function NewOrderScreen() {
         results.push({ id, uri, phase });
       }
     }
-    return results;
+    const hadMissing = raw.length > 0 && results.length < raw.length;
+    return { photos: results, hadMissing };
   };
 
   // ── Save draft and trigger login ─────────────────────────────────────────────
@@ -440,8 +446,11 @@ export default function NewOrderScreen() {
     if (d.visitDate)      setVisitDate(d.visitDate as string);
     if (d.visitTime)      setVisitTime(d.visitTime as string);
     if (d.step && (d.step === 1 || d.step === 2 || d.step === 3)) setStep(d.step as OrderStep);
-    const restoredPhotos = await restorePhotosFromDraft(d.photoUris);
+    const { photos: restoredPhotos, hadMissing } = await restorePhotosFromDraft(d.photoUris);
     setOrderPhotos(restoredPhotos);
+    if (hadMissing) {
+      setPhotosMissingToast((prev) => ({ visible: true, key: prev.key + 1 }));
+    }
     await AsyncStorage.removeItem(DRAFT_KEY);
     setShowDraftBanner(false);
     setPendingDraft(null);
@@ -1086,6 +1095,20 @@ export default function NewOrderScreen() {
           }
         </View>
       </ScrollView>
+
+      <Toast
+        key={`photos-missing-${photosMissingToast.key}`}
+        visible={photosMissingToast.visible}
+        message={
+          isRTL
+            ? "بعض صور المسودة لم تعد متاحة وتم حذفها"
+            : "Some photos from your draft were no longer available and have been removed"
+        }
+        duration={5000}
+        variant="error"
+        onPress={() => {}}
+        onHide={() => setPhotosMissingToast((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }
