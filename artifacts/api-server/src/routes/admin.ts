@@ -867,22 +867,43 @@ router.get("/admin/reports/pnl", authMiddleware, requireAuth, requireAdmin, requ
     }
   }
 
+  // Compute prior period: same duration, immediately before fromDate
+  const durationMs = toDate.getTime() - fromDate.getTime();
+  const priorToDate = new Date(fromDate.getTime() - 1); // 1 ms before current period starts
+  const priorFromDate = new Date(priorToDate.getTime() - durationMs + 1);
+
   const conditions = [
     eq(invoicesTable.invoiceType, "admin"),
     gte(invoicesTable.createdAt, fromDate),
     lte(invoicesTable.createdAt, toDate),
   ];
 
-  const [totals] = await db
-    .select({
-      orderCount: sql<number>`count(*)::int`,
-      totalLabour: sql<string>`coalesce(sum(${invoicesTable.labourFee}::numeric), 0)`,
-      totalServiceFee: sql<string>`coalesce(sum(${invoicesTable.serviceFeeAmount}::numeric), 0)`,
-      totalVat: sql<string>`coalesce(sum(${invoicesTable.vatAmount}::numeric), 0)`,
-      totalRevenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
-    })
-    .from(invoicesTable)
-    .where(and(...conditions));
+  const priorConditions = [
+    eq(invoicesTable.invoiceType, "admin"),
+    gte(invoicesTable.createdAt, priorFromDate),
+    lte(invoicesTable.createdAt, priorToDate),
+  ];
+
+  const [[totals], [priorTotals]] = await Promise.all([
+    db
+      .select({
+        orderCount: sql<number>`count(*)::int`,
+        totalLabour: sql<string>`coalesce(sum(${invoicesTable.labourFee}::numeric), 0)`,
+        totalServiceFee: sql<string>`coalesce(sum(${invoicesTable.serviceFeeAmount}::numeric), 0)`,
+        totalVat: sql<string>`coalesce(sum(${invoicesTable.vatAmount}::numeric), 0)`,
+        totalRevenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
+      })
+      .from(invoicesTable)
+      .where(and(...conditions)),
+    db
+      .select({
+        orderCount: sql<number>`count(*)::int`,
+        totalServiceFee: sql<string>`coalesce(sum(${invoicesTable.serviceFeeAmount}::numeric), 0)`,
+        totalRevenue: sql<string>`coalesce(sum(${invoicesTable.total}::numeric), 0)`,
+      })
+      .from(invoicesTable)
+      .where(and(...priorConditions)),
+  ]);
 
   // Category breakdown
   const catRows = await db
@@ -907,6 +928,11 @@ router.get("/admin/reports/pnl", authMiddleware, requireAuth, requireAdmin, requ
   // Net platform profit = service fees (excluding VAT which is a pass-through to tax authority)
   const netPlatformProfit = combinedServiceFee;
 
+  // Prior period totals
+  const priorCombinedServiceFee = parseFloat(priorTotals?.totalServiceFee ?? "0");
+  const priorTotalPlatformRevenue = parseFloat(priorTotals?.totalRevenue ?? "0");
+  const priorNetPlatformProfit = priorCombinedServiceFee;
+
   res.json({
     period: { from: fromDate.toISOString(), to: toDate.toISOString() },
     orderCount: totals?.orderCount ?? 0,
@@ -916,6 +942,12 @@ router.get("/admin/reports/pnl", authMiddleware, requireAuth, requireAdmin, requ
     vatCollected,
     totalPlatformRevenue,
     netPlatformProfit,
+    prior: {
+      period: { from: priorFromDate.toISOString(), to: priorToDate.toISOString() },
+      orderCount: priorTotals?.orderCount ?? 0,
+      totalPlatformRevenue: priorTotalPlatformRevenue,
+      netPlatformProfit: priorNetPlatformProfit,
+    },
     categoryBreakdown: catRows.map((r) => ({
       category: r.category ?? "unknown",
       orderCount: r.orderCount,

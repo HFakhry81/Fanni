@@ -40,6 +40,12 @@ interface PnlData {
   vatCollected: number;
   totalPlatformRevenue: number;
   netPlatformProfit: number;
+  prior?: {
+    period: { from: string; to: string };
+    orderCount: number;
+    totalPlatformRevenue: number;
+    netPlatformProfit: number;
+  };
   categoryBreakdown: { category: string; orderCount: number; revenue: number }[];
 }
 
@@ -74,6 +80,36 @@ const MONTH_NAMES_EN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","O
 const MONTH_NAMES_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+function calcTrendPct(current: number, prior: number): number | null {
+  if (prior === 0) return null;
+  return ((current - prior) / prior) * 100;
+}
+
+function TrendBadge({ current, prior, vsLabel, isRTL }: { current: number; prior: number; vsLabel?: string; isRTL: boolean }) {
+  if (prior === 0 && current === 0) return null;
+  if (prior === 0) {
+    return (
+      <View style={{ backgroundColor: "#D1FAE5", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, alignSelf: "center" }}>
+        <Text style={{ color: "#22A36B", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+          {isRTL ? "جديد" : "New"}
+        </Text>
+      </View>
+    );
+  }
+  const pct = calcTrendPct(current, prior)!;
+  const up = pct >= 0;
+  const color = up ? "#22A36B" : "#EF4444";
+  const bg = up ? "#D1FAE5" : "#FEE2E2";
+  const arrow = up ? "↑" : "↓";
+  const pctStr = `${arrow} ${Math.abs(pct).toFixed(1)}%`;
+  const label = vsLabel ? `${pctStr} ${vsLabel}` : pctStr;
+  return (
+    <View style={{ backgroundColor: bg, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, alignSelf: "center" }}>
+      <Text style={{ color, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>{label}</Text>
+    </View>
+  );
+}
 
 export default function AdminStatsScreen() {
   const colors = useColors();
@@ -279,6 +315,14 @@ export default function AdminStatsScreen() {
   allOrders.forEach((o) => { catCounts[o.category] = (catCounts[o.category] ?? 0) + 1; });
   const topCats = Object.entries(catCounts).sort(([, a], [, b]) => b - a).slice(0, 5);
   const barColors = [colors.primary, colors.secondary, "#22A36B", "#7C5CBF", "#E67E22"];
+
+  const pnlVsLabel = showCustomPicker
+    ? (isRTL ? "مقارنة بالفترة السابقة" : "vs prior period")
+    : period === "week"
+    ? (isRTL ? "مقارنة بالأسبوع الماضي" : "vs last week")
+    : period === "year"
+    ? (isRTL ? "مقارنة بالعام الماضي" : "vs last year")
+    : (isRTL ? "مقارنة بالشهر الماضي" : "vs last month");
 
   // ── Export helpers ────────────────────────────────────────────────────────
   const exportPnlPdf = async () => {
@@ -684,17 +728,27 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
                     <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, textAlign: isRTL ? "right" : "left" }}>
                       {isRTL ? "إجمالي إيرادات المنصة" : "Total Platform Revenue"}
                     </Text>
-                    <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                      {fmt(pnlData.totalPlatformRevenue)} {t("common.egp")}
-                    </Text>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
+                      {pnlData.prior != null && (
+                        <TrendBadge current={pnlData.totalPlatformRevenue} prior={pnlData.prior.totalPlatformRevenue} vsLabel={pnlVsLabel} isRTL={isRTL} />
+                      )}
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                        {fmt(pnlData.totalPlatformRevenue)} {t("common.egp")}
+                      </Text>
+                    </View>
                   </View>
                   <View style={[styles.totalRow, { backgroundColor: "#D1FAE5", borderRadius: colors.radius - 4, marginTop: 6, flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <Text style={{ color: "#22A36B", fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, textAlign: isRTL ? "right" : "left" }}>
                       {isRTL ? "صافي ربح المنصة" : "Net Platform Profit"}
                     </Text>
-                    <Text style={{ color: "#22A36B", fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                      {fmt(pnlData.netPlatformProfit)} {t("common.egp")}
-                    </Text>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
+                      {pnlData.prior != null && (
+                        <TrendBadge current={pnlData.netPlatformProfit} prior={pnlData.prior.netPlatformProfit} vsLabel={pnlVsLabel} isRTL={isRTL} />
+                      )}
+                      <Text style={{ color: "#22A36B", fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                        {fmt(pnlData.netPlatformProfit)} {t("common.egp")}
+                      </Text>
+                    </View>
                   </View>
                   <View style={[styles.metaRow2, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <VectorIcon name="shopping-cart" size={13} color={colors.mutedForeground} />
@@ -1041,15 +1095,24 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
                       <Text style={[styles.thCell, { color: colors.mutedForeground }]}>{isRTL ? "طلبات" : "Orders"}</Text>
                       <Text style={[styles.thCell, { color: colors.mutedForeground }]}>{isRTL ? "الإيرادات" : "Revenue"}</Text>
                       <Text style={[styles.thCell, { color: colors.mutedForeground }]}>{isRTL ? "المتوسط" : "Avg/Order"}</Text>
+                      <Text style={[styles.thCell, { color: colors.mutedForeground }]}>{isRTL ? "نمو%" : "YoY%"}</Text>
                     </View>
-                    {displayedYears.map((y, idx) => (
-                      <View key={y.year} style={[styles.tableRow, { backgroundColor: idx % 2 === 0 ? colors.background : colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                        <Text style={[styles.tdCell, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>{y.year}</Text>
-                        <Text style={[styles.tdCell, { color: colors.mutedForeground }]}>{y.orderCount}</Text>
-                        <Text style={[styles.tdCell, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>{fmt(y.totalRevenue)}</Text>
-                        <Text style={[styles.tdCell, { color: "#22A36B" }]}>{fmt(y.avgRevenuePerOrder)}</Text>
-                      </View>
-                    ))}
+                    {displayedYears.map((y, idx) => {
+                      const prevYear = idx > 0 ? displayedYears[idx - 1] : null;
+                      const yoyPct = prevYear ? calcTrendPct(y.totalRevenue, prevYear.totalRevenue) : null;
+                      const yoyUp = yoyPct !== null && yoyPct >= 0;
+                      const yoyColor = yoyPct === null ? colors.mutedForeground : (yoyUp ? "#22A36B" : "#EF4444");
+                      const yoyLabel = yoyPct === null ? "—" : `${yoyUp ? "↑" : "↓"} ${Math.abs(yoyPct).toFixed(1)}%`;
+                      return (
+                        <View key={y.year} style={[styles.tableRow, { backgroundColor: idx % 2 === 0 ? colors.background : colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                          <Text style={[styles.tdCell, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>{y.year}</Text>
+                          <Text style={[styles.tdCell, { color: colors.mutedForeground }]}>{y.orderCount}</Text>
+                          <Text style={[styles.tdCell, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>{fmt(y.totalRevenue)}</Text>
+                          <Text style={[styles.tdCell, { color: "#22A36B" }]}>{fmt(y.avgRevenuePerOrder)}</Text>
+                          <Text style={[styles.tdCell, { color: yoyColor, fontFamily: "Inter_600SemiBold" }]}>{yoyLabel}</Text>
+                        </View>
+                      );
+                    })}
                   </View>
                 </>
                 );
