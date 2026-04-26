@@ -114,6 +114,12 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   }, [sessionToken]);
 
   useEffect(() => {
+    if (sessionToken === null) {
+      lastForegroundSyncRef.current = 0;
+    }
+  }, [sessionToken]);
+
+  useEffect(() => {
     authUserRef.current = authUser;
   }, [authUser]);
 
