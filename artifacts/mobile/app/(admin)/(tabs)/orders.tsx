@@ -52,7 +52,13 @@ export default function AdminOrdersScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title={t("admin.orders")}
-        subtitle={`${allOrders.length} ${isRTL ? "طلب" : "orders"}`}
+        subtitle={
+          filter === "all"
+            ? `${allOrders.length} ${isRTL ? "طلب" : "orders"}`
+            : isRTL
+              ? `${filteredOrders.length} من ${allOrders.length} طلب`
+              : `${filteredOrders.length} of ${allOrders.length} orders`
+        }
         showHome
         showLogout
       />

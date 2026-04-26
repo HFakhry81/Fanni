@@ -91,6 +91,7 @@ export default function LoginLogsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
   const [filterSuccess, setFilterSuccess] = useState<FilterSuccess>("all");
+  const [baselineTotal, setBaselineTotal] = useState<number | null>(null);
 
   const fetchLogs = useCallback(
     async (pageNum: number, replace: boolean) => {
@@ -110,6 +111,9 @@ export default function LoginLogsScreen() {
         const data = await res.json();
         setLogs((prev) => (replace ? data.logs : [...prev, ...data.logs]));
         setPagination(data.pagination);
+        if (filterRole === "all" && filterSuccess === "all") {
+          setBaselineTotal(data.pagination.total);
+        }
       } catch {
       } finally {
         setLoading(false);
@@ -213,7 +217,19 @@ export default function LoginLogsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title={t("loginLogs.title")} />
+      <AppHeader
+        title={t("loginLogs.title")}
+        subtitle={(() => {
+          if (!pagination) return isRTL ? "جارٍ التحميل..." : "Loading...";
+          const isFiltered = filterRole !== "all" || filterSuccess !== "all";
+          if (isFiltered && baselineTotal !== null) {
+            return isRTL
+              ? `${pagination.total} من ${baselineTotal} سجل`
+              : `${pagination.total} of ${baselineTotal} logs`;
+          }
+          return `${pagination.total} ${isRTL ? "سجل" : "logs"}`;
+        })()}
+      />
 
       <View style={[styles.filtersSection, { borderBottomColor: colors.border }]}>
         <Text style={[styles.filterLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
