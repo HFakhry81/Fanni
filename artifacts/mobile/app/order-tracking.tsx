@@ -207,6 +207,13 @@ export default function OrderTrackingScreen() {
   }, [orderId]);
 
   useEffect(() => {
+    if (order?.status === "completed" || order?.status === "cancelled") {
+      delete _savedWebMapState[orderId];
+      delete _savedNativeRegion[orderId];
+    }
+  }, [order?.status, orderId]);
+
+  useEffect(() => {
     if (!order) return;
     let cancelled = false;
     fetchOSRMRoute(techStartLat, techStartLng, clientLat, clientLng).then((data) => {
