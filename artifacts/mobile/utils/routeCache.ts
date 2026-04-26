@@ -8,6 +8,7 @@ export interface RouteData {
 
 export const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 export const ROUTE_CACHE_KEY_PREFIX = "route_cache:";
+export const ROUTE_CACHE_MAX_ENTRIES = 50;
 
 export async function readPersistedRoute(key: string): Promise<RouteData | null> {
   try {
@@ -30,6 +31,36 @@ export async function writePersistedRoute(key: string, data: RouteData): Promise
       ROUTE_CACHE_KEY_PREFIX + key,
       JSON.stringify({ data, cachedAt: Date.now() })
     );
+    await evictOldestRouteEntries();
+  } catch {
+  }
+}
+
+async function evictOldestRouteEntries(): Promise<void> {
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const cacheKeys = allKeys.filter((k) => k.startsWith(ROUTE_CACHE_KEY_PREFIX));
+    if (cacheKeys.length <= ROUTE_CACHE_MAX_ENTRIES) return;
+    const pairs = await AsyncStorage.multiGet(cacheKeys);
+    const entries: { fullKey: string; cachedAt: number }[] = [];
+    for (const [fullKey, raw] of pairs) {
+      if (!raw) {
+        entries.push({ fullKey, cachedAt: 0 });
+        continue;
+      }
+      try {
+        const parsed: { cachedAt: number } = JSON.parse(raw);
+        entries.push({ fullKey, cachedAt: parsed.cachedAt ?? 0 });
+      } catch {
+        entries.push({ fullKey, cachedAt: 0 });
+      }
+    }
+    entries.sort((a, b) => a.cachedAt - b.cachedAt);
+    const excess = entries.length - ROUTE_CACHE_MAX_ENTRIES;
+    const toRemove = entries.slice(0, excess).map((e) => e.fullKey);
+    if (toRemove.length > 0) {
+      await AsyncStorage.multiRemove(toRemove);
+    }
   } catch {
   }
 }
