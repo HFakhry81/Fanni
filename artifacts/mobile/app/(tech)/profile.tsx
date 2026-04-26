@@ -43,7 +43,7 @@ function dateToTimeString(date: Date): string {
 
 export default function TechProfileScreen() {
   const router = useRouter();
-  const { openCategories } = useLocalSearchParams<{ openCategories?: string }>();
+  const { openCategories, openServiceArea } = useLocalSearchParams<{ openCategories?: string; openServiceArea?: string }>();
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language, isOnline, setIsOnline } = useApp();
   const { logout, sessionToken, refreshUser } = useAuth();
@@ -59,6 +59,7 @@ export default function TechProfileScreen() {
   const undoAvatarRef = useRef<string | undefined>(undefined);
   const editScrollRef = useRef<ScrollView>(null);
   const categoriesYRef = useRef<number>(0);
+  const serviceAreaYRef = useRef<number>(0);
   const [highlightCategories, setHighlightCategories] = useState(false);
 
   const [resendWelcomeLoading, setResendWelcomeLoading] = useState(false);
@@ -131,6 +132,16 @@ export default function TechProfileScreen() {
       }, 400);
     }
   }, [openCategories]);
+
+  useEffect(() => {
+    if (openServiceArea === "1" && user && !editVisible) {
+      openEdit();
+      router.replace("/(tech)/profile");
+      setTimeout(() => {
+        editScrollRef.current?.scrollTo({ y: serviceAreaYRef.current, animated: true });
+      }, 400);
+    }
+  }, [openServiceArea, user, editVisible]);
 
   useEffect(() => {
     if (!editVisible) {
@@ -1228,6 +1239,7 @@ export default function TechProfileScreen() {
                 </View>
 
                 {/* Divider */}
+                <View onLayout={(e) => { serviceAreaYRef.current = e.nativeEvent.layout.y; }}>
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
                   {t("register.step3")}
                 </Text>
@@ -1252,6 +1264,7 @@ export default function TechProfileScreen() {
                   onStreetChange={setEditStreet}
                   showDetails={false}
                 />
+                </View>
               </ScrollView>
             </View>
           </KeyboardAvoidingView>

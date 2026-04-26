@@ -1144,7 +1144,7 @@ export default function TechOrdersScreen() {
             </Text>
             <TouchableOpacity
               style={[styles.profileBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-              onPress={() => router.push("/(tech)/profile")}
+              onPress={() => router.push("/(tech)/profile?openServiceArea=1")}
               activeOpacity={0.85}
             >
               <VectorIcon name="user" size={16} color="#FFF" />
