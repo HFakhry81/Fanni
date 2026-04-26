@@ -157,6 +157,8 @@ export default function NewOrderScreen() {
 
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [photoLightboxVisible, setPhotoLightboxVisible] = useState(false);
+  const [photoLightboxUri, setPhotoLightboxUri] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -673,6 +675,10 @@ export default function NewOrderScreen() {
             key={photo.id}
             style={[styles.photoBox, { borderColor: colors.primary, borderRadius: colors.radius, overflow: "hidden", borderStyle: "solid" }]}
             onPress={() => {
+              setPhotoLightboxUri(photo.uri);
+              setPhotoLightboxVisible(true);
+            }}
+            onLongPress={() => {
               Alert.alert(
                 isRTL ? "حذف الصورة" : "Remove Photo",
                 isRTL ? "هل تريد حذف هذه الصورة؟" : "Remove this photo?",
@@ -684,8 +690,8 @@ export default function NewOrderScreen() {
             }}
           >
             <Image source={{ uri: photo.uri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-            <View style={{ position: "absolute", top: 3, right: 3, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 8, padding: 2 }}>
-              <VectorIcon name="x" size={10} color="#FFF" />
+            <View style={{ position: "absolute", bottom: 3, right: 3, backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 6, padding: 3 }}>
+              <VectorIcon name="maximize-2" size={10} color="#FFF" />
             </View>
           </TouchableOpacity>
         ))}
@@ -875,6 +881,14 @@ export default function NewOrderScreen() {
             onClose={() => setLightboxVisible(false)}
           />
         </>
+      )}
+
+      {photoLightboxUri !== null && (
+        <ImageLightbox
+          visible={photoLightboxVisible}
+          source={{ uri: photoLightboxUri }}
+          onClose={() => { setPhotoLightboxVisible(false); setPhotoLightboxUri(null); }}
+        />
       )}
 
       {/* Step indicator */}
