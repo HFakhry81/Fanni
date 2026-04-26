@@ -10,6 +10,7 @@
     "typecheck": "pnpm --filter @workspace/db build && tsc -p tsconfig.json --noEmit",
     "normalize-areas": "pnpm --filter @workspace/db build && tsx src/scripts/normalizeOrderAreas.ts",
     "backfill-locations": "pnpm --filter @workspace/db build && tsx migrations/010-backfill-user-locations.ts",
+    "backfill-centroids": "pnpm --filter @workspace/db build && tsx migrations/013-backfill-location-centroids.ts",
     "test": "vitest run"
   },
   "dependencies": {
