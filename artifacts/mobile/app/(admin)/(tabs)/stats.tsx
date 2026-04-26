@@ -542,8 +542,13 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
 
                 {/* P&L rows */}
                 <View style={[styles.chartCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
-                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, marginBottom: 14, textAlign: isRTL ? "right" : "left" }}>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
                     {isRTL ? "بيان الأرباح والخسائر" : "Profit & Loss Statement"}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 14, textAlign: isRTL ? "right" : "left" }}>
+                    {new Date(pnlData.period.from).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
+                    {" – "}
+                    {new Date(pnlData.period.to).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
                   </Text>
                   {[
                     { label: isRTL ? "رسوم الخدمة – الفني (15%)" : "Technician Service Fee (15%)", value: pnlData.technicianServiceFee, color: "#F59E0B" },
