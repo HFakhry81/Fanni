@@ -594,7 +594,7 @@ export default function OrderDetailsScreen() {
                 )}
               </View>
             </View>
-            {order.technicianMobile && (
+            {order.technicianMobile && !isTechnician && (
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
                 <TouchableOpacity
                   style={[styles.trackBtn, { flex: 1, backgroundColor: colors.primary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
@@ -606,18 +606,16 @@ export default function OrderDetailsScreen() {
                     {t("order.callTech")}
                   </Text>
                 </TouchableOpacity>
-                {(order.status === "accepted" || order.status === "inProgress") && (
-                  <TouchableOpacity
-                    style={[styles.trackBtn, { flex: 1, backgroundColor: colors.secondary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
-                    onPress={() => Linking.openURL(`sms:${order.technicianMobile}`)}
-                    activeOpacity={0.85}
-                  >
-                    <VectorIcon name="message-circle" size={16} color="#FFF" />
-                    <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-                      {t("order.smsTech")}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={[styles.trackBtn, { flex: 1, backgroundColor: colors.secondary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                  onPress={() => Linking.openURL(`sms:${order.technicianMobile}`)}
+                  activeOpacity={0.85}
+                >
+                  <VectorIcon name="message-circle" size={16} color="#FFF" />
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                    {t("order.smsTech")}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
             {(order.status === "accepted" || order.status === "inProgress") && (
