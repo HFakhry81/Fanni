@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Platform, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
@@ -134,6 +134,17 @@ export default function RegisterSuccessScreen() {
                   </Text>
                 </View>
               )}
+
+              <TouchableOpacity
+                style={[styles.editCategoriesBtn, { borderColor: colors.primary }]}
+                onPress={() => router.push("/(tech)/profile?openCategories=1")}
+                activeOpacity={0.7}
+              >
+                <VectorIcon name="edit-2" size={14} color={colors.primary} />
+                <Text style={[styles.editCategoriesText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+                  {t("register.editCategories")}
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : null}
         </View>
@@ -197,5 +208,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   nudgeText: { fontSize: 13, lineHeight: 20, flex: 1 },
+  editCategoriesBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: "flex-start",
+  },
+  editCategoriesText: { fontSize: 13 },
   btnArea: { paddingBottom: 16 },
 });
