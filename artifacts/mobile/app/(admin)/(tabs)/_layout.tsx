@@ -1,7 +1,7 @@
 import { Tabs, useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
+import { NativeTabs, Icon, Label, Badge } from "expo-router/unstable-native-tabs";
 import React, { useState } from "react";
 import { Platform, StyleSheet, View, Text, TouchableOpacity, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
@@ -9,7 +9,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import VectorIcon from "@/components/VectorIcon";
 
-function NativeAdminTabs() {
+function NativeAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }) {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="dashboard">
@@ -43,12 +43,13 @@ function NativeAdminTabs() {
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
+        {mustChangePassword && <Badge>{""}</Badge>}
       </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
 
-function ClassicAdminTabs() {
+function ClassicAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }) {
   const colors = useColors();
   const { t } = useApp();
   const colorScheme = useColorScheme();
@@ -131,6 +132,8 @@ function ClassicAdminTabs() {
         name="profile"
         options={{
           title: t("nav.profile"),
+          tabBarBadge: mustChangePassword ? "" : undefined,
+          tabBarBadgeStyle: { backgroundColor: "#F5A623", minWidth: 10, height: 10, borderRadius: 5 },
           tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>👤</Text>,
         }}
       />
@@ -180,7 +183,10 @@ export default function AdminTabsLayout() {
           </TouchableOpacity>
         </View>
       )}
-      {isLiquidGlassAvailable() ? <NativeAdminTabs /> : <ClassicAdminTabs />}
+      {isLiquidGlassAvailable()
+        ? <NativeAdminTabs mustChangePassword={user?.mustChangePassword === true} />
+        : <ClassicAdminTabs mustChangePassword={user?.mustChangePassword === true} />
+      }
     </View>
   );
 }
