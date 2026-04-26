@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @workspace/db build && export NODE_ENV=development && pnpm run build && pnpm run start",
+    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "prebuild": "pnpm --filter @workspace/db --filter @workspace/api-zod build",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "pnpm --filter @workspace/db build && tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm --filter @workspace/db --filter @workspace/api-zod build && tsc -p tsconfig.json --noEmit",
     "normalize-areas": "pnpm --filter @workspace/db build && tsx src/scripts/normalizeOrderAreas.ts",
     "backfill-locations": "pnpm --filter @workspace/db build && tsx migrations/010-backfill-user-locations.ts",
     "backfill-centroids": "pnpm --filter @workspace/db build && tsx migrations/013-backfill-location-centroids.ts",
