@@ -32,6 +32,7 @@ interface ApiUser {
   role: "client" | "technician" | "admin" | null;
   isActive: boolean;
   isAvailable: boolean | null;
+  mustChangePassword?: boolean;
   area: string | null;
   governorate: string | null;
   specialty: string | null;
@@ -569,6 +570,14 @@ export default function AdminUsersScreen() {
                 <View style={[styles.statusBadge, { backgroundColor: isAvailable ? "#E6F4FF" : "#F5F5F5", borderRadius: 8 }]}>
                   <Text style={{ color: isAvailable ? "#0284C7" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
                     {isAvailable ? (isRTL ? "متاح" : "Available") : (isRTL ? "غير متاح" : "Unavailable")}
+                  </Text>
+                </View>
+              ) : null}
+              {item.role === "admin" && item.mustChangePassword ? (
+                <View style={[styles.statusBadge, { backgroundColor: "#FEF3C7", borderRadius: 8, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 3 }]}>
+                  <Text style={{ fontSize: 10 }}>⚠️</Text>
+                  <Text style={{ color: "#92400E", fontFamily: "Inter_600SemiBold", fontSize: 10 }}>
+                    {isRTL ? "يجب تغيير كلمة المرور" : "Must change password"}
                   </Text>
                 </View>
               ) : null}

@@ -221,6 +221,7 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
           mobile: adminsTable.mobile,
           role: sql<string>`'admin'`,
           isActive: adminsTable.isActive,
+          mustChangePassword: adminsTable.mustChangePassword,
           area: sql<null>`null`,
           governorate: sql<null>`null`,
           specialty: sql<null>`null`,
