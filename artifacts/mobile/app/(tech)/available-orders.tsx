@@ -18,6 +18,7 @@ import { useOrders } from "@/context/OrderContext";
 import { useTechWs } from "@/context/TechWsContext";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
+import Toast from "@/components/Toast";
 import { useRouter } from "expo-router";
 
 function getApiBaseUrl(): string {
@@ -67,9 +68,11 @@ export default function AvailableOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [newOrdersToast, setNewOrdersToast] = useState<{ visible: boolean; added: number; key: number }>({ visible: false, added: 0, key: 0 });
 
   const isFocusedRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevOrderCountRef = useRef<number>(0);
 
   const fetchOrders = useCallback(async (isRefresh = false, silent = false) => {
     const apiBase = getApiBaseUrl();
@@ -99,6 +102,13 @@ export default function AvailableOrdersScreen() {
       const fetched = json.orders ?? [];
       setOrders(fetched);
       setAvailablePendingCount(isFocusedRef.current ? 0 : (json.meta?.total ?? fetched.length));
+      if (silent) {
+        const added = fetched.length - prevOrderCountRef.current;
+        if (added > 0) {
+          setNewOrdersToast((prev) => ({ visible: true, added, key: prev.key + 1 }));
+        }
+      }
+      prevOrderCountRef.current = fetched.length;
     } catch (err) {
       console.warn("[Fanni] Failed to fetch pending orders:", err);
       setError(isRTL ? "تعذّر تحميل الطلبات المتاحة" : "Could not load available orders");
@@ -153,6 +163,7 @@ export default function AvailableOrdersScreen() {
     setOrders((prev) => {
       const next = prev.filter((o) => o.id !== orderId);
       if (next.length !== prev.length) {
+        prevOrderCountRef.current = next.length;
         setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
       }
       return next;
@@ -191,6 +202,7 @@ export default function AvailableOrdersScreen() {
           });
           setOrders((prev) => {
             const next = prev.filter((o) => o.id !== order.id);
+            prevOrderCountRef.current = next.length;
             setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
             return next;
           });
@@ -387,6 +399,22 @@ export default function AvailableOrdersScreen() {
           }
         />
       )}
+      <Toast
+        key={newOrdersToast.key}
+        visible={newOrdersToast.visible}
+        message={
+          isRTL
+            ? newOrdersToast.added === 1
+              ? "طلب جديد متاح"
+              : `${newOrdersToast.added} طلبات جديدة متاحة`
+            : newOrdersToast.added === 1
+            ? "1 new order available"
+            : `${newOrdersToast.added} new orders available`
+        }
+        duration={3000}
+        variant="success"
+        onHide={() => setNewOrdersToast((prev) => ({ ...prev, visible: false, added: 0 }))}
+      />
     </View>
   );
 }
