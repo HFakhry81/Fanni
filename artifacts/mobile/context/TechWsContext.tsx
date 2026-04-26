@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
@@ -72,6 +73,7 @@ interface TechWsContextValue {
   subscribeNewOrder: (cb: NewOrderSubscriber) => () => void;
   subscribeOrderCancelled: (cb: OrderCancelledSubscriber) => () => void;
   subscribeAvailabilityChanged: (cb: AvailabilitySubscriber) => () => void;
+  isWsConnected: boolean;
 }
 
 const TechWsContext = createContext<TechWsContextValue | null>(null);
@@ -110,10 +112,14 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const authRejectedRef = useRef(false);
+  const hasConnectedRef = useRef(false);
+
+  const [isWsConnected, setIsWsConnected] = useState(false);
 
   useEffect(() => {
     mountedRef.current = true;
     authRejectedRef.current = false;
+    hasConnectedRef.current = false;
 
     function disconnect() {
       if (reconnectTimerRef.current) {
@@ -139,6 +145,8 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
           clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = null;
         }
+        hasConnectedRef.current = true;
+        if (mountedRef.current) setIsWsConnected(true);
         ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current, isOnlineRef.current));
       };
 
@@ -186,6 +194,7 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
 
       ws.onclose = () => {
         wsRef.current = null;
+        if (mountedRef.current && hasConnectedRef.current) setIsWsConnected(false);
         if (mountedRef.current && !authRejectedRef.current) {
           console.warn("[Fanni] Shared tech WS closed. Reconnecting in", WS_RECONNECT_DELAY_MS, "ms...");
           reconnectTimerRef.current = setTimeout(connect, WS_RECONNECT_DELAY_MS);
@@ -232,6 +241,7 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
     subscribeNewOrder,
     subscribeOrderCancelled,
     subscribeAvailabilityChanged,
+    isWsConnected,
   };
 
   return <TechWsContext.Provider value={value}>{children}</TechWsContext.Provider>;

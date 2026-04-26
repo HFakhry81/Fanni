@@ -21,23 +21,27 @@ export interface OrderStatusNotification {
 export function useClientOrderUpdates(
   user: User | null = null,
   sessionToken: string | null = null,
-  onStatusNotification?: (notification: OrderStatusNotification) => void
+  onStatusNotification?: (notification: OrderStatusNotification) => void,
+  onConnectionChange?: (connected: boolean) => void
 ) {
   const { updateOrder, bumpWsOrderStatusSignal, orders } = useOrders();
   const updateOrderRef = useRef(updateOrder);
   const bumpSignalRef = useRef(bumpWsOrderStatusSignal);
   const onNotificationRef = useRef(onStatusNotification);
+  const onConnectionChangeRef = useRef(onConnectionChange);
   const ordersRef = useRef(orders);
 
   bumpSignalRef.current = bumpWsOrderStatusSignal;
   updateOrderRef.current = updateOrder;
   onNotificationRef.current = onStatusNotification;
+  onConnectionChangeRef.current = onConnectionChange;
   ordersRef.current = orders;
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const authRejectedRef = useRef(false);
+  const hasConnectedRef = useRef(false);
   const sessionTokenRef = useRef(sessionToken);
   sessionTokenRef.current = sessionToken;
 
@@ -46,6 +50,7 @@ export function useClientOrderUpdates(
   useEffect(() => {
     mountedRef.current = true;
     authRejectedRef.current = false;
+    hasConnectedRef.current = false;
 
     function disconnect() {
       if (reconnectTimerRef.current) {
@@ -71,6 +76,8 @@ export function useClientOrderUpdates(
           clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = null;
         }
+        hasConnectedRef.current = true;
+        if (mountedRef.current) onConnectionChangeRef.current?.(true);
         ws.send(
           JSON.stringify({
             type: "register",
@@ -122,6 +129,7 @@ export function useClientOrderUpdates(
 
       ws.onclose = () => {
         wsRef.current = null;
+        if (mountedRef.current && hasConnectedRef.current) onConnectionChangeRef.current?.(false);
         if (mountedRef.current && !authRejectedRef.current) {
           console.warn("[Fanni] Client order updates WS closed. Reconnecting in", WS_RECONNECT_DELAY_MS, "ms...");
           reconnectTimerRef.current = setTimeout(connect, WS_RECONNECT_DELAY_MS);

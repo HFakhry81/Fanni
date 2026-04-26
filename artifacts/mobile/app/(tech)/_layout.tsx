@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useOrders, buildSimulatedOrder } from "@/context/OrderContext";
 import { TechWsProvider, useTechWs } from "@/context/TechWsContext";
 import Toast from "@/components/Toast";
+import ConnectionBanner from "@/components/ConnectionBanner";
 
 function CountBadge({ count }: { count: number }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -260,6 +261,7 @@ function usePendingCountSync() {
 function TechLayoutInner() {
   const { availablePendingCount } = useOrders();
   const { language } = useApp();
+  const { isWsConnected } = useTechWs();
   const [adminNotification, setAdminNotification] = useState<{ message: string; visible: boolean }>({
     message: "",
     visible: false,
@@ -288,9 +290,12 @@ function TechLayoutInner() {
 
   const tabs = isLiquidGlassAvailable() ? <NativeTechTabs availablePendingCount={availablePendingCount} /> : <ClassicTechTabs />;
 
+  const reconnectLabel = language === "ar" ? "جارٍ إعادة الاتصال…" : "Reconnecting…";
+
   return (
     <>
       {tabs}
+      <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
       <Toast
         visible={adminNotification.visible}
         message={adminNotification.message}
