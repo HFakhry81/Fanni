@@ -243,6 +243,7 @@ const translations: Record<string, Record<Language, string>> = {
   "invoice.date": { ar: "التاريخ", en: "Date" },
   "invoice.client": { ar: "العميل", en: "Client" },
   "invoice.category": { ar: "الخدمة", en: "Service" },
+  "invoice.subCategory": { ar: "التخصص", en: "Sub-service" },
   "invoice.orderNumber": { ar: "رقم الطلب", en: "Order #" },
   "invoice.materials": { ar: "تكلفة المواد", en: "Materials Cost" },
   "invoice.materialsMark": { ar: "هامش المواد (10%)", en: "Materials Markup (10%)" },

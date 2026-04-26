@@ -301,6 +301,10 @@ export default function OrderDetailsScreen() {
     <span class="meta-label">${t("invoice.category")}</span>
     <span class="meta-value">${categoryLabel}</span>
   </div>
+  ${order.subCategory ? `<div class="meta-item">
+    <span class="meta-label">${t("invoice.subCategory")}</span>
+    <span class="meta-value">${order.subCategory}</span>
+  </div>` : ""}
   ${order.technicianName ? `<div class="meta-item">
     <span class="meta-label">${t("invoice.technician")}</span>
     <span class="meta-value">${order.technicianName}</span>
