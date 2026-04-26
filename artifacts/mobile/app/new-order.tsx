@@ -326,13 +326,16 @@ export default function NewOrderScreen() {
       f.orderPhotos.length > 0;
     if (!hasContent) return;                        // nothing to save
     const { orderPhotos: _photos, ...fieldData } = f;
+    const remotePhotos = f.orderPhotos.filter(
+      (p) => !p.uri.startsWith("file://") && !p.uri.startsWith("content://"),
+    );
     const draft = {
       ...fieldData,
       step: stepOverride ?? f.step,
       category: cat, subCategory: sub,
       savedAt: Date.now(),
       loginFlow: false,
-      photoUris: f.orderPhotos.map((p) => ({ id: p.id, uri: p.uri, phase: p.phase })),
+      photoUris: remotePhotos.map((p) => ({ id: p.id, uri: p.uri, phase: p.phase })),
     };
     AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -393,7 +396,9 @@ export default function NewOrderScreen() {
       visitDate, visitTime,
       savedAt: Date.now(),
       loginFlow: true,
-      photoUris: orderPhotos.map((p) => ({ id: p.id, uri: p.uri, phase: p.phase })),
+      photoUris: orderPhotos
+        .filter((p) => !p.uri.startsWith("file://") && !p.uri.startsWith("content://"))
+        .map((p) => ({ id: p.id, uri: p.uri, phase: p.phase })),
     };
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     const result = await login();
