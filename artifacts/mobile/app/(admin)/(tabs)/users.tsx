@@ -91,9 +91,11 @@ export default function AdminUsersScreen() {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentPage = useRef(1);
   const replaceAbortController = useRef<AbortController | null>(null);
+  const countsAbortController = useRef<AbortController | null>(null);
   const isLoadingMoreRef = useRef(false);
 
   const [baselineTotals, setBaselineTotals] = useState<Partial<Record<UserTab, number>>>({});
+  const [statusCounts, setStatusCounts] = useState<{ all: number | null; active: number | null; suspended: number | null }>({ all: null, active: null, suspended: null });
 
   const [resetTarget, setResetTarget] = useState<ApiUser | null>(null);
   const [resetPassword, setResetPassword] = useState("");
@@ -223,6 +225,32 @@ export default function AdminUsersScreen() {
     }, 400);
   }, []);
 
+  const fetchCounts = useCallback(async (search?: string) => {
+    if (!sessionToken || tab === "permissions") return;
+    countsAbortController.current?.abort();
+    const controller = new AbortController();
+    countsAbortController.current = controller;
+    setStatusCounts({ all: null, active: null, suspended: null });
+    const role = TAB_ROLE_MAP[tab];
+    const apiBase = getApiBaseUrl();
+    const searchParam = search && search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
+    try {
+      const res = await fetch(
+        `${apiBase}/api/admin/users/counts?role=${role}${searchParam}`,
+        { headers: { Authorization: `Bearer ${sessionToken}` }, signal: controller.signal }
+      );
+      if (!res.ok) {
+        setStatusCounts({ all: null, active: null, suspended: null });
+        return;
+      }
+      const data = await res.json() as { all: number; active: number; suspended: number };
+      setStatusCounts({ all: data.all, active: data.active, suspended: data.suspended });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setStatusCounts({ all: null, active: null, suspended: null });
+    }
+  }, [sessionToken, tab]);
+
   const fetchUsers = useCallback(async (page: number, replace: boolean, search?: string) => {
     if (!sessionToken) return;
     if (tab === "permissions") return;
@@ -297,9 +325,14 @@ export default function AdminUsersScreen() {
   }, [fetchUsers, debouncedSearch]);
 
   useEffect(() => {
+    fetchCounts(debouncedSearch);
+  }, [fetchCounts, debouncedSearch]);
+
+  useEffect(() => {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       replaceAbortController.current?.abort();
+      countsAbortController.current?.abort();
     };
   }, []);
 
@@ -802,11 +835,13 @@ export default function AdminUsersScreen() {
       <View style={[styles.filterRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {(["all", "active", "suspended"] as StatusFilter[]).map((f) => {
           const isSelected = statusFilter === f;
-          const label = f === "all"
+          const baseLabel = f === "all"
             ? (isRTL ? "الكل" : "All")
             : f === "active"
             ? (isRTL ? "نشط" : "Active")
             : (isRTL ? "موقوف" : "Suspended");
+          const count = statusCounts[f];
+          const label = count !== null ? `${baseLabel} (${count})` : baseLabel;
           const selectedBg = f === "suspended" ? "#FFE6E6" : f === "active" ? "#D4EDDA" : colors.secondary;
           const selectedColor = f === "suspended" ? colors.destructive : f === "active" ? colors.success : "#FFF";
           return (

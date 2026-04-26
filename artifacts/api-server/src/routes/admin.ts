@@ -179,6 +179,70 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
   res.status(201).json({ success: true, userId: newAdmin.id });
 });
 
+router.get("/admin/users/counts", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const role = queryString(req.query.role);
+  const search = queryString(req.query.search)?.trim();
+
+  if (role === "admin") {
+    const baseConditions: ReturnType<typeof eq>[] = [];
+    if (search) {
+      const pattern = `%${search}%`;
+      baseConditions.push(
+        or(
+          ilike(adminsTable.firstName, pattern),
+          ilike(adminsTable.lastName, pattern),
+          ilike(adminsTable.email, pattern),
+          ilike(adminsTable.mobile, pattern),
+          sql`concat(${adminsTable.firstName}, ' ', coalesce(${adminsTable.lastName}, '')) ilike ${pattern}`
+        ) as ReturnType<typeof eq>
+      );
+    }
+
+    const whereClause = baseConditions.length > 0 ? and(...baseConditions) : undefined;
+    const [row] = await db
+      .select({
+        all: sql<number>`count(*)::int`,
+        active: sql<number>`count(*) filter (where ${adminsTable.isActive} = true)::int`,
+        suspended: sql<number>`count(*) filter (where ${adminsTable.isActive} = false)::int`,
+      })
+      .from(adminsTable)
+      .where(whereClause);
+
+    return res.json({ all: row?.all ?? 0, active: row?.active ?? 0, suspended: row?.suspended ?? 0 });
+  }
+
+  const baseConditions: ReturnType<typeof eq>[] = [];
+  if (role && ["client", "technician"].includes(role)) {
+    baseConditions.push(eq(usersTable.role, role as "client" | "technician"));
+  }
+  if (search) {
+    const pattern = `%${search}%`;
+    baseConditions.push(
+      or(
+        ilike(usersTable.firstName, pattern),
+        ilike(usersTable.lastName, pattern),
+        ilike(usersTable.email, pattern),
+        ilike(usersTable.mobile, pattern),
+        ilike(usersTable.area, pattern),
+        ilike(usersTable.governorate, pattern),
+        sql`concat(${usersTable.firstName}, ' ', coalesce(${usersTable.lastName}, '')) ilike ${pattern}`
+      ) as ReturnType<typeof eq>
+    );
+  }
+
+  const whereClause = baseConditions.length > 0 ? and(...baseConditions) : undefined;
+  const [row] = await db
+    .select({
+      all: sql<number>`count(*)::int`,
+      active: sql<number>`count(*) filter (where ${usersTable.isActive} = true)::int`,
+      suspended: sql<number>`count(*) filter (where ${usersTable.isActive} = false)::int`,
+    })
+    .from(usersTable)
+    .where(whereClause);
+
+  return res.json({ all: row?.all ?? 0, active: row?.active ?? 0, suspended: row?.suspended ?? 0 });
+});
+
 router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const page = Math.max(1, queryInt(req.query.page, 1));
   const limit = Math.min(100, Math.max(1, queryInt(req.query.limit, 20)));
