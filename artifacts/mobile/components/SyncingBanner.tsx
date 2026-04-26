@@ -1,27 +1,27 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Text, StyleSheet, Platform } from "react-native";
+import { Animated, ActivityIndicator, Text, StyleSheet, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import VectorIcon from "@/components/VectorIcon";
 
-interface ConnectionBannerProps {
-  connected: boolean;
-  reconnectingLabel?: string;
+interface SyncingBannerProps {
+  visible: boolean;
+  label?: string;
+  topOffset?: number;
 }
 
-export default function ConnectionBanner({ connected, reconnectingLabel = "Reconnecting…" }: ConnectionBannerProps) {
+export default function SyncingBanner({ visible, label = "Syncing…", topOffset = 0 }: SyncingBannerProps) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-60)).current;
   const visibleRef = useRef(false);
 
   useEffect(() => {
-    if (!connected && !visibleRef.current) {
+    if (visible && !visibleRef.current) {
       visibleRef.current = true;
       Animated.spring(translateY, {
         toValue: 0,
         useNativeDriver: true,
         bounciness: 4,
       }).start();
-    } else if (connected && visibleRef.current) {
+    } else if (!visible && visibleRef.current) {
       visibleRef.current = false;
       Animated.timing(translateY, {
         toValue: -60,
@@ -29,38 +29,33 @@ export default function ConnectionBanner({ connected, reconnectingLabel = "Recon
         useNativeDriver: true,
       }).start();
     }
-  }, [connected, translateY]);
+  }, [visible, translateY]);
 
   return (
     <Animated.View
       style={[
         styles.banner,
-        { top: insets.top, transform: [{ translateY }] },
+        { top: insets.top + topOffset, transform: [{ translateY }] },
       ]}
       pointerEvents="none"
     >
-      <VectorIcon name="wifi-off" size={14} color="#fff" style={{ marginRight: 6 }} />
-      <Text style={styles.text}>{reconnectingLabel}</Text>
+      <ActivityIndicator size={12} color="#fff" style={{ marginRight: 6 }} />
+      <Text style={styles.text}>{label}</Text>
     </Animated.View>
   );
 }
-
-export const CONNECTION_BANNER_PADDING_VERTICAL = Platform.OS === "web" ? 6 : 8;
-export const CONNECTION_BANNER_LINE_HEIGHT = 18;
-export const CONNECTION_BANNER_HEIGHT =
-  CONNECTION_BANNER_PADDING_VERTICAL * 2 + CONNECTION_BANNER_LINE_HEIGHT;
 
 const styles = StyleSheet.create({
   banner: {
     position: "absolute",
     left: 0,
     right: 0,
-    zIndex: 10000,
-    backgroundColor: "#B45309",
+    zIndex: 9999,
+    backgroundColor: "#D97706",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: CONNECTION_BANNER_PADDING_VERTICAL,
+    paddingVertical: Platform.OS === "web" ? 6 : 8,
     paddingHorizontal: 16,
   },
   text: {

@@ -10,7 +10,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useOrders, buildSimulatedOrder } from "@/context/OrderContext";
 import { TechWsProvider, useTechWs } from "@/context/TechWsContext";
 import Toast from "@/components/Toast";
-import ConnectionBanner from "@/components/ConnectionBanner";
+import ConnectionBanner, { CONNECTION_BANNER_HEIGHT } from "@/components/ConnectionBanner";
+import SyncingBanner from "@/components/SyncingBanner";
 
 function CountBadge({ count }: { count: number }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -291,7 +292,7 @@ function usePendingCountSync() {
 
 function TechLayoutInner() {
   const { availablePendingCount } = useOrders();
-  const { language, user } = useApp();
+  const { language, user, hasPendingToggle } = useApp();
   const profileSetupIncomplete = !user?.serviceCategories || user.serviceCategories.length === 0;
   const { isWsConnected } = useTechWs();
   const [adminNotification, setAdminNotification] = useState<{ message: string; visible: boolean }>({
@@ -337,14 +338,18 @@ function TechLayoutInner() {
   const tabs = isLiquidGlassAvailable() ? <NativeTechTabs availablePendingCount={availablePendingCount} profileSetupIncomplete={profileSetupIncomplete} /> : <ClassicTechTabs />;
 
   const reconnectLabel = language === "ar" ? "جارٍ إعادة الاتصال…" : "Reconnecting…";
+  const syncingLabel = language === "ar" ? "جارٍ المزامنة…" : "Syncing…";
   const cancelledMessage = language === "ar"
     ? `${ORDER_CANCELLED_MESSAGES.ar}\n${ORDER_CANCELLED_MESSAGES.en}`
     : `${ORDER_CANCELLED_MESSAGES.en}\n${ORDER_CANCELLED_MESSAGES.ar}`;
+
+  const syncingTopOffset = !isWsConnected ? CONNECTION_BANNER_HEIGHT : 0;
 
   return (
     <>
       {tabs}
       <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
+      <SyncingBanner visible={hasPendingToggle} label={syncingLabel} topOffset={syncingTopOffset} />
       <Toast
         visible={adminNotification.visible}
         message={adminNotification.message}
