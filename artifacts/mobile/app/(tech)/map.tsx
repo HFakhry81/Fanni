@@ -46,6 +46,7 @@ export default function TechMapScreen() {
     AsyncStorage.setItem("catBannerDismissed", "true").catch(() => {});
   };
   const [serverPendingOrders, setServerPendingOrders] = useState<Order[] | null>(null);
+  const [isFetchingOrders, setIsFetchingOrders] = useState(false);
 
   const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
   const showCatBanner = catBannerHydrated && !!user && !catBannerDismissed && !hasCategories;
@@ -58,6 +59,7 @@ export default function TechMapScreen() {
   const fetchServerPendingOrders = async () => {
     const apiBase = getApiBaseUrl();
     if (!apiBase || !sessionToken) return;
+    setIsFetchingOrders(true);
     try {
       const params = new URLSearchParams();
       if (user?.governorate) params.set("governorate", user.governorate);
@@ -75,6 +77,8 @@ export default function TechMapScreen() {
     } catch (err) {
       console.warn("[Fanni] Network error fetching pending orders:", err);
       setServerPendingOrders(null);
+    } finally {
+      setIsFetchingOrders(false);
     }
   };
 
@@ -407,14 +411,23 @@ export default function TechMapScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}
           ListEmptyComponent={
-            <View style={styles.emptyHoriz}>
-              <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 30 }]}>
-                <VectorIcon name="inbox" size={28} color={colors.mutedForeground} />
+            isFetchingOrders ? (
+              <View style={styles.emptyHoriz}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 10, fontFamily: "Inter_400Regular" }}>
+                  {isRTL ? "جارٍ تحميل الطلبات…" : "Loading orders…"}
+                </Text>
               </View>
-              <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 8, fontFamily: "Inter_400Regular" }}>
-                {t("common.noData")}
-              </Text>
-            </View>
+            ) : (
+              <View style={styles.emptyHoriz}>
+                <View style={[styles.emptyIcon, { backgroundColor: colors.muted, borderRadius: 30 }]}>
+                  <VectorIcon name="inbox" size={28} color={colors.mutedForeground} />
+                </View>
+                <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 8, fontFamily: "Inter_400Regular" }}>
+                  {t("common.noData")}
+                </Text>
+              </View>
+            )
           }
           renderItem={({ item }) => {
             const isNew = newPendingOrders.some((o) => o.id === item.id);
