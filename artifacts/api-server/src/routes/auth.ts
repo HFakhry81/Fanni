@@ -1261,6 +1261,22 @@ router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Re
   res.json({ user: buildAuthUser(updatedUser) });
 });
 
+// PROTECTED: Revokes all admin sessions except the current one. Admin only.
+router.post("/auth/revoke-other-sessions", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  if (req.sessionSource !== "admin") {
+    res.status(403).json({ error: "Only admin accounts can use this endpoint" });
+    return;
+  }
+  const currentSid = getSessionId(req);
+  if (!currentSid) {
+    res.status(400).json({ error: "No active session found" });
+    return;
+  }
+  await deleteOtherSessionsForUser(req.user!.id, currentSid, "admin");
+  req.log.info({ userId: req.user!.id }, "Admin revoked all other sessions");
+  res.json({ success: true });
+});
+
 router.post("/auth/push-token", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
   if (user.role !== "client") {

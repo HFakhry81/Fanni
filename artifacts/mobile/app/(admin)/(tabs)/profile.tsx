@@ -57,6 +57,7 @@ export default function AdminProfileScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changePwErrors, setChangePwErrors] = useState<{ currentPassword?: string; newPassword?: string; confirmPassword?: string }>({});
   const [changingPw, setChangingPw] = useState(false);
+  const [revokingOtherSessions, setRevokingOtherSessions] = useState(false);
 
   useEffect(() => {
     if (mode === "change-password" && !changePwMode) {
@@ -188,6 +189,49 @@ export default function AdminProfileScreen() {
     } finally {
       setChangingPw(false);
     }
+  };
+
+  const handleRevokeOtherSessions = () => {
+    Alert.alert(
+      t("profile.revokeOtherSessionsConfirmTitle"),
+      t("profile.revokeOtherSessionsConfirmMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("profile.revokeOtherSessions"),
+          style: "destructive",
+          onPress: async () => {
+            setRevokingOtherSessions(true);
+            try {
+              const apiBase = getApiBaseUrl();
+              const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+              if (!apiBase || !token) throw new Error(t("profile.noServer"));
+              const res = await fetch(`${apiBase}/api/auth/revoke-other-sessions`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+              if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error ?? t("profile.revokeOtherSessionsFailed"));
+              }
+              setToastMessage(t("profile.revokeOtherSessionsSuccess"));
+              setToastAction(undefined);
+              setToastVisible(true);
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : String(err);
+              setToastMessage(msg || t("profile.revokeOtherSessionsFailed"));
+              setToastAction(undefined);
+              setToastVisible(true);
+            } finally {
+              setRevokingOtherSessions(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -560,6 +604,26 @@ export default function AdminProfileScreen() {
             <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
           </TouchableOpacity>
         )}
+
+        {/* Sign out of all other devices */}
+        <TouchableOpacity
+          style={[styles.changePwBtn, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={handleRevokeOtherSessions}
+          activeOpacity={0.8}
+          disabled={revokingOtherSessions}
+        >
+          <View style={[styles.changePwIcon, { backgroundColor: colors.accentBlue ?? "#EBF5FF", borderRadius: 10 }]}>
+            {revokingOtherSessions ? (
+              <ActivityIndicator size="small" color={colors.secondary ?? "#3B82F6"} />
+            ) : (
+              <VectorIcon name="log-out" size={20} color={colors.secondary ?? "#3B82F6"} />
+            )}
+          </View>
+          <Text style={[styles.changePwText, { color: colors.foreground, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }]}>
+            {t("profile.revokeOtherSessions")}
+          </Text>
+          <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
+        </TouchableOpacity>
 
         {/* Logout */}
         <TouchableOpacity
