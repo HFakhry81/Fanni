@@ -1365,7 +1365,7 @@ router.delete(
   requireAuth,
   requireAdmin,
   async (req, res): Promise<void> => {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     await db.delete(locationMissLogTable).where(eq(locationMissLogTable.id, id));
 
