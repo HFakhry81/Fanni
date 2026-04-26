@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable } from "@workspace/db";
+import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable } from "@workspace/db";
 import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -420,11 +420,22 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requ
     return;
   }
 
-  const [updated] = await db
-    .update(usersTable)
-    .set(updates)
-    .where(eq(usersTable.id, id))
-    .returning({ id: usersTable.id, role: usersTable.role, isActive: usersTable.isActive });
+  const [updated] = await db.transaction(async (tx) => {
+    const result = await tx
+      .update(usersTable)
+      .set(updates)
+      .where(eq(usersTable.id, id))
+      .returning({ id: usersTable.id, role: usersTable.role, isActive: usersTable.isActive });
+
+    if (updates.isActive === false) {
+      await tx.delete(sessionsTable).where(
+        sql`${sessionsTable.sess}->'user'->>'id' = ${id}`,
+      );
+      req.log.info({ userId: id, adminId: req.user?.id }, "Deleted all sessions for suspended user");
+    }
+
+    return result;
+  });
 
   req.log.info({ userId: id, updates, adminId: req.user?.id }, "Admin updated user");
   res.json({ success: true, user: updated });

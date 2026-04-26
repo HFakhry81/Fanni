@@ -2,7 +2,7 @@ import * as client from "openid-client";
 import crypto from "crypto";
 import { type Request, type Response } from "express";
 import { db, sessionsTable } from "@workspace/db";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { type SQL, and, eq, ne, sql } from "drizzle-orm";
 import type { AuthUser } from "@workspace/api-zod";
 
 export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
@@ -94,6 +94,19 @@ export async function deleteOtherSessionsForUser(
   const conditions = [
     sql`${sessionsTable.sess}->'user'->>'id' = ${userId}`,
     ne(sessionsTable.sid, currentSid),
+  ];
+  if (source !== undefined) {
+    conditions.push(sql`${sessionsTable.sess}->>'source' = ${source}`);
+  }
+  await db.delete(sessionsTable).where(and(...conditions));
+}
+
+export async function deleteAllSessionsForUser(
+  userId: string,
+  source?: "admin" | "user",
+): Promise<void> {
+  const conditions: SQL[] = [
+    sql`${sessionsTable.sess}->'user'->>'id' = ${userId}`,
   ];
   if (source !== undefined) {
     conditions.push(sql`${sessionsTable.sess}->>'source' = ${source}`);
