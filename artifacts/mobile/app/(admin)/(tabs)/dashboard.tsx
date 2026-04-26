@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
@@ -22,7 +22,7 @@ export default function AdminDashboardScreen() {
   const active = allOrders.filter((o) => ["accepted", "inProgress"].includes(o.status));
   const totalRevenue = completed.reduce((sum, o) => sum + (o.invoice?.total ?? 0), 0);
 
-  const kpis = [
+  const kpis: { icon: IconName; label: string; value: string; unit: string; color: string; bg: string }[] = [
     { icon: "dollar-sign", label: t("admin.totalRevenue"), value: `${totalRevenue.toFixed(0)}`, unit: t("common.egp"), color: colors.primary,   bg: colors.accent },
     { icon: "activity",    label: t("admin.activeOrders"), value: active.length.toString(),     unit: "",                color: colors.secondary, bg: colors.accentBlue },
     { icon: "tool",        label: t("admin.registeredTechs"), value: "12",                      unit: "",                color: "#7C5CBF",        bg: "#EDE9FE" },
@@ -47,7 +47,7 @@ export default function AdminDashboardScreen() {
           {kpis.map((kpi) => (
             <View key={kpi.label} style={[styles.kpiCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
               <View style={[styles.kpiIcon, { backgroundColor: kpi.bg, borderRadius: 12 }]}>
-                <VectorIcon name={kpi.icon as any} size={22} color={kpi.color} />
+                <VectorIcon name={kpi.icon} size={22} color={kpi.color} />
               </View>
               <Text style={{ color: kpi.color, fontFamily: "Inter_700Bold", fontSize: 22, marginTop: 10 }}>
                 {kpi.value}<Text style={{ fontSize: 13, fontFamily: "Inter_500Medium" }}> {kpi.unit}</Text>
@@ -100,14 +100,14 @@ export default function AdminDashboardScreen() {
           {isRTL ? "إجراءات سريعة" : "Quick Actions"}
         </Text>
         <View style={[styles.actionsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          {[
-            { icon: "users",      label: t("admin.users"),       color: colors.secondary, route: "/(admin)/users" },
-            { icon: "list",       label: t("admin.orders"),      color: colors.primary,   route: "/(admin)/orders" },
-            { icon: "bar-chart-2",label: t("admin.stats"),       color: "#7C5CBF",        route: "/(admin)/stats" },
-            { icon: "grid",       label: isRTL ? "الفئات" : "Categories", color: "#7C5CBF",   route: "/(admin)/categories" },
-            { icon: "shield",     label: t("admin.permissions"), color: "#22A36B",        route: "/(admin)/permissions" },
-            { icon: "user-plus",  label: isRTL ? "إضافة مسئول" : "Add Admin", color: colors.primary, route: "/(admin)/add-admin" },
-          ].map((item) => (
+          {([ 
+            { icon: "users",       label: t("admin.users"),       color: colors.secondary, route: "/(admin)/users" },
+            { icon: "list",        label: t("admin.orders"),      color: colors.primary,   route: "/(admin)/orders" },
+            { icon: "bar-chart-2", label: t("admin.stats"),       color: "#7C5CBF",        route: "/(admin)/stats" },
+            { icon: "grid",        label: isRTL ? "الفئات" : "Categories", color: "#7C5CBF",   route: "/(admin)/categories" },
+            { icon: "shield",      label: t("admin.permissions"), color: "#22A36B",        route: "/(admin)/permissions" },
+            { icon: "user-plus",   label: isRTL ? "إضافة مسئول" : "Add Admin", color: colors.primary, route: "/(admin)/add-admin" },
+          ] satisfies { icon: IconName; label: string; color: string; route: string }[]).map((item) => (
             <TouchableOpacity
               key={item.label}
               style={[styles.actionCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
@@ -115,7 +115,7 @@ export default function AdminDashboardScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.actionIcon, { backgroundColor: item.color + "18", borderRadius: 12 }]}>
-                <VectorIcon name={item.icon as any} size={22} color={item.color} />
+                <VectorIcon name={item.icon} size={22} color={item.color} />
               </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 11, marginTop: 8, textAlign: "center" }} numberOfLines={2}>
                 {item.label}

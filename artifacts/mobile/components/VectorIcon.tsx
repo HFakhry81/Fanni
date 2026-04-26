@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, type TextStyle } from "react-native";
 
-const ICON_MAP: Record<string, string> = {
+const ICON_MAP = {
   "activity":       "📈",
   "alert-circle":   "⚠",
   "alert-triangle": "⚠",
@@ -73,22 +73,40 @@ const ICON_MAP: Record<string, string> = {
   "user-plus":      "👤",
   "users":          "👥",
   "wifi":           "📶",
+  "copy":           "⎘",
+  "download":       "↓",
+  "info":           "ℹ",
+  "layers":         "⊟",
+  "message-square": "💬",
+  "monitor":        "🖥",
+  "package":        "📦",
+  "pen-tool":       "✒",
+  "shopping-cart":  "🛒",
+  "thermometer":    "🌡",
+  "trending-up":    "↗",
+  "tv":             "📺",
   "wifi-off":       "📵",
   "wind":           "🌬",
   "x":              "✕",
   "x-circle":       "✕",
   "zap":            "⚡",
-};
+} as const;
+
+export type IconName = keyof typeof ICON_MAP;
+
+export function toIconName(value: string | null | undefined, fallback: IconName = "tool"): IconName {
+  return (value != null && value in ICON_MAP) ? (value as IconName) : fallback;
+}
 
 interface VectorIconProps {
-  name: string;
+  name: IconName;
   size?: number;
   color?: string;
   style?: TextStyle;
 }
 
 export default function VectorIcon({ name, size = 16, color, style }: VectorIconProps) {
-  const symbol = ICON_MAP[name] ?? "•";
+  const symbol = ICON_MAP[name];
   return (
     <Text
       style={[

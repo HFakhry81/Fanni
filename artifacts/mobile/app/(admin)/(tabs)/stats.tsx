@@ -20,7 +20,7 @@ import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
@@ -330,7 +330,7 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
   };
 
   // ── View selector tabs ─────────────────────────────────────────────────
-  const views: { key: ReportView; en: string; ar: string; icon: string }[] = [
+  const views: { key: ReportView; en: string; ar: string; icon: IconName }[] = [
     { key: "overview", en: "Overview", ar: "نظرة عامة", icon: "bar-chart-2" },
     { key: "pnl",      en: "P&L",      ar: "أرباح/خسائر", icon: "trending-up" },
     { key: "balance",  en: "Balance",  ar: "الميزانية",  icon: "layers" },

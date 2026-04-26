@@ -6,14 +6,14 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
 
 type Category = {
   id: string;
-  icon?: string;
+  icon?: IconName;
   image?: ImageSourcePropType;
   color: string;
 };
@@ -208,7 +208,7 @@ export default function ClientHomeScreen() {
                 activeOpacity={0.8}
               >
                 <View style={[styles.catIconWrap, { backgroundColor: isSelected ? "rgba(245,166,35,0.15)" : cat.color + "18", borderRadius: 12 }]}>
-                  <VectorIcon name={cat.icon as any} size={26} color={isSelected ? colors.primary : cat.color} />
+                  <VectorIcon name={toIconName(cat.icon)} size={26} color={isSelected ? colors.primary : cat.color} />
                 </View>
                 <Text style={{ color: isSelected ? "#FFF" : colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "center", marginTop: 6 }} numberOfLines={2}>
                   {label}
@@ -257,11 +257,11 @@ export default function ClientHomeScreen() {
           {isRTL ? "وصول سريع" : "Quick Access"}
         </Text>
         <View style={[styles.quickRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          {[
-            { icon: "list",       label: t("nav.orders"),   route: "/(client)/orders",   color: colors.primary },
-            { icon: "file-text",  label: t("nav.invoices"), route: "/(client)/invoices", color: colors.secondary },
-            { icon: "user",       label: t("nav.profile"),  route: "/(client)/profile",  color: "#22A36B" },
-          ].map((item) => (
+          {([
+            { icon: "list",      label: t("nav.orders"),   route: "/(client)/orders",   color: colors.primary },
+            { icon: "file-text", label: t("nav.invoices"), route: "/(client)/invoices", color: colors.secondary },
+            { icon: "user",      label: t("nav.profile"),  route: "/(client)/profile",  color: "#22A36B" },
+          ] satisfies { icon: IconName; label: string; route: string; color: string }[]).map((item) => (
             <TouchableOpacity
               key={item.label}
               style={[styles.quickCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, borderWidth: 1.5 }]}
@@ -269,7 +269,7 @@ export default function ClientHomeScreen() {
               activeOpacity={0.8}
             >
               <View style={[styles.quickIcon, { backgroundColor: item.color + "15", borderRadius: 10 }]}>
-                <VectorIcon name={item.icon as any} size={20} color={item.color} />
+                <VectorIcon name={item.icon} size={20} color={item.color} />
               </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 6, textAlign: "center" }}>
                 {item.label}

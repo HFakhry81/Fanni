@@ -7,7 +7,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -460,10 +460,10 @@ export default function RegisterScreen() {
     else router.back();
   };
 
-  const paymentOptions = [
-    { id: "bank"    as PaymentMethod, label: t("register.bankAccount"), icon: "credit-card" },
-    { id: "ewallet" as PaymentMethod, label: t("register.eWallet"),     icon: "smartphone"  },
-    { id: "instapay"as PaymentMethod, label: t("register.instaPay"),    icon: "zap"         },
+  const paymentOptions: { id: PaymentMethod; label: string; icon: IconName }[] = [
+    { id: "bank",     label: t("register.bankAccount"), icon: "credit-card" },
+    { id: "ewallet",  label: t("register.eWallet"),     icon: "smartphone"  },
+    { id: "instapay", label: t("register.instaPay"),    icon: "zap"         },
   ];
 
   // ── Step indicator ─────────────────────────────────────────────────────────
@@ -634,7 +634,7 @@ export default function RegisterScreen() {
           onPress={() => setPaymentMethod(opt.id)}
         >
           <View style={[styles.optionIcon, { backgroundColor: paymentMethod === opt.id ? colors.primary + "20" : colors.muted, borderRadius: 10 }]}>
-            <VectorIcon name={opt.icon as any} size={18} color={paymentMethod === opt.id ? colors.primary : colors.mutedForeground} />
+            <VectorIcon name={opt.icon} size={18} color={paymentMethod === opt.id ? colors.primary : colors.mutedForeground} />
           </View>
           <Text style={{ color: colors.foreground, fontFamily: paymentMethod === opt.id ? "Inter_600SemiBold" : "Inter_500Medium", fontSize: 14, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
             {opt.label}
@@ -723,7 +723,7 @@ export default function RegisterScreen() {
                 }}
                 style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}
               >
-                <VectorIcon name={(d.icon ?? "tool") as any} size={18} color={colors.primary} style={{ marginRight: isRTL ? 0 : 12, marginLeft: isRTL ? 12 : 0 }} />
+                <VectorIcon name={toIconName(d.icon)} size={18} color={colors.primary} style={{ marginRight: isRTL ? 0 : 12, marginLeft: isRTL ? 12 : 0 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>{isRTL ? d.nameAr : d.nameEn}</Text>
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>{isRTL ? d.nameEn : d.nameAr}</Text>

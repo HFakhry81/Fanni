@@ -4,7 +4,7 @@ import {
   TextInput, Modal, ActivityIndicator, Platform, Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -32,7 +32,7 @@ interface Specialization {
   isActive: boolean;
 }
 
-const ICON_OPTIONS = [
+const ICON_OPTIONS: IconName[] = [
   "zap", "droplet", "wind", "tool", "monitor", "pen-tool", "shield", "grid",
   "home", "settings", "star", "package", "camera", "tv", "thermometer",
 ];
@@ -58,7 +58,7 @@ export default function AdminCategoriesScreen() {
 
   const [formNameEn, setFormNameEn] = useState("");
   const [formNameAr, setFormNameAr] = useState("");
-  const [formIcon, setFormIcon] = useState("tool");
+  const [formIcon, setFormIcon] = useState<IconName>("tool");
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -116,7 +116,7 @@ export default function AdminCategoriesScreen() {
   const openDomainModal = (domain?: Domain) => {
     setFormNameEn(domain?.nameEn ?? "");
     setFormNameAr(domain?.nameAr ?? "");
-    setFormIcon(domain?.icon ?? "tool");
+    setFormIcon(toIconName(domain?.icon));
     setFormError("");
     setDomainModal({ visible: true, editing: domain ?? null });
   };
@@ -302,7 +302,7 @@ export default function AdminCategoriesScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={[styles.domainIcon, { backgroundColor: domain.isActive ? colors.accent : colors.muted }]}>
-                    <VectorIcon name={(domain.icon ?? "tool") as any} size={18} color={domain.isActive ? colors.primary : colors.mutedForeground} />
+                    <VectorIcon name={toIconName(domain.icon)} size={18} color={domain.isActive ? colors.primary : colors.mutedForeground} />
                   </View>
                   <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
                     <Text style={{ color: domain.isActive ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
@@ -444,7 +444,7 @@ export default function AdminCategoriesScreen() {
                     borderRadius: 10,
                   }]}
                 >
-                  <VectorIcon name={ico as any} size={20} color={formIcon === ico ? colors.primary : colors.mutedForeground} />
+                  <VectorIcon name={ico} size={20} color={formIcon === ico ? colors.primary : colors.mutedForeground} />
                 </TouchableOpacity>
               ))}
             </View>

@@ -5,7 +5,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { shareTechPayoutInvoicePdf, shareLegacyInvoicePdf } from "@/utils/invoicePdf";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 
 const SUB_IMAGE_MAP: Record<string, ImageSourcePropType> = {
   sub_electrical_wiring: require("@/assets/images/sub_electrical_wiring.webp"),
@@ -538,12 +538,13 @@ export default function TechOrdersScreen() {
               )}
               {(() => {
                 const photos = item.photos ?? [];
-                const counts: { phase: string; icon: string; labelAr: string; labelEn: string; color: string }[] = [
+                const phaseItems: { phase: string; icon: IconName; labelAr: string; labelEn: string; color: string }[] = [
                   { phase: "problem", icon: "alert-circle", labelAr: "مشكلة", labelEn: "problem", color: colors.destructive },
                   { phase: "before",  icon: "eye",          labelAr: "قبل",    labelEn: "before",  color: colors.secondary },
                   { phase: "during",  icon: "tool",         labelAr: "أثناء",  labelEn: "during",  color: colors.primary },
                   { phase: "after",   icon: "check-circle", labelAr: "بعد",    labelEn: "after",   color: colors.success },
-                ].map((p) => ({ ...p, count: photos.filter((ph) => (ph.phase ?? "problem") === p.phase).length }))
+                ];
+                const counts = phaseItems.map((p) => ({ ...p, count: photos.filter((ph) => (ph.phase ?? "problem") === p.phase).length }))
                   .filter((p) => p.count > 0);
                 if (!counts.length) return null;
                 return (
@@ -698,7 +699,7 @@ export default function TechOrdersScreen() {
             );
           })()}
           {item.status === "completed" && (item.photos ?? []).length > 0 && (() => {
-            const phaseDef = [
+            const phaseDef: { phase: string; icon: IconName; labelAr: string; labelEn: string; color: string }[] = [
               { phase: "problem", icon: "alert-circle", labelAr: "صور المشكلة", labelEn: "Problem Photos", color: colors.destructive },
               { phase: "before",  icon: "eye",          labelAr: "قبل البدء",   labelEn: "Before Work",    color: colors.secondary },
               { phase: "during",  icon: "tool",         labelAr: "أثناء العمل", labelEn: "During Work",    color: colors.primary },

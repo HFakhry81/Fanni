@@ -16,7 +16,7 @@ import {
   ScrollView,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -768,7 +768,7 @@ export default function AdminUsersScreen() {
         contentContainerStyle={{ paddingHorizontal: 4, paddingVertical: 4, gap: 4, flexDirection: isRTL ? "row-reverse" : "row" }}
       >
         {tabs.map(([key, label]) => {
-          const icons: Record<string, string> = { technicians: "tool", clients: "users", admins: "shield", permissions: "lock" };
+          const icons: Record<string, IconName> = { technicians: "tool", clients: "users", admins: "shield", permissions: "lock" };
           return (
             <TouchableOpacity
               key={key}

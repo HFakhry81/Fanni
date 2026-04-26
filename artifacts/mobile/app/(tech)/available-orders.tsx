@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -27,7 +27,7 @@ function getApiBaseUrl(): string {
   return "";
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
+const CATEGORY_ICONS: Record<string, IconName> = {
   electricity: "zap",
   plumbing: "droplet",
   ac: "wind",
@@ -240,7 +240,7 @@ export default function AvailableOrdersScreen() {
   };
 
   const renderItem = ({ item }: { item: PendingOrder }) => {
-    const iconName = (CATEGORY_ICONS[item.category] ?? "tool") as string;
+    const iconName: IconName = CATEGORY_ICONS[item.category] ?? "tool";
     const isAccepting = acceptingId === item.id;
     return (
       <View

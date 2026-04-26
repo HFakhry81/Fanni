@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -450,12 +450,12 @@ export default function ClientProfileScreen() {
     );
   };
 
-  const menuItems = [
-    { icon: "list",       label: t("profile.previousOrders"),   color: colors.primary,   action: () => router.push("/(client)/orders"),  loading: false },
-    { icon: "file-text",  label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices"), loading: false },
-    { icon: "bar-chart-2",label: t("profile.reports"),          color: "#7C5CBF",        action: () => {},                               loading: false },
-    { icon: "lock",       label: t("profile.changePassword"),   color: "#22A36B",        action: openPwSheet,                            loading: false },
-    { icon: "mail",       label: t("profile.resendWelcome"),    color: "#4B7BEC",        action: handleResendWelcome,                    loading: resendWelcomeLoading },
+  const menuItems: { icon: IconName; label: string; color: string; action: () => void; loading: boolean }[] = [
+    { icon: "list",        label: t("profile.previousOrders"),   color: colors.primary,   action: () => router.push("/(client)/orders"),  loading: false },
+    { icon: "file-text",   label: t("profile.previousInvoices"), color: colors.secondary, action: () => router.push("/(client)/invoices"), loading: false },
+    { icon: "bar-chart-2", label: t("profile.reports"),          color: "#7C5CBF",        action: () => {},                               loading: false },
+    { icon: "lock",        label: t("profile.changePassword"),   color: "#22A36B",        action: openPwSheet,                            loading: false },
+    { icon: "mail",        label: t("profile.resendWelcome"),    color: "#4B7BEC",        action: handleResendWelcome,                    loading: resendWelcomeLoading },
   ];
 
   return (
@@ -554,7 +554,7 @@ export default function ClientProfileScreen() {
               disabled={item.loading}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + "18", borderRadius: 10 }]}>
-                <VectorIcon name={item.icon as any} size={18} color={item.color} />
+                <VectorIcon name={item.icon} size={18} color={item.color} />
               </View>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0, textAlign: isRTL ? "right" : "left" }}>
                 {item.label}

@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -11,7 +11,7 @@ interface StatusBadgeProps {
   size?: "sm" | "md";
 }
 
-const STATUS_CONFIG: Record<string, { icon: string; bg: string; text: string; border: string }> = {
+const STATUS_CONFIG: Record<string, { icon: IconName; bg: string; text: string; border: string }> = {
   pending:    { icon: "clock",        bg: "#FFF3DC", text: "#D4840A", border: "#F5A623" },
   accepted:   { icon: "check-circle", bg: "#E4F4FB", text: "#2B8FBB", border: "#4DADD9" },
   inProgress: { icon: "zap",          bg: "#EDE9FE", text: "#6C4FBB", border: "#9B7FE6" },

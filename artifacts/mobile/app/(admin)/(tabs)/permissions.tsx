@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -39,7 +39,7 @@ const ALL_PERMISSIONS: Omit<Permission, "enabled">[] = [
 
 const DEFAULT_ENABLED = new Set(["p1","p2","p4","p5","p6","p8","p9","p10","p11","p13"]);
 
-const GROUP_ICONS: Record<string, string> = {
+const GROUP_ICONS: Record<string, IconName> = {
   Clients: "users", Technicians: "tool", Orders: "list", Finance: "dollar-sign", System: "settings",
 };
 const GROUP_COLORS: Record<string, string> = {

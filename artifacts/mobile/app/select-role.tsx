@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -19,7 +19,7 @@ type Role = "client" | "technician" | "admin";
 
 interface RoleOption {
   role: Role;
-  icon: string;
+  icon: IconName;
   ar: string;
   en: string;
   descAr: string;
@@ -132,7 +132,7 @@ export default function SelectRoleScreen() {
                   ]}
                 >
                   <VectorIcon
-                    name={opt.icon as any}
+                    name={opt.icon}
                     size={24}
                     color={isSelected ? "#fff" : colors.primary}
                   />
