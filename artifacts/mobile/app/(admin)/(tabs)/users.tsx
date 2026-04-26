@@ -31,6 +31,8 @@ type StatusFilter = "all" | "active" | "suspended";
 const APP_SESSION_KEY = `fanni_session_${Date.now()}`;
 const savedTabFilters: Partial<Record<UserTab, StatusFilter>> = {};
 
+const HIGH_TOGGLE_THRESHOLD = 5;
+
 interface ApiUser {
   id: string;
   firstName: string | null;
@@ -46,6 +48,7 @@ interface ApiUser {
   specialty: string | null;
   profession: string | null;
   createdAt: string;
+  toggleCount24h?: number | null;
 }
 
 interface Pagination {
@@ -726,6 +729,17 @@ export default function AdminUsersScreen() {
                     {isAvailable ? (isRTL ? "متاح" : "Available") : (isRTL ? "غير متاح" : "Unavailable")}
                   </Text>
                 </View>
+              ) : null}
+              {isTechnician && (item.toggleCount24h ?? 0) >= HIGH_TOGGLE_THRESHOLD ? (
+                <TouchableOpacity
+                  onPress={() => openAuditModal(item)}
+                  style={[styles.statusBadge, { backgroundColor: "#FEF3C7", borderRadius: 8, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 3 }]}
+                >
+                  <VectorIcon name="alert-triangle" size={11} color="#92400E" />
+                  <Text style={{ color: "#92400E", fontFamily: "Inter_600SemiBold", fontSize: 10 }}>
+                    {item.toggleCount24h}×
+                  </Text>
+                </TouchableOpacity>
               ) : null}
               {item.role === "admin" && item.mustChangePassword ? (
                 <View style={[styles.statusBadge, { backgroundColor: "#FEF3C7", borderRadius: 8, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 3 }]}>

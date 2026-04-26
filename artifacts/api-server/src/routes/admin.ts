@@ -351,6 +351,12 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
       specialty: usersTable.specialty,
       profession: usersTable.profession,
       createdAt: usersTable.createdAt,
+      toggleCount24h: sql<number>`(
+        select count(*)::int
+        from ${availabilityAuditLogsTable}
+        where ${availabilityAuditLogsTable.technicianId} = ${usersTable.id}
+          and ${availabilityAuditLogsTable.createdAt} >= now() - interval '24 hours'
+      )`,
     })
     .from(usersTable);
 
