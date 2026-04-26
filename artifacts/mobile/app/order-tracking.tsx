@@ -62,7 +62,7 @@ async function fetchOSRMRoute(
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
       `${startLng},${startLat};${endLng},${endLat}` +
-      `?overview=full&geometries=geojson`;
+      `?overview=full&geometries=geojson&steps=true`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, { signal: controller.signal });
@@ -78,7 +78,29 @@ async function fetchOSRMRoute(
     const coords = (route.geometry.coordinates as [number, number][]).map(
       ([lng, lat]) => ({ lat, lng })
     );
-    const result: RouteData = { coords, durationSec: route.duration, distanceM: route.distance };
+
+    const allCoords: Array<{ lat: number; lng: number }> = [];
+    const allColors: string[] = [];
+    const legs: Array<{ steps: Array<{ distance: number; duration: number; geometry: { coordinates: [number, number][] } }> }> = route.legs ?? [];
+    for (const leg of legs) {
+      for (const step of (leg.steps ?? [])) {
+        const stepCoords = step.geometry.coordinates.map(([lng, lat]: [number, number]) => ({ lat, lng }));
+        const speedKmh = step.duration > 0 ? (step.distance / step.duration) * 3.6 : 30;
+        const color = speedKmhToColor(speedKmh);
+        const startIdx = allCoords.length > 0 ? 1 : 0;
+        for (let j = startIdx; j < stepCoords.length; j++) {
+          allCoords.push(stepCoords[j]);
+          allColors.push(color);
+        }
+      }
+    }
+
+    const result: RouteData = {
+      coords: allCoords.length >= 2 ? allCoords : coords,
+      coordColors: allCoords.length >= 2 ? allColors : undefined,
+      durationSec: route.duration,
+      distanceM: route.distance,
+    };
     ROUTE_CACHE.set(key, result);
     writePersistedRoute(key, result);
     return result;
@@ -145,6 +167,30 @@ function getRemainingRoute(
   return [{ lat: currentLat, lng: currentLng }];
 }
 
+function getRemainingColors(
+  coords: Array<{ lat: number; lng: number }>,
+  coordColors: string[],
+  progress: number
+): string[] {
+  if (coordColors.length === 0) return [];
+  if (progress <= 0) return coordColors;
+  if (progress >= 1) return [];
+  const distances: number[] = [0];
+  for (let i = 1; i < coords.length; i++) {
+    const dlat = coords[i].lat - coords[i - 1].lat;
+    const dlng = coords[i].lng - coords[i - 1].lng;
+    distances.push(distances[i - 1] + Math.sqrt(dlat * dlat + dlng * dlng));
+  }
+  const total = distances[distances.length - 1];
+  const target = progress * total;
+  for (let i = 1; i < distances.length; i++) {
+    if (distances[i] >= target) {
+      return [coordColors[i] ?? coordColors[i - 1] ?? TRAFFIC_COLOR_NORMAL, ...coordColors.slice(i)];
+    }
+  }
+  return [];
+}
+
 function haversineKm(
   lat1: number,
   lng1: number,
@@ -171,6 +217,7 @@ interface MapProps {
   clientLat: number;
   clientLng: number;
   routeCoords: Array<{ lat: number; lng: number }>;
+  routeColors?: string[];
 }
 
 export default function OrderTrackingScreen() {
@@ -333,8 +380,20 @@ export default function OrderTrackingScreen() {
     ? `${remainingKm.toFixed(1)} ${t("order.km")}`
     : `${Math.round(remainingKm * 1000)} ${t("order.m")}`;
 
+  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
+  const routeCoords = routeData
+    ? getRemainingRoute(routeData.coords, progress, techLat, techLng)
+    : [];
+  const routeColors = routeData?.coordColors
+    ? getRemainingColors(routeData.coords, routeData.coordColors, progress)
+    : undefined;
+
   let trafficLabel: "slow" | "fast" | null = null;
-  if (routeData && routeData.durationSec > 0) {
+  const currentColor = routeColors?.[0];
+  if (currentColor) {
+    if (currentColor === TRAFFIC_COLOR_VERY_SLOW || currentColor === TRAFFIC_COLOR_SLOW) trafficLabel = "slow";
+    else if (currentColor === TRAFFIC_COLOR_FAST) trafficLabel = "fast";
+  } else if (routeData && routeData.durationSec > 0) {
     const baseSpeedMs = routeData.distanceM / routeData.durationSec;
     const variation = Math.sin(progress * Math.PI * 6) * 0.45;
     const currentSpeedKmh = baseSpeedMs * 3.6 * (1 + variation);
@@ -342,11 +401,7 @@ export default function OrderTrackingScreen() {
     else if (currentSpeedKmh > 55) trafficLabel = "fast";
   }
 
-  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
-  const routeCoords = routeData
-    ? getRemainingRoute(routeData.coords, progress, techLat, techLng)
-    : [];
-  const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng, routeCoords };
+  const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng, routeCoords, routeColors };
 
   const handleShare = useCallback(async () => {
     const deepLink = `mobile://order-tracking?orderId=${orderId}`;
@@ -566,6 +621,13 @@ const TRAFFIC_COLOR_SLOW = "#FF6F00";
 const TRAFFIC_COLOR_VERY_SLOW = "#D32F2F";
 const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
+function speedKmhToColor(speedKmh: number): string {
+  if (speedKmh > 50) return TRAFFIC_COLOR_FAST;
+  if (speedKmh > 25) return TRAFFIC_COLOR_NORMAL;
+  if (speedKmh > 12) return TRAFFIC_COLOR_SLOW;
+  return TRAFFIC_COLOR_VERY_SLOW;
+}
+
 function getSegmentTrafficColor(segIdx: number): string {
   const noise = (Math.sin(segIdx * 1.8 + 0.7) + 1) / 2;
   if (noise < 0.12) return TRAFFIC_COLOR_VERY_SLOW;
@@ -579,14 +641,15 @@ interface TrafficSegment {
   coords: Array<{ lat: number; lng: number }>;
 }
 
-function buildTrafficSegments(coords: Array<{ lat: number; lng: number }>): TrafficSegment[] {
+function buildTrafficSegments(coords: Array<{ lat: number; lng: number }>, colors?: string[]): TrafficSegment[] {
   if (coords.length < 2) return [];
+  const getColor = (i: number) => colors?.[i] ?? getSegmentTrafficColor(i);
   const groups: TrafficSegment[] = [];
-  let groupColor = getSegmentTrafficColor(0);
+  let groupColor = getColor(0);
   let groupStart = 0;
 
   for (let i = 1; i <= coords.length - 2; i++) {
-    const color = getSegmentTrafficColor(i);
+    const color = getColor(i);
     if (color !== groupColor) {
       groups.push({ color: groupColor, coords: coords.slice(groupStart, i + 1) });
       groupColor = color;
@@ -645,7 +708,7 @@ function computeFit(
   return { zoom: MIN_ZOOM, cx: (techW.x + clientW.x) / 2, cy: (techW.y + clientW.y) / 2 };
 }
 
-function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, colors, t, isRTL }: WebMapViewProps) {
+function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, routeColors, colors, t, isRTL }: WebMapViewProps) {
   const initialFit = computeFit(techLat, techLng, clientLat, clientLng, 400, 400);
 
   const savedWeb = _savedWebMapState[order.id] ?? null;
@@ -670,10 +733,12 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   const routeRafRef = useRef<number | null>(null);
   const segmentPolylineRefsRef = useRef<Array<SVGPolylineElement | null>>([]);
   const routeCoordsRef = useRef(routeCoords);
+  const routeColorsRef = useRef(routeColors);
 
   useEffect(() => {
     routeCoordsRef.current = routeCoords;
-  }, [routeCoords]);
+    routeColorsRef.current = routeColors;
+  }, [routeCoords, routeColors]);
 
   useEffect(() => {
     routeAnimFromRef.current = { ...smoothRouteFirstRef.current };
@@ -708,7 +773,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
             return { x: wld.x - cx + mapW / 2, y: wld.y - cy + mapH / 2 };
           };
           const allCoords = [smoothRouteFirstRef.current, ...coords.slice(1)];
-          const segments = buildTrafficSegments(allCoords);
+          const segments = buildTrafficSegments(allCoords, routeColorsRef.current);
           segments.forEach((seg, i) => {
             const el = segRefs[i];
             if (!el) return;
@@ -1000,7 +1065,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   const smoothedRouteCoords = hasRoute
     ? [smoothRouteFirstRef.current, ...routeCoords.slice(1)]
     : routeCoords;
-  const trafficSegments = hasRoute ? buildTrafficSegments(smoothedRouteCoords) : [];
+  const trafficSegments = hasRoute ? buildTrafficSegments(smoothedRouteCoords, routeColors) : [];
   segmentPolylineRefsRef.current.length = trafficSegments.length;
 
   return (
@@ -1161,7 +1226,7 @@ type MapComponents = {
   Circle: React.ComponentType<import("react-native-maps").CircleProps>;
 };
 
-function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords }: MapProps) {
+function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, routeColors }: MapProps) {
   const [components, setComponents] = useState<MapComponents | null>(null);
   const mapRef = useRef<import("react-native-maps").default | null>(null);
 
@@ -1307,7 +1372,8 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
       ];
   const nativeTrafficSegments = hasRoute
     ? buildTrafficSegments(
-        routeCoordinates.map((c) => ({ lat: c.latitude, lng: c.longitude }))
+        routeCoordinates.map((c) => ({ lat: c.latitude, lng: c.longitude })),
+        routeColors
       )
     : null;
 
