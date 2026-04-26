@@ -664,6 +664,25 @@ function getSegmentTrafficColor(segIdx: number): string {
   return TRAFFIC_COLOR_NORMAL;
 }
 
+function getSegmentSpeedKey(color: string): string {
+  if (color === TRAFFIC_COLOR_VERY_SLOW) return "order.segmentVerySlow";
+  if (color === TRAFFIC_COLOR_SLOW) return "order.segmentSlow";
+  if (color === TRAFFIC_COLOR_FAST) return "order.segmentFast";
+  return "order.segmentNormal";
+}
+
+function distPointToSegment(
+  px: number, py: number,
+  ax: number, ay: number,
+  bx: number, by: number,
+): number {
+  const abx = bx - ax, aby = by - ay;
+  const lenSq = abx * abx + aby * aby;
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / lenSq));
+  return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
+}
+
 interface TrafficSegment {
   color: string;
   coords: Array<{ lat: number; lng: number }>;
@@ -747,6 +766,11 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       : { x: initialFit.cx, y: initialFit.cy }
   );
   const [, setRenderTick] = useState(0);
+  const [trafficTooltip, setTrafficTooltip] = useState<{ x: number; y: number; text: string; color: string } | null>(null);
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const segmentScreenDataRef = useRef<Array<{ color: string; points: Array<{ x: number; y: number }> }>>([]);
+  const didDragRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const imperativeUpdatePinsRef = useRef<() => void>(() => {});
   const triggerRender = useCallback(() => {
     _savedWebMapState[order.id] = { zoom: zoomRef.current, cx: centerRef.current.x, cy: centerRef.current.y };
@@ -834,6 +858,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   useEffect(() => {
     return () => {
       if (routeRafRef.current) cancelAnimationFrame(routeRafRef.current);
+      if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
     };
   }, []);
 
@@ -956,7 +981,33 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       webInteractionTimerRef.current = setTimeout(() => { webInteractingRef.current = false; }, 5000);
     };
 
+    const showSegmentTooltip = (screenX: number, screenY: number) => {
+      const segs = segmentScreenDataRef.current;
+      if (segs.length === 0) return;
+      const THRESHOLD = 16;
+      let minDist = Infinity;
+      let hitColor: string | null = null;
+      for (const seg of segs) {
+        for (let i = 0; i < seg.points.length - 1; i++) {
+          const a = seg.points[i];
+          const b = seg.points[i + 1];
+          const d = distPointToSegment(screenX, screenY, a.x, a.y, b.x, b.y);
+          if (d < minDist) { minDist = d; hitColor = seg.color; }
+        }
+      }
+      if (hitColor !== null && minDist <= THRESHOLD) {
+        const speedKey = getSegmentSpeedKey(hitColor);
+        const label = t(speedKey);
+        if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+        setTrafficTooltip({ x: screenX, y: screenY, text: label, color: hitColor });
+        tooltipTimerRef.current = setTimeout(() => setTrafficTooltip(null), 4000);
+      } else {
+        setTrafficTooltip(null);
+      }
+    };
+
     const onMouseDown = (e: MouseEvent) => {
+      didDragRef.current = false;
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
@@ -968,6 +1019,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
 
     const onMouseMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
+      didDragRef.current = true;
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       centerRef.current = clampCenter(
@@ -976,6 +1028,12 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
         zoomRef.current,
       );
       triggerRender();
+    };
+
+    const onClick = (e: MouseEvent) => {
+      if (didDragRef.current) return;
+      const rect = el.getBoundingClientRect();
+      showSegmentTooltip(e.clientX - rect.left, e.clientY - rect.top);
     };
 
     const onMouseUp = () => {
@@ -996,6 +1054,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
+        touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         dragRef.current = {
           startX: e.touches[0].clientX,
           startY: e.touches[0].clientY,
@@ -1004,6 +1063,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
         };
         pinchRef.current = null;
       } else if (e.touches.length === 2) {
+        touchStartPosRef.current = null;
         dragRef.current = null;
         pinchRef.current = { dist: touchDist(e.touches), startZoom: zoomRef.current };
       }
@@ -1033,12 +1093,24 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       }
     };
 
-    const onTouchEnd = () => {
+    const onTouchEnd = (e: TouchEvent) => {
+      const wasSingleTouch = pinchRef.current === null && touchStartPosRef.current !== null;
       if (dragRef.current || pinchRef.current) {
         webInteractingRef.current = true;
         if (webInteractionTimerRef.current) clearTimeout(webInteractionTimerRef.current);
         webInteractionTimerRef.current = setTimeout(() => { webInteractingRef.current = false; }, 5000);
       }
+      if (wasSingleTouch && e.changedTouches.length === 1) {
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const start = touchStartPosRef.current!;
+        const moved = Math.hypot(endX - start.x, endY - start.y);
+        if (moved < 8) {
+          const rect = el.getBoundingClientRect();
+          showSegmentTooltip(endX - rect.left, endY - rect.top);
+        }
+      }
+      touchStartPosRef.current = null;
       dragRef.current = null;
       pinchRef.current = null;
     };
@@ -1047,6 +1119,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     el.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("click", onClick);
     el.addEventListener("touchstart", onTouchStart, { passive: false });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd);
@@ -1057,11 +1130,12 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       el.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("click", onClick);
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [applyZoom, clampCenter, triggerRender]);
+  }, [applyZoom, clampCenter, triggerRender, t]);
 
   const zoom = zoomRef.current;
   const cx = centerRef.current.x;
@@ -1095,6 +1169,14 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     : routeCoords;
   const trafficSegments = hasRoute ? buildTrafficSegments(smoothedRouteCoords, routeColors) : [];
   segmentPolylineRefsRef.current.length = trafficSegments.length;
+
+  segmentScreenDataRef.current = trafficSegments.map((seg) => ({
+    color: seg.color,
+    points: seg.coords.map((c) => {
+      const s = toScreen(c.lat, c.lng);
+      return { x: s.x + PIN_HALF, y: s.y + PIN_HALF };
+    }),
+  }));
 
   return (
     <View
@@ -1242,6 +1324,28 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           </Text>
         </View>
       </View>
+
+      {trafficTooltip !== null && (
+        <View
+          style={[
+            styles.trafficTooltip,
+            {
+              left: Math.min(trafficTooltip.x, (sizeRef.current.w || 300) - 180),
+              top: Math.max(trafficTooltip.y - 56, 8),
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+            },
+          ]}
+          // @ts-ignore
+          pointerEvents="none"
+        >
+          <View style={[styles.trafficTooltipDot, { backgroundColor: trafficTooltip.color }]} />
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, flexShrink: 1 }}>
+            {trafficTooltip.text}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -1257,6 +1361,9 @@ type MapComponents = {
 function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, routeColors }: MapProps) {
   const [components, setComponents] = useState<MapComponents | null>(null);
   const mapRef = useRef<import("react-native-maps").default | null>(null);
+  const { t } = useApp();
+  const [segmentTooltip, setSegmentTooltip] = useState<{ text: string; color: string } | null>(null);
+  const nativeTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const animCoord = useRef(new Animated.ValueXY({ x: techLat, y: techLng })).current;
   const [displayCoord, setDisplayCoord] = useState({ latitude: techLat, longitude: techLng });
@@ -1375,6 +1482,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
     return () => {
       if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
       if (fittingTimeoutRef.current) clearTimeout(fittingTimeoutRef.current);
+      if (nativeTooltipTimerRef.current) clearTimeout(nativeTooltipTimerRef.current);
     };
   }, []);
 
@@ -1436,6 +1544,13 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
               coordinates={seg.coords.map((c) => ({ latitude: c.lat, longitude: c.lng }))}
               strokeColor={seg.color}
               strokeWidth={4}
+              tappable
+              onPress={() => {
+                const text = t(getSegmentSpeedKey(seg.color));
+                if (nativeTooltipTimerRef.current) clearTimeout(nativeTooltipTimerRef.current);
+                setSegmentTooltip({ text, color: seg.color });
+                nativeTooltipTimerRef.current = setTimeout(() => setSegmentTooltip(null), 4000);
+              }}
             />
           ))
         ) : (
@@ -1470,6 +1585,22 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
       >
         <VectorIcon name="maximize-2" size={18} color="#1565C0" />
       </TouchableOpacity>
+
+      {segmentTooltip !== null && (
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setSegmentTooltip(null)}
+          style={styles.nativeTooltipBackdrop}
+          pointerEvents="box-only"
+        >
+          <View style={[styles.nativeTooltipCard, { backgroundColor: "rgba(255,255,255,0.95)", borderColor: segmentTooltip.color }]}>
+            <View style={[styles.trafficTooltipDot, { backgroundColor: segmentTooltip.color }]} />
+            <Text style={{ color: "#222", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+              {segmentTooltip.text}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1655,5 +1786,48 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontFamily: "Inter_600SemiBold",
     fontSize: 11,
+  },
+  trafficTooltip: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    maxWidth: 220,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  trafficTooltipDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    flexShrink: 0,
+  },
+  nativeTooltipBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 80,
+  },
+  nativeTooltipCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
   },
 });
