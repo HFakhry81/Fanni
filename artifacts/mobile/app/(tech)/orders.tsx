@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput, ImageSourcePropType } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput, ImageSourcePropType, LayoutAnimation, UIManager } from "react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Asset } from "expo-asset";
@@ -665,8 +669,46 @@ export default function TechOrdersScreen() {
                   <>
                     {inv3 ? (
                       <>
+                        {(() => {
+                          const matKey = `${item.id}-mat`;
+                          const matExpanded = expandedInvoices[matKey] ?? false;
+                          const hasMaterials = (item.materials ?? []).length > 0;
+                          const materialsLabel = isRTL ? "تكلفة المواد" : "Materials Cost";
+                          return (
+                            <>
+                              <TouchableOpacity
+                                activeOpacity={hasMaterials ? 0.7 : 1}
+                                onPress={() => {
+                                  if (!hasMaterials) return;
+                                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                  setExpandedInvoices((prev) => ({ ...prev, [matKey]: !matExpanded }));
+                                }}
+                                style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                              >
+                                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, flex: 1 }}>
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{materialsLabel}</Text>
+                                  {hasMaterials && (
+                                    <VectorIcon name={matExpanded ? "chevron-up" : "chevron-down"} size={11} color={colors.mutedForeground} />
+                                  )}
+                                </View>
+                                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                                  {inv3.materialsTotal.toFixed(2)} {t("common.egp")}
+                                </Text>
+                              </TouchableOpacity>
+                              {matExpanded && (item.materials ?? []).map((mat) => (
+                                <View key={mat.id} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", paddingLeft: isRTL ? 0 : 16, paddingRight: isRTL ? 16 : 0, backgroundColor: colors.accent }]}>
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
+                                    {mat.description}
+                                  </Text>
+                                  <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 11 }}>
+                                    {mat.amount.toFixed(2)} {t("common.egp")}
+                                  </Text>
+                                </View>
+                              ))}
+                            </>
+                          );
+                        })()}
                         {[
-                          [isRTL ? "تكلفة المواد" : "Materials Cost", inv3.materialsTotal],
                           inv3.transportFee > 0 ? [isRTL ? "تكلفة النقل" : "Transport", inv3.transportFee] : null,
                           [isRTL ? "أجر العمالة" : "Labour Fee", inv3.labourFee],
                           [isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee (${SERVICE_FEE_RATE}%)`, -inv3.serviceFeeAmount],
