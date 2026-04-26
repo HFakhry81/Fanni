@@ -81,6 +81,10 @@ export default function TechMapScreen() {
   useEffect(() => {
     if (isOnline) {
       fetchServerPendingOrders();
+      const intervalId = setInterval(() => {
+        fetchServerPendingOrders();
+      }, 30_000);
+      return () => clearInterval(intervalId);
     } else {
       setServerPendingOrders(null);
     }
