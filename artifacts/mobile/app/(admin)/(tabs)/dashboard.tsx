@@ -1,21 +1,32 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import StatusBadge from "@/components/StatusBadge";
+
+function getApiBaseUrl(): string {
+  if (process.env.EXPO_PUBLIC_DOMAIN) {
+    return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+  }
+  return "";
+}
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
   const { allOrders } = useOrders();
+  const { sessionToken } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+
+  const [isRegeocoding, setIsRegeocoding] = useState(false);
 
   const completed = allOrders.filter((o) => o.status === "completed");
   const pending = allOrders.filter((o) => o.status === "pending");
@@ -30,6 +41,48 @@ export default function AdminDashboardScreen() {
   ];
 
   const recentOrders = [...allOrders].reverse().slice(0, 5);
+
+  async function handleRegeocodeLocations() {
+    Alert.alert(
+      isRTL ? "إعادة تحديد المواقع" : "Re-Geocode Locations",
+      isRTL
+        ? "سيحاول النظام تحديد إحداثيات الفنيين الذين لا تزال مواقعهم غير محددة. هل تريد المتابعة؟"
+        : "This will attempt to geocode all technicians that still have no map location. Continue?",
+      [
+        { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+        {
+          text: isRTL ? "تأكيد" : "Confirm",
+          onPress: async () => {
+            setIsRegeocoding(true);
+            try {
+              const base = getApiBaseUrl();
+              const resp = await fetch(`${base}/api/admin/technicians/backfill-locations`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+                },
+                credentials: "include",
+              });
+              const data = await resp.json() as { success?: boolean; total?: number; updated?: number; skipped?: number; errors?: number; error?: string };
+              if (!resp.ok || !data.success) {
+                Alert.alert(isRTL ? "خطأ" : "Error", data.error ?? (isRTL ? "حدث خطأ غير متوقع" : "Unexpected error"));
+                return;
+              }
+              const msg = isRTL
+                ? `الإجمالي: ${data.total}\nتم التحديث: ${data.updated}\nتم التخطي: ${data.skipped}\nأخطاء: ${data.errors}`
+                : `Total: ${data.total}\nUpdated: ${data.updated}\nSkipped: ${data.skipped}\nErrors: ${data.errors}`;
+              Alert.alert(isRTL ? "اكتمل" : "Done", msg);
+            } catch {
+              Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "تعذر الاتصال بالخادم" : "Could not reach the server");
+            } finally {
+              setIsRegeocoding(false);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -123,6 +176,33 @@ export default function AdminDashboardScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Tools section */}
+        <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginTop: 8 }]}>
+          {isRTL ? "أدوات" : "Tools"}
+        </Text>
+        <TouchableOpacity
+          style={[styles.toolRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={handleRegeocodeLocations}
+          disabled={isRegeocoding}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.toolIcon, { backgroundColor: "#0EA5E918", borderRadius: 12 }]}>
+            {isRegeocoding
+              ? <ActivityIndicator size="small" color="#0EA5E9" />
+              : <VectorIcon name="map-pin" size={22} color="#0EA5E9" />
+            }
+          </View>
+          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+              {isRTL ? "إعادة تحديد مواقع الفنيين" : "Re-Geocode Technician Locations"}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
+              {isRTL ? "تحديث إحداثيات الفنيين الذين لا تزال مواقعهم غير محددة" : "Fix map coordinates for technicians with no location set"}
+            </Text>
+          </View>
+          <VectorIcon name="chevron-right" size={18} color={colors.mutedForeground} />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -142,4 +222,6 @@ const styles = StyleSheet.create({
   actionsRow: { gap: 10, marginBottom: 8 },
   actionCard: { flex: 1, paddingVertical: 16, alignItems: "center", borderWidth: 1.5 },
   actionIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  toolRow: { padding: 14, borderWidth: 1.5, alignItems: "center", marginBottom: 10 },
+  toolIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
 });

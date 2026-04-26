@@ -6,6 +6,7 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { verifyOtpToken } from "../lib/otp";
 import { queryInt, queryString } from "../lib/queryParams";
+import { backfillTechnicianLocations } from "../lib/backfillLocations";
 
 interface AdminRecord {
   id: string;
@@ -1089,6 +1090,28 @@ router.get(
     }));
 
     res.json({ technicianId: id, logs: enriched });
+  },
+);
+
+// ─── ADMIN: Re-geocode technicians with no map location ──────────────────────
+router.post(
+  "/admin/technicians/backfill-locations",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    req.log.info({ adminId: req.user?.id }, "Admin triggered backfill-locations");
+
+    const result = await backfillTechnicianLocations((msg) =>
+      req.log.info({ adminId: req.user?.id }, `backfill-locations: ${msg}`),
+    );
+
+    req.log.info(
+      { ...result, adminId: req.user?.id },
+      "backfill-locations complete",
+    );
+
+    res.json({ success: true, ...result });
   },
 );
 
