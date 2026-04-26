@@ -14,6 +14,7 @@ import {
   Switch,
   ScrollView,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -99,6 +100,9 @@ export default function AdminUsersScreen() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [confirmedPassword, setConfirmedPassword] = useState<string | null>(null);
+  const [confirmedForName, setConfirmedForName] = useState<string>("");
+  const [copied, setCopied] = useState(false);
 
   interface AuditLogEntry {
     id: number;
@@ -413,13 +417,12 @@ export default function AdminUsersScreen() {
         setResetError(data.error ?? (isRTL ? "فشل إعادة تعيين كلمة المرور" : "Failed to reset password"));
         return;
       }
+      const passwordToShow = resetPassword;
+      const nameForModal = resetTarget.firstName ?? (isRTL ? "المدير" : "Admin");
       closeResetModal();
-      Alert.alert(
-        isRTL ? "تم بنجاح" : "Password Reset",
-        isRTL
-          ? `تم إعادة تعيين كلمة مرور ${resetTarget.firstName ?? "المدير"} بنجاح. سيُطلب منهم تغييرها عند تسجيل الدخول.`
-          : `${resetTarget.firstName ?? "Admin"}'s password has been reset. They will be prompted to change it on next login.`
-      );
+      setConfirmedPassword(passwordToShow);
+      setConfirmedForName(nameForModal);
+      setCopied(false);
     } catch (err) {
       setResetError(err instanceof Error ? err.message : (isRTL ? "فشل إعادة تعيين كلمة المرور" : "Failed to reset password"));
     } finally {
@@ -914,6 +917,71 @@ export default function AdminUsersScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={confirmedPassword !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setConfirmedPassword(null); setCopied(false); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "center", marginBottom: 8 }]}>
+              <VectorIcon name="check-circle" size={22} color="#22A36B" />
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                {isRTL ? "تم إعادة التعيين" : "Password Reset"}
+              </Text>
+            </View>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left", marginBottom: 16 }}>
+              {isRTL
+                ? `تم إعادة تعيين كلمة مرور ${confirmedForName} بنجاح. احفظ كلمة المرور الجديدة وشاركها بشكل آمن — لن تُعرض مجدداً.`
+                : `${confirmedForName}'s password has been reset. Copy it now to share securely — it won't be shown again.`}
+            </Text>
+
+            <View style={[styles.passwordRow, { borderColor: "#7C3AED", backgroundColor: colors.background, marginBottom: 12 }]}>
+              <Text
+                selectable
+                style={[styles.passwordInput, { color: colors.foreground, letterSpacing: 1.5, fontFamily: "Inter_700Bold", fontSize: 15 }]}
+              >
+                {confirmedPassword}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.generateBtn, { borderColor: copied ? "#22A36B" : "#7C3AED", backgroundColor: copied ? "#F0FDF4" : "transparent" }]}
+              onPress={async () => {
+                if (confirmedPassword) {
+                  try {
+                    await Clipboard.setStringAsync(confirmedPassword);
+                    setCopied(true);
+                  } catch {
+                    Alert.alert(
+                      isRTL ? "خطأ" : "Error",
+                      isRTL ? "تعذّر النسخ إلى الحافظة" : "Could not copy to clipboard"
+                    );
+                  }
+                }
+              }}
+            >
+              <VectorIcon name={copied ? "check" : "copy"} size={15} color={copied ? "#22A36B" : "#7C3AED"} />
+              <Text style={{ color: copied ? "#22A36B" : "#7C3AED", fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
+                {copied
+                  ? (isRTL ? "تم النسخ!" : "Copied!")
+                  : (isRTL ? "نسخ إلى الحافظة" : "Copy to clipboard")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: "#7C3AED", borderRadius: colors.radius - 4, marginTop: 16 }]}
+              onPress={() => { setConfirmedPassword(null); setCopied(false); }}
+            >
+              <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                {isRTL ? "تم" : "Done"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       <Modal
