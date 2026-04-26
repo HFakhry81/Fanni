@@ -61,6 +61,13 @@ async function runMigrations(): Promise<void> {
     logger.error({ err }, "DB migration failed for users.address");
   }
   try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS service_start VARCHAR(5)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS service_end VARCHAR(5)`);
+    logger.info("DB migration: users.service_start and users.service_end ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for users.service_start / users.service_end");
+  }
+  try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS service_domains (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

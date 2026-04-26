@@ -132,6 +132,8 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
     specialty: dbUser.specialty ?? null,
     serviceCategories: (dbUser.serviceCategories as string[] | null) ?? null,
     isAvailable: dbUser.isAvailable ?? null,
+    serviceStart: dbUser.serviceStart ?? null,
+    serviceEnd: dbUser.serviceEnd ?? null,
   };
 }
 
@@ -607,7 +609,7 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
 
 // PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken, serviceCategories, profession, specialty } = req.body as {
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = req.body as {
     name?: string;
     email?: string;
     mobile?: string;
@@ -620,6 +622,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     serviceCategories?: string[];
     profession?: string;
     specialty?: string;
+    serviceStart?: string;
+    serviceEnd?: string;
   };
 
   if (!name || !name.trim()) {
@@ -722,6 +726,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       profession: profession?.trim() || null,
       specialty: specialty?.trim() || null,
       serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
+      serviceStart: serviceStart?.trim() || null,
+      serviceEnd: serviceEnd?.trim() || null,
     })
     .returning();
 
@@ -909,7 +915,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
 // PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, address, serviceCategories, profileImageUrl } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, address, serviceCategories, profileImageUrl, serviceStart, serviceEnd } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -922,6 +928,8 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     address?: string | null;
     serviceCategories?: string[] | null;
     profileImageUrl?: string | null;
+    serviceStart?: string | null;
+    serviceEnd?: string | null;
   };
 
   const now = new Date();
@@ -1054,6 +1062,8 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (address !== undefined) updates.address = address ? String(address).trim() || null : null;
   if (serviceCategories !== undefined) updates.serviceCategories = serviceCategories ?? null;
   if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl ?? null;
+  if (serviceStart !== undefined) updates.serviceStart = serviceStart ? String(serviceStart).trim() || null : null;
+  if (serviceEnd !== undefined) updates.serviceEnd = serviceEnd ? String(serviceEnd).trim() || null : null;
 
   // When a technician updates their area or governorate, geocode the new location.
   // Always clear the stored geography first so a stale point is never left behind

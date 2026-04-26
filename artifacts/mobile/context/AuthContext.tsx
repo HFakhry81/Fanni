@@ -32,6 +32,8 @@ export interface AuthUser {
   serviceCategories?: string[] | null;
   isAvailable?: boolean | null;
   mustChangePassword?: boolean | null;
+  serviceStart?: string | null;
+  serviceEnd?: string | null;
 }
 
 export type LoginResult = "success" | "cancel" | "dismiss" | "error" | "locked" | "opened" | "unknown";

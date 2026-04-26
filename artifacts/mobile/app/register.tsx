@@ -400,6 +400,8 @@ export default function RegisterScreen() {
             profession: regType === "technician" && profession.trim() ? profession.trim() : undefined,
             specialty: regType === "technician" && specialty.trim() ? specialty.trim() : undefined,
             serviceCategories: regType === "technician" && selectedCategories.length > 0 ? selectedCategories : undefined,
+            serviceStart: regType === "technician" ? serviceStart.trim() : undefined,
+            serviceEnd: regType === "technician" ? serviceEnd.trim() : undefined,
           }),
         });
         const data = await res.json() as { token?: string; user?: { id: string }; error?: string };

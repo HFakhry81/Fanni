@@ -41,6 +41,8 @@ export const GetCurrentAuthUserResponse = zod.object({
       serviceCategories: zod.array(zod.string()).nullish(),
       isAvailable: zod.boolean().nullish(),
       mustChangePassword: zod.boolean().nullish(),
+      serviceStart: zod.string().nullish(),
+      serviceEnd: zod.string().nullish(),
     })
     .nullable(),
 });
