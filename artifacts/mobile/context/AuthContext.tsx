@@ -9,7 +9,6 @@ import React, {
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
-import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
@@ -236,6 +235,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         if (Platform.OS === "web") return;
 
+        // Lazy-load expo-notifications to avoid crashing in Expo Go SDK 53+
+        // where Android remote notifications were removed from Expo Go.
+        // In development builds this works normally.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const Notifications = require("expo-notifications");
+
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
         if (existingStatus !== "granted") {
@@ -260,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ token: expoPushToken }),
         });
       } catch {
+        // expo-notifications not supported in this environment (e.g. Expo Go SDK 53+)
       }
     })();
   }, [user?.id, user?.role, sessionToken]);

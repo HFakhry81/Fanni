@@ -8,7 +8,6 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, I18nManager, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -31,15 +30,21 @@ const LOC_CACHE_AREAS_KEY = "location_cache_areas";
 SplashScreen.preventAutoHideAsync();
 
 if (Platform.OS !== "web") {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Notifications = require("expo-notifications");
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch {
+    // expo-notifications not available in Expo Go SDK 53+
+  }
 }
 
 const queryClient = new QueryClient();
@@ -363,24 +368,32 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (!response) return;
-      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-      const orderId = data?.orderId;
-      if (orderId && typeof orderId === "string") {
-        router.push({ pathname: "/order-details", params: { orderId } });
-      }
-    }).catch(() => {});
+    let subscription: { remove: () => void } | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Notifications = require("expo-notifications");
 
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-      const orderId = data?.orderId;
-      if (orderId && typeof orderId === "string") {
-        router.push({ pathname: "/order-details", params: { orderId } });
-      }
-    });
+      Notifications.getLastNotificationResponseAsync().then((response: { notification: { request: { content: { data: unknown } } } } | null) => {
+        if (!response) return;
+        const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+        const orderId = data?.orderId;
+        if (orderId && typeof orderId === "string") {
+          router.push({ pathname: "/order-details", params: { orderId } });
+        }
+      }).catch(() => {});
 
-    return () => subscription.remove();
+      subscription = Notifications.addNotificationResponseReceivedListener((response: { notification: { request: { content: { data: unknown } } } }) => {
+        const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+        const orderId = data?.orderId;
+        if (orderId && typeof orderId === "string") {
+          router.push({ pathname: "/order-details", params: { orderId } });
+        }
+      });
+    } catch {
+      // expo-notifications not available in Expo Go SDK 53+
+    }
+
+    return () => { subscription?.remove(); };
   }, [router]);
 
   useEffect(() => {
