@@ -133,7 +133,17 @@ function scoreMatch(raw: string, loc: LocationRow): number {
 
 type LocationType = "governorate" | "area" | "neighborhood";
 
-function resolveSync(raw: string, cache: LocationRow[], type?: LocationType): string {
+/**
+ * Resolves `raw` to a known slug from the cache.
+ *
+ * Returns `null` when the cache is populated but no entry reaches the minimum
+ * confidence threshold (score ≥ 55), indicating that the value could not be
+ * matched to any known location.
+ *
+ * Returns a lowercased raw fallback only when the cache is empty (not yet
+ * warmed), so callers can still apply basic format checks in that edge case.
+ */
+function resolveSync(raw: string, cache: LocationRow[], type?: LocationType): string | null {
   if (!cache.length) return raw.toLowerCase();
 
   const rawKey = raw.toLowerCase().trim().replace(/[_]/g, " ");
@@ -156,14 +166,37 @@ function resolveSync(raw: string, cache: LocationRow[], type?: LocationType): st
       best = loc;
     }
   }
-  return best && bestScore >= 55 ? best.slug : raw.toLowerCase().replace(/[_\-]/g, " ").trim();
+  return best && bestScore >= 55 ? best.slug : null;
 }
 
+/**
+ * Returns true when the value is in canonical slug format:
+ * lowercase alphanumeric characters and underscores only (no spaces, no uppercase).
+ * Examples of valid slugs: "cairo", "giza__nasr_city", "6th_of_october__sheikh_zayed"
+ */
+export function isSlug(value: string): boolean {
+  return /^[a-z0-9_]+$/.test(value);
+}
+
+/**
+ * Attempts to resolve `raw` to a known canonical location slug.
+ *
+ * Returns the matched slug when confidence is high enough (score ≥ 55 in the
+ * populated cache), or the lowercased raw value when the cache is cold (so
+ * existing callers can still apply basic format checks).
+ *
+ * Returns `null` when:
+ * - `raw` is empty / null / undefined (no location provided), OR
+ * - the cache is populated but no entry scores above the threshold (unmatched).
+ *
+ * Callers that must distinguish "not provided" from "unmatched" should compare
+ * the result against the original raw input before calling this function.
+ */
 export async function normalizeToSlug(raw: string | null | undefined, type?: LocationType): Promise<string | null> {
   if (!raw?.trim()) return null;
   const cache = await ensureFresh();
   const resolved = resolveSync(raw.trim(), cache, type);
-  if (resolved !== raw.trim().toLowerCase()) {
+  if (resolved !== null && resolved !== raw.trim().toLowerCase()) {
     logger.info({ raw: raw.trim(), resolved, type }, "Normalized location to slug");
   }
   return resolved;
@@ -177,6 +210,7 @@ export function locationsMatchSync(a: string | null | undefined, b: string | nul
   if (!locationCache.length) return false;
   const sa = resolveSync(la, locationCache, type);
   const sb = resolveSync(lb, locationCache, type);
+  if (sa === null || sb === null) return false;
   return sa === sb;
 }
 
@@ -188,6 +222,10 @@ export async function locationsMatch(a: string | null | undefined, b: string | n
   const cache = await ensureFresh();
   const sa = resolveSync(la, cache, type);
   const sb = resolveSync(lb, cache, type);
+  if (sa === null || sb === null) {
+    logger.debug({ a, b, sa, sb, type }, "Location mismatch: one or both values could not be resolved");
+    return false;
+  }
   const matched = sa === sb;
   if (!matched) {
     logger.debug({ a, b, sa, sb, type }, "Location mismatch after resolution");

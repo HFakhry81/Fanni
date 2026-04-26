@@ -5,7 +5,7 @@ import { logger } from "../lib/logger";
 import { db, ordersTable, invoicesTable, pool } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
-import { normalizeToSlug } from "../lib/locationNormalizer";
+import { normalizeToSlug, isSlug } from "../lib/locationNormalizer";
 import { queryString } from "../lib/queryParams";
 
 const router: IRouter = Router();
@@ -175,6 +175,35 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   }
   if (rawArea && normalizedArea !== rawArea) {
     logger.info({ raw: rawArea, normalized: normalizedArea }, "Normalized order area to slug");
+  }
+
+  if (rawGovernorate && normalizedGovernorate === null) {
+    logger.warn({ raw: rawGovernorate }, "Order rejected: governorate could not be matched to any known location");
+    res.status(400).json({
+      error: `Invalid governorate: "${rawGovernorate}" could not be matched to a known location. Please use a valid governorate name.`,
+    });
+    return;
+  }
+  if (rawArea && normalizedArea === null) {
+    logger.warn({ raw: rawArea }, "Order rejected: area could not be matched to any known location");
+    res.status(400).json({
+      error: `Invalid area: "${rawArea}" could not be matched to a known location. Please use a valid area name.`,
+    });
+    return;
+  }
+  if (normalizedGovernorate !== null && !isSlug(normalizedGovernorate)) {
+    logger.warn({ raw: rawGovernorate, normalized: normalizedGovernorate }, "Order rejected: governorate did not normalize to a valid slug format");
+    res.status(400).json({
+      error: `Invalid governorate: "${rawGovernorate}" did not resolve to a recognized slug. Please use a valid governorate name.`,
+    });
+    return;
+  }
+  if (normalizedArea !== null && !isSlug(normalizedArea)) {
+    logger.warn({ raw: rawArea, normalized: normalizedArea }, "Order rejected: area did not normalize to a valid slug format");
+    res.status(400).json({
+      error: `Invalid area: "${rawArea}" did not resolve to a recognized slug. Please use a valid area name.`,
+    });
+    return;
   }
 
   const routingMeta = {
@@ -732,6 +761,93 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Requ
   } catch (err) {
     logger.error({ err, id }, "Failed to cancel order");
     res.status(500).json({ error: "Failed to cancel order" });
+  }
+});
+
+router.patch("/orders/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  const id = req.params.id;
+
+  if (user.role !== "admin") {
+    res.status(403).json({ error: "Only admins can update order location fields" });
+    return;
+  }
+
+  const { governorate, area } = req.body as { governorate?: string; area?: string };
+
+  if (governorate === undefined && area === undefined) {
+    res.status(400).json({ error: "At least one of governorate or area must be provided" });
+    return;
+  }
+
+  const rawGovernorate = typeof governorate === "string" && governorate.trim() ? governorate.trim() : null;
+  const rawArea = typeof area === "string" && area.trim() ? area.trim() : null;
+
+  if (rawGovernorate === null && rawArea === null) {
+    res.status(400).json({ error: "At least one of governorate or area must be a non-empty string" });
+    return;
+  }
+
+  const [normalizedGovernorate, normalizedArea] = await Promise.all([
+    rawGovernorate !== null ? normalizeToSlug(rawGovernorate, "governorate") : Promise.resolve(undefined as undefined),
+    rawArea !== null ? normalizeToSlug(rawArea, "area") : Promise.resolve(undefined as undefined),
+  ]);
+
+  if (rawGovernorate !== null) {
+    if (normalizedGovernorate === null) {
+      logger.warn({ raw: rawGovernorate }, "Order update rejected: governorate could not be matched to any known location");
+      res.status(400).json({
+        error: `Invalid governorate: "${rawGovernorate}" could not be matched to a known location. Please use a valid governorate name.`,
+      });
+      return;
+    }
+    if (!isSlug(normalizedGovernorate!)) {
+      logger.warn({ raw: rawGovernorate, normalized: normalizedGovernorate }, "Order update rejected: governorate did not normalize to a valid slug format");
+      res.status(400).json({
+        error: `Invalid governorate: "${rawGovernorate}" did not resolve to a recognized slug. Please use a valid governorate name.`,
+      });
+      return;
+    }
+  }
+
+  if (rawArea !== null) {
+    if (normalizedArea === null) {
+      logger.warn({ raw: rawArea }, "Order update rejected: area could not be matched to any known location");
+      res.status(400).json({
+        error: `Invalid area: "${rawArea}" could not be matched to a known location. Please use a valid area name.`,
+      });
+      return;
+    }
+    if (!isSlug(normalizedArea!)) {
+      logger.warn({ raw: rawArea, normalized: normalizedArea }, "Order update rejected: area did not normalize to a valid slug format");
+      res.status(400).json({
+        error: `Invalid area: "${rawArea}" did not resolve to a recognized slug. Please use a valid area name.`,
+      });
+      return;
+    }
+  }
+
+  const patch: Partial<{ governorate: string; area: string; updatedAt: Date }> = { updatedAt: new Date() };
+  if (normalizedGovernorate !== undefined) patch.governorate = normalizedGovernorate!;
+  if (normalizedArea !== undefined) patch.area = normalizedArea!;
+
+  try {
+    const [updated] = await db
+      .update(ordersTable)
+      .set(patch)
+      .where(eq(ordersTable.id, id))
+      .returning({ id: ordersTable.id });
+
+    if (!updated) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+
+    logger.info({ id, governorate: patch.governorate, area: patch.area }, "Order location fields updated by admin");
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to update order location fields");
+    res.status(500).json({ error: "Failed to update order" });
   }
 });
 

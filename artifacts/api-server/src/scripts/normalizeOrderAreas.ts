@@ -67,8 +67,8 @@ async function run(): Promise<void> {
         ? order.area
         : await normalizeToSlug(order.area, "area");
 
-      const govResolved = isSlug(normalizedGov);
-      const areaResolved = isSlug(normalizedArea);
+      const govResolved = govAlreadySlug || (normalizedGov !== null && isSlug(normalizedGov));
+      const areaResolved = areaAlreadySlug || (normalizedArea !== null && isSlug(normalizedArea));
 
       if (!govResolved || !areaResolved) {
         logger.warn(
