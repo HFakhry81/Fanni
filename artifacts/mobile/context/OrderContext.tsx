@@ -124,6 +124,7 @@ interface OrderContextType {
   bumpWsOrderStatusSignal: () => void;
   availablePendingCount: number;
   setAvailablePendingCount: (count: number) => void;
+  availableOrdersTabFocusedRef: React.MutableRefObject<boolean>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -359,6 +360,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [newPendingOrders, setNewPendingOrders] = useState<Order[]>([]);
   const [wsOrderStatusSignal, setWsOrderStatusSignal] = useState(0);
   const [availablePendingCount, setAvailablePendingCount] = useState(0);
+  const availableOrdersTabFocusedRef = useRef<boolean>(false);
 
   const bumpWsOrderStatusSignal = React.useCallback(() => {
     setWsOrderStatusSignal((prev) => prev + 1);
@@ -530,6 +532,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         bumpWsOrderStatusSignal,
         availablePendingCount,
         setAvailablePendingCount,
+        availableOrdersTabFocusedRef,
       }}
     >
       {children}

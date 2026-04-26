@@ -60,7 +60,7 @@ export default function AvailableOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { sessionToken } = useAuth();
-  const { updateOrder, setAvailablePendingCount, wsOrderStatusSignal } = useOrders();
+  const { updateOrder, setAvailablePendingCount, wsOrderStatusSignal, availableOrdersTabFocusedRef } = useOrders();
   const router = useRouter();
 
   const [orders, setOrders] = useState<PendingOrder[]>([]);
@@ -125,6 +125,7 @@ export default function AvailableOrdersScreen() {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
+      availableOrdersTabFocusedRef.current = true;
       setAvailablePendingCount(0);
       fetchOrders();
       pollTimerRef.current = setInterval(() => {
@@ -134,12 +135,13 @@ export default function AvailableOrdersScreen() {
       }, 60_000);
       return () => {
         isFocusedRef.current = false;
+        availableOrdersTabFocusedRef.current = false;
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
         }
       };
-    }, [fetchOrders])
+    }, [fetchOrders, availableOrdersTabFocusedRef])
   );
 
   const silentFetchRef = useRef<() => void>(() => {});

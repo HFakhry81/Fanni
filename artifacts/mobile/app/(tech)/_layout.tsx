@@ -264,9 +264,10 @@ function useDemoOrderBroadcast() {
 
 function usePendingCountSync() {
   const { sessionToken } = useAuth();
-  const { setAvailablePendingCount } = useOrders();
+  const { setAvailablePendingCount, availableOrdersTabFocusedRef } = useOrders();
 
   const fetchCount = useCallback(async () => {
+    if (availableOrdersTabFocusedRef.current) return;
     const domain = process.env["EXPO_PUBLIC_DOMAIN"];
     if (!domain || !sessionToken) return;
     try {
@@ -276,10 +277,12 @@ function usePendingCountSync() {
       if (res.ok) {
         const json = await res.json() as { orders?: unknown[]; meta?: { total: number } };
         const count = json.meta?.total ?? (json.orders?.length ?? 0);
-        setAvailablePendingCount(count);
+        if (!availableOrdersTabFocusedRef.current) {
+          setAvailablePendingCount(count);
+        }
       }
     } catch (_) {}
-  }, [sessionToken, setAvailablePendingCount]);
+  }, [sessionToken, setAvailablePendingCount, availableOrdersTabFocusedRef]);
 
   useEffect(() => {
     fetchCount();
