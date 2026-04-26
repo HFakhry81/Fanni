@@ -11,6 +11,9 @@ async function sendSmsViaProvider(to: string, body: string): Promise<boolean> {
 
   if (!apiKey) {
     console.warn(`[SMS] SMS_API_KEY not configured — skipping SMS to ${to.slice(0, 4)}****`);
+    if (process.env.NODE_ENV !== "production") {
+      console.info(`[OTP-DEV] Code for ${to}: ${body}`);
+    }
     return false;
   }
 
