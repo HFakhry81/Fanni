@@ -3,7 +3,8 @@ import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
 
 
-const WS_RECONNECT_DELAY_MS = 3000;
+const WS_BASE_RECONNECT_DELAY_MS = 3000;
+const WS_MAX_RECONNECT_DELAY_MS = 60000;
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   electricity: ["electrician", "electric", "electrical", "كهرباء", "كهربائي"],
@@ -96,10 +97,12 @@ export function useOrderNotifications(
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const authRejectedRef = useRef(false);
+  const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
     authRejectedRef.current = false;
+    reconnectAttemptsRef.current = 0;
 
     function disconnect() {
       if (reconnectTimerRef.current) {
@@ -125,6 +128,7 @@ export function useOrderNotifications(
           clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = null;
         }
+        reconnectAttemptsRef.current = 0;
         ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current, alwaysConnect));
       };
 
@@ -168,8 +172,13 @@ export function useOrderNotifications(
       ws.onclose = () => {
         wsRef.current = null;
         if (mountedRef.current && isOnline && !authRejectedRef.current) {
-          console.warn("[Fanni] Order notification WS closed. Reconnecting in", WS_RECONNECT_DELAY_MS, "ms...");
-          reconnectTimerRef.current = setTimeout(connect, WS_RECONNECT_DELAY_MS);
+          const delay = Math.min(
+            WS_BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttemptsRef.current),
+            WS_MAX_RECONNECT_DELAY_MS
+          );
+          reconnectAttemptsRef.current += 1;
+          console.warn("[Fanni] Order notification WS closed. Reconnecting in", delay, "ms...");
+          reconnectTimerRef.current = setTimeout(connect, delay);
         }
       };
 
