@@ -16,6 +16,9 @@ import {
   ScrollView,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -64,6 +67,13 @@ const TAB_ROLE_MAP: Partial<Record<UserTab, string>> = {
   clients: "client",
   admins: "admin",
 };
+
+function localDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 function generateStrongPassword(): string {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -124,6 +134,11 @@ export default function AdminUsersScreen() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditFrom, setAuditFrom] = useState<Date | null>(null);
+  const [auditTo, setAuditTo] = useState<Date | null>(null);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Permissions tab state
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -436,15 +451,18 @@ export default function AdminUsersScreen() {
     setResetError(null);
   }, []);
 
-  const openAuditModal = useCallback(async (user: ApiUser) => {
+  const fetchAuditLogs = useCallback(async (userId: string, from: Date | null, to: Date | null) => {
     if (!sessionToken) return;
-    setAuditTarget(user);
     setAuditLogs([]);
     setAuditError(null);
     setAuditLoading(true);
     try {
       const apiBase = getApiBaseUrl();
-      const res = await fetch(`${apiBase}/api/admin/technicians/${user.id}/availability-log`, {
+      const params = new URLSearchParams();
+      if (from) params.set("from", localDateString(from));
+      if (to) params.set("to", localDateString(to));
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      const res = await fetch(`${apiBase}/api/admin/technicians/${userId}/availability-log${qs}`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       if (!res.ok) {
@@ -460,11 +478,72 @@ export default function AdminUsersScreen() {
     }
   }, [sessionToken]);
 
+  const openAuditModal = useCallback(async (user: ApiUser) => {
+    setAuditTarget(user);
+    setAuditFrom(null);
+    setAuditTo(null);
+    setShowFromPicker(false);
+    setShowToPicker(false);
+    await fetchAuditLogs(user.id, null, null);
+  }, [fetchAuditLogs]);
+
   const closeAuditModal = useCallback(() => {
     setAuditTarget(null);
     setAuditLogs([]);
     setAuditError(null);
+    setAuditFrom(null);
+    setAuditTo(null);
+    setShowFromPicker(false);
+    setShowToPicker(false);
   }, []);
+
+  const applyAuditFilter = useCallback(() => {
+    if (!auditTarget) return;
+    fetchAuditLogs(auditTarget.id, auditFrom, auditTo);
+  }, [auditTarget, auditFrom, auditTo, fetchAuditLogs]);
+
+  const exportAuditCSV = useCallback(async () => {
+    if (!auditTarget || !sessionToken) return;
+    setIsExporting(true);
+    try {
+      const apiBase = getApiBaseUrl();
+      const params = new URLSearchParams({ limit: "500" });
+      if (auditFrom) params.set("from", localDateString(auditFrom));
+      if (auditTo) params.set("to", localDateString(auditTo));
+      const res = await fetch(`${apiBase}/api/admin/technicians/${auditTarget.id}/availability-log?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { logs: AuditLogEntry[] };
+      const allLogs = data.logs;
+      if (allLogs.length === 0) {
+        Alert.alert(isRTL ? "لا توجد بيانات" : "No data", isRTL ? "لا توجد سجلات للتصدير في هذه الفترة" : "No log entries to export for this period");
+        return;
+      }
+      const escCsv = (v: string) => `"${v.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+      const headers = ["Date", "Changed By", "Role", "From", "To"].map(escCsv).join(",");
+      const rows = allLogs.map((entry) => {
+        const date = new Date(entry.createdAt).toLocaleString("en-GB");
+        const from = entry.oldValue ? "Available" : "Unavailable";
+        const to = entry.newValue ? "Available" : "Unavailable";
+        return [date, entry.changedByName, entry.changedByRole, from, to].map(escCsv).join(",");
+      });
+      const csv = [headers, ...rows].join("\n");
+      const name = [auditTarget.firstName, auditTarget.lastName].filter(Boolean).join("_") || auditTarget.id;
+      const filename = `availability_log_${name}_${Date.now()}.csv`;
+      const file = new File(Paths.cache, filename);
+      file.write(csv);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, { mimeType: "text/csv", dialogTitle: isRTL ? "تصدير سجل التواجد" : "Export Availability Log" });
+      } else {
+        Alert.alert(isRTL ? "غير مدعوم" : "Not supported", isRTL ? "المشاركة غير متاحة على هذا الجهاز" : "Sharing is not available on this device");
+      }
+    } catch {
+      Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "فشل تصدير الملف" : "Failed to export file");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [auditTarget, sessionToken, auditFrom, auditTo, isRTL]);
 
   const submitPasswordReset = useCallback(async () => {
     if (!resetTarget || !sessionToken) return;
@@ -1065,7 +1144,7 @@ export default function AdminUsersScreen() {
         onRequestClose={closeAuditModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card, borderRadius: colors.radius, maxHeight: "80%" }]}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderRadius: colors.radius, maxHeight: "88%" }]}>
             <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between" }]}>
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
                 <VectorIcon name="clock" size={18} color="#7C3AED" />
@@ -1078,12 +1157,80 @@ export default function AdminUsersScreen() {
               </TouchableOpacity>
             </View>
             {auditTarget ? (
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
                 {isRTL
-                  ? `آخر تغييرات التواجد لـ ${auditTarget.firstName ?? "الفني"}`
-                  : `Recent availability changes for ${auditTarget.firstName ?? "this technician"}`}
+                  ? `تغييرات التواجد لـ ${auditTarget.firstName ?? "الفني"}`
+                  : `Availability changes for ${auditTarget.firstName ?? "this technician"}`}
               </Text>
             ) : null}
+
+            {/* Date range filter */}
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <TouchableOpacity
+                onPress={() => { setShowToPicker(false); setShowFromPicker(true); }}
+                style={{ flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }}
+              >
+                <VectorIcon name="calendar" size={13} color={colors.mutedForeground} />
+                <Text style={{ color: auditFrom ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={1}>
+                  {auditFrom ? auditFrom.toLocaleDateString(isRTL ? "ar-EG" : "en-GB") : (isRTL ? "من تاريخ" : "From date")}
+                </Text>
+                {auditFrom ? (
+                  <TouchableOpacity onPress={() => setAuditFrom(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <VectorIcon name="x" size={12} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                ) : null}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => { setShowFromPicker(false); setShowToPicker(true); }}
+                style={{ flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }}
+              >
+                <VectorIcon name="calendar" size={13} color={colors.mutedForeground} />
+                <Text style={{ color: auditTo ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={1}>
+                  {auditTo ? auditTo.toLocaleDateString(isRTL ? "ar-EG" : "en-GB") : (isRTL ? "إلى تاريخ" : "To date")}
+                </Text>
+                {auditTo ? (
+                  <TouchableOpacity onPress={() => setAuditTo(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <VectorIcon name="x" size={12} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                ) : null}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={applyAuditFilter}
+                disabled={auditLoading}
+                style={{ backgroundColor: "#7C3AED", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+              >
+                <VectorIcon name="search" size={15} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {showFromPicker && (
+              <DateTimePicker
+                value={auditFrom ?? new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "inline" : "default"}
+                maximumDate={auditTo ?? new Date()}
+                onChange={(_e, date) => {
+                  setShowFromPicker(Platform.OS === "ios");
+                  if (date) setAuditFrom(date);
+                }}
+              />
+            )}
+            {showToPicker && (
+              <DateTimePicker
+                value={auditTo ?? new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "inline" : "default"}
+                minimumDate={auditFrom ?? undefined}
+                maximumDate={new Date()}
+                onChange={(_e, date) => {
+                  setShowToPicker(Platform.OS === "ios");
+                  if (date) setAuditTo(date);
+                }}
+              />
+            )}
+
             {auditLoading ? (
               <View style={{ alignItems: "center", paddingVertical: 32 }}>
                 <ActivityIndicator size="large" color="#7C3AED" />
@@ -1099,18 +1246,18 @@ export default function AdminUsersScreen() {
               <View style={{ alignItems: "center", paddingVertical: 32 }}>
                 <VectorIcon name="inbox" size={36} color={colors.border} />
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 10, textAlign: "center" }}>
-                  {isRTL ? "لا توجد تغييرات مسجلة بعد" : "No changes recorded yet"}
+                  {isRTL ? "لا توجد تغييرات في هذه الفترة" : "No changes in this period"}
                 </Text>
               </View>
             ) : (
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 360 }}>
                 {auditLogs.map((entry, idx) => {
                   const isFirst = idx === 0;
                   const changedToAvailable = entry.newValue;
                   const dot = changedToAvailable ? "#22A36B" : "#EF4444";
                   const oldLabel = entry.oldValue ? (isRTL ? "متاح" : "Available") : (isRTL ? "غير متاح" : "Unavailable");
                   const newLabel = entry.newValue ? (isRTL ? "متاح" : "Available") : (isRTL ? "غير متاح" : "Unavailable");
-                  const label = isRTL ? `${oldLabel} → ${newLabel}` : `${oldLabel} → ${newLabel}`;
+                  const label = `${oldLabel} → ${newLabel}`;
                   const byLabel = entry.changedByRole === "admin"
                     ? (isRTL ? "بواسطة مدير" : "by admin")
                     : (isRTL ? "بواسطة الفني" : "by technician");
@@ -1149,14 +1296,31 @@ export default function AdminUsersScreen() {
                 })}
               </ScrollView>
             )}
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: colors.muted, borderRadius: colors.radius - 4, marginTop: 16 }]}
-              onPress={closeAuditModal}
-            >
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
-                {isRTL ? "إغلاق" : "Close"}
-              </Text>
-            </TouchableOpacity>
+
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginTop: 16 }}>
+              {auditLogs.length > 0 && (
+                <TouchableOpacity
+                  onPress={exportAuditCSV}
+                  disabled={isExporting}
+                  style={[styles.modalBtn, { flex: 1, backgroundColor: "#7C3AED", borderRadius: colors.radius - 4, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
+                >
+                  {isExporting
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <VectorIcon name="download" size={14} color="#fff" />}
+                  <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                    {isRTL ? "تصدير CSV" : "Export CSV"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.modalBtn, { flex: 1, backgroundColor: colors.muted, borderRadius: colors.radius - 4 }]}
+                onPress={closeAuditModal}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                  {isRTL ? "إغلاق" : "Close"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

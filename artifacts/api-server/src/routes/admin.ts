@@ -1064,8 +1064,11 @@ router.get(
   requireAdmin,
   async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const limitRaw = queryInt(req.query.limit, 50);
-    const limit = Math.min(Math.max(1, limitRaw), 200);
+    const limitRaw = queryInt(req.query.limit, 200);
+    const limit = Math.min(Math.max(1, limitRaw), 500);
+
+    const fromRaw = queryString(req.query.from);
+    const toRaw = queryString(req.query.to);
 
     const [tech] = await db
       .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
@@ -1077,6 +1080,35 @@ router.get(
       return;
     }
 
+    const DATE_RE = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+    function parseDateParam(raw: string, endOfDay: boolean): Date | null {
+      if (!DATE_RE.test(raw)) return null;
+      const [y, mo, d] = raw.split("-").map(Number);
+      const ms = Date.UTC(y, mo - 1, d, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+      const dt = new Date(ms);
+      if (isNaN(dt.getTime())) return null;
+      // Reject normalised dates (e.g. Feb 31 → Mar 3)
+      if (dt.getUTCFullYear() !== y || dt.getUTCMonth() + 1 !== mo || dt.getUTCDate() !== d) return null;
+      return dt;
+    }
+
+    const fromDate = fromRaw != null ? parseDateParam(fromRaw, false) : null;
+    const toDate = toRaw != null ? parseDateParam(toRaw, true) : null;
+
+    if ((fromRaw && !fromDate) || (toRaw && !toDate)) {
+      res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD (e.g. 2026-04-01)" });
+      return;
+    }
+    if (fromDate && toDate && fromDate > toDate) {
+      res.status(400).json({ error: "'from' must not be later than 'to'" });
+      return;
+    }
+
+    const conditions = [eq(availabilityAuditLogsTable.technicianId, id)];
+    if (fromDate) conditions.push(gte(availabilityAuditLogsTable.createdAt, fromDate));
+    if (toDate) conditions.push(lte(availabilityAuditLogsTable.createdAt, toDate));
+
     const logs = await db
       .select({
         id: availabilityAuditLogsTable.id,
@@ -1087,7 +1119,7 @@ router.get(
         createdAt: availabilityAuditLogsTable.createdAt,
       })
       .from(availabilityAuditLogsTable)
-      .where(eq(availabilityAuditLogsTable.technicianId, id))
+      .where(and(...conditions))
       .orderBy(desc(availabilityAuditLogsTable.createdAt))
       .limit(limit);
 
