@@ -123,6 +123,7 @@ export default function NewOrderScreen() {
   const [areaId, setAreaId] = useState("");
   const [govOpt, setGovOpt] = useState<LocationOption | null>(null);
   const [areaOpt, setAreaOpt] = useState<LocationOption | null>(null);
+  const [locationError, setLocationError] = useState<{ governorate?: string; area?: string }>({});
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");
   const [floor, setFloor] = useState("");
@@ -562,7 +563,30 @@ export default function NewOrderScreen() {
     }, [step, persistDraftIfNeeded])
   );
 
+  const validateLocation = (): { governorate?: string; area?: string } => {
+    const errors: { governorate?: string; area?: string } = {};
+    if (!governorateId || !govOpt) {
+      errors.governorate = isRTL
+        ? "المحافظة غير معروفة — الرجاء الاختيار من القائمة"
+        : "Governorate could not be matched — please select from the list";
+    }
+    if (!areaId || !areaOpt) {
+      errors.area = isRTL
+        ? "المنطقة غير معروفة — الرجاء الاختيار من القائمة"
+        : "Area could not be matched — please select from the list";
+    }
+    return errors;
+  };
+
   const handleNext = () => {
+    if (step === 2) {
+      const errors = validateLocation();
+      if (errors.governorate || errors.area) {
+        setLocationError(errors);
+        return;
+      }
+      setLocationError({});
+    }
     if (step < 3) {
       const nextStep = (step + 1) as OrderStep;
       persistDraftIfNeeded(nextStep);
@@ -582,6 +606,13 @@ export default function NewOrderScreen() {
   const isLocalUri = (uri: string) => uri.startsWith("file://") || uri.startsWith("content://");
 
   const handleSubmit = async () => {
+    const locationErrors = validateLocation();
+    if (locationErrors.governorate || locationErrors.area) {
+      setLocationError(locationErrors);
+      setStep(2);
+      return;
+    }
+
     setLoading(true);
 
     let resolvedPhotos = orderPhotos;
@@ -803,8 +834,17 @@ export default function NewOrderScreen() {
         areaId={areaId}
         onGovernorateChange={(id) => { setGovernorateId(id); if (!id) { setGovOpt(null); setAreaOpt(null); } }}
         onAreaChange={(id) => { setAreaId(id); if (!id) setAreaOpt(null); }}
-        onGovernorateSelect={(opt) => { setGovOpt(opt); setAreaOpt(null); }}
-        onAreaSelect={(opt) => setAreaOpt(opt)}
+        onGovernorateSelect={(opt) => {
+          setGovOpt(opt);
+          setAreaOpt(null);
+          setLocationError((prev) => ({ ...prev, governorate: undefined }));
+        }}
+        onAreaSelect={(opt) => {
+          setAreaOpt(opt);
+          setLocationError((prev) => ({ ...prev, area: undefined }));
+        }}
+        governorateError={locationError.governorate}
+        areaError={locationError.area}
         street={street}
         onStreetChange={setStreet}
         building={building}

@@ -125,6 +125,8 @@ interface LocationPickerProps {
   latitude?: number | null;
   longitude?: number | null;
   onCoordsChange?: (lat: number, lon: number) => void;
+  governorateError?: string;
+  areaError?: string;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -147,10 +149,10 @@ function optionMatches(opt: LocationOption, term: string): boolean {
 // ─── Single dropdown ──────────────────────────────────────────────────────────
 
 function Dropdown({
-  label, value, placeholder, onPress, required, loading,
+  label, value, placeholder, onPress, required, loading, error,
 }: {
   label: string; value: string; placeholder: string;
-  onPress: () => void; required?: boolean; loading?: boolean;
+  onPress: () => void; required?: boolean; loading?: boolean; error?: string;
 }) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -164,7 +166,7 @@ function Dropdown({
           styles.dropdown,
           {
             backgroundColor: colors.card,
-            borderColor: value ? colors.secondary : colors.border,
+            borderColor: error ? colors.destructive : (value ? colors.secondary : colors.border),
             borderRadius: 12,
             flexDirection: isRTL ? "row-reverse" : "row",
           },
@@ -175,7 +177,7 @@ function Dropdown({
         <View style={[styles.dropdownIcon, { backgroundColor: colors.accentBlue, borderRadius: 8 }]}>
           {loading
             ? <ActivityIndicator size="small" color={colors.secondary} />
-            : <VectorIcon name="map-pin" size={14} color={colors.secondary} />}
+            : <VectorIcon name="map-pin" size={14} color={error ? colors.destructive : colors.secondary} />}
         </View>
         <Text
           style={[
@@ -195,6 +197,14 @@ function Dropdown({
         </Text>
         <VectorIcon name="chevron-down" size={16} color={colors.mutedForeground} />
       </TouchableOpacity>
+      {!!error && (
+        <View style={[styles.fieldError, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <VectorIcon name="alert-circle" size={13} color={colors.destructive} />
+          <Text style={[styles.fieldErrorText, { color: colors.destructive, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }]}>
+            {error}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -447,6 +457,7 @@ export default function LocationPicker({
   apartment = "", onApartmentChange,
   showDetails = true,
   latitude, longitude, onCoordsChange,
+  governorateError, areaError,
 }: LocationPickerProps) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -652,6 +663,7 @@ export default function LocationPicker({
         onPress={() => setModalType("governorate")}
         loading={govLoading && govOptions.length === 0}
         required
+        error={governorateError}
       />
 
       <Dropdown
@@ -661,6 +673,7 @@ export default function LocationPicker({
         onPress={() => governorateId && setModalType("area")}
         loading={areaLoading}
         required
+        error={areaError}
       />
 
       {autoFillVisible && (
@@ -831,6 +844,16 @@ const styles = StyleSheet.create({
   autoFillText: {
     fontFamily: "Inter_500Medium",
     fontSize: 13,
+    flex: 1,
+  },
+  fieldError: {
+    alignItems: "center",
+    marginTop: 5,
+    gap: 4,
+  },
+  fieldErrorText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
     flex: 1,
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
