@@ -9,12 +9,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AppState, I18nManager, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import NetInfo from "@react-native-community/netinfo";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Toast from "@/components/Toast";
@@ -22,6 +24,9 @@ import { AppProvider, useApp, type UserType } from "@/context/AppContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { sweepExpiredRouteCache } from "@/utils/routeCache";
+
+const LOC_CACHE_GOV_KEY = "location_cache_governorates";
+const LOC_CACHE_AREAS_KEY = "location_cache_areas";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,8 +69,34 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const lastForegroundSyncRef = React.useRef<number>(0);
   const FOREGROUND_SYNC_DEBOUNCE_MS = 30_000;
 
-  const govCacheRef = React.useRef<Map<string, { ar: string; en: string }>>(new Map());
-  const areaCacheRef = React.useRef<Map<string, { ar: string; en: string }>>(new Map());
+  const govCacheRef = useRef<Map<string, { ar: string; en: string }>>(new Map());
+  const areaCacheRef = useRef<Map<string, { ar: string; en: string }>>(new Map());
+  const [locCacheHydrated, setLocCacheHydrated] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [govRaw, areaRaw] = await Promise.all([
+          AsyncStorage.getItem(LOC_CACHE_GOV_KEY),
+          AsyncStorage.getItem(LOC_CACHE_AREAS_KEY),
+        ]);
+        if (govRaw) {
+          const parsed = JSON.parse(govRaw) as Record<string, { ar: string; en: string }>;
+          for (const [id, label] of Object.entries(parsed)) {
+            govCacheRef.current.set(id, label);
+          }
+        }
+        if (areaRaw) {
+          const parsed = JSON.parse(areaRaw) as Record<string, { ar: string; en: string }>;
+          for (const [key, label] of Object.entries(parsed)) {
+            areaCacheRef.current.set(key, label);
+          }
+        }
+      } catch {}
+      setLocCacheHydrated(true);
+    })();
+  }, []);
+
   const [locationLabels, setLocationLabels] = useState<LocationLabels>({
     governorateId: null,
     governorateNameAr: undefined,
@@ -127,6 +158,10 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
             govCacheRef.current.set(g.id, { ar: g.nameAr, en: g.nameEn });
           }
           govLabel = govCacheRef.current.get(govId);
+          AsyncStorage.setItem(
+            LOC_CACHE_GOV_KEY,
+            JSON.stringify(Object.fromEntries(govCacheRef.current)),
+          ).catch(() => {});
         }
 
         let areaLabel = areaCached;
@@ -137,6 +172,10 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
             areaCacheRef.current.set(`${govId}:${a.id}`, { ar: a.nameAr, en: a.nameEn });
           }
           areaLabel = areaCacheKey ? areaCacheRef.current.get(areaCacheKey) : undefined;
+          AsyncStorage.setItem(
+            LOC_CACHE_AREAS_KEY,
+            JSON.stringify(Object.fromEntries(areaCacheRef.current)),
+          ).catch(() => {});
         }
 
         setLocationLabels({
@@ -149,7 +188,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         });
       } catch {}
     })();
-  }, [authUser?.governorate, authUser?.area]);
+  }, [authUser?.governorate, authUser?.area, locCacheHydrated]);
 
   useEffect(() => {
     if (!isAvailabilityHydrated) return;
