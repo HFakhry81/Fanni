@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
 export const locationTypeEnum = pgEnum("location_type", [
   "governorate",
@@ -64,6 +64,33 @@ export const locationAliasesTable = pgTable(
   ],
 );
 
+/**
+ * Records every /locations/match call that could not be resolved to either a
+ * governorate or an area. These rows let the team identify which real-world
+ * place names the alias map is missing and prioritise new additions.
+ */
+export const locationMissLogTable = pgTable(
+  "location_miss_log",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    suburbEn: varchar("suburb_en", { length: 300 }),
+    suburbAr: varchar("suburb_ar", { length: 300 }),
+    cityEn: varchar("city_en", { length: 300 }),
+    cityAr: varchar("city_ar", { length: 300 }),
+    lat: varchar("lat", { length: 50 }),
+    lng: varchar("lng", { length: 50 }),
+    seenCount: integer("seen_count").notNull().default(1),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().default(sql`now()`),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().default(sql`now()`),
+  },
+  (table) => [
+    index("IDX_loc_miss_suburb_en").on(table.suburbEn),
+    index("IDX_loc_miss_city_en").on(table.cityEn),
+    index("IDX_loc_miss_last_seen").on(table.lastSeenAt),
+  ],
+);
+
 export type Location = typeof locationsTable.$inferSelect;
 export type NominatimCache = typeof nominatimCacheTable.$inferSelect;
 export type LocationAlias = typeof locationAliasesTable.$inferSelect;
+export type LocationMissLog = typeof locationMissLogTable.$inferSelect;

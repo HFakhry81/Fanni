@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, sql } from "drizzle-orm";
-import { db, locationsTable } from "@workspace/db";
+import { db, locationsTable, pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { matchLocation } from "../lib/locationNormalizer";
 
@@ -89,15 +89,39 @@ router.get("/locations/match", async (req, res) => {
       }
     }
 
+    const governorateId = govMatch?.id ?? null;
+    const areaId = areaMatch?.id ?? null;
+
     logger.debug(
-      { suburbEn, suburbAr, cityEn, cityAr, govMatch: govMatch?.id, areaMatch: areaMatch?.id },
+      { suburbEn, suburbAr, cityEn, cityAr, governorateId, areaId },
       "Location match result",
     );
 
-    return res.json({
-      governorateId: govMatch?.id ?? null,
-      areaId: areaMatch?.id ?? null,
-    });
+    if (!governorateId && !areaId) {
+      logger.warn(
+        { suburbEn, suburbAr, cityEn, cityAr },
+        "Location miss: no governorate or area matched — logging for review",
+      );
+      const lat = ((req.query.lat as string | undefined) ?? "").trim() || null;
+      const lng = ((req.query.lng as string | undefined) ?? "").trim() || null;
+      pool.query(
+        `INSERT INTO location_miss_log
+           (suburb_en, suburb_ar, city_en, city_ar, lat, lng)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (
+           COALESCE(suburb_en,''), COALESCE(suburb_ar,''),
+           COALESCE(city_en,''),   COALESCE(city_ar,'')
+         )
+         DO UPDATE SET
+           seen_count   = location_miss_log.seen_count + 1,
+           last_seen_at = now()`,
+        [suburbEn || null, suburbAr || null, cityEn || null, cityAr || null, lat, lng],
+      ).catch((err: unknown) => {
+        logger.error({ err }, "Failed to write location miss log row");
+      });
+    }
+
+    return res.json({ governorateId, areaId });
   } catch (err) {
     logger.error({ err, suburbEn, suburbAr, cityEn, cityAr }, "Failed to match location");
     return res.status(500).json({ error: "Location match failed" });

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable } from "@workspace/db";
+import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable } from "@workspace/db";
 import { invalidateLocationCache } from "../lib/locationNormalizer";
 import { eq, desc, sql, and, or, ilike, gte, lte, asc, ne } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -1281,6 +1281,63 @@ router.delete(
     req.log.info({ adminId: req.user?.id, aliasId: id }, "Location alias deleted");
     invalidateLocationCache();
 
+    res.json({ success: true, deleted: id });
+  },
+);
+
+/**
+ * GET /admin/location-misses
+ *
+ * Returns the most-common pin drops that could not be matched to any governorate
+ * or area. Sorted by seen_count DESC so the team can prioritise which aliases or
+ * new areas to add.
+ *
+ * Query params:
+ *   limit  – max rows to return (default 50, max 200)
+ *   offset – pagination offset (default 0)
+ */
+router.get(
+  "/admin/location-misses",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const rawLimit  = parseInt(String(req.query.limit  ?? ""), 10);
+    const rawOffset = parseInt(String(req.query.offset ?? ""), 10);
+    const limit  = Math.min(Number.isFinite(rawLimit)  && rawLimit  > 0 ? rawLimit  : 50, 200);
+    const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0;
+
+    const rows = await db
+      .select()
+      .from(locationMissLogTable)
+      .orderBy(desc(locationMissLogTable.seenCount), desc(locationMissLogTable.lastSeenAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ total }] = await db
+      .select({ total: sql<number>`COUNT(*)::int` })
+      .from(locationMissLogTable);
+
+    res.json({ total, limit, offset, misses: rows });
+  },
+);
+
+/**
+ * DELETE /admin/location-misses/:id
+ *
+ * Remove a single miss row once it has been resolved (alias added, area created, etc.).
+ */
+router.delete(
+  "/admin/location-misses/:id",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const { id } = req.params;
+
+    await db.delete(locationMissLogTable).where(eq(locationMissLogTable.id, id));
+
+    req.log.info({ adminId: req.user?.id, missId: id }, "Location miss log row deleted");
     res.json({ success: true, deleted: id });
   },
 );

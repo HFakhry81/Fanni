@@ -175,6 +175,37 @@ async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "DB migration failed for rate_limits");
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS location_miss_log (
+        id            VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        suburb_en     VARCHAR(300),
+        suburb_ar     VARCHAR(300),
+        city_en       VARCHAR(300),
+        city_ar       VARCHAR(300),
+        lat           VARCHAR(50),
+        lng           VARCHAR(50),
+        seen_count    INTEGER NOT NULL DEFAULT 1,
+        first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "uq_loc_miss_terms"
+        ON location_miss_log (
+          COALESCE(suburb_en, ''),
+          COALESCE(suburb_ar, ''),
+          COALESCE(city_en,   ''),
+          COALESCE(city_ar,   '')
+        )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_loc_miss_suburb_en" ON location_miss_log (suburb_en)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_loc_miss_city_en"   ON location_miss_log (city_en)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_loc_miss_last_seen" ON location_miss_log (last_seen_at)`);
+    logger.info("DB migration: location_miss_log table ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for location_miss_log");
+  }
   await seedDefaultCategories();
 }
 
