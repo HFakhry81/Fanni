@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Modal, TextInput, ScrollView } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator } from "react-native";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -63,10 +63,6 @@ export default function TechInvoicesScreen() {
   const [invoices, setInvoices] = useState<ApiInvoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ orderId: "", subtotal: "", taxRate: "14", noteAr: "", noteEn: "" });
-  const [submitting, setSubmitting] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   const fetchInvoices = useCallback(async () => {
     if (!isAuthenticated || !sessionToken) return;
@@ -100,43 +96,6 @@ export default function TechInvoicesScreen() {
     } catch { /* ignore */ }
   };
 
-  const handleCreate = async () => {
-    const sub = parseFloat(form.subtotal);
-    if (!sub || sub <= 0) {
-      setCreateError(isRTL ? "أدخل مبلغاً صحيحاً" : "Enter a valid amount");
-      return;
-    }
-    const base = getApiBaseUrl();
-    if (!base || !sessionToken) return;
-    setSubmitting(true);
-    setCreateError(null);
-    try {
-      const res = await fetch(`${base}/api/invoices`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({
-          orderId: form.orderId || undefined,
-          subtotal: sub,
-          taxRate: parseFloat(form.taxRate) || 14,
-          noteAr: form.noteAr || undefined,
-          noteEn: form.noteEn || undefined,
-        }),
-      });
-      if (res.ok) {
-        setShowCreate(false);
-        setForm({ orderId: "", subtotal: "", taxRate: "14", noteAr: "", noteEn: "" });
-        fetchInvoices();
-      } else {
-        const d = await res.json();
-        setCreateError(d.error ?? (isRTL ? "فشل إنشاء الفاتورة" : "Failed to create invoice"));
-      }
-    } catch {
-      setCreateError(isRTL ? "خطأ في الاتصال" : "Connection error");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const totalEarned = invoices.filter(i => i.status === "paid").reduce((s, i) => s + i.total, 0);
   const totalPending = invoices.filter(i => i.status === "issued").reduce((s, i) => s + i.total, 0);
 
@@ -163,22 +122,13 @@ export default function TechInvoicesScreen() {
             </Text>
           </View>
         </View>
-        <View style={[styles.summaryFooter, { flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between" }]}>
+        <View style={[styles.summaryFooter, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={[styles.statChip, { backgroundColor: "rgba(77,173,217,0.15)" }]}>
             <VectorIcon name="file-text" size={13} color={colors.secondary} />
             <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>
               {invoices.length} {isRTL ? "فاتورة" : "invoices"}
             </Text>
           </View>
-          <TouchableOpacity
-            style={[styles.createBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setShowCreate(true)}
-          >
-            <VectorIcon name="plus" size={15} color="#fff" />
-            <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>
-              {isRTL ? "فاتورة جديدة" : "New Invoice"}
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -269,114 +219,6 @@ export default function TechInvoicesScreen() {
           )}
         />
       )}
-
-      <Modal visible={showCreate} animationType="slide" transparent onRequestClose={() => setShowCreate(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, flex: 1, textAlign: isRTL ? "right" : "left" }}>
-                {isRTL ? "إنشاء فاتورة" : "Create Invoice"}
-              </Text>
-              <TouchableOpacity onPress={() => setShowCreate(false)}>
-                <VectorIcon name="x" size={22} color={colors.mutedForeground} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-              <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
-                {isRTL ? "رقم الطلب (اختياري)" : "Order ID (optional)"}
-              </Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-                placeholder={isRTL ? "مثال: ORD-000001" : "e.g. order UUID or ORD number"}
-                placeholderTextColor={colors.mutedForeground}
-                value={form.orderId}
-                onChangeText={v => setForm(f => ({ ...f, orderId: v }))}
-              />
-              <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
-                {isRTL ? "المبلغ قبل الضريبة (ج.م) *" : "Amount before tax (EGP) *"}
-              </Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-                placeholder="0.00"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="decimal-pad"
-                value={form.subtotal}
-                onChangeText={v => setForm(f => ({ ...f, subtotal: v }))}
-              />
-              <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
-                {isRTL ? "نسبة الضريبة %" : "Tax rate %"}
-              </Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-                placeholder="14"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="decimal-pad"
-                value={form.taxRate}
-                onChangeText={v => setForm(f => ({ ...f, taxRate: v }))}
-              />
-              <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
-                {isRTL ? "ملاحظات (عربي)" : "Notes (Arabic)"}
-              </Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: "right", minHeight: 60 }]}
-                placeholder={isRTL ? "ملاحظات إضافية..." : "Additional notes..."}
-                placeholderTextColor={colors.mutedForeground}
-                multiline
-                value={form.noteAr}
-                onChangeText={v => setForm(f => ({ ...f, noteAr: v }))}
-              />
-              <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
-                {isRTL ? "ملاحظات (إنجليزي)" : "Notes (English)"}
-              </Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: "left", minHeight: 60 }]}
-                placeholder="Additional notes..."
-                placeholderTextColor={colors.mutedForeground}
-                multiline
-                value={form.noteEn}
-                onChangeText={v => setForm(f => ({ ...f, noteEn: v }))}
-              />
-              {createError && (
-                <Text style={{ color: colors.destructive ?? "#EF4444", fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "center" }}>
-                  {createError}
-                </Text>
-              )}
-              {form.subtotal ? (
-                <View style={[styles.calcPreview, { backgroundColor: colors.muted, borderRadius: 10 }]}>
-                  {(() => {
-                    const sub = parseFloat(form.subtotal) || 0;
-                    const tax = parseFloat(form.taxRate) || 14;
-                    const taxAmt = (sub * tax) / 100;
-                    const total = sub + taxAmt;
-                    return (
-                      <>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                          {isRTL ? `صافي: ${sub.toFixed(2)} ج.م  +  ضريبة ${tax}%: ${taxAmt.toFixed(2)} ج.م` : `Net: ${sub.toFixed(2)} EGP  +  VAT ${tax}%: ${taxAmt.toFixed(2)} EGP`}
-                        </Text>
-                        <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18, textAlign: isRTL ? "right" : "left", marginTop: 4 }}>
-                          {isRTL ? `الإجمالي: ${total.toFixed(2)} ج.م` : `Total: ${total.toFixed(2)} EGP`}
-                        </Text>
-                      </>
-                    );
-                  })()}
-                </View>
-              ) : null}
-              <TouchableOpacity
-                style={[styles.submitBtn, { backgroundColor: submitting ? colors.mutedForeground : colors.primary }]}
-                onPress={handleCreate}
-                disabled={submitting}
-              >
-                {submitting
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                      {isRTL ? "إصدار الفاتورة" : "Issue Invoice"}
-                    </Text>
-                }
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -387,7 +229,6 @@ const styles = StyleSheet.create({
   summaryRow: { alignItems: "flex-start", marginBottom: 12, gap: 12 },
   summaryFooter: { alignItems: "center" },
   statChip: { flexDirection: "row", alignItems: "center", paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20 },
-  createBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20 },
   list: { paddingHorizontal: 16, paddingTop: 12 },
   card: { marginBottom: 12, borderWidth: 1.5, flexDirection: "row", overflow: "hidden", shadowColor: "#0D1B2A", shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   accentBar: { width: 4 },
@@ -401,10 +242,4 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
   empty: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  modalBox: { maxHeight: "90%", shadowColor: "#000", shadowOpacity: 0.25, shadowOffset: { width: 0, height: -4 }, elevation: 16 },
-  modalHeader: { alignItems: "center", padding: 16, borderBottomWidth: 1 },
-  input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
-  calcPreview: { padding: 14 },
-  submitBtn: { borderRadius: 14, padding: 16, alignItems: "center", marginTop: 8 },
 });
