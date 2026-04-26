@@ -394,23 +394,31 @@ export default function AvailableOrdersScreen() {
                 </>
               ) : (
                 <>
-                  <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
-                    <VectorIcon name="inbox" size={32} color={colors.mutedForeground} />
+                  <View style={[styles.emptyIcon, { backgroundColor: colors.accent, borderRadius: 40 }]}>
+                    <VectorIcon name="clock" size={40} color={colors.primary} />
                   </View>
-                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 16, marginTop: 14, textAlign: "center" }}>
-                    {isRTL ? "لا توجد طلبات متاحة" : "No Available Orders"}
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17, marginTop: 16, textAlign: "center" }}>
+                    {t("tech.noAvailableOrders")}
                   </Text>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 6, textAlign: "center", maxWidth: 260 }}>
-                    {isRTL
-                      ? "ستظهر هنا الطلبات المفتوحة في منطقتك وتخصصك عند ورودها"
-                      : "Open orders in your area and category will appear here when they arrive"}
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 6, textAlign: "center", paddingHorizontal: 16 }}>
+                    {t("tech.noAvailableOrdersHint")}
                   </Text>
                   <TouchableOpacity
-                    style={[styles.retryBtn, { borderColor: colors.primary, marginTop: 20 }]}
+                    style={[styles.profileBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+                    onPress={() => router.push("/(tech)/profile")}
+                    activeOpacity={0.85}
+                  >
+                    <VectorIcon name="map-pin" size={16} color="#FFF" />
+                    <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
+                      {t("tech.setServiceArea")}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.retryBtn, { borderColor: colors.border, marginTop: 10 }]}
                     onPress={() => fetchOrders()}
                   >
-                    <VectorIcon name="refresh-cw" size={14} color={colors.primary} style={{ marginRight: 6 }} />
-                    <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                    <VectorIcon name="refresh-cw" size={14} color={colors.mutedForeground} style={{ marginRight: 6 }} />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
                       {isRTL ? "تحديث" : "Refresh"}
                     </Text>
                   </TouchableOpacity>
@@ -484,6 +492,7 @@ const styles = StyleSheet.create({
   metaRow: { alignItems: "center", marginTop: 6 },
   emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, paddingHorizontal: 32 },
   emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center" },
+  profileBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, paddingHorizontal: 24, marginTop: 20 },
   retryBtn: {
     flexDirection: "row",
     alignItems: "center",

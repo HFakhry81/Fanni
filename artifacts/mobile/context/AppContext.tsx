@@ -386,6 +386,9 @@ const translations: Record<string, Record<Language, string>> = {
   "tech.filteredByArea": { ar: "الطلبات مصفاة حسب منطقة خدمتك", en: "Orders filtered by your service area" },
   "tech.noCategories": { ar: "لم تختر تخصصات الخدمة بعد", en: "No service categories selected yet" },
   "tech.noCategoriesPrompt": { ar: "بدون تخصصات لن تتلقى أي طلبات — اضغط لإضافتها الآن", en: "Without categories you won't receive orders — tap to add them now" },
+  "tech.noAvailableOrders": { ar: "لا توجد طلبات متاحة الآن", en: "No Available Orders Right Now" },
+  "tech.noAvailableOrdersHint": { ar: "ستظهر هنا الطلبات الجديدة في منطقتك وتخصصك فور ورودها. تأكد من تحديد منطقة خدمتك لتصلك الطلبات المناسبة.", en: "New requests in your service area and specialty will appear here as they come in. Make sure your service area is set so you get the right jobs." },
+  "tech.setServiceArea": { ar: "تحديد منطقة الخدمة", en: "Set Your Service Area" },
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
