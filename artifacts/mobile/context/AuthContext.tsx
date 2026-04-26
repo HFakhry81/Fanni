@@ -10,6 +10,7 @@ import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
 import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -193,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
     } finally {
       await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+      await AsyncStorage.removeItem("catBannerDismissed");
       setUser(null);
       setSessionToken(null);
     }
