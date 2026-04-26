@@ -126,7 +126,7 @@ async function upsertUser(claims: Record<string, unknown>) {
         email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl,
+        profileImageUrl: sql`COALESCE(${usersTable.profileImageUrl}, ${userData.profileImageUrl})`,
         updatedAt: new Date(),
       },
     })
