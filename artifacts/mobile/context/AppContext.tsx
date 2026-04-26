@@ -214,6 +214,7 @@ const translations: Record<string, Record<Language, string>> = {
   "order.shareTrackingCopied": { ar: "تم نسخ رابط التتبع", en: "Tracking link copied" },
   "order.callTech": { ar: "اتصل بالفني", en: "Call Technician" },
   "order.smsTech": { ar: "رسالة للفني", en: "SMS Technician" },
+  "order.whatsappTech": { ar: "واتساب الفني", en: "WhatsApp Technician" },
   "order.messageTech": { ar: "رسالة للفني", en: "Message Technician" },
   "order.messageClient": { ar: "رسالة للعميل", en: "Message Client" },
   "order.callClient": { ar: "اتصل بالعميل", en: "Call Client" },

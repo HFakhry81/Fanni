@@ -616,6 +616,20 @@ export default function OrderDetailsScreen() {
                     {t("order.smsTech")}
                   </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.trackBtn, { flex: 1, backgroundColor: "#25D366", borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                  onPress={() => {
+                    const digits = (order.technicianMobile ?? "").replace(/\D/g, "");
+                    Linking.openURL(`https://wa.me/${digits}`).catch(() => {});
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityLabel={t("order.whatsappTech")}
+                >
+                  <VectorIcon name="message-square" size={16} color="#FFF" />
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                    {t("order.whatsappTech")}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
             {(order.status === "accepted" || order.status === "inProgress") && (
