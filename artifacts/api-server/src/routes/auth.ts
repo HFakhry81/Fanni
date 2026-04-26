@@ -940,12 +940,13 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
 // PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, mobile, verificationToken, specialty, governorate, area, district, address, serviceCategories, profileImageUrl, serviceStart, serviceEnd } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, profession, specialty, governorate, area, district, address, serviceCategories, profileImageUrl, serviceStart, serviceEnd } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
     mobile?: string;
     verificationToken?: string;
+    profession?: string | null;
     specialty?: string | null;
     governorate?: string | null;
     area?: string | null;
@@ -1080,6 +1081,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (lastNameVal !== undefined) updates.lastName = lastNameVal;
   if (emailVal !== undefined) updates.email = emailVal;
   if (mobileVal !== undefined) updates.mobile = mobileVal;
+  if (profession !== undefined) updates.profession = profession ? String(profession).trim() || null : null;
   if (specialty !== undefined) updates.specialty = specialty ?? null;
   if (governorate !== undefined) updates.governorate = governorate ?? null;
   if (area !== undefined) updates.area = area ?? null;

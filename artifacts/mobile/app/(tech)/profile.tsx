@@ -120,9 +120,17 @@ export default function TechProfileScreen() {
   useEffect(() => {
     fetch(`${getApiBase()}/api/categories/domains`)
       .then((r) => r.json())
-      .then((d: { domains?: ApiDomain[] }) => { if (d.domains) setApiDomains(d.domains); })
+      .then((d: { domains?: ApiDomain[] }) => {
+        if (d.domains) setApiDomains(d.domains);
+      })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user?.profession || apiDomains.length === 0) return;
+    const dom = apiDomains.find((d) => d.nameEn === user.profession || d.id === user.profession);
+    if (dom) loadProfileSpecs(dom.id);
+  }, [user?.profession, apiDomains]);
 
   const loadProfileSpecs = useCallback((domainId: string) => {
     fetch(`${getApiBase()}/api/categories/specializations?domainId=${domainId}`)
@@ -323,6 +331,7 @@ export default function TechProfileScreen() {
           ...user,
           name: editName.trim(),
           mobile: normalizedMobile,
+          profession: editProfession.trim() || user.profession,
           specialty: editSpecialty.trim() || user.specialty,
           governorate: editGov,
           governorateNameAr: editGovNameAr,
@@ -351,6 +360,10 @@ export default function TechProfileScreen() {
 
   const govText = (isRTL ? user?.governorateNameAr : user?.governorateNameEn) ?? (isRTL ? "الإسكندرية" : "Alexandria");
   const areaText = (isRTL ? user?.areaNameAr : user?.areaNameEn) ?? (isRTL ? "حي شرق" : "Al Sharq District");
+  const professionDomain = user?.profession ? apiDomains.find((d) => d.nameEn === user.profession || d.id === user.profession) : null;
+  const professionLabel = professionDomain ? (isRTL ? professionDomain.nameAr : professionDomain.nameEn) : (user?.profession ?? null);
+  const specialtySpec = user?.specialty ? apiSpecs.find((s) => s.nameEn === user.specialty || s.id === user.specialty) : null;
+  const specialtyLabel = specialtySpec ? (isRTL ? specialtySpec.nameAr : specialtySpec.nameEn) : (user?.specialty ?? null);
   const hasServiceArea = !!(user?.governorate && user?.area);
   const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
   const serviceAreaDisplay = hasServiceArea ? `${govText} — ${areaText}` : null;
@@ -658,9 +671,11 @@ export default function TechProfileScreen() {
             </View>
           </TouchableOpacity>
           <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 12 }}>{user?.name}</Text>
-          <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 4 }}>
-            {user?.profession} — {user?.specialty}
-          </Text>
+          {(professionLabel || specialtyLabel) ? (
+            <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 4 }}>
+              {[professionLabel, specialtyLabel].filter(Boolean).join(" — ")}
+            </Text>
+          ) : null}
           <Text style={{ color: "rgba(255,255,255,0.55)", fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 }}>{user?.mobile}</Text>
           <View style={{ marginTop: 12 }}>
             <StarRating rating={4.8} readonly size={20} />
@@ -810,6 +825,26 @@ export default function TechProfileScreen() {
             </View>
           </View>
 
+          {/* Profession (domain) info */}
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+            onPress={openEdit}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: colors.accent, borderRadius: 10 }]}>
+              <VectorIcon name="briefcase" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL ? "المجال المهني" : "Profession"}
+              </Text>
+              <Text style={{ color: professionLabel ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                {professionLabel ?? (isRTL ? "غير محدد" : "Not set")}
+              </Text>
+            </View>
+            <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
+          </TouchableOpacity>
+
           {/* Specialty info */}
           <TouchableOpacity
             style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
@@ -823,8 +858,8 @@ export default function TechProfileScreen() {
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
                 {isRTL ? "التخصص" : "Specialty"}
               </Text>
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
-                {user?.specialty ?? (isRTL ? "صيانة مكيفات" : "AC Maintenance")}
+              <Text style={{ color: specialtyLabel ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                {specialtyLabel ?? (isRTL ? "غير محدد" : "Not set")}
               </Text>
             </View>
             <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
