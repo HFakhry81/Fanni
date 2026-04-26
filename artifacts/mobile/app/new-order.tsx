@@ -184,7 +184,7 @@ export default function NewOrderScreen() {
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxOpened, setLightboxOpened] = useState(false);
   const [photoLightboxVisible, setPhotoLightboxVisible] = useState(false);
-  const [photoLightboxUri, setPhotoLightboxUri] = useState<string | null>(null);
+  const [photoLightboxIndex, setPhotoLightboxIndex] = useState(0);
   const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
   const [photosMissingToast, setPhotosMissingToast] = useState<{ visible: boolean; key: number }>({ visible: false, key: 0 });
 
@@ -739,7 +739,7 @@ export default function NewOrderScreen() {
             key={photo.id}
             style={[styles.photoBox, { borderColor: colors.primary, borderRadius: colors.radius, overflow: "hidden", borderStyle: "solid" }]}
             onPress={() => {
-              setPhotoLightboxUri(photo.uri);
+              setPhotoLightboxIndex(orderPhotos.indexOf(photo));
               setPhotoLightboxVisible(true);
             }}
             onLongPress={() => {
@@ -994,17 +994,18 @@ export default function NewOrderScreen() {
           </TouchableOpacity>
           <ImageLightbox
             visible={lightboxVisible}
-            source={bannerImage}
+            sources={[bannerImage]}
             onClose={() => setLightboxVisible(false)}
           />
         </>
       )}
 
-      {photoLightboxUri !== null && (
+      {orderPhotos.length > 0 && (
         <ImageLightbox
           visible={photoLightboxVisible}
-          source={{ uri: photoLightboxUri }}
-          onClose={() => { setPhotoLightboxVisible(false); setPhotoLightboxUri(null); }}
+          sources={orderPhotos.map((p) => ({ uri: p.uri }))}
+          initialIndex={photoLightboxIndex}
+          onClose={() => setPhotoLightboxVisible(false)}
         />
       )}
 
