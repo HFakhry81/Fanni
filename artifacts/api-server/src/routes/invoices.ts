@@ -1,9 +1,12 @@
 import { Router, type IRouter, type Request } from "express";
-import { SQL, and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { SQL, and, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db, invoicesTable, ordersTable, usersTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
+
+const technicianUsersTable = alias(usersTable, "technician_user");
 
 const router: IRouter = Router();
 
@@ -15,7 +18,14 @@ function formatOrderNumber(serial: number): string {
   return `ORD-${String(serial).padStart(6, "0")}`;
 }
 
-function mapInvoice(invoice: typeof invoicesTable.$inferSelect, clientFirstName?: string | null, clientLastName?: string | null, clientMobile?: string | null) {
+function mapInvoice(
+  invoice: typeof invoicesTable.$inferSelect,
+  clientFirstName?: string | null,
+  clientLastName?: string | null,
+  clientMobile?: string | null,
+  technicianFirstName?: string | null,
+  technicianLastName?: string | null,
+) {
   return {
     id: invoice.id,
     invoiceNumber: formatInvoiceNumber(invoice.invoiceSerial),
@@ -26,6 +36,7 @@ function mapInvoice(invoice: typeof invoicesTable.$inferSelect, clientFirstName?
     clientName: clientFirstName && clientLastName ? `${clientFirstName} ${clientLastName}` : null,
     clientMobile: clientMobile ?? null,
     technicianId: invoice.technicianId,
+    technicianName: technicianFirstName && technicianLastName ? `${technicianFirstName} ${technicianLastName}` : null,
     category: invoice.category,
     invoiceType: invoice.invoiceType ?? null,
     subtotal: Number(invoice.subtotal),
@@ -55,7 +66,7 @@ function mapInvoice(invoice: typeof invoicesTable.$inferSelect, clientFirstName?
 
 router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
-  const { invoiceType } = req.query as { invoiceType?: string };
+  const { invoiceType, from, to } = req.query as { invoiceType?: string; from?: string; to?: string };
   try {
     const conditions: SQL<unknown>[] = [];
 
@@ -65,6 +76,17 @@ router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
     } else if (user.role === "admin") {
       if (invoiceType && ["technician", "client", "admin"].includes(invoiceType)) {
         conditions.push(eq(invoicesTable.invoiceType, invoiceType as "technician" | "client" | "admin"));
+      }
+      if (from) {
+        const fromDate = new Date(from);
+        if (!isNaN(fromDate.getTime())) conditions.push(gte(invoicesTable.createdAt, fromDate));
+      }
+      if (to) {
+        const toDate = new Date(to);
+        if (!isNaN(toDate.getTime())) {
+          toDate.setHours(23, 59, 59, 999);
+          conditions.push(lte(invoicesTable.createdAt, toDate));
+        }
       }
     } else {
       conditions.push(eq(invoicesTable.clientId, user.id));
@@ -77,14 +99,17 @@ router.get("/invoices", authMiddleware, requireAuth, async (req, res) => {
         clientFirstName: usersTable.firstName,
         clientLastName: usersTable.lastName,
         clientMobile: usersTable.mobile,
+        technicianFirstName: technicianUsersTable.firstName,
+        technicianLastName: technicianUsersTable.lastName,
       })
       .from(invoicesTable)
       .leftJoin(usersTable, eq(invoicesTable.clientId, usersTable.id))
+      .leftJoin(technicianUsersTable, eq(invoicesTable.technicianId, technicianUsersTable.id))
       .where(conditions.length > 0 ? and(...conditions) : sql`true`)
       .orderBy(desc(invoicesTable.createdAt));
 
-    const invoices = rows.map(({ invoice, clientFirstName, clientLastName, clientMobile }) =>
-      mapInvoice(invoice, clientFirstName, clientLastName, clientMobile)
+    const invoices = rows.map(({ invoice, clientFirstName, clientLastName, clientMobile, technicianFirstName, technicianLastName }) =>
+      mapInvoice(invoice, clientFirstName, clientLastName, clientMobile, technicianFirstName, technicianLastName)
     );
 
     res.json({ invoices });

@@ -36,6 +36,10 @@ function NativeAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }
         <Icon sf={{ default: "shield", selected: "shield.fill" }} />
         <Label>Permissions</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ledger">
+        <Icon sf={{ default: "banknote", selected: "banknote.fill" }} />
+        <Label>Ledger</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="login-logs">
         <Icon sf={{ default: "list.bullet.clipboard", selected: "list.bullet.clipboard.fill" }} />
         <Label>Logs</Label>
@@ -51,7 +55,7 @@ function NativeAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }
 
 function ClassicAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }) {
   const colors = useColors();
-  const { t } = useApp();
+  const { t, isRTL } = useApp();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -119,6 +123,13 @@ function ClassicAdminTabs({ mustChangePassword }: { mustChangePassword: boolean 
         options={{
           title: t("admin.permissions"),
           tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🛡️</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="ledger"
+        options={{
+          title: isRTL ? "دفتر الأستاذ" : "Ledger",
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>💰</Text>,
         }}
       />
       <Tabs.Screen
