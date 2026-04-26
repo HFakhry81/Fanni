@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Print from "expo-print";
@@ -97,6 +98,8 @@ export default function AdminStatsScreen() {
   });
   const [pnlCustomTo, setPnlCustomTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [showCustomPicker, setShowCustomPicker] = useState(false);
+  // The cache key that was used for the last successful (or in-progress) P&L fetch
+  const [pnlActiveCacheKey, setPnlActiveCacheKey] = useState(`pnl:month`);
 
   // Balance sheet state
   const [balanceYear, setBalanceYear] = useState(new Date().getFullYear());
@@ -110,15 +113,61 @@ export default function AdminStatsScreen() {
   const [annualNoAccess, setAnnualNoAccess] = useState(false);
   const [annualFocusYear, setAnnualFocusYear] = useState(new Date().getFullYear());
 
+  // ── In-memory cache ────────────────────────────────────────────────────
+  const cacheRef = useRef<Map<string, { data: unknown; ts: number }>>(new Map());
+
+  // Cache timestamps (for "Last updated" display)
+  const [pnlCacheTs, setPnlCacheTs] = useState<number | null>(null);
+  const [balanceCacheTs, setBalanceCacheTs] = useState<number | null>(null);
+  const [annualCacheTs, setAnnualCacheTs] = useState<number | null>(null);
+
+  // Pull-to-refresh states
+  const [pnlRefreshing, setPnlRefreshing] = useState(false);
+  const [balanceRefreshing, setBalanceRefreshing] = useState(false);
+  const [annualRefreshing, setAnnualRefreshing] = useState(false);
+
+  const formatAge = useCallback((ts: number): string => {
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return isRTL ? "الآن" : "Just now";
+    if (mins === 1) return isRTL ? "منذ دقيقة" : "1 minute ago";
+    if (mins < 60) return isRTL ? `منذ ${mins} دقيقة` : `${mins} minutes ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs === 1) return isRTL ? "منذ ساعة" : "1 hour ago";
+    return isRTL ? `منذ ${hrs} ساعات` : `${hrs} hours ago`;
+  }, [isRTL]);
+
   const authHeaders = useCallback(() => ({
     "Content-Type": "application/json",
     ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
   }), [sessionToken]);
 
-  const fetchPnl = useCallback(async (overridePeriod?: Period | string, customFrom?: string, customTo?: string) => {
-    setPnlLoading(true);
-    setPnlError(null);
-    setPnlNoAccess(false);
+  const fetchPnl = useCallback(async (
+    overridePeriod?: Period | string,
+    customFrom?: string,
+    customTo?: string,
+    forceRefresh = false,
+  ) => {
+    const cacheKey = customFrom && customTo
+      ? `pnl:custom:${customFrom}:${customTo}`
+      : `pnl:${overridePeriod ?? period}`;
+
+    setPnlActiveCacheKey(cacheKey);
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached && !forceRefresh) {
+      // Serve from cache immediately, then refresh in background silently
+      setPnlData(cached.data as PnlData);
+      setPnlCacheTs(cached.ts);
+      setPnlError(null);
+      setPnlNoAccess(false);
+      setPnlLoading(false);
+    } else {
+      if (!forceRefresh) {
+        setPnlLoading(true);
+      }
+      setPnlError(null);
+      setPnlNoAccess(false);
+    }
+
     try {
       let url: string;
       if (customFrom && customTo) {
@@ -129,22 +178,37 @@ export default function AdminStatsScreen() {
       const res = await fetch(url, { headers: authHeaders() });
       if (res.status === 403) { setPnlNoAccess(true); return; }
       if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string };
-        setPnlError(data.error ?? `HTTP ${res.status}`);
+        const errData = await res.json().catch(() => ({})) as { error?: string };
+        if (!cached) setPnlError(errData.error ?? `HTTP ${res.status}`);
         return;
       }
       const data = await res.json() as PnlData;
+      const ts = Date.now();
+      cacheRef.current.set(cacheKey, { data, ts });
       setPnlData(data);
+      setPnlCacheTs(ts);
     } catch {
-      setPnlError(isRTL ? "تعذّر تحميل البيانات" : "Failed to load data");
+      if (!cached) setPnlError(isRTL ? "تعذّر تحميل البيانات" : "Failed to load data");
     } finally {
       setPnlLoading(false);
+      setPnlRefreshing(false);
     }
   }, [period, authHeaders, isRTL]);
 
-  const fetchBalance = useCallback(async () => {
-    setBalanceLoading(true);
-    setBalanceNoAccess(false);
+  const fetchBalance = useCallback(async (forceRefresh = false) => {
+    const cacheKey = `balance:${balanceYear}`;
+    const cached = cacheRef.current.get(cacheKey);
+
+    if (cached && !forceRefresh) {
+      setBalanceData(cached.data as BalanceData);
+      setBalanceCacheTs(cached.ts);
+      setBalanceNoAccess(false);
+      setBalanceLoading(false);
+    } else if (!forceRefresh) {
+      setBalanceLoading(true);
+      setBalanceNoAccess(false);
+    }
+
     try {
       const res = await fetch(
         `${getApiBase()}/api/admin/reports/balance-sheet?year=${balanceYear}`,
@@ -153,15 +217,30 @@ export default function AdminStatsScreen() {
       if (res.status === 403) { setBalanceNoAccess(true); return; }
       if (res.ok) {
         const data = await res.json() as BalanceData;
+        const ts = Date.now();
+        cacheRef.current.set(cacheKey, { data, ts });
         setBalanceData(data);
+        setBalanceCacheTs(ts);
       }
     } catch {}
     setBalanceLoading(false);
+    setBalanceRefreshing(false);
   }, [balanceYear, authHeaders]);
 
-  const fetchAnnual = useCallback(async () => {
-    setAnnualLoading(true);
-    setAnnualNoAccess(false);
+  const fetchAnnual = useCallback(async (forceRefresh = false) => {
+    const cacheKey = `annual:${annualFocusYear}`;
+    const cached = cacheRef.current.get(cacheKey);
+
+    if (cached && !forceRefresh) {
+      setAnnualData(cached.data as AnnualData);
+      setAnnualCacheTs(cached.ts);
+      setAnnualNoAccess(false);
+      setAnnualLoading(false);
+    } else if (!forceRefresh) {
+      setAnnualLoading(true);
+      setAnnualNoAccess(false);
+    }
+
     try {
       const res = await fetch(
         `${getApiBase()}/api/admin/reports/annual?to=${annualFocusYear}-12-31`,
@@ -170,10 +249,14 @@ export default function AdminStatsScreen() {
       if (res.status === 403) { setAnnualNoAccess(true); return; }
       if (res.ok) {
         const data = await res.json() as AnnualData;
+        const ts = Date.now();
+        cacheRef.current.set(cacheKey, { data, ts });
         setAnnualData(data);
+        setAnnualCacheTs(ts);
       }
     } catch {}
     setAnnualLoading(false);
+    setAnnualRefreshing(false);
   }, [annualFocusYear, authHeaders]);
 
   useEffect(() => {
@@ -506,7 +589,29 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
             </View>
           )}
 
-          <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={pnlRefreshing}
+                onRefresh={() => {
+                  cacheRef.current.delete(pnlActiveCacheKey);
+                  setPnlCacheTs(null);
+                  setPnlRefreshing(true);
+                  // Re-fetch using the same parameters that produced the active key
+                  const isCustomKey = pnlActiveCacheKey.startsWith("pnl:custom:");
+                  fetchPnl(
+                    isCustomKey ? undefined : (pnlActiveCacheKey.replace("pnl:", "") as Period),
+                    isCustomKey ? pnlCustomFrom : undefined,
+                    isCustomKey ? pnlCustomTo : undefined,
+                    true,
+                  );
+                }}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+          >
             {pnlNoAccess ? (
               <View style={[styles.accessBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}>
                 <VectorIcon name="lock" size={18} color={colors.mutedForeground} />
@@ -528,6 +633,16 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
               </View>
             ) : pnlData ? (
               <>
+                {/* Last updated timestamp */}
+                {pnlCacheTs !== null && (
+                  <View style={[styles.cacheRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    <VectorIcon name="clock" size={11} color={colors.mutedForeground} />
+                    <Text style={[styles.cacheText, { color: colors.mutedForeground, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }]}>
+                      {isRTL ? `آخر تحديث: ${formatAge(pnlCacheTs)}` : `Last updated: ${formatAge(pnlCacheTs)}`}
+                    </Text>
+                  </View>
+                )}
+
                 {/* Export buttons */}
                 <View style={[styles.exportRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <TouchableOpacity style={[styles.exportBtn, { backgroundColor: "#FEF3C7", borderColor: "#F59E0B" }]} onPress={exportPnlPdf}>
@@ -640,7 +755,22 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={balanceRefreshing}
+                onRefresh={() => {
+                  cacheRef.current.delete(`balance:${balanceYear}`);
+                  setBalanceCacheTs(null);
+                  setBalanceRefreshing(true);
+                  fetchBalance(true);
+                }}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+          >
             {balanceLoading ? (
               <View style={{ alignItems: "center", paddingTop: 60 }}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -654,6 +784,16 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
               </View>
             ) : balanceData ? (
               <>
+                {/* Last updated timestamp */}
+                {balanceCacheTs !== null && (
+                  <View style={[styles.cacheRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    <VectorIcon name="clock" size={11} color={colors.mutedForeground} />
+                    <Text style={[styles.cacheText, { color: colors.mutedForeground, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }]}>
+                      {isRTL ? `آخر تحديث: ${formatAge(balanceCacheTs)}` : `Last updated: ${formatAge(balanceCacheTs)}`}
+                    </Text>
+                  </View>
+                )}
+
                 {/* Export buttons */}
                 <View style={[styles.exportRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <TouchableOpacity style={[styles.exportBtn, { backgroundColor: "#FEF3C7", borderColor: "#F59E0B" }]} onPress={exportBalancePdf}>
@@ -758,7 +898,22 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
               <VectorIcon name="chevron-right" size={20} color={annualFocusYear >= currentYear ? colors.border : colors.foreground} />
             </TouchableOpacity>
           </View>
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={annualRefreshing}
+              onRefresh={() => {
+                cacheRef.current.delete(`annual:${annualFocusYear}`);
+                setAnnualCacheTs(null);
+                setAnnualRefreshing(true);
+                fetchAnnual(true);
+              }}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {annualLoading ? (
             <View style={{ alignItems: "center", paddingTop: 60 }}>
               <ActivityIndicator size="large" color={colors.primary} />
@@ -772,6 +927,16 @@ ${annualData.years.map((y) => `<tr><td>${y.year}</td><td>${y.orderCount}</td><td
             </View>
           ) : annualData ? (
             <>
+              {/* Last updated timestamp */}
+              {annualCacheTs !== null && (
+                <View style={[styles.cacheRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <VectorIcon name="clock" size={11} color={colors.mutedForeground} />
+                  <Text style={[styles.cacheText, { color: colors.mutedForeground, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }]}>
+                    {isRTL ? `آخر تحديث: ${formatAge(annualCacheTs)}` : `Last updated: ${formatAge(annualCacheTs)}`}
+                  </Text>
+                </View>
+              )}
+
               {/* Export buttons */}
               <View style={[styles.exportRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <TouchableOpacity style={[styles.exportBtn, { backgroundColor: "#FEF3C7", borderColor: "#F59E0B" }]} onPress={exportAnnualPdf}>
@@ -926,4 +1091,6 @@ const styles = StyleSheet.create({
   tableRow: { paddingVertical: 10, paddingHorizontal: 12 },
   thCell: { fontFamily: "Inter_600SemiBold", fontSize: 11, flex: 1, textAlign: "center" },
   tdCell: { fontFamily: "Inter_400Regular", fontSize: 12, flex: 1, textAlign: "center", color: "#111" },
+  cacheRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  cacheText: { fontFamily: "Inter_400Regular", fontSize: 11 },
 });
