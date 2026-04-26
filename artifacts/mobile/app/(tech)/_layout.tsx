@@ -36,14 +36,15 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-function NativeTechTabs() {
+function NativeTechTabs({ availablePendingCount }: { availablePendingCount: number }) {
+  const badgeValue = availablePendingCount > 0 ? (availablePendingCount > 99 ? "99+" : String(availablePendingCount)) : undefined;
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="map">
         <Icon sf={{ default: "map", selected: "map.fill" }} />
         <Label>Map</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="available-orders">
+      <NativeTabs.Trigger name="available-orders" badge={badgeValue}>
         <Icon sf={{ default: "tray", selected: "tray.fill" }} />
         <Label>Available</Label>
       </NativeTabs.Trigger>
@@ -293,7 +294,7 @@ export default function TechLayout() {
     setAdminNotification((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  const tabs = isLiquidGlassAvailable() && availablePendingCount === 0 ? <NativeTechTabs /> : <ClassicTechTabs />;
+  const tabs = isLiquidGlassAvailable() ? <NativeTechTabs availablePendingCount={availablePendingCount} /> : <ClassicTechTabs />;
 
   return (
     <>
