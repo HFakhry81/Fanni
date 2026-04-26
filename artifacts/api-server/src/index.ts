@@ -160,6 +160,21 @@ async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "DB migration failed for users.expo_push_token");
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rate_limits (
+        id BIGSERIAL PRIMARY KEY,
+        key TEXT NOT NULL,
+        hit_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS rate_limits_key_hit_at_idx ON rate_limits (key, hit_at)
+    `);
+    logger.info("DB migration: rate_limits table ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for rate_limits");
+  }
   await seedDefaultCategories();
 }
 

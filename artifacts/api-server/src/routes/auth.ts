@@ -9,7 +9,7 @@ import {
   LogoutMobileSessionResponse,
   SetUserRoleBody,
 } from "@workspace/api-zod";
-import { db, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
+import { db, pool, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
 import { eq, and, gt, isNull, lt, desc, sql } from "drizzle-orm";
 import { geocodeArea } from "../lib/geocode";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
@@ -28,29 +28,48 @@ import {
 } from "../lib/auth";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { logger } from "../lib/logger";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 
 const router: IRouter = Router();
 
-const rateLimitStore = new Map<string, number[]>();
-
-function checkRateLimit(key: string, maxRequests: number, windowMs: number): boolean {
-  const now = Date.now();
-  const timestamps = (rateLimitStore.get(key) ?? []).filter((t) => now - t < windowMs);
-  if (timestamps.length >= maxRequests) return false;
-  timestamps.push(now);
-  rateLimitStore.set(key, timestamps);
-  return true;
+async function checkRateLimit(key: string, maxRequests: number, windowMs: number): Promise<boolean> {
+  const windowSecs = windowMs / 1000;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
+    await client.query(
+      `DELETE FROM rate_limits WHERE key = $1 AND hit_at < NOW() - make_interval(secs => $2)`,
+      [key, windowSecs],
+    );
+    const { rows } = await client.query<{ cnt: number }>(
+      `SELECT COUNT(*)::int AS cnt FROM rate_limits WHERE key = $1`,
+      [key],
+    );
+    const count = rows[0]?.cnt ?? 0;
+    if (count >= maxRequests) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    await client.query(`INSERT INTO rate_limits (key) VALUES ($1)`, [key]);
+    await client.query("COMMIT");
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const cutoff = Date.now() - 60 * 60 * 1000;
-    for (const [key, ts] of rateLimitStore) {
-      const pruned = ts.filter((t) => t > cutoff);
-      if (pruned.length === 0) rateLimitStore.delete(key);
-      else rateLimitStore.set(key, pruned);
+  setInterval(async () => {
+    try {
+      await pool.query(`DELETE FROM rate_limits WHERE hit_at < NOW() - INTERVAL '2 hours'`);
+    } catch (err) {
+      logger.warn({ err }, "rate_limits cleanup failed");
     }
   }, 5 * 60 * 1000);
 }
@@ -384,7 +403,7 @@ router.post("/auth/send-otp", async (req: Request, res: Response) => {
   const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
-  if (!checkRateLimit(`otp-send:ip:${ip}`, 5, 10 * 60 * 1000) || !checkRateLimit(`otp-send:mobile:${normalizedMobile}`, 3, 10 * 60 * 1000)) {
+  if (!await checkRateLimit(`otp-send:ip:${ip}`, 5, 10 * 60 * 1000) || !await checkRateLimit(`otp-send:mobile:${normalizedMobile}`, 3, 10 * 60 * 1000)) {
     res.status(429).json({ error: "Too many OTP requests. Please wait before trying again." });
     return;
   }
@@ -411,7 +430,7 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
   const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
-  if (!checkRateLimit(`otp-verify:ip:${ip}`, 10, 10 * 60 * 1000) || !checkRateLimit(`otp-verify:mobile:${normalizedMobile}`, 5, 10 * 60 * 1000)) {
+  if (!await checkRateLimit(`otp-verify:ip:${ip}`, 10, 10 * 60 * 1000) || !await checkRateLimit(`otp-verify:mobile:${normalizedMobile}`, 5, 10 * 60 * 1000)) {
     res.status(429).json({ error: "Too many verification attempts. Please wait." });
     return;
   }
@@ -459,7 +478,7 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
   const needle = identifier.trim().toLowerCase();
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
-  if (!checkRateLimit(`forgot:ip:${ip}`, 5, 60 * 60 * 1000) || !checkRateLimit(`forgot:id:${needle}`, 3, 60 * 60 * 1000)) {
+  if (!await checkRateLimit(`forgot:ip:${ip}`, 5, 60 * 60 * 1000) || !await checkRateLimit(`forgot:id:${needle}`, 3, 60 * 60 * 1000)) {
     res.status(429).json({ error: "Too many requests. Please wait before trying again." });
     return;
   }
@@ -520,7 +539,7 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
   const needle = identifier.trim().toLowerCase();
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
-  if (!checkRateLimit(`reset:ip:${ip}`, 10, 60 * 60 * 1000) || !checkRateLimit(`reset:id:${needle}`, 5, 60 * 60 * 1000)) {
+  if (!await checkRateLimit(`reset:ip:${ip}`, 10, 60 * 60 * 1000) || !await checkRateLimit(`reset:id:${needle}`, 5, 60 * 60 * 1000)) {
     res.status(429).json({ error: "Too many attempts. Please wait before trying again." });
     return;
   }
@@ -578,7 +597,7 @@ const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 // PUBLIC: Checks whether a mobile number or email is already registered. No auth required.
 router.post("/auth/check-availability", async (req: Request, res: Response) => {
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
-  if (!checkRateLimit(`check-availability:ip:${ip}`, 20, 60 * 1000)) {
+  if (!await checkRateLimit(`check-availability:ip:${ip}`, 20, 60 * 1000)) {
     res.status(429).json({ error: "Too many requests, please wait before trying again." });
     return;
   }
@@ -680,7 +699,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   }
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
-  if (!checkRateLimit(`register:ip:${ip}`, 5, 60 * 60 * 1000)) {
+  if (!await checkRateLimit(`register:ip:${ip}`, 5, 60 * 60 * 1000)) {
     res.status(429).json({ error: "Too many registration attempts. Please wait before trying again." });
     return;
   }
@@ -840,7 +859,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     }
   }
 
-  if (!checkRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000) || !checkRateLimit(`login:id:${needle}`, 10, 15 * 60 * 1000)) {
+  if (!await checkRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000) || !await checkRateLimit(`login:id:${needle}`, 10, 15 * 60 * 1000)) {
     res.status(429).json({ error: "Too many login attempts. Please wait before trying again." });
     return;
   }
@@ -1115,7 +1134,7 @@ router.post("/auth/resend-welcome", authMiddleware, requireAuth, async (req: Req
   }
 
   const userId = req.user!.id;
-  if (!checkRateLimit(`resend-welcome:user:${userId}`, 3, 60 * 60 * 1000)) {
+  if (!await checkRateLimit(`resend-welcome:user:${userId}`, 3, 60 * 60 * 1000)) {
     res.status(429).json({ error: "Too many requests. Please wait before trying again." });
     return;
   }
@@ -1183,8 +1202,8 @@ router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Re
   const userId = req.user!.id;
   const fwd = req.headers["x-forwarded-for"];
   const ip = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
-  if (!checkRateLimit(`change-password:user:${userId}`, 5, 15 * 60 * 1000) ||
-      !checkRateLimit(`change-password:ip:${ip}`, 5, 15 * 60 * 1000)) {
+  if (!await checkRateLimit(`change-password:user:${userId}`, 5, 15 * 60 * 1000) ||
+      !await checkRateLimit(`change-password:ip:${ip}`, 5, 15 * 60 * 1000)) {
     res.status(429).json({ error: "Too many password change attempts. Please wait 15 minutes before trying again." });
     return;
   }
