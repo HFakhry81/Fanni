@@ -35,6 +35,8 @@ export default function ClientProfileScreen() {
   const undoAvatarRef = useRef<string | undefined>(undefined);
 
   const [resendWelcomeLoading, setResendWelcomeLoading] = useState(false);
+  const [editSaveLoading, setEditSaveLoading] = useState(false);
+  const [pwSaveLoading, setPwSaveLoading] = useState(false);
 
   // OTP modal state
   const [otpModalVisible, setOtpModalVisible] = useState(false);
@@ -142,7 +144,10 @@ export default function ClientProfileScreen() {
       body.verificationToken = verificationToken;
     }
 
-    const result = await saveProfile(body, { address: editStreet.trim() });
+    setEditSaveLoading(true);
+    const result = await saveProfile(body, { address: editStreet.trim() }).finally(() => {
+      setEditSaveLoading(false);
+    });
 
     if (!result.ok) {
       if (result.error && result.error.toLowerCase().includes("expired verification token")) {
@@ -210,7 +215,10 @@ export default function ClientProfileScreen() {
       return;
     }
 
-    await setUser({ ...user, password: newPw });
+    setPwSaveLoading(true);
+    await Promise.resolve(setUser({ ...user, password: newPw })).finally(() => {
+      setPwSaveLoading(false);
+    });
     setPwVisible(false);
     setToastMessage(t("profile.passwordUpdated"));
     setToastAction(undefined);
@@ -589,15 +597,17 @@ export default function ClientProfileScreen() {
                 </Text>
                 {(() => {
                   const pwOk = newPw.length > 0 && getPasswordStrength(newPw, isRTL).isStrong;
+                  const pwBtnDisabled = !pwOk || pwSaveLoading;
                   return (
                     <TouchableOpacity
-                      onPress={handlePwSave}
-                      disabled={!pwOk}
-                      style={[styles.saveBtn, { backgroundColor: pwOk ? colors.primary : colors.muted }]}
+                      onPress={pwBtnDisabled ? undefined : handlePwSave}
+                      disabled={pwBtnDisabled}
+                      style={[styles.saveBtn, { backgroundColor: pwBtnDisabled ? colors.muted : colors.primary, minWidth: 60, alignItems: "center", justifyContent: "center" }]}
                     >
-                      <Text style={{ color: pwOk ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                        {t("common.save")}
-                      </Text>
+                      {pwSaveLoading
+                        ? <ActivityIndicator size="small" color={colors.mutedForeground} />
+                        : <Text style={{ color: pwOk ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("common.save")}</Text>
+                      }
                     </TouchableOpacity>
                   );
                 })()}
@@ -696,10 +706,14 @@ export default function ClientProfileScreen() {
                   {t("profile.edit")}
                 </Text>
                 <TouchableOpacity
-                  onPress={handleSave}
-                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                  onPress={editSaveLoading ? undefined : handleSave}
+                  disabled={editSaveLoading}
+                  style={[styles.saveBtn, { backgroundColor: editSaveLoading ? colors.muted : colors.primary, minWidth: 60, alignItems: "center", justifyContent: "center" }]}
                 >
-                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("common.save")}</Text>
+                  {editSaveLoading
+                    ? <ActivityIndicator size="small" color={colors.mutedForeground} />
+                    : <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("common.save")}</Text>
+                  }
                 </TouchableOpacity>
               </View>
 
