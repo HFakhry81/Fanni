@@ -277,10 +277,57 @@ export async function locationsMatch(a: string | null | undefined, b: string | n
   return matched;
 }
 
+/**
+ * Checks whether `areaSlug` is a child of `governorateSlug` in the locations
+ * table by comparing the area row's parentId against the governorate row's id.
+ *
+ * Returns true when:
+ * - The parent-child relationship is confirmed (area.parentId === governorate.id).
+ * - The cache is genuinely cold / empty — enforcement is skipped as a deliberate
+ *   availability trade-off, consistent with the cold-cache behaviour in
+ *   normalizeToSlug. If strict enforcement on cold cache is ever required, change
+ *   this path to return false.
+ *
+ * Returns false (fail-closed) when:
+ * - The cache is warm but the governorate slug is not found.
+ * - The cache is warm but the area slug is not found.
+ * - Both rows are found but area.parentId does NOT equal governorate.id.
+ */
+export async function validateAreaBelongsToGovernorate(areaSlug: string, governorateSlug: string): Promise<boolean> {
+  const cache = await ensureFresh();
+
+  // When the cache is genuinely cold (never loaded), we cannot verify the
+  // relationship. Allow-through is consistent with the existing cold-cache
+  // behaviour in normalizeToSlug and avoids blocking orders during startup.
+  if (!cache.length) return true;
+
+  // Cache is warm — both slugs must be findable. If either is missing the
+  // combination is unverifiable; fail-closed to prevent mismatched pairs.
+  const governorate = cache.find((l) => l.slug === governorateSlug && l.type === "governorate");
+  if (!governorate) return false;
+
+  const area = cache.find((l) => l.slug === areaSlug && l.type === "area");
+  if (!area) return false;
+
+  return area.parentId === governorate.id;
+}
+
 export function invalidateLocationCache(): void {
   locationCache = [];
   cacheLoadedAt = 0;
   legacyAliasMap = {};
+}
+
+/**
+ * Directly populates the in-memory cache with caller-supplied rows.
+ * Intended exclusively for unit tests that need to exercise cache-dependent
+ * logic without going through the DB.
+ * @internal
+ */
+export function setLocationCacheForTesting(rows: LocationRow[]): void {
+  locationCache = rows;
+  cacheLoadedAt = Date.now();
+  legacyAliasMap = buildLegacyAliasMap(rows, []);
 }
 
 /**

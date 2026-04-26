@@ -58,11 +58,13 @@ vi.mock("../lib/locationNormalizer", async (importOriginal) => {
     ...original,
     normalizeToSlug: vi.fn(),
     isSlug: original.isSlug,
+    validateAreaBelongsToGovernorate: vi.fn().mockResolvedValue(true),
   };
 });
 
-const { normalizeToSlug } = await import("../lib/locationNormalizer");
+const { normalizeToSlug, validateAreaBelongsToGovernorate } = await import("../lib/locationNormalizer");
 const normalizeToSlugMock = normalizeToSlug as ReturnType<typeof vi.fn>;
+const validateAreaBelongsToGovernorateMock = validateAreaBelongsToGovernorate as ReturnType<typeof vi.fn>;
 
 const ordersRouterModule = await import("./orders");
 const ordersRouter = ordersRouterModule.default;
@@ -97,6 +99,7 @@ describe("POST /orders — slug safeguard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUser.role = "client";
+    validateAreaBelongsToGovernorateMock.mockResolvedValue(true);
   });
 
   it("rejects with 400 when governorate normalizes to null (unmatched against cache)", async () => {
@@ -173,12 +176,42 @@ describe("POST /orders — slug safeguard", () => {
 
     expect(status).toBe(201);
   });
+
+  it("rejects with 400 when area slug does not belong to the submitted governorate", async () => {
+    normalizeToSlugMock
+      .mockResolvedValueOnce("cairo")
+      .mockResolvedValueOnce("giza__sheikh_zayed");
+
+    validateAreaBelongsToGovernorateMock.mockResolvedValue(false);
+
+    const { status, body } = await makeRequest("POST", "/orders", { id: "ord-7", category: "plumbing", governorate: "cairo", area: "sheikh zayed" });
+
+    expect(status).toBe(400);
+    expect((body as { error: string }).error).toMatch(/does not belong to governorate/i);
+  });
+
+  it("accepts order when area slug correctly belongs to the submitted governorate", async () => {
+    const { db } = await import("@workspace/db");
+    const dbMock = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    dbMock.returning.mockResolvedValue([{ orderSerial: 3, id: "ord-8" }]);
+
+    normalizeToSlugMock
+      .mockResolvedValueOnce("cairo")
+      .mockResolvedValueOnce("cairo__nasr_city");
+
+    validateAreaBelongsToGovernorateMock.mockResolvedValue(true);
+
+    const { status } = await makeRequest("POST", "/orders", { id: "ord-8", category: "plumbing", governorate: "cairo", area: "nasr city" });
+
+    expect(status).toBe(201);
+  });
 });
 
 describe("PATCH /orders/:id — slug safeguard on update", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUser.role = "admin";
+    validateAreaBelongsToGovernorateMock.mockResolvedValue(true);
   });
 
   it("rejects with 400 when updated governorate normalizes to null (unmatched)", async () => {
@@ -241,5 +274,34 @@ describe("PATCH /orders/:id — slug safeguard on update", () => {
 
     expect(status).toBe(403);
     expect((body as { error: string }).error).toMatch(/admin/i);
+  });
+
+  it("rejects with 400 when updated area slug does not belong to the updated governorate", async () => {
+    normalizeToSlugMock
+      .mockResolvedValueOnce("cairo")
+      .mockResolvedValueOnce("giza__sheikh_zayed");
+
+    validateAreaBelongsToGovernorateMock.mockResolvedValue(false);
+
+    const { status, body } = await makeRequest("PATCH", "/orders/ord-7", { governorate: "cairo", area: "sheikh zayed" });
+
+    expect(status).toBe(400);
+    expect((body as { error: string }).error).toMatch(/does not belong to governorate/i);
+  });
+
+  it("accepts update when area slug correctly belongs to the updated governorate", async () => {
+    const { db } = await import("@workspace/db");
+    const dbMock = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    dbMock.returning.mockResolvedValue([{ id: "ord-8" }]);
+
+    normalizeToSlugMock
+      .mockResolvedValueOnce("giza")
+      .mockResolvedValueOnce("giza__sheikh_zayed");
+
+    validateAreaBelongsToGovernorateMock.mockResolvedValue(true);
+
+    const { status } = await makeRequest("PATCH", "/orders/ord-8", { governorate: "giza", area: "sheikh zayed" });
+
+    expect(status).toBe(200);
   });
 });

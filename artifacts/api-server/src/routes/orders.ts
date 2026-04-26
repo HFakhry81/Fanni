@@ -5,7 +5,7 @@ import { logger } from "../lib/logger";
 import { db, ordersTable, invoicesTable, pool, usersTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
-import { normalizeToSlug, isSlug } from "../lib/locationNormalizer";
+import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../lib/locationNormalizer";
 import { queryString } from "../lib/queryParams";
 import { sendOrderStatusPushNotification } from "../lib/pushNotifications";
 import { sendInvoiceEmails } from "../lib/email";
@@ -206,6 +206,20 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
       error: `Invalid area: "${rawArea}" did not resolve to a recognized slug. Please use a valid area name.`,
     });
     return;
+  }
+
+  if (normalizedGovernorate !== null && normalizedArea !== null) {
+    const areaMatchesGovernorate = await validateAreaBelongsToGovernorate(normalizedArea, normalizedGovernorate);
+    if (!areaMatchesGovernorate) {
+      logger.warn(
+        { governorate: normalizedGovernorate, area: normalizedArea },
+        "Order rejected: area does not belong to the submitted governorate",
+      );
+      res.status(400).json({
+        error: `Invalid location: area "${normalizedArea}" does not belong to governorate "${normalizedGovernorate}". Please provide a matching area and governorate.`,
+      });
+      return;
+    }
   }
 
   const routingMeta = {
@@ -1036,6 +1050,20 @@ router.patch("/orders/:id", authMiddleware, requireAuth, async (req: Request<{ i
       logger.warn({ raw: rawArea, normalized: normalizedArea }, "Order update rejected: area did not normalize to a valid slug format");
       res.status(400).json({
         error: `Invalid area: "${rawArea}" did not resolve to a recognized slug. Please use a valid area name.`,
+      });
+      return;
+    }
+  }
+
+  if (normalizedGovernorate !== undefined && normalizedArea !== undefined) {
+    const areaMatchesGovernorate = await validateAreaBelongsToGovernorate(normalizedArea!, normalizedGovernorate!);
+    if (!areaMatchesGovernorate) {
+      logger.warn(
+        { governorate: normalizedGovernorate, area: normalizedArea },
+        "Order update rejected: area does not belong to the submitted governorate",
+      );
+      res.status(400).json({
+        error: `Invalid location: area "${normalizedArea}" does not belong to governorate "${normalizedGovernorate}". Please provide a matching area and governorate.`,
       });
       return;
     }
