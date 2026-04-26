@@ -69,10 +69,14 @@ export default function AvailableOrdersScreen() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newOrdersToast, setNewOrdersToast] = useState<{ visible: boolean; added: number; key: number }>({ visible: false, added: 0, key: 0 });
+  const [cancelledToast, setCancelledToast] = useState<{ visible: boolean; key: number }>({ visible: false, key: 0 });
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const isFocusedRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevOrderCountRef = useRef<number>(0);
+  const acceptingIdRef = useRef<string | null>(null);
+  const cancelledWhileAcceptingRef = useRef(false);
 
   const fetchOrders = useCallback(async (isRefresh = false, silent = false) => {
     const apiBase = getApiBaseUrl();
@@ -160,7 +164,14 @@ export default function AvailableOrdersScreen() {
   }, []);
 
   const onOrderCancelledCallback = useCallback((orderId: string) => {
+    if (acceptingIdRef.current === orderId) {
+      cancelledWhileAcceptingRef.current = true;
+    }
     setOrders((prev) => {
+      const wasVisible = prev.some((o) => o.id === orderId);
+      if (wasVisible) {
+        setCancelledToast((p) => ({ visible: true, key: p.key + 1 }));
+      }
       const next = prev.filter((o) => o.id !== orderId);
       if (next.length !== prev.length) {
         prevOrderCountRef.current = next.length;
@@ -175,6 +186,9 @@ export default function AvailableOrdersScreen() {
 
   const handleAccept = async (order: PendingOrder) => {
     setAcceptingId(order.id);
+    acceptingIdRef.current = order.id;
+    cancelledWhileAcceptingRef.current = false;
+    setAcceptError(null);
     try {
       const apiBase = getApiBaseUrl();
       if (apiBase && sessionToken) {
@@ -209,12 +223,19 @@ export default function AvailableOrdersScreen() {
           router.push("/(tech)/orders");
         } else {
           console.warn("[Fanni] Acknowledge failed:", res.status);
+          if (!cancelledWhileAcceptingRef.current) {
+            setAcceptError(isRTL ? "تعذّر قبول الطلب. يُرجى المحاولة مرة أخرى." : "Could not accept this order. Please try again.");
+          }
         }
       }
     } catch (err) {
       console.warn("[Fanni] Accept error:", err);
+      if (!cancelledWhileAcceptingRef.current) {
+        setAcceptError(isRTL ? "خطأ في الاتصال. يُرجى المحاولة مرة أخرى." : "Connection error. Please try again.");
+      }
     } finally {
       setAcceptingId(null);
+      acceptingIdRef.current = null;
     }
   };
 
@@ -414,6 +435,22 @@ export default function AvailableOrdersScreen() {
         duration={3000}
         variant="success"
         onHide={() => setNewOrdersToast((prev) => ({ ...prev, visible: false, added: 0 }))}
+      />
+      <Toast
+        key={`cancelled-${cancelledToast.key}`}
+        visible={cancelledToast.visible}
+        message={isRTL ? "تم إلغاء هذا الطلب من قِبَل العميل" : "This order has been cancelled by the client"}
+        duration={4000}
+        variant="error"
+        onHide={() => setCancelledToast((prev) => ({ ...prev, visible: false }))}
+      />
+      <Toast
+        key={`accept-err-${acceptError ?? ""}`}
+        visible={!!acceptError}
+        message={acceptError ?? ""}
+        duration={3500}
+        variant="error"
+        onHide={() => setAcceptError(null)}
       />
     </View>
   );
