@@ -245,8 +245,18 @@ export default function ClientProfileScreen() {
       } else if (!res.ok) {
         setToastMessage(t("profile.resendWelcomeError"));
       } else {
-        const data = await res.json() as { delivered?: boolean };
-        setToastMessage(data.delivered ? t("profile.resendWelcomeSent") : t("profile.resendWelcomeError"));
+        const data = await res.json() as { delivered?: boolean; channel?: string };
+        if (data.delivered) {
+          if (data.channel === "email") {
+            setToastMessage(t("profile.resendWelcomeSentEmail"));
+          } else if (data.channel === "sms") {
+            setToastMessage(t("profile.resendWelcomeSentSms"));
+          } else {
+            setToastMessage(t("profile.resendWelcomeSent"));
+          }
+        } else {
+          setToastMessage(t("profile.resendWelcomeError"));
+        }
       }
     } catch (_) {
       setToastMessage(t("profile.resendWelcomeError"));
