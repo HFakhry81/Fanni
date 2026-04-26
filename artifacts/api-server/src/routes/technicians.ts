@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool } from "@workspace/db";
-import { and, eq, ne, SQL } from "drizzle-orm";
+import { and, eq, ne, sql, SQL } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
@@ -148,12 +148,19 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
     lon >= -180 && lon <= 180;
   const govFilter = queryString(req.query.governorate)?.trim() ?? null;
   const areaFilter = queryString(req.query.area)?.trim() ?? null;
+  const domainFilter = queryString(req.query.domainId)?.trim() ?? null;
 
   if (hasSpatial) {
     try {
       const client = await pool.connect();
       try {
         const radiusM = radiusKm * 1000;
+        const params: (string | number)[] = [lon, lat, radiusM];
+        let domainClause = "";
+        if (domainFilter) {
+          params.push(domainFilter);
+          domainClause = `AND (u.profession = $${params.length} OR u.service_categories @> jsonb_build_array($${params.length}::text))`;
+        }
         const { rows } = await client.query<{
           id: string;
           first_name: string;
@@ -190,8 +197,9 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
                ST_SetSRID(ST_MakePoint($1,$2),4326)::geography,
                $3
              )
+             ${domainClause}
            ORDER BY distance_m ASC`,
-          [lon, lat, radiusM],
+          params,
         );
 
         const technicians = rows.map((r) => ({
@@ -207,7 +215,7 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
           distanceM: Math.round(r.distance_m),
         }));
 
-        res.json({ technicians, spatialFilter: true, radiusKm });
+        res.json({ technicians, spatialFilter: true, radiusKm, domainFilter });
         return;
       } finally {
         client.release();
@@ -217,7 +225,7 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
     }
   }
 
-  // Text-based fallback: filter by governorate + area if provided,
+  // Text-based fallback: filter by governorate + area + domainId if provided,
   // otherwise return all available technicians.
   const conditions: SQL[] = [
     eq(usersTable.role, "technician"),
@@ -225,6 +233,11 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
   ];
   if (govFilter) conditions.push(eq(usersTable.governorate, govFilter));
   if (areaFilter) conditions.push(eq(usersTable.area, areaFilter));
+  if (domainFilter) {
+    conditions.push(
+      sql`(${usersTable.profession} = ${domainFilter} OR ${usersTable.serviceCategories} @> jsonb_build_array(${domainFilter}::text))`,
+    );
+  }
 
   const technicians = await db
     .select({
@@ -241,7 +254,7 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
     .from(usersTable)
     .where(and(...conditions));
 
-  res.json({ technicians, spatialFilter: false, governorateFilter: govFilter, areaFilter });
+  res.json({ technicians, spatialFilter: false, governorateFilter: govFilter, areaFilter, domainFilter });
 });
 
 /** Haversine distance in metres between two lat/lon points. */
