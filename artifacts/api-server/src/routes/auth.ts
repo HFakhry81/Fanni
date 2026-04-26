@@ -1254,6 +1254,10 @@ router.post("/auth/change-password", authMiddleware, requireAuth, async (req: Re
     .set({ passwordHash, updatedAt: new Date() })
     .where(eq(usersTable.id, req.user!.id))
     .returning();
+  const currentSid = getSessionId(req);
+  if (currentSid) {
+    await deleteOtherSessionsForUser(req.user!.id, currentSid, "user");
+  }
   res.json({ user: buildAuthUser(updatedUser) });
 });
 
