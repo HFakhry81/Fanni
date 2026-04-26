@@ -9,10 +9,10 @@ import {
   Linking,
   Image,
   Alert,
-  Modal,
   Share,
   ImageSourcePropType,
 } from "react-native";
+import ImageLightbox from "@/components/ImageLightbox";
 import { shareOrderInvoicePdf } from "@/utils/invoicePdf";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -63,7 +63,8 @@ export default function OrderDetailsScreen() {
   const [clientRating, setClientRating] = useState(0);
   const [clientComment, setClientComment] = useState("");
   const [loading, setLoading] = useState(false);
-  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
   type RawInvoice = { labourFee?: number; transportFee?: number; ocrMaterialsTotal?: number; serviceFeeRate?: number; serviceFeeAmount?: number; vatRate?: number; vatAmount?: number; netTotal?: number; total?: number; materialsPhotos?: string[]; invoiceType?: string };
   const [fetchedTechInvoice, setFetchedTechInvoice] = useState<RawInvoice | null>(null);
@@ -225,19 +226,26 @@ export default function OrderDetailsScreen() {
     photos: (order.photos ?? []).filter((p) => (p.phase ?? "problem") === phase),
   })).filter((g) => g.photos.length > 0);
 
+  const allOrderedPhotos = photosByPhase.flatMap((g) => g.photos);
+  const lightboxSources: ImageSourcePropType[] = allOrderedPhotos.map((p) => ({ uri: p.uri }));
+
+  const openLightbox = (photoId: string) => {
+    const idx = allOrderedPhotos.findIndex((p) => p.id === photoId);
+    if (idx >= 0) {
+      setLightboxIndex(idx);
+      setLightboxVisible(true);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Lightbox */}
-      <Modal visible={!!lightboxUri} transparent animationType="fade" onRequestClose={() => setLightboxUri(null)}>
-        <TouchableOpacity style={styles.lightboxOverlay} activeOpacity={1} onPress={() => setLightboxUri(null)}>
-          {lightboxUri && (
-            <Image source={{ uri: lightboxUri }} style={styles.lightboxImage} resizeMode="contain" />
-          )}
-          <TouchableOpacity style={styles.lightboxClose} onPress={() => setLightboxUri(null)}>
-            <VectorIcon name="x" size={22} color="#FFF" />
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      <ImageLightbox
+        visible={lightboxVisible}
+        sources={lightboxSources}
+        initialIndex={lightboxIndex}
+        onClose={() => setLightboxVisible(false)}
+      />
 
       <AppHeader
         title={order.orderNumber}
@@ -338,7 +346,7 @@ export default function OrderDetailsScreen() {
                   {!isCollapsed && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, marginBottom: 4 }}>
                       {phasePhotos.map((photo) => (
-                        <TouchableOpacity key={photo.id} onPress={() => setLightboxUri(photo.uri)} activeOpacity={0.85}>
+                        <TouchableOpacity key={photo.id} onPress={() => openLightbox(photo.id)} activeOpacity={0.85}>
                           <Image source={{ uri: photo.uri }} style={styles.galleryThumb} />
                         </TouchableOpacity>
                       ))}
@@ -750,8 +758,5 @@ const styles = StyleSheet.create({
   phaseHeader: { paddingVertical: 10, alignItems: "center", justifyContent: "space-between", gap: 8 },
   photoCountBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, marginLeft: 6 },
   galleryThumb: { width: 88, height: 88, borderRadius: 8, marginRight: 8 },
-  lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },
-  lightboxImage: { width: "100%", height: "80%" },
-  lightboxClose: { position: "absolute", top: 48, right: 20, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 8 },
   shareBtn: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
 });
