@@ -594,7 +594,7 @@ export default function OrderDetailsScreen() {
                 )}
               </View>
             </View>
-            {order.technicianMobile && !isTechnician && (
+            {order.technicianMobile && !isTechnician && !isAdmin && (
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
                 <TouchableOpacity
                   style={[styles.trackBtn, { flex: 1, backgroundColor: colors.primary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
