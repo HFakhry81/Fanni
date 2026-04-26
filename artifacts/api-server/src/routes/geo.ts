@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, locationsTable } from "@workspace/db";
 import { NOMINATIM_BASE, nominatimFetch, getCached, setCache, cachedNominatim } from "../lib/nominatim";
+import { queryString, queryInt, queryFloat } from "../lib/queryParams";
 
 const router: IRouter = Router();
 
@@ -12,11 +13,11 @@ const router: IRouter = Router();
 // ─── GET /geo/search?q=...&lang=ar ────────────────────────────────────────────
 
 router.get("/geo/search", async (req, res) => {
-  const q = (req.query.q as string | undefined)?.trim();
-  const rawLang = (req.query.lang as string | undefined)?.trim() ?? "ar";
+  const q = queryString(req.query.q)?.trim();
+  const rawLang = queryString(req.query.lang)?.trim() ?? "ar";
   const lang = rawLang === "en" ? "en" : "ar";
-  const limitRaw = parseInt((req.query.limit as string) ?? "5", 10);
-  const limit = Math.min(Math.max(1, isNaN(limitRaw) ? 5 : limitRaw), 10);
+  const limitRaw = queryInt(req.query.limit, 5);
+  const limit = Math.min(Math.max(1, limitRaw), 10);
 
   if (!q || q.length < 2) {
     res.status(400).json({ error: "Query too short (min 2 chars)" });
@@ -48,9 +49,9 @@ router.get("/geo/search", async (req, res) => {
 // caches results via the shared setCache helper, returns up to 8 { label, lat, lon } results.
 
 router.get("/geo/streets", async (req, res) => {
-  const q = (req.query.q as string | undefined)?.trim();
-  const cityId = (req.query.city_id as string | undefined)?.trim();
-  const rawLang = (req.query.lang as string | undefined)?.trim() ?? "ar";
+  const q = queryString(req.query.q)?.trim();
+  const cityId = queryString(req.query.city_id)?.trim();
+  const rawLang = queryString(req.query.lang)?.trim() ?? "ar";
   const lang = rawLang === "en" ? "en" : "ar";
 
   if (!q || q.length < 3) {
@@ -123,8 +124,8 @@ router.get("/geo/streets", async (req, res) => {
 // the response always contains `resultAr` and `resultEn`.
 
 router.get("/geo/reverse", async (req, res) => {
-  const lat = parseFloat(req.query.lat as string);
-  const lon = parseFloat(req.query.lon as string);
+  const lat = queryFloat(req.query.lat);
+  const lon = queryFloat(req.query.lon);
 
   if (isNaN(lat) || isNaN(lon)) {
     res.status(400).json({ error: "lat and lon are required numbers" });

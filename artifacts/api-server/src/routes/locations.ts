@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, locationsTable, pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { matchLocation } from "../lib/locationNormalizer";
+import { queryString } from "../lib/queryParams";
 
 const router: IRouter = Router();
 
@@ -66,10 +67,10 @@ router.get("/locations/:govId/areas", async (req, res) => {
  * Response: { governorateId: string | null, areaId: string | null }
  */
 router.get("/locations/match", async (req, res) => {
-  const suburbEn = ((req.query.suburb_en as string) ?? (req.query.suburb as string) ?? "").trim();
-  const suburbAr = ((req.query.suburb_ar as string) ?? "").trim();
-  const cityEn   = ((req.query.city_en   as string) ?? (req.query.city   as string) ?? "").trim();
-  const cityAr   = ((req.query.city_ar   as string) ?? "").trim();
+  const suburbEn = (queryString(req.query.suburb_en) ?? queryString(req.query.suburb) ?? "").trim();
+  const suburbAr = (queryString(req.query.suburb_ar) ?? "").trim();
+  const cityEn   = (queryString(req.query.city_en)   ?? queryString(req.query.city)   ?? "").trim();
+  const cityAr   = (queryString(req.query.city_ar)   ?? "").trim();
 
   if (!suburbEn && !suburbAr && !cityEn && !cityAr) {
     return res.json({ governorateId: null, areaId: null });
@@ -102,8 +103,8 @@ router.get("/locations/match", async (req, res) => {
         { suburbEn, suburbAr, cityEn, cityAr },
         "Location miss: no governorate or area matched — logging for review",
       );
-      const lat = ((req.query.lat as string | undefined) ?? "").trim() || null;
-      const lng = ((req.query.lng as string | undefined) ?? "").trim() || null;
+      const lat = queryString(req.query.lat)?.trim() || null;
+      const lng = queryString(req.query.lng)?.trim() || null;
       pool.query(
         `INSERT INTO location_miss_log
            (suburb_en, suburb_ar, city_en, city_ar, lat, lng)
