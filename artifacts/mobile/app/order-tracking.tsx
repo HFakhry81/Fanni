@@ -664,6 +664,8 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           });
         }
 
+        imperativeUpdatePinsRef.current();
+
         if (t < 1) {
           routeRafRef.current = requestAnimationFrame(tick);
           return;
@@ -692,8 +694,8 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   const techLatLngRef = useRef({ lat: techLat, lng: techLng });
   const clientLatLngRef = useRef({ lat: clientLat, lng: clientLng });
 
-  useEffect(() => { techLatLngRef.current = { lat: techLat, lng: techLng }; }, [techLat, techLng]);
-  useEffect(() => { clientLatLngRef.current = { lat: clientLat, lng: clientLng }; }, [clientLat, clientLng]);
+  techLatLngRef.current = { lat: techLat, lng: techLng };
+  clientLatLngRef.current = { lat: clientLat, lng: clientLng };
 
   imperativeUpdatePinsRef.current = () => {
     if (Platform.OS !== "web") return;
