@@ -409,7 +409,9 @@ export default function OrderTrackingScreen() {
             <>
               <VectorIcon name="clock" size={15} color={colors.primary} />
               <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-                {t("order.arrivingIn")}{displayEtaSec === null ? "…" : `${etaMins > 0 ? `${etaMins} ${t("order.minutes")} ` : ""}${etaRemSec} ${t("order.seconds")}`}
+                {displayEtaSec !== null && displayEtaSec <= 30
+                  ? t("order.arrivingNow")
+                  : `${t("order.arrivingIn")}${displayEtaSec === null ? "…" : `${etaMins > 0 ? `${etaMins} ${t("order.minutes")} ` : ""}${etaRemSec} ${t("order.seconds")}`}`}
               </Text>
               <View style={[styles.etaDivider, { backgroundColor: colors.primary }]} />
               <VectorIcon name="map-pin" size={15} color={colors.primary} />
