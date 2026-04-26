@@ -8,6 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import Constants from "expo-constants";
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, I18nManager, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -29,22 +30,20 @@ const LOC_CACHE_AREAS_KEY = "location_cache_areas";
 
 SplashScreen.preventAutoHideAsync();
 
-if (Platform.OS !== "web") {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Notifications = require("expo-notifications");
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
-  } catch {
-    // expo-notifications not available in Expo Go SDK 53+
-  }
+// expo-notifications was removed from Expo Go in SDK 53. Guard with appOwnership
+// so we never even require the module in Expo Go, preventing the "Uncaught Error" overlay.
+if (Platform.OS !== "web" && Constants.appOwnership !== "expo") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Notifications = require("expo-notifications");
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
 }
 
 const queryClient = new QueryClient();
@@ -375,6 +374,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
+    // expo-notifications removed from Expo Go SDK 53+ — skip to avoid error overlay
+    if (Constants.appOwnership === "expo") return;
 
     let subscription: { remove: () => void } | null = null;
     try {

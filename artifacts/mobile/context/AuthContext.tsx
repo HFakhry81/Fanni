@@ -9,6 +9,7 @@ import React, {
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
@@ -234,10 +235,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         if (Platform.OS === "web") return;
+        // expo-notifications was removed from Expo Go in SDK 53 — skip entirely
+        // to prevent the "Uncaught Error" overlay. Works normally in dev/prod builds.
+        if (Constants.appOwnership === "expo") return;
 
-        // Lazy-load expo-notifications to avoid crashing in Expo Go SDK 53+
-        // where Android remote notifications were removed from Expo Go.
-        // In development builds this works normally.
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const Notifications = require("expo-notifications");
 
