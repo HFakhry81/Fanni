@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
@@ -22,7 +22,7 @@ function getApiBaseUrl(): string {
 export default function TechMapScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL, user, isOnline, setIsOnline } = useApp();
+  const { t, isRTL, user, isOnline, setIsOnline, hasPendingToggle } = useApp();
   const { sessionToken } = useAuth();
   const { allOrders, updateOrder, newPendingOrders, markOrderSeen } = useOrders();
   const insets = useSafeAreaInsets();
@@ -211,13 +211,20 @@ export default function TechMapScreen() {
         showLangToggle
         rightElement={
           <TouchableOpacity
-            style={[styles.onlineBadge, { backgroundColor: isOnline ? "#22A36B" : "#EF4444" }]}
+            style={[
+              styles.onlineBadge,
+              { backgroundColor: hasPendingToggle ? "#F59E0B" : isOnline ? "#22A36B" : "#EF4444" },
+            ]}
             onPress={() => setIsOnline(!isOnline, sessionToken ?? undefined)}
             activeOpacity={0.75}
           >
-            <View style={styles.onlineDot} />
+            {hasPendingToggle ? (
+              <ActivityIndicator size={10} color="#FFF" style={{ marginEnd: 4 }} />
+            ) : (
+              <View style={styles.onlineDot} />
+            )}
             <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
-              {isOnline ? t("tech.online") : t("tech.offline")}
+              {hasPendingToggle ? t("tech.syncing") : isOnline ? t("tech.online") : t("tech.offline")}
             </Text>
           </TouchableOpacity>
         }

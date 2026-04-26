@@ -43,6 +43,7 @@ interface AppContextType {
   isOnline: boolean;
   setIsOnline: (value: boolean, sessionToken?: string) => Promise<void>;
   isAvailabilityHydrated: boolean;
+  hasPendingToggle: boolean;
   syncAvailabilityFromServer: (sessionToken: string) => Promise<boolean>;
   retryPendingAvailabilityToggle: () => Promise<boolean>;
 }
@@ -215,6 +216,7 @@ const translations: Record<string, Record<Language, string>> = {
   "tech.reject": { ar: "رفض", en: "Reject" },
   "tech.online": { ar: "متاح", en: "Online" },
   "tech.offline": { ar: "غير متاح", en: "Offline" },
+  "tech.syncing": { ar: "جارٍ المزامنة", en: "Syncing..." },
   "tech.materials": { ar: "البضاعة والمستلزمات", en: "Materials & Supplies" },
   "tech.materialPhoto": { ar: "صورة الفاتورة", en: "Invoice Photo" },
   "tech.materialDesc": { ar: "وصف الأصناف", en: "Items Description" },
@@ -391,6 +393,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [userType, setUserTypeState] = useState<UserType>(null);
   const [isOnline, setIsOnlineState] = useState<boolean>(false);
   const [isAvailabilityHydrated, setIsAvailabilityHydrated] = useState<boolean>(false);
+  const [hasPendingToggle, setHasPendingToggle] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
@@ -416,6 +419,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         const storedOnline = await AsyncStorage.getItem("techIsOnline");
         setIsOnlineState(storedOnline === "true");
+        const pendingRaw = await AsyncStorage.getItem(PENDING_TOGGLE_KEY);
+        setHasPendingToggle(!!pendingRaw);
       } catch (_) {
         setIsOnlineState(false);
       } finally {
@@ -440,6 +445,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         await AsyncStorage.removeItem("user");
         await AsyncStorage.removeItem(PENDING_TOGGLE_KEY);
+        setHasPendingToggle(false);
       }
     } catch (_) {}
   };
@@ -493,9 +499,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           );
           if (res.ok) {
+            setHasPendingToggle(false);
             try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
           }
         } catch (_networkErr) {
+          setHasPendingToggle(true);
           try {
             await AsyncStorage.setItem(
               PENDING_TOGGLE_KEY,
@@ -517,6 +525,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userId: string;
       };
       if (!user?.id || user.id !== userId) {
+        setHasPendingToggle(false);
         try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
         return false;
       }
@@ -535,6 +544,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       );
       if (res.ok) {
+        setHasPendingToggle(false);
         try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
         return true;
       }
@@ -567,6 +577,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isOnline,
         setIsOnline,
         isAvailabilityHydrated,
+        hasPendingToggle,
         syncAvailabilityFromServer,
         retryPendingAvailabilityToggle,
       }}
