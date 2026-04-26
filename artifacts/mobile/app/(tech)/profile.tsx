@@ -887,6 +887,11 @@ export default function TechProfileScreen() {
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1, textAlign: isRTL ? "right" : "left" }}>
                 {areaText}
               </Text>
+              {!!user?.address && (
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1, textAlign: isRTL ? "right" : "left" }}>
+                  {user.address}
+                </Text>
+              )}
             </View>
             <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
