@@ -322,7 +322,7 @@ export function buildSimulatedOrder(serviceCategories?: string[]): Order {
 
   return {
     id: uniqueId,
-    orderNumber: "ORD-2025-004",
+    orderNumber: "ORD-DEMO",
     clientId: "client3",
     clientName: "سارة إبراهيم",
     clientMobile: "01155667788",
