@@ -4,10 +4,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platfor
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
-import { Asset } from "expo-asset";
-import { readAsStringAsync } from "expo-file-system/legacy";
+import { shareTechPayoutInvoicePdf, shareLegacyInvoicePdf } from "@/utils/invoicePdf";
 import VectorIcon from "@/components/VectorIcon";
 
 const SUB_IMAGE_MAP: Record<string, ImageSourcePropType> = {
@@ -144,133 +141,12 @@ export default function TechOrdersScreen() {
   const materialsTotal = parseFloat(materialsTotalStr) || 0;
   const preview = computePreview(labourFee, transportFee, materialsTotal);
 
-  const handleShareTechInvoice = async (order: Order) => {
-    const inv = order.threePartyInvoice;
-    if (!inv) return;
-    const dir = isRTL ? "rtl" : "ltr";
-
-    let logoDataUri = "";
-    try {
-      const asset = Asset.fromModule(require("@/assets/images/icon.png"));
-      await asset.downloadAsync();
-      if (asset.localUri) {
-        const base64 = await readAsStringAsync(asset.localUri, { encoding: "base64" });
-        logoDataUri = `data:image/png;base64,${base64}`;
-      }
-    } catch (err) {
-      console.warn("[ShareInvoice] Could not load logo asset:", err);
-    }
-
-    const logoImg = logoDataUri
-      ? `<img src="${logoDataUri}" style="width:48px;height:48px;object-fit:contain;margin-${isRTL ? "left" : "right"}:12px" />`
-      : "";
-
-    const egp = t("common.egp");
-    const rowsHtml = [
-      [isRTL ? "تكلفة المواد" : "Materials Cost", inv.materialsTotal],
-      [isRTL ? "تكلفة النقل" : "Transport", inv.transportFee],
-      [isRTL ? "أجر العمالة" : "Labour Fee", inv.labourFee],
-      [isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee Deduction (${SERVICE_FEE_RATE}%)`, -inv.serviceFeeAmount],
-    ]
-      .filter(([, v]) => (v as number) !== 0)
-      .map(
-        ([label, val]) =>
-          `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:${isRTL ? "left" : "right"};font-weight:500;color:${(val as number) < 0 ? "#ef4444" : "#111827"}">${(val as number) >= 0 ? "" : "−"}${Math.abs(val as number).toFixed(2)} ${egp}</td></tr>`
-      )
-      .join("");
-
-    const html = `<!DOCTYPE html>
-<html dir="${dir}" lang="${isRTL ? "ar" : "en"}">
-<head><meta charset="UTF-8"/>
-<style>
-  body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111827;direction:${dir}}
-  .header{display:flex;flex-direction:${isRTL ? "row-reverse" : "row"};align-items:center;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:24px}
-  .brand{flex:1;font-size:20px;font-weight:700;color:#111827;text-align:${isRTL ? "right" : "left"}}
-  table{width:100%;border-collapse:collapse;margin-bottom:20px}
-  .total-row{background:#fef3c7;font-weight:700;font-size:16px}
-  .total-row td{padding:12px;color:#d97706}
-  h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}
-  .badge{display:inline-block;background:#fef3c7;color:#d97706;padding:4px 12px;border-radius:20px;font-size:12px;margin-bottom:16px}
-</style>
-</head>
-<body>
-<div class="header">${logoImg}<div class="brand">${isRTL ? "فني · FANNI" : "FANNI · فني"}</div></div>
-<div class="badge">${isRTL ? "فاتورة الفني" : "Technician Invoice"}</div>
-<h2>${isRTL ? "تفاصيل الدفعة" : "Payout Details"}</h2>
-<table><tbody>${rowsHtml}
-<tr class="total-row"><td>${isRTL ? "صافي المستحق" : "Net Payout"}</td><td style="text-align:${isRTL ? "left" : "right"}">${inv.techNetTotal.toFixed(2)} ${egp}</td></tr>
-</tbody></table>
-</body></html>`;
-
-    try {
-      const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: isRTL ? "فاتورة الفني" : "Technician Invoice", UTI: "com.adobe.pdf" });
-      } else {
-        Alert.alert(isRTL ? "فاتورة الفني" : "Technician Invoice", uri);
-      }
-    } catch {
-      Alert.alert(t("common.error") || "Error", t("invoice.shareError"));
-    }
-  };
-
   const handleShareInvoice = async (order: Order) => {
     if (order.threePartyInvoice) {
-      await handleShareTechInvoice(order);
+      await shareTechPayoutInvoicePdf({ order, isRTL, t });
       return;
     }
-    if (!order.invoice) return;
-    const inv = order.invoice;
-    const dir = isRTL ? "rtl" : "ltr";
-    let logoDataUri = "";
-    try {
-      const asset = Asset.fromModule(require("@/assets/images/icon.png"));
-      await asset.downloadAsync();
-      if (asset.localUri) {
-        const base64 = await readAsStringAsync(asset.localUri, { encoding: "base64" });
-        logoDataUri = `data:image/png;base64,${base64}`;
-      }
-    } catch (err) {
-      console.warn("[ShareInvoice] Could not load logo asset:", err);
-    }
-    const logoImg = logoDataUri
-      ? `<img src="${logoDataUri}" style="width:48px;height:48px;object-fit:contain;margin-${isRTL ? "left" : "right"}:12px" />`
-      : "";
-    const rows = [
-      [t("invoice.materials"), inv.materialsTotal],
-      [t("invoice.materialsMark"), inv.materialsMark],
-      [t("invoice.labor"), inv.laborFee],
-      [t("invoice.tools"), inv.toolRental],
-      [t("invoice.tax"), inv.tax],
-      [t("invoice.vat"), inv.vat],
-    ]
-      .map(
-        ([label, val]) =>
-          `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:${isRTL ? "left" : "right"};font-weight:500">${val} ${t("common.egp")}</td></tr>`
-      )
-      .join("");
-    const html = `<!DOCTYPE html>
-<html dir="${dir}" lang="${isRTL ? "ar" : "en"}">
-<head><meta charset="UTF-8"/>
-<style>body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111827;direction:${dir}}.header{display:flex;flex-direction:${isRTL ? "row-reverse" : "row"};align-items:center;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:24px}.brand{flex:1;font-size:20px;font-weight:700;color:#111827;text-align:${isRTL ? "right" : "left"}}.invoice-num{font-size:12px;color:#6b7280}table{width:100%;border-collapse:collapse;margin-bottom:20px}.total-row{background:#fef3c7;font-weight:700;font-size:16px}.total-row td{padding:12px;color:#d97706}h2{font-size:18px;margin:0 0 16px;text-align:${isRTL ? "right" : "left"}}</style>
-</head>
-<body>
-<div class="header">${logoImg}<div class="brand">${isRTL ? "فني · FANNI" : "FANNI · فني"}</div><div class="invoice-num">#${inv.invoiceNumber}</div></div>
-<h2>${t("invoice.title")} #${inv.invoiceNumber}</h2>
-<table><tbody>${rows}<tr class="total-row"><td>${t("invoice.total")}</td><td style="text-align:${isRTL ? "left" : "right"}">${inv.total} ${t("common.egp")}</td></tr></tbody></table>
-</body></html>`;
-    try {
-      const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: `${t("invoice.title")} #${inv.invoiceNumber}`, UTI: "com.adobe.pdf" });
-      } else {
-        Alert.alert(t("invoice.title"), uri);
-      }
-    } catch {
-      Alert.alert(t("common.error") || "Error", t("invoice.shareError"));
-    }
+    await shareLegacyInvoicePdf({ order, isRTL, t });
   };
 
   const runOCR = async (imageUrl: string): Promise<OcrReceiptData | null> => {
