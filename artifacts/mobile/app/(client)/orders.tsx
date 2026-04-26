@@ -50,23 +50,29 @@ export default function ClientOrdersScreen() {
   const [updatedOrderIds, setUpdatedOrderIds] = useState<Set<string>>(new Set());
   const prevStatusMapRef = useRef<Map<string, string>>(new Map());
   const badgeOpacity = useRef(new Animated.Value(0)).current;
-  const clearUpdatedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const flashUpdatedBadges = useCallback((ids: Set<string>) => {
     if (ids.size === 0) return;
-    if (clearUpdatedTimerRef.current) clearTimeout(clearUpdatedTimerRef.current);
+    if (highlightAnimRef.current) {
+      highlightAnimRef.current.stop();
+      highlightAnimRef.current = null;
+    }
     setUpdatedOrderIds((prev) => new Set([...prev, ...ids]));
-    badgeOpacity.setValue(1);
-    clearUpdatedTimerRef.current = setTimeout(() => {
-      Animated.timing(badgeOpacity, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
+    badgeOpacity.setValue(0);
+    const anim = Animated.sequence([
+      Animated.timing(badgeOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.delay(1500),
+      Animated.timing(badgeOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]);
+    highlightAnimRef.current = anim;
+    anim.start(({ finished }) => {
+      if (finished) {
         setUpdatedOrderIds(new Set());
         badgeOpacity.setValue(0);
-      });
-    }, 1500);
+        highlightAnimRef.current = null;
+      }
+    });
   }, [badgeOpacity]);
 
   const fetchOrdersFromApi = useCallback(async (detectChanges = false) => {
@@ -116,7 +122,10 @@ export default function ClientOrdersScreen() {
 
   useEffect(() => {
     return () => {
-      if (clearUpdatedTimerRef.current) clearTimeout(clearUpdatedTimerRef.current);
+      if (highlightAnimRef.current) {
+        highlightAnimRef.current.stop();
+        highlightAnimRef.current = null;
+      }
     };
   }, []);
 
@@ -149,11 +158,12 @@ export default function ClientOrdersScreen() {
   const renderOrder = ({ item }: { item: Order }) => {
     const isUpdated = updatedOrderIds.has(item.id);
     return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: isUpdated ? "#F59E0B" : colors.border }]}
-      onPress={() => router.push({ pathname: "/order-details", params: { orderId: item.id } })}
-      activeOpacity={0.85}
-    >
+    <View style={styles.cardWrapper}>
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+        onPress={() => router.push({ pathname: "/order-details", params: { orderId: item.id } })}
+        activeOpacity={0.85}
+      >
       <View style={[styles.accentBar, { backgroundColor: item.status === "completed" ? colors.success : item.status === "cancelled" ? colors.destructive : colors.secondary }]} />
       <View style={styles.cardBody}>
         {isUpdated && (
@@ -255,7 +265,17 @@ export default function ClientOrdersScreen() {
           </View>
         )}
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {isUpdated && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            { borderRadius: colors.radius, borderWidth: 1.5, borderColor: "#F59E0B", opacity: badgeOpacity },
+          ]}
+        />
+      )}
+    </View>
   );
   };
 
@@ -354,12 +374,13 @@ export default function ClientOrdersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  cardWrapper: { marginBottom: 12 },
   addBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   tabBar: { margin: 12, padding: 4, borderRadius: 14, shadowColor: "#000", shadowOpacity: 0.05, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   tab: { flex: 1, paddingVertical: 10, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
   tabBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
   list: { paddingHorizontal: 16, paddingTop: 4 },
-  card: { marginBottom: 12, borderWidth: 1.5, flexDirection: "row", overflow: "hidden", shadowColor: "#0D1B2A", shadowOpacity: 0.07, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  card: { borderWidth: 1.5, flexDirection: "row", overflow: "hidden", shadowColor: "#0D1B2A", shadowOpacity: 0.07, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   accentBar: { width: 4 },
   cardBody: { flex: 1, padding: 14 },
   cardTop: { alignItems: "center", marginBottom: 10, gap: 8 },
