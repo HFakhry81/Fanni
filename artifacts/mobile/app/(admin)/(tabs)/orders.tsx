@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image, ImageSourcePropType } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image, ImageSourcePropType, Linking } from "react-native";
 import { useRouter } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -140,11 +140,6 @@ export default function AdminOrdersScreen() {
                           🔧 {item.technicianName}
                         </Text>
                       )}
-                      {item.technicianMobile && (
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: isRTL ? "right" : "left", direction: "ltr" }}>
-                          📞 {item.technicianMobile}
-                        </Text>
-                      )}
                     </View>
                     {(inv3 || invLegacy) && (
                       <View style={[styles.totalChip, { backgroundColor: colors.accent, borderRadius: 10 }]}>
@@ -160,6 +155,38 @@ export default function AdminOrdersScreen() {
                     <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 4 }}>{item.visitDate} {item.visitTime}</Text>
                   </View>
                 </TouchableOpacity>
+
+                {/* Technician contact row */}
+                {item.technicianMobile && (
+                  <View style={[styles.techContactRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                    <TouchableOpacity
+                      style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 5 }}
+                      onPress={() => Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {})}
+                      activeOpacity={0.7}
+                    >
+                      <VectorIcon name="phone" size={12} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: isRTL ? 0 : 2, marginRight: isRTL ? 2 : 0, direction: "ltr" }}>
+                        {item.technicianMobile}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: 8 }]}
+                      onPress={() => Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {})}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <VectorIcon name="phone" size={13} color="#FFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.smsBtn, { backgroundColor: colors.secondary, borderRadius: 8, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }]}
+                      onPress={() => Linking.openURL(`sms:${item.technicianMobile}`).catch(() => {})}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <VectorIcon name="message-circle" size={13} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Expandable invoice section for completed orders */}
                 {hasInvoice && (
@@ -330,6 +357,9 @@ const styles = StyleSheet.create({
   cardMid: { alignItems: "center", marginBottom: 6, gap: 8 },
   cardFoot: { alignItems: "center", gap: 4 },
   totalChip: { paddingVertical: 6, paddingHorizontal: 12 },
+  techContactRow: { alignItems: "center", marginTop: 8, borderTopWidth: 1, paddingTop: 8, gap: 0 },
+  callBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
+  smsBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingTop: 80 },
   invoiceBlock: { marginTop: 10, borderWidth: 1 },
   invoiceToggleRow: { alignItems: "center", padding: 10, borderBottomWidth: 1, gap: 0 },
