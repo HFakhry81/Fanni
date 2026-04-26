@@ -598,8 +598,10 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       : { x: initialFit.cx, y: initialFit.cy }
   );
   const [, setRenderTick] = useState(0);
+  const imperativeUpdatePinsRef = useRef<() => void>(() => {});
   const triggerRender = useCallback(() => {
     _savedWebMapState[order.id] = { zoom: zoomRef.current, cx: centerRef.current.x, cy: centerRef.current.y };
+    imperativeUpdatePinsRef.current();
     setRenderTick((n) => n + 1);
   }, [order.id]);
 
@@ -684,6 +686,41 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
 
   const containerRef = useRef<View>(null);
   const sizeRef = useRef({ w: 400, h: 400 });
+
+  const techPinRef = useRef<View>(null);
+  const fallbackLineRef = useRef<SVGLineElement | null>(null);
+  const techLatLngRef = useRef({ lat: techLat, lng: techLng });
+  const clientLatLngRef = useRef({ lat: clientLat, lng: clientLng });
+
+  useEffect(() => { techLatLngRef.current = { lat: techLat, lng: techLng }; }, [techLat, techLng]);
+  useEffect(() => { clientLatLngRef.current = { lat: clientLat, lng: clientLng }; }, [clientLat, clientLng]);
+
+  imperativeUpdatePinsRef.current = () => {
+    if (Platform.OS !== "web") return;
+    const zoom = zoomRef.current;
+    const cx = centerRef.current.x;
+    const cy = centerRef.current.y;
+    const { w: mapW, h: mapH } = sizeRef.current;
+    const toScreenLocal = (lat: number, lng: number) => {
+      const wld = geoToWorld(lat, lng, zoom);
+      return { x: wld.x - cx + mapW / 2, y: wld.y - cy + mapH / 2 };
+    };
+    const PIN_HALF = 14;
+    const techS = toScreenLocal(techLatLngRef.current.lat, techLatLngRef.current.lng);
+    const clientS = toScreenLocal(clientLatLngRef.current.lat, clientLatLngRef.current.lng);
+    if (techPinRef.current) {
+      const el = techPinRef.current as unknown as HTMLElement;
+      el.style.transition = "none";
+      el.style.left = `${techS.x}px`;
+      el.style.top = `${techS.y}px`;
+    }
+    if (fallbackLineRef.current) {
+      fallbackLineRef.current.setAttribute("x1", String(techS.x + PIN_HALF));
+      fallbackLineRef.current.setAttribute("y1", String(techS.y + PIN_HALF));
+      fallbackLineRef.current.setAttribute("x2", String(clientS.x + PIN_HALF));
+      fallbackLineRef.current.setAttribute("y2", String(clientS.y + PIN_HALF));
+    }
+  };
 
   const dragRef = useRef<{ startX: number; startY: number; startCx: number; startCy: number } | null>(null);
   const pinchRef = useRef<{ dist: number; startZoom: number } | null>(null);
@@ -972,6 +1009,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           ) : (
             // @ts-ignore
             <line
+              ref={(el) => { fallbackLineRef.current = el as SVGLineElement | null; }}
               x1={techScreen.x + PIN_HALF}
               y1={techScreen.y + PIN_HALF}
               x2={clientScreen.x + PIN_HALF}
@@ -987,10 +1025,11 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       )}
 
       <View
+        ref={techPinRef}
         style={[
           styles.pinMarker,
           { left: techScreen.x, top: techScreen.y, backgroundColor: TECH_PIN_COLOR },
-          // @ts-ignore – CSS transition for web smooth animation
+          // @ts-ignore – CSS transition for web smooth animation (restored by React after imperative pan/zoom updates)
           { transition: "left 1s linear, top 1s linear" },
         ]}
         // @ts-ignore
