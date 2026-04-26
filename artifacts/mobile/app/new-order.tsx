@@ -115,6 +115,7 @@ const SUB_IMAGE_MAP: Record<string, ReturnType<typeof require>> = {
 type OrderStep = 1 | 2 | 3;
 
 const DRAFT_KEY = "fanni_order_draft";
+const BANNER_HINT_KEY_PREFIX = "fanni_banner_hint_seen:";
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export default function NewOrderScreen() {
@@ -183,6 +184,14 @@ export default function NewOrderScreen() {
 
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxOpened, setLightboxOpened] = useState(false);
+
+  useEffect(() => {
+    if (!subCategory) return;
+    AsyncStorage.getItem(BANNER_HINT_KEY_PREFIX + subCategory)
+      .then((val) => setLightboxOpened(val === "1"))
+      .catch(() => setLightboxOpened(false));
+  }, [subCategory]);
+
   const [photoLightboxVisible, setPhotoLightboxVisible] = useState(false);
   const [photoLightboxIndex, setPhotoLightboxIndex] = useState(0);
   const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
@@ -971,7 +980,7 @@ export default function NewOrderScreen() {
       {/* Service preview banner */}
       {bannerImage && (
         <>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => { setLightboxVisible(true); setLightboxOpened(true); }}>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => { setLightboxVisible(true); if (!lightboxOpened) { setLightboxOpened(true); AsyncStorage.setItem(BANNER_HINT_KEY_PREFIX + subCategory, "1"); } }}>
             <ImageBackground
               source={bannerImage}
               style={styles.banner}
