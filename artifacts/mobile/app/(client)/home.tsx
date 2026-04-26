@@ -19,14 +19,14 @@ type Category = {
 };
 
 const CATEGORIES: Category[] = [
-  { id: "electricity", image: require("@/assets/images/icon_electricity.png"), color: "#F5A623" },
-  { id: "plumbing",    image: require("@/assets/images/icon_plumbing.png"),    color: "#4DADD9" },
-  { id: "ac",          image: require("@/assets/images/icon_ac.png"),          color: "#2B8FBB" },
-  { id: "carpentry",   image: require("@/assets/images/icon_carpentry.png"),   color: "#8B6F47" },
-  { id: "appliances",  image: require("@/assets/images/icon_appliances.png"),  color: "#7C5CBF" },
-  { id: "painting",    image: require("@/assets/images/icon_painting.png"),    color: "#E84393" },
-  { id: "pest",        image: require("@/assets/images/icon_pest.png"),        color: "#22A36B" },
-  { id: "flooring",    image: require("@/assets/images/icon_flooring.png"),    color: "#E67E22" },
+  { id: "electricity", image: require("@/assets/images/icon_electricity.webp"), color: "#F5A623" },
+  { id: "plumbing",    image: require("@/assets/images/icon_plumbing.webp"),    color: "#4DADD9" },
+  { id: "ac",          image: require("@/assets/images/icon_ac.webp"),          color: "#2B8FBB" },
+  { id: "carpentry",   image: require("@/assets/images/icon_carpentry.webp"),   color: "#8B6F47" },
+  { id: "appliances",  image: require("@/assets/images/icon_appliances.webp"),  color: "#7C5CBF" },
+  { id: "painting",    image: require("@/assets/images/icon_painting.webp"),    color: "#E84393" },
+  { id: "pest",        image: require("@/assets/images/icon_pest.webp"),        color: "#22A36B" },
+  { id: "flooring",    image: require("@/assets/images/icon_flooring.webp"),    color: "#E67E22" },
 ];
 
 const SUB_CATEGORIES: Record<string, { id: string; imageKey: string; image: ImageSourcePropType; label_ar: string; label_en: string }[]> = {
