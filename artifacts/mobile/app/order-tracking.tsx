@@ -240,6 +240,7 @@ export default function OrderTrackingScreen() {
   const [techLat, setTechLat] = useState(techStartLat);
   const [techLng, setTechLng] = useState(techStartLng);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
+  const [overpassColors, setOverpassColors] = useState<string[] | undefined>(undefined);
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
 
@@ -359,6 +360,39 @@ export default function OrderTrackingScreen() {
     };
   }, [order, clientLat, clientLng, techStartLat, techStartLng, routeData]);
 
+  useEffect(() => {
+    if (!routeData || routeData.coords.length === 0) {
+      setOverpassColors(undefined);
+      return;
+    }
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+    const apiBase = domain ? `https://${domain}` : "";
+    if (!apiBase) return;
+
+    const lats = routeData.coords.map((c) => c.lat);
+    const lngs = routeData.coords.map((c) => c.lng);
+    const latMin = Math.min(...lats) - 0.01;
+    const lngMin = Math.min(...lngs) - 0.01;
+    const latMax = Math.max(...lats) + 0.01;
+    const lngMax = Math.max(...lngs) + 0.01;
+    const bounds = `${latMin.toFixed(5)},${lngMin.toFixed(5)},${latMax.toFixed(5)},${lngMax.toFixed(5)}`;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/traffic/maxspeeds?bounds=${bounds}`);
+        if (!res.ok || cancelled) return;
+        const data: { ways?: Array<{ nodes: Array<{ lat: number; lng: number }>; maxspeedKmh: number }> } = await res.json();
+        if (cancelled || !data.ways || data.ways.length === 0) return;
+        const colors = routeData.coords.map((c) => nearestWayColor(c.lat, c.lng, data.ways!));
+        setOverpassColors(colors);
+      } catch {
+        // Silently fall back to step-based colors
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [routeData]);
+
   if (!order) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
@@ -384,8 +418,9 @@ export default function OrderTrackingScreen() {
   const routeCoords = routeData
     ? getRemainingRoute(routeData.coords, progress, techLat, techLng)
     : [];
-  const routeColors = routeData?.coordColors
-    ? getRemainingColors(routeData.coords, routeData.coordColors, progress)
+  const fullColors = overpassColors ?? routeData?.coordColors;
+  const routeColors = fullColors && routeData
+    ? getRemainingColors(routeData.coords, fullColors, progress)
     : undefined;
 
   let trafficLabel: "slow" | "fast" | null = null;
@@ -626,6 +661,25 @@ function speedKmhToColor(speedKmh: number): string {
   if (speedKmh > 25) return TRAFFIC_COLOR_NORMAL;
   if (speedKmh > 12) return TRAFFIC_COLOR_SLOW;
   return TRAFFIC_COLOR_VERY_SLOW;
+}
+
+function nearestWayColor(
+  lat: number,
+  lng: number,
+  ways: Array<{ nodes: Array<{ lat: number; lng: number }>; maxspeedKmh: number }>
+): string {
+  let minDist = Infinity;
+  let speed = 0;
+  for (const way of ways) {
+    for (const node of way.nodes) {
+      const d = (node.lat - lat) ** 2 + (node.lng - lng) ** 2;
+      if (d < minDist) {
+        minDist = d;
+        speed = way.maxspeedKmh;
+      }
+    }
+  }
+  return speed > 0 ? speedKmhToColor(speed) : TRAFFIC_COLOR_NORMAL;
 }
 
 function getSegmentTrafficColor(segIdx: number): string {

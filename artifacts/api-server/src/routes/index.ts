@@ -9,6 +9,7 @@ import locationsRouter from "./locations";
 import geoRouter from "./geo";
 import uploadRouter from "./upload";
 import ocrRouter from "./ocr";
+import trafficRouter from "./traffic";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(locationsRouter);
 router.use(geoRouter);
 router.use(uploadRouter);
 router.use(ocrRouter);
+router.use(trafficRouter);
 
 export default router;
