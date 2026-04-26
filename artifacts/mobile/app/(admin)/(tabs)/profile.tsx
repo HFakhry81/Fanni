@@ -287,13 +287,53 @@ export default function AdminProfileScreen() {
                     const previousAvatar = (user as { avatar?: string | null }).avatar ?? undefined;
                     undoAvatarRef.current = previousAvatar;
                     await setUser({ ...user, avatar: undefined });
+                    const apiBase = getApiBaseUrl();
+                    if (!apiBase || !sessionToken) {
+                      await setUser({ ...user, avatar: previousAvatar });
+                      undoAvatarRef.current = undefined;
+                      setToastMessage(isRTL ? "يجب تسجيل الدخول لحذف الصورة" : "Sign in required to remove photo");
+                      setToastAction(undefined);
+                      setToastVisible(true);
+                      return;
+                    }
+                    try {
+                      const res = await fetch(`${apiBase}/api/auth/me`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+                        body: JSON.stringify({ profileImageUrl: null }),
+                      });
+                      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+                    } catch {
+                      await setUser({ ...user, avatar: previousAvatar });
+                      undoAvatarRef.current = undefined;
+                      setToastMessage(isRTL ? "فشل حذف الصورة، يرجى المحاولة مرة أخرى" : "Failed to remove photo, please try again");
+                      setToastAction(undefined);
+                      setToastVisible(true);
+                      return;
+                    }
                     setToastMessage(isRTL ? "تم حذف صورة الملف الشخصي" : "Profile photo removed");
                     setToastAction({
                       label: isRTL ? "تراجع" : "Undo",
                       onPress: async () => {
                         if (user && undoAvatarRef.current !== undefined) {
-                          await setUser({ ...user, avatar: undoAvatarRef.current });
+                          const restoredAvatar = undoAvatarRef.current;
+                          await setUser({ ...user, avatar: restoredAvatar });
                           undoAvatarRef.current = undefined;
+                          if (apiBase && sessionToken) {
+                            try {
+                              const res = await fetch(`${apiBase}/api/auth/me`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+                                body: JSON.stringify({ profileImageUrl: restoredAvatar ?? null }),
+                              });
+                              if (!res.ok) throw new Error(`Server error: ${res.status}`);
+                            } catch {
+                              await setUser({ ...user, avatar: undefined });
+                              setToastMessage(isRTL ? "فشل استعادة الصورة، يرجى المحاولة مرة أخرى" : "Failed to restore photo, please try again");
+                              setToastAction(undefined);
+                              setToastVisible(true);
+                            }
+                          }
                         }
                       },
                     });
