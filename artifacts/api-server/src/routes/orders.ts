@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { sql, desc, eq, and } from "drizzle-orm";
+import { sql, desc, eq, and, inArray } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable, invoicesTable, pool, usersTable } from "@workspace/db";
@@ -8,6 +8,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug, isSlug } from "../lib/locationNormalizer";
 import { queryString } from "../lib/queryParams";
 import { sendOrderStatusPushNotification } from "../lib/pushNotifications";
+import { sendInvoiceEmails } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -695,6 +696,51 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
         }
       })();
     }
+
+    void (async () => {
+      try {
+        const userIds: string[] = [];
+        if (finalClientId) userIds.push(finalClientId);
+        if (finalTechnicianId && finalTechnicianId !== finalClientId) userIds.push(finalTechnicianId);
+        if (userIds.length === 0) return;
+        const userRows = await db
+          .select({ id: usersTable.id, email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName })
+          .from(usersTable)
+          .where(inArray(usersTable.id, userIds));
+
+        const clientRow = userRows.find((r) => r.id === finalClientId);
+        const techRow = userRows.find((r) => r.id === finalTechnicianId);
+
+        const clientName = [clientRow?.firstName, clientRow?.lastName].filter(Boolean).join(" ") || "Client";
+        const techName = [techRow?.firstName, techRow?.lastName].filter(Boolean).join(" ") || "Technician";
+
+        await sendInvoiceEmails({
+          invoiceData: {
+            orderNumber: finalOrderNumber ?? id,
+            issuedAt: new Date(),
+            category: finalCategory ?? "Service",
+            labourFee: labour,
+            transportFee: transport,
+            materialsTotal: matTotal,
+            serviceFeeRate: SERVICE_FEE_RATE,
+            serviceFeeAmount,
+            vatRate: VAT_RATE,
+            vatAmount,
+            baseSubtotal,
+            clientTotal,
+            techNetTotal,
+            clientName,
+            technicianName: techName,
+            clientEmail: clientRow?.email,
+            technicianEmail: techRow?.email,
+          },
+          clientEmail: clientRow?.email,
+          technicianEmail: techRow?.email,
+        });
+      } catch (emailErr) {
+        logger.warn({ emailErr, orderId: id }, "Failed to send invoice emails");
+      }
+    })();
 
     res.json({
       success: true,
