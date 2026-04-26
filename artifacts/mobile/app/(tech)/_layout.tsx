@@ -38,8 +38,9 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-function NativeTechTabs({ availablePendingCount, profileSetupIncomplete }: { availablePendingCount: number; profileSetupIncomplete: boolean }) {
+function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSetupIncomplete }: { availablePendingCount: number; unreadCompletedCount: number; profileSetupIncomplete: boolean }) {
   const badgeValue = availablePendingCount > 0 ? (availablePendingCount > 99 ? "99+" : String(availablePendingCount)) : undefined;
+  const ordersBadgeValue = unreadCompletedCount > 0 ? (unreadCompletedCount > 99 ? "99+" : String(unreadCompletedCount)) : undefined;
   const profileBadge = profileSetupIncomplete ? "" : undefined;
   return (
     <NativeTabs>
@@ -51,7 +52,7 @@ function NativeTechTabs({ availablePendingCount, profileSetupIncomplete }: { ava
         <Icon sf={{ default: "tray", selected: "tray.fill" }} />
         <Label>Available</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="orders">
+      <NativeTabs.Trigger name="orders" badge={ordersBadgeValue}>
         <Icon sf={{ default: "list.bullet", selected: "list.bullet.fill" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
@@ -74,7 +75,7 @@ function DotBadge() {
 function ClassicTechTabs() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
-  const { availablePendingCount } = useOrders();
+  const { availablePendingCount, unreadCompletedCount } = useOrders();
   const profileSetupIncomplete = !user?.serviceCategories || user.serviceCategories.length === 0;
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -127,7 +128,13 @@ function ClassicTechTabs() {
         name="orders"
         options={{
           title: t("nav.orders"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📋</Text>,
+          tabBarIcon: () =>
+            isIOS ? null : (
+              <View>
+                <Text style={styles.tabIcon}>📋</Text>
+                {unreadCompletedCount > 0 && <CountBadge count={unreadCompletedCount} />}
+              </View>
+            ),
         }}
       />
       <Tabs.Screen
@@ -294,7 +301,7 @@ function usePendingCountSync() {
 }
 
 function TechLayoutInner() {
-  const { availablePendingCount } = useOrders();
+  const { availablePendingCount, unreadCompletedCount } = useOrders();
   const { language, user, hasPendingToggle } = useApp();
   const profileSetupIncomplete = !user?.serviceCategories || user.serviceCategories.length === 0;
   const { isWsConnected } = useTechWs();
@@ -338,7 +345,7 @@ function TechLayoutInner() {
     setCancelledNotification((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  const tabs = isLiquidGlassAvailable() ? <NativeTechTabs availablePendingCount={availablePendingCount} profileSetupIncomplete={profileSetupIncomplete} /> : <ClassicTechTabs />;
+  const tabs = isLiquidGlassAvailable() ? <NativeTechTabs availablePendingCount={availablePendingCount} unreadCompletedCount={unreadCompletedCount} profileSetupIncomplete={profileSetupIncomplete} /> : <ClassicTechTabs />;
 
   const reconnectLabel = language === "ar" ? "جارٍ إعادة الاتصال…" : "Reconnecting…";
   const syncingLabel = language === "ar" ? "جارٍ المزامنة…" : "Syncing…";

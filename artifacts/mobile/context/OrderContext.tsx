@@ -125,6 +125,9 @@ interface OrderContextType {
   availablePendingCount: number;
   setAvailablePendingCount: (count: number) => void;
   availableOrdersTabFocusedRef: React.MutableRefObject<boolean>;
+  unreadCompletedCount: number;
+  markCompletedOrdersSeen: () => void;
+  ordersTabFocusedRef: React.MutableRefObject<boolean>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -361,6 +364,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [wsOrderStatusSignal, setWsOrderStatusSignal] = useState(0);
   const [availablePendingCount, setAvailablePendingCount] = useState(0);
   const availableOrdersTabFocusedRef = useRef<boolean>(false);
+  const [unreadCompletedCount, setUnreadCompletedCount] = useState(0);
+  const ordersTabFocusedRef = useRef<boolean>(false);
 
   const bumpWsOrderStatusSignal = React.useCallback(() => {
     setWsOrderStatusSignal((prev) => prev + 1);
@@ -416,7 +421,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrder = async (id: string, update: Partial<Order>) => {
     let updated: Order[] = [];
+    let prevStatus: string | undefined;
     setOrders((prev) => {
+      const existing = prev.find((o) => o.id === id);
+      prevStatus = existing?.status;
       updated = prev.map((o) => (o.id === id ? { ...o, ...update } : o));
       return updated;
     });
@@ -424,7 +432,14 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     if (update.status && update.status !== "pending") {
       setNewPendingOrders((prev) => prev.filter((o) => o.id !== id));
     }
+    if (update.status === "completed" && prevStatus !== "completed" && !ordersTabFocusedRef.current) {
+      setUnreadCompletedCount((prev) => prev + 1);
+    }
   };
+
+  const markCompletedOrdersSeen = React.useCallback(() => {
+    setUnreadCompletedCount(0);
+  }, []);
 
   const markPendingOrdersSeen = () => {
     newPendingOrders.forEach((o) => seenIdsRef.current.add(o.id));
@@ -533,6 +548,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         availablePendingCount,
         setAvailablePendingCount,
         availableOrdersTabFocusedRef,
+        unreadCompletedCount,
+        markCompletedOrdersSeen,
+        ordersTabFocusedRef,
       }}
     >
       {children}

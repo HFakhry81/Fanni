@@ -57,7 +57,7 @@ export default function TechOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { sessionToken } = useAuth();
-  const { getOrdersByTech, updateOrder, syncOrders, wsOrderStatusSignal } = useOrders();
+  const { getOrdersByTech, updateOrder, syncOrders, wsOrderStatusSignal, markCompletedOrdersSeen, ordersTabFocusedRef } = useOrders();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -155,8 +155,13 @@ export default function TechOrdersScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      ordersTabFocusedRef.current = true;
+      markCompletedOrdersSeen();
       fetchOrdersFromApi();
-    }, [fetchOrdersFromApi])
+      return () => {
+        ordersTabFocusedRef.current = false;
+      };
+    }, [fetchOrdersFromApi, markCompletedOrdersSeen, ordersTabFocusedRef])
   );
 
   const orders = getOrdersByTech(user?.id ?? "tech1");
