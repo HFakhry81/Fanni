@@ -369,25 +369,34 @@ export default function OrderTrackingScreen() {
     const apiBase = domain ? `https://${domain}` : "";
     if (!apiBase) return;
 
-    const lats = routeData.coords.map((c) => c.lat);
-    const lngs = routeData.coords.map((c) => c.lng);
-    const latMin = Math.min(...lats) - 0.01;
-    const lngMin = Math.min(...lngs) - 0.01;
-    const latMax = Math.max(...lats) + 0.01;
-    const lngMax = Math.max(...lngs) + 0.01;
-    const bounds = `${latMin.toFixed(5)},${lngMin.toFixed(5)},${latMax.toFixed(5)},${lngMax.toFixed(5)}`;
+    // Sample every Nth coordinate, capped at 25 samples
+    const step = Math.max(1, Math.ceil(routeData.coords.length / 25));
+    const samples: Array<{ lat: number; lng: number }> = [];
+    for (let i = 0; i < routeData.coords.length; i += step) {
+      samples.push(routeData.coords[i]);
+    }
+    const pointsParam = samples.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(",");
 
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${apiBase}/api/traffic/maxspeeds?bounds=${bounds}`);
+        const res = await fetch(`${apiBase}/api/traffic/speeds?points=${pointsParam}`);
         if (!res.ok || cancelled) return;
-        const data: { ways?: Array<{ nodes: Array<{ lat: number; lng: number }>; maxspeedKmh: number }> } = await res.json();
-        if (cancelled || !data.ways || data.ways.length === 0) return;
-        const colors = routeData.coords.map((c) => nearestWayColor(c.lat, c.lng, data.ways!));
+        const data: { points?: Array<{ lat: number; lng: number; speedKmh: number }> } = await res.json();
+        if (cancelled || !data.points || data.points.length === 0) return;
+        // Map each route coord to the nearest sample point's speed → color
+        const colors = routeData.coords.map((c) => {
+          let minD = Infinity;
+          let nearest = data.points![0];
+          for (const sp of data.points!) {
+            const d = (sp.lat - c.lat) ** 2 + (sp.lng - c.lng) ** 2;
+            if (d < minD) { minD = d; nearest = sp; }
+          }
+          return speedKmhToColor(nearest.speedKmh);
+        });
         setOverpassColors(colors);
       } catch {
-        // Silently fall back to step-based colors
+        // Silently fall back to simulated colors
       }
     })();
     return () => { cancelled = true; };
@@ -418,9 +427,8 @@ export default function OrderTrackingScreen() {
   const routeCoords = routeData
     ? getRemainingRoute(routeData.coords, progress, techLat, techLng)
     : [];
-  const fullColors = overpassColors ?? routeData?.coordColors;
-  const routeColors = fullColors && routeData
-    ? getRemainingColors(routeData.coords, fullColors, progress)
+  const routeColors = overpassColors && routeData
+    ? getRemainingColors(routeData.coords, overpassColors, progress)
     : undefined;
 
   let trafficLabel: "slow" | "fast" | null = null;
@@ -663,24 +671,6 @@ function speedKmhToColor(speedKmh: number): string {
   return TRAFFIC_COLOR_VERY_SLOW;
 }
 
-function nearestWayColor(
-  lat: number,
-  lng: number,
-  ways: Array<{ nodes: Array<{ lat: number; lng: number }>; maxspeedKmh: number }>
-): string {
-  let minDist = Infinity;
-  let speed = 0;
-  for (const way of ways) {
-    for (const node of way.nodes) {
-      const d = (node.lat - lat) ** 2 + (node.lng - lng) ** 2;
-      if (d < minDist) {
-        minDist = d;
-        speed = way.maxspeedKmh;
-      }
-    }
-  }
-  return speed > 0 ? speedKmhToColor(speed) : TRAFFIC_COLOR_NORMAL;
-}
 
 function getSegmentTrafficColor(segIdx: number): string {
   const noise = (Math.sin(segIdx * 1.8 + 0.7) + 1) / 2;
