@@ -20,7 +20,7 @@ interface Props {
   visible: boolean;
   mobile: string;
   onCancel: () => void;
-  onVerified: (token: string) => void;
+  onVerified: (token: string, expiresAt: number) => void;
   subtitle?: string;
 }
 
@@ -129,7 +129,7 @@ export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified, 
         setError(data.error ?? (isRTL ? "الرمز غير صحيح أو منتهي الصلاحية" : "Invalid or expired code"));
         return;
       }
-      onVerified(data.verificationToken);
+      onVerified(data.verificationToken, Date.now() + 30 * 60 * 1000);
     } catch {
       setError(isRTL ? "تعذّر الاتصال بالخادم" : "Could not connect to server");
     } finally {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
   Modal, TextInput, KeyboardAvoidingView, Alert, Image, ActivityIndicator, type AlertButton,
@@ -43,6 +43,35 @@ export default function ClientProfileScreen() {
   const [pendingMobile, setPendingMobile] = useState("");
   const [otpSubtitle, setOtpSubtitle] = useState<string | undefined>(undefined);
 
+  // Verification token countdown
+  const [verificationToken, setVerificationToken] = useState<string | undefined>(undefined);
+  const [verificationExpiresAt, setVerificationExpiresAt] = useState<number>(0);
+  const [verificationSecondsLeft, setVerificationSecondsLeft] = useState<number>(0);
+
+  useEffect(() => {
+    if (!editVisible || !verificationToken || !verificationExpiresAt) {
+      setVerificationSecondsLeft(0);
+      return;
+    }
+    const tick = () => {
+      const secs = Math.max(0, Math.round((verificationExpiresAt - Date.now()) / 1000));
+      setVerificationSecondsLeft(secs);
+      if (secs === 0) {
+        setVerificationToken(undefined);
+        setVerificationExpiresAt(0);
+        setOtpSubtitle(
+          isRTL
+            ? "انتهت صلاحية رمز التحقق. سيتم إرسال رمز جديد إلى رقمك."
+            : "Your verification code expired. A new code will be sent to your number."
+        );
+        setOtpModalVisible(true);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [editVisible, verificationToken, verificationExpiresAt]);
+
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editMobile, setEditMobile] = useState("");
@@ -80,6 +109,8 @@ export default function ClientProfileScreen() {
     setEditAreaNameEn(user.areaNameEn);
     setEditStreet(user.address ?? "");
     setErrors({});
+    setVerificationToken(undefined);
+    setVerificationExpiresAt(0);
     setEditVisible(true);
   };
 
@@ -117,6 +148,10 @@ export default function ClientProfileScreen() {
     setErrors({});
 
     if (normalizedMobile !== (user.mobile ?? "")) {
+      if (verificationToken && verificationExpiresAt > Date.now() + 10_000 && normalizedMobile === pendingMobile) {
+        await applyProfileSave(normalizedMobile, verificationToken);
+        return;
+      }
       setPendingMobile(normalizedMobile);
       setOtpSubtitle(undefined);
       setOtpModalVisible(true);
@@ -168,6 +203,8 @@ export default function ClientProfileScreen() {
       return;
     }
 
+    setVerificationToken(undefined);
+    setVerificationExpiresAt(0);
     setEditVisible(false);
     setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
     setToastVisible(true);
@@ -718,6 +755,16 @@ export default function ClientProfileScreen() {
               </View>
 
               <ScrollView contentContainerStyle={{ padding: 16, gap: 0 }} showsVerticalScrollIndicator={false}>
+                {verificationToken && verificationSecondsLeft > 0 && (
+                  <View style={[styles.expiryBanner, { backgroundColor: verificationSecondsLeft <= 300 ? "#FEF3C7" : "#F0F9FF", borderColor: verificationSecondsLeft <= 300 ? "#FCD34D" : "#BAE6FD" }]}>
+                    <VectorIcon name="clock" size={14} color={verificationSecondsLeft <= 300 ? "#D97706" : "#0284C7"} />
+                    <Text style={{ flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: verificationSecondsLeft <= 300 ? "#92400E" : "#0369A1", textAlign: isRTL ? "right" : "left" }}>
+                      {isRTL
+                        ? `ينتهي التحقق خلال ${Math.floor(verificationSecondsLeft / 60)}د ${verificationSecondsLeft % 60}ث`
+                        : `Verification expires in ${Math.floor(verificationSecondsLeft / 60)}m ${verificationSecondsLeft % 60}s`}
+                    </Text>
+                  </View>
+                )}
                 {/* Name */}
                 <View style={styles.fieldWrap}>
                   <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
@@ -789,10 +836,11 @@ export default function ClientProfileScreen() {
         mobile={pendingMobile}
         subtitle={otpSubtitle}
         onCancel={() => { setOtpModalVisible(false); setOtpSubtitle(undefined); }}
-        onVerified={async (token) => {
+        onVerified={(token, expiresAt) => {
           setOtpModalVisible(false);
           setOtpSubtitle(undefined);
-          await applyProfileSave(pendingMobile, token);
+          setVerificationToken(token);
+          setVerificationExpiresAt(expiresAt);
         }}
       />
 
@@ -837,4 +885,5 @@ const styles = StyleSheet.create({
   errorText: { fontFamily: "Inter_400Regular", fontSize: 12, color: "#E53E3E", marginTop: 4 },
   pwInputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 12, paddingLeft: 14, paddingRight: 4 },
   pwInput: { flex: 1, paddingVertical: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  expiryBanner: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, marginBottom: 12 },
 });
