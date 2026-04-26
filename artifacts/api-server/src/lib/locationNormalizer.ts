@@ -1,4 +1,5 @@
-import { db, locationsTable } from "@workspace/db";
+import { asc } from "drizzle-orm";
+import { db, locationsTable, locationAliasesTable } from "@workspace/db";
 import { logger } from "./logger";
 
 interface LocationRow {
@@ -8,6 +9,11 @@ interface LocationRow {
   nameAr: string;
   parentId: string | null;
   type: "governorate" | "area" | "neighborhood";
+}
+
+interface AliasRow {
+  locationId: string;
+  alias: string;
 }
 
 let locationCache: LocationRow[] = [];
@@ -28,7 +34,9 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 let legacyAliasMap: Record<string, string> = {};
 
 /**
- * Builds the alias map in two ordered passes so key precedence is deterministic:
+ * Builds the alias map in two ordered passes so key precedence is deterministic,
+ * then overlays any DB-stored aliases on top (highest priority — these are
+ * curated by editors and should never be overridden by derived keys).
  *
  * Pass 1 — areas: registers city-part slug, city-part-spaced, nameEn, nameAr, full slug
  *   for each area row. Areas can share a plain name (e.g. "6th of October" appears in
@@ -39,8 +47,11 @@ let legacyAliasMap: Record<string, string> = {};
  *   bare gov name always resolves to the governorate slug when no type filter is applied.
  *   When an area slug is needed, the caller passes type="area" and the type-filtered
  *   fuzzy path is used instead of the alias map.
+ *
+ * Pass 3 — DB aliases: applies editor-curated Nominatim variant spellings last,
+ *   overriding any auto-derived keys with the same text.
  */
-function buildLegacyAliasMap(cache: LocationRow[]): Record<string, string> {
+function buildLegacyAliasMap(cache: LocationRow[], dbAliases: AliasRow[]): Record<string, string> {
   const map: Record<string, string> = {};
 
   const setKeys = (loc: LocationRow) => {
@@ -68,6 +79,28 @@ function buildLegacyAliasMap(cache: LocationRow[]): Record<string, string> {
     if (loc.type === "governorate") setKeys(loc);
   }
 
+  // Pass 3: overlay DB-stored aliases — curated variants win over auto-derived keys.
+  // Rows are pre-sorted by (location_id, alias) so iteration order is deterministic;
+  // if the same alias text exists for two different locations, the row with the
+  // lexicographically larger location_id wins (last-write in sort order). A warning
+  // is emitted so the collision is visible in production logs.
+  const slugByLocationId = new Map(cache.map((l) => [l.id, l.slug]));
+  for (const row of dbAliases) {
+    const targetSlug = slugByLocationId.get(row.locationId);
+    if (!targetSlug) continue;
+    const key = row.alias.toLowerCase().trim();
+    if (key) {
+      if (map[key] && map[key] !== targetSlug) {
+        logger.warn(
+          { alias: key, existingSlug: map[key], incomingSlug: targetSlug },
+          "Location alias collision: same alias text mapped to multiple locations; incoming location wins",
+        );
+      }
+      map[key] = targetSlug;
+      map[stripNoise(key)] = targetSlug;
+    }
+  }
+
   return map;
 }
 
@@ -76,8 +109,19 @@ export async function warmLocationCache(): Promise<void> {
     const rows = await db.select().from(locationsTable);
     locationCache = rows as LocationRow[];
     cacheLoadedAt = Date.now();
-    legacyAliasMap = buildLegacyAliasMap(locationCache);
-    logger.info({ count: locationCache.length }, "Location cache warmed");
+
+    let aliasRows: AliasRow[] = [];
+    try {
+      aliasRows = (await db
+        .select({ locationId: locationAliasesTable.locationId, alias: locationAliasesTable.alias })
+        .from(locationAliasesTable)
+        .orderBy(asc(locationAliasesTable.locationId), asc(locationAliasesTable.alias))) as AliasRow[];
+    } catch (aliasErr) {
+      logger.warn({ err: aliasErr }, "Failed to load location aliases — DB aliases will be skipped (base matching still active)");
+    }
+
+    legacyAliasMap = buildLegacyAliasMap(locationCache, aliasRows);
+    logger.info({ count: locationCache.length, aliases: aliasRows.length }, "Location cache warmed");
   } catch (err) {
     logger.warn({ err }, "Failed to warm location cache — slug matching will use raw values");
   }

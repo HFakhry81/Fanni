@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgEnum, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
 export const locationTypeEnum = pgEnum("location_type", [
   "governorate",
@@ -40,5 +40,30 @@ export const nominatimCacheTable = pgTable(
   ],
 );
 
+/**
+ * Stores alternate spellings (aliases) for locations so that uncommon Nominatim
+ * suburb/city names that don't appear in nameEn, nameAr, or slug can still be
+ * matched by the locationNormalizer alias map.
+ *
+ * Each row maps one alias string to one location. Aliases are case-folded to
+ * lowercase on insert so the alias map lookup (which is always lowercase) works.
+ */
+export const locationAliasesTable = pgTable(
+  "location_aliases",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    locationId: varchar("location_id").notNull().references(() => locationsTable.id, { onDelete: "cascade" }),
+    alias: varchar("alias", { length: 300 }).notNull(),
+    note: varchar("note", { length: 500 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+  },
+  (table) => [
+    uniqueIndex("uq_location_aliases_location_alias").on(table.locationId, table.alias),
+    index("IDX_location_aliases_location").on(table.locationId),
+    index("IDX_location_aliases_alias").on(table.alias),
+  ],
+);
+
 export type Location = typeof locationsTable.$inferSelect;
 export type NominatimCache = typeof nominatimCacheTable.$inferSelect;
+export type LocationAlias = typeof locationAliasesTable.$inferSelect;

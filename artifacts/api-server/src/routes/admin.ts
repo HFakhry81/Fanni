@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable } from "@workspace/db";
-import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
+import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable } from "@workspace/db";
+import { invalidateLocationCache } from "../lib/locationNormalizer";
+import { eq, desc, sql, and, or, ilike, gte, lte, asc, ne } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { verifyOtpToken } from "../lib/otp";
@@ -1112,6 +1113,175 @@ router.post(
     );
 
     res.json({ success: true, ...result });
+  },
+);
+
+// ─── ADMIN: Location Aliases ──────────────────────────────────────────────────
+
+// List aliases (optionally filtered by locationId)
+router.get(
+  "/admin/location-aliases",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const locationId = queryString(req.query.locationId);
+
+    const rows = await db
+      .select({
+        id: locationAliasesTable.id,
+        locationId: locationAliasesTable.locationId,
+        alias: locationAliasesTable.alias,
+        note: locationAliasesTable.note,
+        createdAt: locationAliasesTable.createdAt,
+        locationSlug: locationsTable.slug,
+        locationNameEn: locationsTable.nameEn,
+      })
+      .from(locationAliasesTable)
+      .innerJoin(locationsTable, eq(locationAliasesTable.locationId, locationsTable.id))
+      .where(locationId ? eq(locationAliasesTable.locationId, locationId) : undefined)
+      .orderBy(asc(locationsTable.slug), asc(locationAliasesTable.alias));
+
+    res.json({ aliases: rows });
+  },
+);
+
+// Create a new alias
+router.post(
+  "/admin/location-aliases",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const { locationId, alias, note } = req.body as {
+      locationId?: string;
+      alias?: string;
+      note?: string;
+    };
+
+    if (!locationId?.trim() || !alias?.trim()) {
+      res.status(400).json({ error: "locationId and alias are required" });
+      return;
+    }
+
+    const [location] = await db
+      .select({ id: locationsTable.id })
+      .from(locationsTable)
+      .where(eq(locationsTable.id, locationId.trim()));
+    if (!location) {
+      res.status(404).json({ error: "Location not found" });
+      return;
+    }
+
+    const normalizedAlias = alias.trim().toLowerCase();
+
+    // Check whether this alias text already exists for a *different* location.
+    // The unique constraint only prevents same-location duplicates; cross-location
+    // collisions are allowed but result in non-deterministic alias resolution.
+    const [collision] = await db
+      .select({ locationId: locationAliasesTable.locationId, locationSlug: locationsTable.slug })
+      .from(locationAliasesTable)
+      .innerJoin(locationsTable, eq(locationAliasesTable.locationId, locationsTable.id))
+      .where(and(eq(locationAliasesTable.alias, normalizedAlias), ne(locationAliasesTable.locationId, locationId.trim())));
+
+    let created: (typeof locationAliasesTable.$inferSelect) | undefined;
+    try {
+      [created] = await db
+        .insert(locationAliasesTable)
+        .values({ locationId: locationId.trim(), alias: normalizedAlias, note: note?.trim() ?? null })
+        .returning();
+    } catch (err: unknown) {
+      if ((err as { code?: string }).code === "23505") {
+        res.status(409).json({ error: "This alias already exists for the specified location" });
+        return;
+      }
+      throw err;
+    }
+
+    req.log.info({ adminId: req.user?.id, aliasId: created!.id, locationId, alias: normalizedAlias }, "Location alias created");
+    invalidateLocationCache();
+
+    const responseBody: Record<string, unknown> = { alias: created };
+    if (collision) {
+      responseBody.warning = `Alias "${normalizedAlias}" already exists for location "${collision.locationSlug}". Resolution is non-deterministic when the same alias is mapped to multiple locations.`;
+      req.log.warn({ adminId: req.user?.id, alias: normalizedAlias, conflictingLocationId: collision.locationId }, "Cross-location alias collision created");
+    }
+    res.status(201).json(responseBody);
+  },
+);
+
+// Update an existing alias
+router.patch(
+  "/admin/location-aliases/:id",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const id = String(req.params.id);
+    const { alias, note } = req.body as { alias?: string; note?: string };
+
+    if (!alias?.trim() && note === undefined) {
+      res.status(400).json({ error: "Provide at least one of alias or note to update" });
+      return;
+    }
+
+    const updates: Partial<{ alias: string; note: string | null }> = {};
+    if (alias?.trim()) updates.alias = alias.trim().toLowerCase();
+    if (note !== undefined) updates.note = note?.trim() || null;
+
+    let updated: (typeof locationAliasesTable.$inferSelect) | undefined;
+    try {
+      [updated] = await db
+        .update(locationAliasesTable)
+        .set(updates)
+        .where(eq(locationAliasesTable.id, id))
+        .returning();
+    } catch (err: unknown) {
+      if ((err as { code?: string }).code === "23505") {
+        res.status(409).json({ error: "This alias already exists for the specified location" });
+        return;
+      }
+      throw err;
+    }
+
+    if (!updated) {
+      res.status(404).json({ error: "Alias not found" });
+      return;
+    }
+
+    req.log.info({ adminId: req.user?.id, aliasId: id, updates }, "Location alias updated");
+    invalidateLocationCache();
+
+    res.json({ alias: updated });
+  },
+);
+
+// Delete an alias
+router.delete(
+  "/admin/location-aliases/:id",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const id = String(req.params.id);
+
+    const [deleted] = await db
+      .delete(locationAliasesTable)
+      .where(eq(locationAliasesTable.id, id))
+      .returning({ id: locationAliasesTable.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Alias not found" });
+      return;
+    }
+
+    req.log.info({ adminId: req.user?.id, aliasId: id }, "Location alias deleted");
+    invalidateLocationCache();
+
+    res.json({ success: true, deleted: id });
   },
 );
 
