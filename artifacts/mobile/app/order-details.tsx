@@ -27,6 +27,7 @@ import FanniButton from "@/components/FanniButton";
 import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
+import { useLocationLabels } from "@/hooks/useLocationLabels";
 
 export default function OrderDetailsScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -133,6 +134,8 @@ export default function OrderDetailsScreen() {
       t,
     });
   };
+
+  const { slugToName } = useLocationLabels();
 
   const isAdmin = appUser?.role === "admin";
   const isTechnician = appUser?.role === "technician";
@@ -344,14 +347,16 @@ export default function OrderDetailsScreen() {
             {t("order.schedule")}
           </Text>
           {[
+            [isRTL ? "المحافظة" : "Governorate", order.governorate ? slugToName(order.governorate, isRTL ? "ar" : "en") : null],
+            [isRTL ? "المنطقة" : "Area", order.area ? slugToName(order.area, isRTL ? "ar" : "en") : null],
             [t("order.street"), order.street],
             [t("order.building"), order.building],
             [t("order.floor"), order.floor],
             [t("order.apt"), order.apartment],
           ].filter(([, v]) => v).map(([label, value]) => (
-            <View key={label} style={[styles.detailRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-              <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 }}>{label}</Text>
-              <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>{value}</Text>
+            <View key={label as string} style={[styles.detailRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+              <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 }}>{label as string}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>{value as string}</Text>
             </View>
           ))}
         </View>

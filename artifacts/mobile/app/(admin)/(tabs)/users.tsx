@@ -24,6 +24,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+import { useLocationLabels } from "@/hooks/useLocationLabels";
 
 type UserTab = "technicians" | "clients" | "admins" | "permissions";
 type StatusFilter = "all" | "active" | "suspended";
@@ -94,6 +95,7 @@ export default function AdminUsersScreen() {
   const colors = useColors();
   const { t, isRTL } = useApp();
   const { sessionToken, user: currentUser } = useAuth();
+  const { slugToName } = useLocationLabels();
 
   const [tab, setTab] = useState<UserTab>("technicians");
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -762,7 +764,10 @@ export default function AdminUsersScreen() {
                 <Text style={{ color: colors.border, marginHorizontal: 6 }}>·</Text>
                 <VectorIcon name="map-pin" size={11} color={colors.mutedForeground} />
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: 4 }}>
-                  {[item.area, item.governorate].filter(Boolean).join(", ")}
+                  {[
+                    item.area ? slugToName(item.area, isRTL ? "ar" : "en") : null,
+                    item.governorate ? slugToName(item.governorate, isRTL ? "ar" : "en") : null,
+                  ].filter(Boolean).join(", ")}
                 </Text>
               </>
             ) : null}

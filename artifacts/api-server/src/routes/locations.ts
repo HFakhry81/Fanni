@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db, locationsTable, pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { matchLocation } from "../lib/locationNormalizer";
@@ -66,6 +66,27 @@ router.get("/locations/:govId/areas", async (req, res) => {
  *
  * Response: { governorateId: string | null, areaId: string | null }
  */
+router.get("/locations/all", async (_req, res) => {
+  try {
+    const rows = await db
+      .select({
+        id: locationsTable.id,
+        nameAr: locationsTable.nameAr,
+        nameEn: locationsTable.nameEn,
+        type: locationsTable.type,
+        parentId: locationsTable.parentId,
+      })
+      .from(locationsTable)
+      .where(or(eq(locationsTable.type, "governorate"), eq(locationsTable.type, "area")))
+      .orderBy(locationsTable.nameEn);
+
+    res.json({ locations: rows });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch all locations");
+    res.status(500).json({ error: "Failed to fetch locations" });
+  }
+});
+
 router.get("/locations/match", async (req, res) => {
   const suburbEn = (queryString(req.query.suburb_en) ?? queryString(req.query.suburb) ?? "").trim();
   const suburbAr = (queryString(req.query.suburb_ar) ?? "").trim();

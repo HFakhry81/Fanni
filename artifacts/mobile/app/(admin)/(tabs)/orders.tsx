@@ -8,6 +8,7 @@ import { useOrders } from "@/context/OrderContext";
 import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
+import { useLocationLabels } from "@/hooks/useLocationLabels";
 
 const DEFAULT_SERVICE_FEE_RATE = 15;
 const DEFAULT_VAT_RATE = 14;
@@ -17,6 +18,7 @@ export default function AdminOrdersScreen() {
   const colors = useColors();
   const { t, isRTL } = useApp();
   const { allOrders } = useOrders();
+  const { slugToName } = useLocationLabels();
   const [filter, setFilter] = useState<string>("all");
   const [expandedInvoices, setExpandedInvoices] = useState<Record<string, boolean>>({});
 
@@ -139,6 +141,18 @@ export default function AdminOrdersScreen() {
                   <View style={[styles.cardFoot, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <VectorIcon name="calendar" size={12} color={colors.mutedForeground} />
                     <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 4 }}>{item.visitDate} {item.visitTime}</Text>
+                    {(item.area || item.governorate) && (
+                      <>
+                        <Text style={{ color: colors.border, marginHorizontal: 6 }}>·</Text>
+                        <VectorIcon name="map-pin" size={12} color={colors.mutedForeground} />
+                        <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 4 }} numberOfLines={1}>
+                          {[
+                            item.area ? slugToName(item.area, isRTL ? "ar" : "en") : null,
+                            item.governorate ? slugToName(item.governorate, isRTL ? "ar" : "en") : null,
+                          ].filter(Boolean).join(", ")}
+                        </Text>
+                      </>
+                    )}
                   </View>
                 </TouchableOpacity>
 
