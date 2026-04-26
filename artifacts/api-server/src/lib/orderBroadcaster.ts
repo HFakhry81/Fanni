@@ -13,6 +13,20 @@ interface TechnicianMeta {
   categories?: string[];
   governorate?: string;
   area?: string;
+  currentLat?: number;
+  currentLon?: number;
+}
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6_371_000;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const dPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const dLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dPhi / 2) ** 2 +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function hasRoutingConstraints(meta: TechnicianMeta): boolean {
@@ -191,6 +205,17 @@ wss.on("connection", (ws: WebSocket) => {
           meta.area = msg.area.trim().toLowerCase();
         }
 
+        const parsedLat = parseFloat(String(msg.currentLat ?? ""));
+        const parsedLon = parseFloat(String(msg.currentLon ?? ""));
+        if (
+          !isNaN(parsedLat) && !isNaN(parsedLon) &&
+          parsedLat >= -90 && parsedLat <= 90 &&
+          parsedLon >= -180 && parsedLon <= 180
+        ) {
+          meta.currentLat = parsedLat;
+          meta.currentLon = parsedLon;
+        }
+
         clients.set(ws, meta);
 
         const techId = session.user.id;
@@ -199,7 +224,16 @@ wss.on("connection", (ws: WebSocket) => {
         technicianSockets.set(techId, techSet);
 
         const hasConstraints = hasRoutingConstraints(meta);
-        logger.info({ categories: meta.categories, governorate: meta.governorate, area: meta.area, hasConstraints }, "Technician registered with metadata");
+        logger.info(
+          {
+            categories: meta.categories,
+            governorate: meta.governorate,
+            area: meta.area,
+            hasConstraints,
+            hasLiveCoords: meta.currentLat != null,
+          },
+          "Technician registered with metadata",
+        );
 
         deliverPendingNotifications(session.user.id, ws).catch(() => {});
 
@@ -377,58 +411,113 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
         client.release();
       }
 
-      if (spatialRows.length > 0) {
-        const orderCategory = (o["category"] as string | undefined)?.toLowerCase();
-        let sent = 0;
-        let skipped = 0;
+      const orderCategory = (o["category"] as string | undefined)?.toLowerCase();
+      const notifiedTechIds = new Set<string>();
+      let sent = 0;
+      let skipped = 0;
 
-        for (const row of spatialRows) {
-          const sockets = technicianSockets.get(row.id);
-          if (!sockets) continue;
+      const dbTechIds = new Set(spatialRows.map((r) => r.id));
 
-          for (const ws of sockets) {
-            if (ws.readyState !== WebSocket.OPEN) continue;
-            const meta = clients.get(ws);
-            if (!meta?.registered || !meta.isAvailable) {
-              skipped++;
-              continue;
-            }
-            if (!hasRoutingConstraints(meta)) {
-              skipped++;
-              continue;
-            }
-            if (meta.categories && meta.categories.length > 0) {
-              if (!orderCategory || !meta.categories.includes(orderCategory)) {
-                skipped++;
-                continue;
-              }
-            }
-            ws.send(payload);
-            sent++;
+      const techsWithLiveCoords = new Set<string>();
+      for (const [techId, sockets] of technicianSockets) {
+        for (const ws of sockets) {
+          const m = clients.get(ws);
+          if (m?.currentLat != null && m.currentLon != null) {
+            techsWithLiveCoords.add(techId);
+            break;
           }
         }
+      }
 
-        logger.info(
-          {
-            connectedClients: clients.size,
-            spatialCandidates: spatialRows.length,
-            sent,
-            skipped,
-            lat,
-            lon,
-            radiusKm: radiusM / 1000,
-            orderCategory: o["category"],
-          },
-          "Routed new order to nearest technicians (spatial)"
-        );
+      for (const [techId, sockets] of technicianSockets) {
+        if (!techsWithLiveCoords.has(techId)) continue;
+        for (const ws of sockets) {
+          if (ws.readyState !== WebSocket.OPEN) continue;
+          const meta = clients.get(ws);
+          if (!meta?.registered || !meta.isAvailable) continue;
+          if (!hasRoutingConstraints(meta)) continue;
+          if (meta.currentLat == null || meta.currentLon == null) continue;
 
-        if (sent > 0) {
-          return;
+          const distM = haversineMeters(lat, lon, meta.currentLat, meta.currentLon);
+          if (distM > radiusM) continue;
+
+          if (meta.categories && meta.categories.length > 0) {
+            if (!orderCategory || !meta.categories.includes(orderCategory)) {
+              skipped++;
+              continue;
+            }
+          }
+
+          ws.send(payload);
+          notifiedTechIds.add(techId);
+          sent++;
+        }
+      }
+
+      for (const row of spatialRows) {
+        if (notifiedTechIds.has(row.id)) continue;
+        if (techsWithLiveCoords.has(row.id)) {
+          skipped++;
+          continue;
         }
 
+        const sockets = technicianSockets.get(row.id);
+        if (!sockets) continue;
+
+        for (const ws of sockets) {
+          if (ws.readyState !== WebSocket.OPEN) continue;
+          const meta = clients.get(ws);
+          if (!meta?.registered || !meta.isAvailable) {
+            skipped++;
+            continue;
+          }
+          if (!hasRoutingConstraints(meta)) {
+            skipped++;
+            continue;
+          }
+          if (meta.categories && meta.categories.length > 0) {
+            if (!orderCategory || !meta.categories.includes(orderCategory)) {
+              skipped++;
+              continue;
+            }
+          }
+          ws.send(payload);
+          notifiedTechIds.add(row.id);
+          sent++;
+        }
+      }
+
+      const liveCoordCount = [...technicianSockets.values()].reduce((acc, socks) => {
+        for (const ws of socks) {
+          const m = clients.get(ws);
+          if (m?.currentLat != null) return acc + 1;
+        }
+        return acc;
+      }, 0);
+
+      logger.info(
+        {
+          connectedClients: clients.size,
+          dbSpatialCandidates: dbTechIds.size,
+          liveCoordCandidates: liveCoordCount,
+          sent,
+          skipped,
+          lat,
+          lon,
+          radiusKm: radiusM / 1000,
+          orderCategory: o["category"],
+        },
+        "Routed new order to nearest technicians (spatial)"
+      );
+
+      if (sent > 0) {
+        return;
+      }
+
+      if (dbTechIds.size > 0 || liveCoordCount > 0) {
         logger.info(
-          { spatialCandidates: spatialRows.length, lat, lon },
-          "Spatial candidates found but none were connected — falling back to text-based matching"
+          { dbSpatialCandidates: dbTechIds.size, liveCoordCandidates: liveCoordCount, lat, lon },
+          "Spatial candidates found but none were connected/matched — falling back to text-based matching"
         );
       } else {
         logger.info({ lat, lon, radiusKm: BROADCAST_RADIUS_KM }, "No spatially-indexed technicians within radius — falling back to text-based matching");

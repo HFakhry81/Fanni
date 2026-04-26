@@ -6,6 +6,8 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Platform } from "react-native";
+import * as Location from "expo-location";
 import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
 
@@ -38,7 +40,35 @@ function getWsUrl(): string {
   return `wss://${domain}/api/ws`;
 }
 
-function buildRegisterMessage(user: User | null, sessionToken: string | null, isOnline: boolean): string {
+async function getCurrentCoords(): Promise<{ lat: number; lon: number } | null> {
+  try {
+    if (Platform.OS === "web") {
+      return await new Promise((resolve) => {
+        if (!navigator?.geolocation) { resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+          () => resolve(null),
+          { timeout: 5000, maximumAge: 60_000 },
+        );
+      });
+    }
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") return null;
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return { lat: pos.coords.latitude, lon: pos.coords.longitude };
+  } catch {
+    return null;
+  }
+}
+
+function buildRegisterMessage(
+  user: User | null,
+  sessionToken: string | null,
+  isOnline: boolean,
+  currentCoords?: { lat: number; lon: number } | null,
+): string {
   const payload: Record<string, unknown> = { type: "register", isAvailable: isOnline };
 
   if (sessionToken) {
@@ -60,6 +90,11 @@ function buildRegisterMessage(user: User | null, sessionToken: string | null, is
 
   if (user?.area) {
     payload.area = user.area.toLowerCase();
+  }
+
+  if (currentCoords) {
+    payload.currentLat = currentCoords.lat;
+    payload.currentLon = currentCoords.lon;
   }
 
   return JSON.stringify(payload);
@@ -147,7 +182,11 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
         }
         hasConnectedRef.current = true;
         if (mountedRef.current) setIsWsConnected(true);
-        ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current, isOnlineRef.current));
+        getCurrentCoords().then((coords) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current, isOnlineRef.current, coords));
+          }
+        });
       };
 
       ws.onmessage = (event) => {
@@ -219,7 +258,11 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     authRejectedRef.current = false;
-    ws.send(buildRegisterMessage(user, sessionTokenRef.current, isOnline));
+    getCurrentCoords().then((coords) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(buildRegisterMessage(user, sessionTokenRef.current, isOnline, coords));
+      }
+    });
   }, [user?.id, user?.profession, user?.serviceCategories, user?.governorate, user?.area, isOnline]);
 
   const subscribeNewOrder = useCallback((cb: NewOrderSubscriber) => {
