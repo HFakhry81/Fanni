@@ -299,11 +299,7 @@ export default function TechProfileScreen() {
     }
 
     setEditSaveLoading(true);
-    const result = await saveProfile(body, {
-      address: editStreet.trim(),
-      serviceStart: editServiceStart.trim(),
-      serviceEnd: editServiceEnd.trim(),
-    }).finally(() => {
+    const result = await saveProfile(body).finally(() => {
       setEditSaveLoading(false);
     });
 

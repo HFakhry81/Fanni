@@ -1,12 +1,5 @@
 import { useCallback } from "react";
-import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
-
-export interface LocalProfileFields {
-  address?: string;
-  serviceStart?: string;
-  serviceEnd?: string;
-}
 
 export interface SaveProfileResult {
   ok: boolean;
@@ -19,13 +12,11 @@ function getApiBase(): string {
 }
 
 export function useSaveProfile() {
-  const { user, setUser } = useApp();
   const { refreshUser, sessionToken } = useAuth();
 
   const saveProfile = useCallback(
     async (
       patchBody: Record<string, unknown>,
-      localFields: LocalProfileFields = {}
     ): Promise<SaveProfileResult> => {
       const apiBase = getApiBase();
 
@@ -52,15 +43,11 @@ export function useSaveProfile() {
         return { ok: false, error: data.error };
       }
 
-      if (user && Object.keys(localFields).length > 0) {
-        await setUser({ ...user, ...localFields });
-      }
-
       await refreshUser();
 
       return { ok: true };
     },
-    [user, setUser, refreshUser, sessionToken]
+    [refreshUser, sessionToken]
   );
 
   return { saveProfile };
