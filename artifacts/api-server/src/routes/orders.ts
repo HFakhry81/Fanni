@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { sql, desc, eq, and, inArray } from "drizzle-orm";
+import { sql, desc, eq, and, inArray, not } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
 import { db, ordersTable, invoicesTable, pool, usersTable } from "@workspace/db";
@@ -915,6 +915,12 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Requ
   const id = req.params.id;
   const user = req.user!;
   try {
+    if (user.role === "technician") {
+      res.status(403).json({ error: "Technicians cannot cancel orders" });
+      return;
+    }
+
+    // Pre-flight read for clear error messages (not relied upon for security).
     const [order] = await db
       .select({ clientId: ordersTable.clientId, status: ordersTable.status })
       .from(ordersTable)
@@ -939,19 +945,22 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Requ
         res.status(400).json({ error: "Order is already in a terminal state" });
         return;
       }
-    } else {
-      res.status(403).json({ error: "Technicians cannot cancel orders" });
-      return;
     }
+
+    // Atomic update: conditions re-enforced in WHERE to close the TOCTOU window.
+    const atomicWhere = user.role === "client"
+      ? and(eq(ordersTable.id, id), eq(ordersTable.clientId, user.id), eq(ordersTable.status, "pending"))
+      : and(eq(ordersTable.id, id), not(inArray(ordersTable.status, ["completed", "cancelled"])));
 
     const [updated] = await db
       .update(ordersTable)
       .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
-      .where(eq(ordersTable.id, id))
+      .where(atomicWhere)
       .returning({ clientId: ordersTable.clientId });
 
     if (!updated) {
-      res.status(404).json({ error: "Order not found" });
+      // Order status changed between the pre-flight check and the update.
+      res.status(409).json({ error: "Order could not be cancelled — its status may have changed" });
       return;
     }
 
