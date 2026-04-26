@@ -68,6 +68,9 @@ export default function AvailableOrdersScreen() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const isFocusedRef = useRef(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const fetchOrders = useCallback(async (isRefresh = false, silent = false) => {
     const apiBase = getApiBaseUrl();
     if (!apiBase || !sessionToken) {
@@ -95,7 +98,7 @@ export default function AvailableOrdersScreen() {
       const json = await res.json() as { orders: PendingOrder[]; meta?: { total: number } };
       const fetched = json.orders ?? [];
       setOrders(fetched);
-      setAvailablePendingCount(json.meta?.total ?? fetched.length);
+      setAvailablePendingCount(isFocusedRef.current ? 0 : (json.meta?.total ?? fetched.length));
     } catch (err) {
       console.warn("[Fanni] Failed to fetch pending orders:", err);
       setError(isRTL ? "تعذّر تحميل الطلبات المتاحة" : "Could not load available orders");
@@ -105,12 +108,10 @@ export default function AvailableOrdersScreen() {
     }
   }, [sessionToken, isRTL]);
 
-  const isFocusedRef = useRef(false);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
+      setAvailablePendingCount(0);
       fetchOrders();
       pollTimerRef.current = setInterval(() => {
         if (isFocusedRef.current) {
@@ -150,7 +151,7 @@ export default function AvailableOrdersScreen() {
     setOrders((prev) => {
       const next = prev.filter((o) => o.id !== orderId);
       if (next.length !== prev.length) {
-        setAvailablePendingCount(next.length);
+        setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
       }
       return next;
     });
@@ -187,7 +188,7 @@ export default function AvailableOrdersScreen() {
           });
           setOrders((prev) => {
             const next = prev.filter((o) => o.id !== order.id);
-            setAvailablePendingCount(next.length);
+            setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
             return next;
           });
           router.push("/(tech)/orders");
