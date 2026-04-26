@@ -11,6 +11,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "pnpm --filter @workspace/db --filter @workspace/api-zod build && tsc -p tsconfig.json --noEmit",
     "normalize-areas": "pnpm --filter @workspace/db build && tsx src/scripts/normalizeOrderAreas.ts",
+    "check-areas": "pnpm --filter @workspace/db build && tsx src/scripts/checkAreaHealth.ts",
     "backfill-locations": "pnpm --filter @workspace/db build && tsx migrations/010-backfill-user-locations.ts",
     "backfill-centroids": "pnpm --filter @workspace/db build && tsx migrations/013-backfill-location-centroids.ts",
     "test": "vitest run"
