@@ -238,7 +238,7 @@ function useDemoOrderBroadcast() {
     if (injectedRef.current) return;
     timerRef.current = setTimeout(() => {
       injectedRef.current = true;
-      injectNewOrder(buildSimulatedOrder(user?.serviceCategories));
+      injectNewOrder(buildSimulatedOrder(user?.serviceCategories ?? []));
     }, DEMO_ORDER_DELAY_MS);
     return () => {
       if (timerRef.current) {

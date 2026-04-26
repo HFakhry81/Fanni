@@ -318,8 +318,10 @@ export function buildSimulatedOrder(serviceCategories?: string[]): Order {
   const content = SIMULATED_ORDER_CATEGORY_CONTENT[resolvedCategory]!;
   const category = resolvedCategory;
 
+  const uniqueId = `ord_sim_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+
   return {
-    id: "ord_sim001",
+    id: uniqueId,
     orderNumber: "ORD-2025-004",
     clientId: "client3",
     clientName: "سارة إبراهيم",
