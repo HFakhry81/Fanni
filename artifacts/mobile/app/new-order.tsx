@@ -157,6 +157,7 @@ export default function NewOrderScreen() {
 
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [lightboxOpened, setLightboxOpened] = useState(false);
   const [photoLightboxVisible, setPhotoLightboxVisible] = useState(false);
   const [photoLightboxUri, setPhotoLightboxUri] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
@@ -859,7 +860,7 @@ export default function NewOrderScreen() {
       {/* Service preview banner */}
       {bannerImage && (
         <>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => setLightboxVisible(true)}>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => { setLightboxVisible(true); setLightboxOpened(true); }}>
             <ImageBackground
               source={bannerImage}
               style={styles.banner}
@@ -873,6 +874,11 @@ export default function NewOrderScreen() {
                   {subCategory}
                 </Text>
               </LinearGradient>
+              {!lightboxOpened && (
+                <View style={styles.bannerHint}>
+                  <VectorIcon name="maximize-2" size={14} color="#FFFFFF" />
+                </View>
+              )}
             </ImageBackground>
           </TouchableOpacity>
           <ImageLightbox
@@ -987,6 +993,7 @@ const styles = StyleSheet.create({
   banner:         { width: "100%", height: 160 },
   bannerGradient: { flex: 1, justifyContent: "flex-end", paddingHorizontal: 18, paddingBottom: 14 },
   bannerLabel:    { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 18 },
+  bannerHint:     { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 8, padding: 6 },
   stepsRow: { paddingHorizontal: 16, paddingVertical: 12, alignItems: "center", justifyContent: "space-between" },
   stepItem: { flex: 1, alignItems: "center" },
   stepDot: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
