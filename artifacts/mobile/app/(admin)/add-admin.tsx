@@ -77,6 +77,13 @@ export default function AddAdminScreen() {
     return () => clearInterval(id);
   }, [otpCountdown]);
 
+  // If OTP becomes disabled mid-session while the OTP screen is open, auto-exit it
+  useEffect(() => {
+    if (otpMode && !otpRequired) {
+      setOtpMode(false);
+    }
+  }, [otpRequired, otpMode]);
+
   const normalizedMobile = useCallback((): string => {
     const d = mobile.trim().replace(/\s|-/g, "");
     const m = d.match(EGYPT_MOBILE_RE);
@@ -84,6 +91,11 @@ export default function AddAdminScreen() {
   }, [mobile]);
 
   const sendOtp = useCallback(async () => {
+    // Re-fetch config so the OTP requirement reflects any mid-session server change
+    try {
+      const cfg = await fetch(`${getApiBase()}/api/config`).then((r) => r.json()) as { otpEnabled?: boolean };
+      setOtpRequired(!!cfg.otpEnabled);
+    } catch { /* keep current value on network error */ }
     setOtpSending(true);
     setOtpError("");
     try {
@@ -247,6 +259,17 @@ export default function AddAdminScreen() {
 
   const handleSubmit = async () => {
     if (!validate()) return;
+    // Re-fetch config before starting — skip OTP entirely when it's not required
+    let requiresOtp = otpRequired;
+    try {
+      const cfg = await fetch(`${getApiBase()}/api/config`).then((r) => r.json()) as { otpEnabled?: boolean };
+      requiresOtp = !!cfg.otpEnabled;
+      setOtpRequired(requiresOtp);
+    } catch { /* keep current value on network error */ }
+    if (!requiresOtp) {
+      await doCreateAdmin(undefined);
+      return;
+    }
     setOtpDigits(Array(OTP_LENGTH).fill(""));
     setOtpError("");
     setOtpMode(true);

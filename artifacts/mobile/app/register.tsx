@@ -113,6 +113,14 @@ export default function RegisterScreen() {
     return () => clearInterval(id);
   }, [otpCountdown]);
 
+  // If OTP becomes disabled mid-session while the OTP screen is open, auto-advance past it
+  useEffect(() => {
+    if (otpMode && !otpRequired) {
+      setOtpMode(false);
+      setStep(2);
+    }
+  }, [otpRequired, otpMode]);
+
   const normalizedMobile = useCallback((): string => {
     const mobileDigits = mobile.trim().replace(/\s|-/g, "");
     const m = mobileDigits.match(EGYPT_MOBILE_RE);
@@ -120,6 +128,11 @@ export default function RegisterScreen() {
   }, [mobile]);
 
   const sendOtp = useCallback(async () => {
+    // Re-fetch config so the OTP requirement reflects any mid-session server change
+    try {
+      const cfg = await fetch(`${getApiBase()}/api/config`).then((r) => r.json()) as { otpEnabled?: boolean };
+      setOtpRequired(!!cfg.otpEnabled);
+    } catch { /* keep current value on network error */ }
     setOtpSending(true);
     setOtpError("");
     try {
@@ -382,6 +395,21 @@ export default function RegisterScreen() {
     } else {
       setApiError("");
       setLoading(true);
+      // Re-check OTP setting before submitting — it may have changed mid-session
+      try {
+        const cfg = await fetch(`${getApiBase()}/api/config`).then((r) => r.json()) as { otpEnabled?: boolean };
+        const nowRequired = !!cfg.otpEnabled;
+        setOtpRequired(nowRequired);
+        if (nowRequired && !verificationToken) {
+          // OTP became required — redirect user through OTP before registration
+          setLoading(false);
+          setOtpDigits(Array(OTP_LENGTH).fill(""));
+          setOtpError("");
+          setOtpMode(true);
+          await sendOtp();
+          return;
+        }
+      } catch { /* keep current state on network error */ }
       try {
         const apiBase = getApiBase();
         const res = await fetch(`${apiBase}/api/auth/register`, {
