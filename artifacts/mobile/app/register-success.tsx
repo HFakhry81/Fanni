@@ -1,11 +1,22 @@
 import React from "react";
-import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity, Image, ImageSourcePropType } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import FanniButton from "@/components/FanniButton";
+
+const CATEGORY_IMAGES: Record<string, ImageSourcePropType> = {
+  electricity: require("@/assets/images/icon_electricity.webp"),
+  plumbing:    require("@/assets/images/icon_plumbing.webp"),
+  ac:          require("@/assets/images/icon_ac.webp"),
+  carpentry:   require("@/assets/images/icon_carpentry.webp"),
+  appliances:  require("@/assets/images/icon_appliances.webp"),
+  painting:    require("@/assets/images/icon_painting.webp"),
+  pest:        require("@/assets/images/icon_pest.webp"),
+  flooring:    require("@/assets/images/icon_flooring.webp"),
+};
 
 export default function RegisterSuccessScreen() {
   const router = useRouter();
@@ -113,6 +124,13 @@ export default function RegisterSuccessScreen() {
                       key={key}
                       style={[styles.chip, { backgroundColor: colors.primary + "22", borderColor: colors.primary }]}
                     >
+                      {CATEGORY_IMAGES[key] ? (
+                        <Image
+                          source={CATEGORY_IMAGES[key]}
+                          style={styles.chipIcon}
+                          resizeMode="cover"
+                        />
+                      ) : null}
                       <Text
                         style={[styles.chipText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}
                       >
@@ -196,10 +214,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderRadius: 20,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  chipIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
   chipText: { fontSize: 13 },
   nudgeRow: {
