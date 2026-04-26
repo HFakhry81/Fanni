@@ -244,6 +244,18 @@ router.get("/technicians/available", authMiddleware, requireAuth, async (req, re
   res.json({ technicians, spatialFilter: false, governorateFilter: govFilter, areaFilter });
 });
 
+/** Haversine distance in metres between two lat/lon points. */
+function haversineMetres(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
   if (user.role !== "technician") {
@@ -252,16 +264,46 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
   }
 
   try {
-    const techRow = await db
-      .select({
-        serviceCategories: usersTable.serviceCategories,
-        governorate: usersTable.governorate,
-        area: usersTable.area,
-      })
-      .from(usersTable)
-      .where(eq(usersTable.id, user.id))
-      .limit(1)
-      .then((rows) => rows[0] ?? null);
+    // Fetch technician profile including their stored location coordinates.
+    const client = await pool.connect();
+    let techRow: {
+      serviceCategories: unknown;
+      governorate: string | null;
+      area: string | null;
+      techLat: number | null;
+      techLon: number | null;
+    } | null = null;
+    try {
+      const { rows } = await client.query<{
+        service_categories: unknown;
+        governorate: string | null;
+        area: string | null;
+        tech_lat: number | null;
+        tech_lon: number | null;
+      }>(
+        `SELECT
+           service_categories,
+           governorate,
+           area,
+           ST_Y(location::geometry) AS tech_lat,
+           ST_X(location::geometry) AS tech_lon
+         FROM users
+         WHERE id = $1
+         LIMIT 1`,
+        [user.id],
+      );
+      if (rows[0]) {
+        techRow = {
+          serviceCategories: rows[0].service_categories,
+          governorate: rows[0].governorate,
+          area: rows[0].area,
+          techLat: rows[0].tech_lat,
+          techLon: rows[0].tech_lon,
+        };
+      }
+    } finally {
+      client.release();
+    }
 
     if (!techRow) {
       res.status(404).json({ error: "Technician profile not found" });
@@ -282,6 +324,8 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     const techCategories: string[] = (techRow.serviceCategories as string[] | null) ?? [];
     const techGov = techRow.governorate ?? null;
     const techArea = techRow.area ?? null;
+    const techLat = techRow.techLat;
+    const techLon = techRow.techLon;
 
     const matchPromises = pendingRows.map(async (row) => {
       if (techCategories.length > 0) {
@@ -297,6 +341,14 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
         if (!areaMatch) return null;
       }
       const data = row.data as Record<string, unknown>;
+      const orderLat = typeof data.latitude === "number" ? data.latitude : null;
+      const orderLon = typeof data.longitude === "number" ? data.longitude : null;
+
+      let distanceM: number | null = null;
+      if (orderLat !== null && orderLon !== null && techLat !== null && techLon !== null) {
+        distanceM = Math.round(haversineMetres(techLat, techLon, orderLat, orderLon));
+      }
+
       return {
         id: row.id,
         orderNumber: row.orderNumber,
@@ -314,13 +366,24 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
         visitTime: data.visitTime ?? null,
         problemDescription: data.problemDescription ?? null,
         deviceType: data.deviceType ?? null,
-        latitude: data.latitude ?? null,
-        longitude: data.longitude ?? null,
+        latitude: orderLat,
+        longitude: orderLon,
+        distanceM,
         createdAt: row.createdAt,
       };
     });
 
-    const allMatched = (await Promise.all(matchPromises)).filter(Boolean);
+    type MatchedOrder = Exclude<Awaited<(typeof matchPromises)[0]>, null>;
+    const allMatched = (await Promise.all(matchPromises)).filter((o): o is MatchedOrder => o !== null);
+
+    // Sort by distance ascending; orders without distance fall to the end.
+    allMatched.sort((a, b) => {
+      if (a.distanceM === null && b.distanceM === null) return 0;
+      if (a.distanceM === null) return 1;
+      if (b.distanceM === null) return -1;
+      return a.distanceM - b.distanceM;
+    });
+
     const total = allMatched.length;
     const totalPages = Math.ceil(total / limit);
     const offset = (page - 1) * limit;
