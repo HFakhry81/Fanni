@@ -129,6 +129,12 @@ export default function TechMapScreen() {
           return true;
         })
       : newPendingOrders;
+    const areaFilteredIds = new Set(areaFiltered.map((o) => o.id));
+    newPendingOrders.forEach((o) => {
+      if (!areaFilteredIds.has(o.id)) {
+        markOrderSeen(o.id);
+      }
+    });
     const unshown = areaFiltered.filter((o) => !autoShownRef.current.has(o.id));
     if (unshown.length === 0) return;
     if (modalVisible) return;
@@ -137,7 +143,7 @@ export default function TechMapScreen() {
     setSelectedOrder(order);
     setModalVisible(true);
     fetchServerPendingOrders();
-  }, [newPendingOrders, modalVisible, isOnline, hasServiceArea, user?.governorate, user?.area]);
+  }, [newPendingOrders, modalVisible, isOnline, hasServiceArea, user?.governorate, user?.area]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAccept = async () => {
     if (!selectedOrder) return;
