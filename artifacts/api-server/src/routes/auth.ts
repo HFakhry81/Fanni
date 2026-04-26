@@ -1139,14 +1139,17 @@ router.post("/auth/resend-welcome", authMiddleware, requireAuth, async (req: Req
 
   let delivered = false;
   let channel: "email" | "sms" | null = null;
+  const attemptedChannels: string[] = [];
 
   if (email) {
+    attemptedChannels.push("email");
     const emailSent = await sendWelcomeEmail({ to: email, name, role });
     if (emailSent) {
       delivered = true;
       channel = "email";
     } else if (mobile) {
       req.log.warn({ userId }, "Resend welcome: email failed — falling back to SMS");
+      attemptedChannels.push("sms");
       const smsSent = await sendWelcomeSms({ to: mobile, name, role });
       if (smsSent) {
         delivered = true;
@@ -1154,11 +1157,21 @@ router.post("/auth/resend-welcome", authMiddleware, requireAuth, async (req: Req
       }
     }
   } else if (mobile) {
+    attemptedChannels.push("sms");
     const smsSent = await sendWelcomeSms({ to: mobile, name, role });
     if (smsSent) {
       delivered = true;
       channel = "sms";
     }
+  }
+
+  if (!delivered) {
+    req.log.warn(
+      { userId, attemptedChannels },
+      "Resend welcome: delivery failed on all attempted channels — user did not receive welcome message"
+    );
+    res.status(503).json({ error: "Could not deliver the welcome message. Please try again later." });
+    return;
   }
 
   req.log.info({ userId, delivered, channel }, "Resend welcome");
