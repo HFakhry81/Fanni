@@ -461,8 +461,13 @@ export default function LocationPicker({
 
   const autoFillOpacity = useRef(new Animated.Value(0)).current;
   const [autoFillVisible, setAutoFillVisible] = useState(false);
+  const [autoFillMessage, setAutoFillMessage] = useState<{ en: string; ar: string }>({
+    en: "Location auto-filled from map pin",
+    ar: "تم تعبئة الموقع تلقائياً من الخريطة",
+  });
 
-  const showAutoFillBanner = useCallback(() => {
+  const showAutoFillBanner = useCallback((msg?: { en: string; ar: string }) => {
+    if (msg) setAutoFillMessage(msg);
     autoFillOpacity.stopAnimation();
     autoFillOpacity.setValue(0);
     setAutoFillVisible(true);
@@ -527,8 +532,10 @@ export default function LocationPicker({
     setShowMapPicker(false);
     onCoordsChange?.(loc.latitude, loc.longitude);
 
+    let streetFilled = false;
     if (loc.street && !street) {
       onStreetChange(loc.street);
+      streetFilled = true;
     }
 
     const cityEn = loc.cityEn ?? "";
@@ -622,7 +629,15 @@ export default function LocationPicker({
     }
 
     if (anyFilled) {
-      showAutoFillBanner();
+      showAutoFillBanner({
+        en: "Location auto-filled from map pin",
+        ar: "تم تعبئة الموقع تلقائياً من الخريطة",
+      });
+    } else if (streetFilled) {
+      showAutoFillBanner({
+        en: "Street auto-filled from map pin",
+        ar: "تم تعبئة اسم الشارع تلقائياً من الخريطة",
+      });
     }
   };
 
@@ -662,7 +677,7 @@ export default function LocationPicker({
         >
           <VectorIcon name="check-circle" size={14} color={colors.primary} />
           <Text style={[styles.autoFillText, { color: colors.primary, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }]}>
-            {isRTL ? "تم تعبئة الموقع تلقائياً من الخريطة" : "Location auto-filled from map pin"}
+            {isRTL ? autoFillMessage.ar : autoFillMessage.en}
           </Text>
         </Animated.View>
       )}
