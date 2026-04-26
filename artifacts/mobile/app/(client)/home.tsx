@@ -252,26 +252,6 @@ export default function ClientHomeScreen() {
           </View>
         )}
 
-        {/* Browse technicians */}
-        <TouchableOpacity
-          style={[styles.browseBanner, { backgroundColor: colors.darkMid, borderRadius: colors.radius, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row" }]}
-          activeOpacity={0.85}
-          onPress={() => router.push("/(client)/browse-technicians")}
-        >
-          <View style={[styles.browseBannerIcon, { backgroundColor: "rgba(245,166,35,0.15)" }]}>
-            <VectorIcon name="users" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
-            <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
-              {isRTL ? "تصفح الفنيين" : "Browse Technicians"}
-            </Text>
-            <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
-              {isRTL ? "ابحث وصفّ حسب التخصص" : "Search & filter by specialty"}
-            </Text>
-          </View>
-          <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.primary} />
-        </TouchableOpacity>
-
         {/* Quick access */}
         <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginTop: 4 }]}>
           {isRTL ? "وصول سريع" : "Quick Access"}
@@ -331,6 +311,4 @@ const styles = StyleSheet.create({
   quickRow:         { gap: 10, marginBottom: 24 },
   quickCard:        { flex: 1, paddingVertical: 16, alignItems: "center" },
   quickIcon:        { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  browseBanner:     { flexDirection: "row", alignItems: "center", padding: 16, marginBottom: 20, borderWidth: 1.5 },
-  browseBannerIcon: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
 });

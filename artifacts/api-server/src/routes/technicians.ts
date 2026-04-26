@@ -138,6 +138,10 @@ router.get("/technician/notifications", authMiddleware, requireAuth, async (req,
 });
 
 router.get("/technicians/available", authMiddleware, requireAuth, async (req, res) => {
+  if (req.user?.role === "client") {
+    res.status(403).json({ error: "Clients cannot browse technician availability" });
+    return;
+  }
   const lat = queryFloat(req.query.lat);
   const lon = queryFloat(req.query.lon);
   const radiusKmRaw = queryFloat(req.query.radiusKm);
