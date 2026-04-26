@@ -99,6 +99,20 @@ export default function AdminUsersScreen() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
+  interface AuditLogEntry {
+    id: number;
+    changedById: string;
+    changedByName: string;
+    changedByRole: string;
+    oldValue: boolean;
+    newValue: boolean;
+    createdAt: string;
+  }
+  const [auditTarget, setAuditTarget] = useState<ApiUser | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
+
   // Permissions tab state
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [adminsList, setAdminsList] = useState<{ id: string; name: string; email: string | null; permissions: string[] }[]>([]);
@@ -345,6 +359,36 @@ export default function AdminUsersScreen() {
     setResetError(null);
   }, []);
 
+  const openAuditModal = useCallback(async (user: ApiUser) => {
+    if (!sessionToken) return;
+    setAuditTarget(user);
+    setAuditLogs([]);
+    setAuditError(null);
+    setAuditLoading(true);
+    try {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/admin/technicians/${user.id}/availability-log`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json() as { logs: AuditLogEntry[] };
+      setAuditLogs(data.logs);
+    } catch (err) {
+      setAuditError(err instanceof Error ? err.message : "Failed to load audit log");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [sessionToken]);
+
+  const closeAuditModal = useCallback(() => {
+    setAuditTarget(null);
+    setAuditLogs([]);
+    setAuditError(null);
+  }, []);
+
   const submitPasswordReset = useCallback(async () => {
     if (!resetTarget || !sessionToken) return;
     if (!resetPassword.trim()) {
@@ -573,6 +617,17 @@ export default function AdminUsersScreen() {
                 <VectorIcon name={isAvailable ? "wifi-off" : "wifi"} size={14} color="#0284C7" />
                 <Text style={{ color: "#0284C7", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 4 }}>
                   {isAvailable ? (isRTL ? "إيقاف التواجد" : "Set Offline") : (isRTL ? "تفعيل التواجد" : "Set Online")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {isTechnician ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: "#F5F3FF", borderRadius: colors.radius - 4, flex: 0, paddingHorizontal: 12 }]}
+                onPress={() => openAuditModal(item)}
+              >
+                <VectorIcon name="clock" size={14} color="#7C3AED" />
+                <Text style={{ color: "#7C3AED", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 4 }}>
+                  {isRTL ? "السجل" : "Log"}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -850,6 +905,109 @@ export default function AdminUsersScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={auditTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAuditModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderRadius: colors.radius, maxHeight: "80%" }]}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between" }]}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
+                <VectorIcon name="clock" size={18} color="#7C3AED" />
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                  {isRTL ? "سجل التواجد" : "Availability Log"}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={closeAuditModal} style={{ padding: 4 }}>
+                <VectorIcon name="x" size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            {auditTarget ? (
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL
+                  ? `آخر تغييرات التواجد لـ ${auditTarget.firstName ?? "الفني"}`
+                  : `Recent availability changes for ${auditTarget.firstName ?? "this technician"}`}
+              </Text>
+            ) : null}
+            {auditLoading ? (
+              <View style={{ alignItems: "center", paddingVertical: 32 }}>
+                <ActivityIndicator size="large" color="#7C3AED" />
+              </View>
+            ) : auditError ? (
+              <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                <VectorIcon name="alert-circle" size={32} color={colors.destructive} />
+                <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 8, textAlign: "center" }}>
+                  {auditError}
+                </Text>
+              </View>
+            ) : auditLogs.length === 0 ? (
+              <View style={{ alignItems: "center", paddingVertical: 32 }}>
+                <VectorIcon name="inbox" size={36} color={colors.border} />
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 10, textAlign: "center" }}>
+                  {isRTL ? "لا توجد تغييرات مسجلة بعد" : "No changes recorded yet"}
+                </Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+                {auditLogs.map((entry, idx) => {
+                  const isFirst = idx === 0;
+                  const changedToAvailable = entry.newValue;
+                  const dot = changedToAvailable ? "#22A36B" : "#EF4444";
+                  const oldLabel = entry.oldValue ? (isRTL ? "متاح" : "Available") : (isRTL ? "غير متاح" : "Unavailable");
+                  const newLabel = entry.newValue ? (isRTL ? "متاح" : "Available") : (isRTL ? "غير متاح" : "Unavailable");
+                  const label = isRTL ? `${oldLabel} → ${newLabel}` : `${oldLabel} → ${newLabel}`;
+                  const byLabel = entry.changedByRole === "admin"
+                    ? (isRTL ? "بواسطة مدير" : "by admin")
+                    : (isRTL ? "بواسطة الفني" : "by technician");
+                  let dateStr = "";
+                  try {
+                    dateStr = new Date(entry.createdAt).toLocaleString(isRTL ? "ar-EG" : "en-GB", {
+                      year: "numeric", month: "short", day: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    });
+                  } catch { dateStr = entry.createdAt; }
+                  return (
+                    <View
+                      key={entry.id}
+                      style={{
+                        flexDirection: isRTL ? "row-reverse" : "row",
+                        alignItems: "flex-start",
+                        paddingVertical: 10,
+                        borderTopWidth: isFirst ? 0 : 1,
+                        borderTopColor: colors.border,
+                      }}
+                    >
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dot, marginTop: 3, marginRight: isRTL ? 0 : 10, marginLeft: isRTL ? 10 : 0 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+                          {label}
+                        </Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: isRTL ? "right" : "left" }}>
+                          {entry.changedByName} · {byLabel}
+                        </Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+                          {dateStr}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: colors.muted, borderRadius: colors.radius - 4, marginTop: 16 }]}
+              onPress={closeAuditModal}
+            >
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                {isRTL ? "إغلاق" : "Close"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {isLoading ? (

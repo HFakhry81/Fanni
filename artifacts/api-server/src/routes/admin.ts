@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable } from "@workspace/db";
+import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable } from "@workspace/db";
 import { eq, desc, sql, and, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -946,5 +946,74 @@ router.get("/admin/reports/annual", authMiddleware, requireAuth, requireAdmin, r
 
   res.json({ years });
 });
+
+router.get(
+  "/admin/technicians/:id/availability-log",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const limitRaw = queryInt(req.query.limit, 50);
+    const limit = Math.min(Math.max(1, limitRaw), 200);
+
+    const [tech] = await db
+      .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .from(usersTable)
+      .where(and(eq(usersTable.id, id), eq(usersTable.role, "technician")));
+
+    if (!tech) {
+      res.status(404).json({ error: "Technician not found" });
+      return;
+    }
+
+    const logs = await db
+      .select({
+        id: availabilityAuditLogsTable.id,
+        changedById: availabilityAuditLogsTable.changedById,
+        changedByRole: availabilityAuditLogsTable.changedByRole,
+        oldValue: availabilityAuditLogsTable.oldValue,
+        newValue: availabilityAuditLogsTable.newValue,
+        createdAt: availabilityAuditLogsTable.createdAt,
+      })
+      .from(availabilityAuditLogsTable)
+      .where(eq(availabilityAuditLogsTable.technicianId, id))
+      .orderBy(desc(availabilityAuditLogsTable.createdAt))
+      .limit(limit);
+
+    const changerIds = [...new Set(logs.map((l) => l.changedById))];
+
+    const userNames: Record<string, string> = {};
+    if (changerIds.length > 0) {
+      const techChangers = await db
+        .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
+        .from(usersTable)
+        .where(sql`${usersTable.id} = ANY(${changerIds})`);
+      for (const u of techChangers) {
+        userNames[u.id] = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.id;
+      }
+
+      const adminChangers = await db
+        .select({ id: adminsTable.id, firstName: adminsTable.firstName, lastName: adminsTable.lastName })
+        .from(adminsTable)
+        .where(sql`${adminsTable.id} = ANY(${changerIds})`);
+      for (const a of adminChangers) {
+        userNames[a.id] = [a.firstName, a.lastName].filter(Boolean).join(" ") || a.id;
+      }
+    }
+
+    const enriched = logs.map((l) => ({
+      id: l.id,
+      changedById: l.changedById,
+      changedByName: userNames[l.changedById] ?? l.changedById,
+      changedByRole: l.changedByRole,
+      oldValue: l.oldValue,
+      newValue: l.newValue,
+      createdAt: l.createdAt,
+    }));
+
+    res.json({ technicianId: id, logs: enriched });
+  },
+);
 
 export default router;

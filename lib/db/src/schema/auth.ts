@@ -125,6 +125,25 @@ export const loginLogsTable = pgTable(
   ],
 );
 
+export const availabilityAuditLogsTable = pgTable(
+  "availability_audit_logs",
+  {
+    id: serial("id").primaryKey(),
+    technicianId: varchar("technician_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    changedById: varchar("changed_by_id").notNull(),
+    changedByRole: varchar("changed_by_role", { length: 20 }).notNull(),
+    oldValue: boolean("old_value").notNull(),
+    newValue: boolean("new_value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("availability_audit_logs_tech_id_idx").on(table.technicianId),
+    index("availability_audit_logs_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export type AvailabilityAuditLog = typeof availabilityAuditLogsTable.$inferSelect;
+
 export type UpsertUser = typeof usersTable.$inferInsert;
 export type User = typeof usersTable.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokensTable.$inferSelect;

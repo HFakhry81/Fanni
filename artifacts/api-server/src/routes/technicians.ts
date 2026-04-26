@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, usersTable, ordersTable, pool } from "@workspace/db";
+import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool } from "@workspace/db";
 import { and, eq, ne, SQL } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -32,22 +32,57 @@ router.patch(
       return;
     }
 
-    const [updated] = await db
-      .update(usersTable)
-      .set({ isAvailable, updatedAt: new Date() })
-      .where(and(eq(usersTable.id, id), eq(usersTable.role, "technician")))
-      .returning({ id: usersTable.id, isAvailable: usersTable.isAvailable });
+    let updatedId: string;
+    let updatedAvailable: boolean;
 
-    if (!updated) {
-      res.status(404).json({ error: "Technician not found" });
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select({ id: usersTable.id, isAvailable: usersTable.isAvailable })
+          .from(usersTable)
+          .where(and(eq(usersTable.id, id), eq(usersTable.role, "technician")));
+
+        if (!existing) return null;
+
+        const oldValue = existing.isAvailable;
+
+        const [updated] = await tx
+          .update(usersTable)
+          .set({ isAvailable, updatedAt: new Date() })
+          .where(and(eq(usersTable.id, id), eq(usersTable.role, "technician")))
+          .returning({ id: usersTable.id, isAvailable: usersTable.isAvailable });
+
+        if (!updated) return null;
+
+        await tx.insert(availabilityAuditLogsTable).values({
+          technicianId: updated.id,
+          changedById: requestingUser.id,
+          changedByRole: requestingUser.role ?? "technician",
+          oldValue,
+          newValue: updated.isAvailable,
+        });
+
+        return updated;
+      });
+
+      if (!result) {
+        res.status(404).json({ error: "Technician not found" });
+        return;
+      }
+
+      updatedId = result.id;
+      updatedAvailable = result.isAvailable;
+    } catch (err) {
+      logger.error({ err, technicianId: id }, "Availability update transaction failed");
+      res.status(500).json({ error: "Failed to update availability" });
       return;
     }
 
     if (requestingUser.id !== id && requestingUser.role === "admin") {
-      broadcastAvailabilityChangedToTechnician(updated.id, updated.isAvailable).catch(() => {});
+      broadcastAvailabilityChangedToTechnician(updatedId, updatedAvailable).catch(() => {});
     }
 
-    res.json({ success: true, id: updated.id, isAvailable: updated.isAvailable });
+    res.json({ success: true, id: updatedId, isAvailable: updatedAvailable });
   },
 );
 

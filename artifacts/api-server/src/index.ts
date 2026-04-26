@@ -123,6 +123,30 @@ async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "DB migration failed for technician_notifications");
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS availability_audit_logs (
+        id SERIAL PRIMARY KEY,
+        technician_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        changed_by_id VARCHAR NOT NULL,
+        changed_by_role VARCHAR(20) NOT NULL,
+        old_value BOOLEAN NOT NULL,
+        new_value BOOLEAN NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS availability_audit_logs_tech_id_idx
+      ON availability_audit_logs (technician_id)
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS availability_audit_logs_created_at_idx
+      ON availability_audit_logs (created_at)
+    `);
+    logger.info("DB migration: availability_audit_logs table ensured");
+  } catch (err) {
+    logger.error({ err }, "DB migration failed for availability_audit_logs");
+  }
   await seedDefaultCategories();
 }
 
