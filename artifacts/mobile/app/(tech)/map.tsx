@@ -306,7 +306,7 @@ export default function TechMapScreen() {
       {/* Service Area Banner */}
       {hasServiceArea ? (
         <Pressable
-          style={[styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row" }]}
+          style={({ pressed }) => [styles.serviceAreaBanner, { backgroundColor: colors.card, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row", opacity: pressed ? 0.75 : 1 }]}
           onPress={() => router.push("/(tech)/profile")}
         >
           <View style={[styles.serviceAreaIcon, { backgroundColor: colors.primary + "15" }]}>
@@ -323,7 +323,7 @@ export default function TechMapScreen() {
               {t("tech.filteredByArea")}
             </Text>
           </View>
-          <View style={[styles.serviceAreaActiveDot, { backgroundColor: "#22A36B" }]} />
+          <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={14} color={colors.primary} />
         </Pressable>
       ) : (
         <Pressable
@@ -573,6 +573,5 @@ const styles = StyleSheet.create({
   serviceAreaWarning: { alignItems: "center" },
   serviceAreaIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   serviceAreaText: { flex: 1 },
-  serviceAreaActiveDot: { width: 8, height: 8, borderRadius: 4, marginLeft: "auto" },
   catBanner: { marginHorizontal: 16, marginTop: 8, marginBottom: 2, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", gap: 10 },
 });
