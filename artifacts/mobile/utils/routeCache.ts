@@ -4,7 +4,6 @@ export interface RouteData {
   coords: Array<{ lat: number; lng: number }>;
   durationSec: number;
   distanceM: number;
-  coordColors?: string[];
 }
 
 export const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;

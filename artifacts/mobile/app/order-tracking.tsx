@@ -62,7 +62,7 @@ async function fetchOSRMRoute(
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
       `${startLng},${startLat};${endLng},${endLat}` +
-      `?overview=full&geometries=geojson&steps=true`;
+      `?overview=full&geometries=geojson`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, { signal: controller.signal });
@@ -79,25 +79,8 @@ async function fetchOSRMRoute(
       ([lng, lat]) => ({ lat, lng })
     );
 
-    const allCoords: Array<{ lat: number; lng: number }> = [];
-    const allColors: string[] = [];
-    const legs: Array<{ steps: Array<{ distance: number; duration: number; geometry: { coordinates: [number, number][] } }> }> = route.legs ?? [];
-    for (const leg of legs) {
-      for (const step of (leg.steps ?? [])) {
-        const stepCoords = step.geometry.coordinates.map(([lng, lat]: [number, number]) => ({ lat, lng }));
-        const speedKmh = step.duration > 0 ? (step.distance / step.duration) * 3.6 : 30;
-        const color = speedKmhToColor(speedKmh);
-        const startIdx = allCoords.length > 0 ? 1 : 0;
-        for (let j = startIdx; j < stepCoords.length; j++) {
-          allCoords.push(stepCoords[j]);
-          allColors.push(color);
-        }
-      }
-    }
-
     const result: RouteData = {
-      coords: allCoords.length >= 2 ? allCoords : coords,
-      coordColors: allCoords.length >= 2 ? allColors : undefined,
+      coords,
       durationSec: route.duration,
       distanceM: route.distance,
     };
@@ -377,6 +360,7 @@ export default function OrderTrackingScreen() {
     }
     const pointsParam = samples.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(",");
 
+    setOverpassColors(undefined);
     let cancelled = false;
     (async () => {
       try {
@@ -394,9 +378,9 @@ export default function OrderTrackingScreen() {
           }
           return speedKmhToColor(nearest.speedKmh);
         });
-        setOverpassColors(colors);
+        if (!cancelled) setOverpassColors(colors);
       } catch {
-        // Silently fall back to simulated colors
+        // Silently fall back to simulated colors (overpassColors already reset to undefined above)
       }
     })();
     return () => { cancelled = true; };
