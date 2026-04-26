@@ -8,6 +8,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
+import { usePreventRemove } from "@react-navigation/core";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -455,41 +456,66 @@ export default function NewOrderScreen() {
     visitDate, visitTime, latitude, longitude, orderPhotos,
   ]);
 
-  // ── Intercept ALL navigation-away events (iOS swipe, header back, etc.) ───────
-  // beforeRemove fires for every navigation event that would remove this screen,
-  // including iOS swipe-back gesture and programmatic router.back() calls.
-  useEffect(() => {
-    const unsubscribe = navigation.addListener(
-      "beforeRemove",
-      (e) => {
-        // If form is empty, already submitted, or user explicitly chose to discard → allow.
-        // Do NOT reset discardOnLeaveRef here; it must stay true through unmount so
-        // the auto-save cleanup skips saving after a confirmed "Leave".
-        if (!hasFormData() || submittedRef.current || discardOnLeaveRef.current) {
-          return;
-        }
-        e.preventDefault();
-        Alert.alert(
-          isRTL ? "مغادرة النموذج؟" : "Leave form?",
-          isRTL
-            ? "لديك بيانات غير محفوظة. هل تريد المغادرة وفقدانها؟"
-            : "You have unsaved data. Leave and discard your changes?",
-          [
-            { text: isRTL ? "تابع التعبئة" : "Keep editing", style: "cancel" },
-            {
-              text: isRTL ? "مغادرة" : "Leave",
-              style: "destructive",
-              onPress: () => {
-                discardOnLeaveRef.current = true;
-                navigation.dispatch(e.data.action);
-              },
-            },
-          ]
-        );
+  // ── Shared "Leave form?" confirmation dialog ─────────────────────────────────
+  // Any exit path — back arrow, X/close button, iOS swipe-to-dismiss, Android
+  // hardware back, or programmatic router.back() — must go through this one
+  // function so users always see the same prompt before unsaved data is lost.
+  // `onConfirm` is called only when the user explicitly chooses "Leave".
+  const confirmDiscardIfDirty = useCallback(
+    (onConfirm: () => void) => {
+      if (!hasFormData() || submittedRef.current || discardOnLeaveRef.current) {
+        onConfirm();
+        return;
       }
-    );
-    return unsubscribe;
-  }, [navigation, hasFormData, isRTL]);
+      Alert.alert(
+        isRTL ? "مغادرة النموذج؟" : "Leave form?",
+        isRTL
+          ? "لديك بيانات غير محفوظة. هل تريد المغادرة وفقدانها؟"
+          : "You have unsaved data. Leave and discard your changes?",
+        [
+          { text: isRTL ? "تابع التعبئة" : "Keep editing", style: "cancel" },
+          {
+            text: isRTL ? "مغادرة" : "Leave",
+            style: "destructive",
+            onPress: () => {
+              discardOnLeaveRef.current = true;
+              onConfirm();
+            },
+          },
+        ]
+      );
+    },
+    [hasFormData, isRTL]
+  );
+
+  // ── Block removal and show "Leave form?" for every exit path ─────────────────
+  // usePreventRemove is the React Navigation 7 canonical hook for this use case.
+  // It integrates at the native layer and fires for ALL removal triggers:
+  //   • iOS swipe-back gesture on a stack screen
+  //   • iOS swipe-to-dismiss on a native-stack modal / formSheet
+  //   • AppHeader back arrow  → router.back()
+  //   • Any close/X button   → router.back()
+  //   • Android hardware back (when on step 1, falls through to here)
+  //   • Programmatic navigation.goBack() / router.replace()
+  //
+  // preventRemove is kept permanently true so the callback always runs.
+  // Inside the callback we mirror the same inline checks as the old beforeRemove
+  // listener (submitted / discardOnLeaveRef / hasFormData) so that:
+  //   - Clean forms, submitted orders, and confirmed-leave paths are allowed through
+  //     immediately by re-dispatching `data.action` without a dialog.
+  //   - Dirty forms show the shared confirmDiscardIfDirty dialog; on "Leave" the
+  //     original action is re-dispatched (React Navigation's re-dispatch mechanism
+  //     bypasses the hook for that specific action, so no infinite loop).
+  //
+  // discardOnLeaveRef stays true through unmount so the auto-save cleanup skips
+  // saving after a confirmed "Leave".
+  usePreventRemove(true, ({ data }) => {
+    if (!hasFormData() || submittedRef.current || discardOnLeaveRef.current) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    confirmDiscardIfDirty(() => navigation.dispatch(data.action));
+  });
 
   // ── Intercept Android hardware back between steps (step 2→1 stays in form) ───
   useFocusEffect(
@@ -501,7 +527,7 @@ export default function NewOrderScreen() {
           setStep(prevStep);
           return true; // handled — move to previous step, no dialog
         }
-        return false; // let Expo Router handle it → triggers beforeRemove above
+        return false; // let Expo Router handle it → triggers usePreventRemove callback
       };
       const sub = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
       return () => sub.remove();
