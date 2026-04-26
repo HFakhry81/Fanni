@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SEED_VERSION } from "../constants/seedVersion";
+import { SEED_USER_IDS } from "./OrderContext";
 
 export type Language = "ar" | "en";
 export type UserType = "client" | "technician" | "admin" | null;
@@ -396,9 +397,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const PENDING_TOGGLE_KEY = "pendingAvailabilityToggle";
 
 const USER_SEED_VERSION_KEY = "user_seed_version";
-// Keep this set in sync with the user IDs in OrderContext SEED_ORDERS.
+// SEED_USER_IDS is derived automatically from SEED_ORDERS in OrderContext — no manual sync needed.
 // Bump SEED_VERSION in constants/seedVersion.ts whenever seed data changes.
-const SEED_USER_IDS = new Set(["tech1", "client1", "client2", "client3"]);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar");

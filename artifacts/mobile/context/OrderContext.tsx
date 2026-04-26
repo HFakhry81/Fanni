@@ -250,6 +250,10 @@ const SEED_ORDERS: Order[] = [
   },
 ];
 
+export const SEED_USER_IDS: ReadonlySet<string> = new Set(
+  SEED_ORDERS.flatMap((o) => [o.clientId, ...(o.technicianId ? [o.technicianId] : [])])
+);
+
 const SIMULATED_ORDER_CATEGORY_CONTENT: Record<
   string,
   { subCategory: string; subImageKey: string; problemDescription: string; deviceType: string }
