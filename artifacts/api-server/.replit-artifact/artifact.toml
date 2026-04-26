@@ -21,8 +21,9 @@ args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
 NODE_ENV = "production"
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
+# Wrapper script: starts the server, waits for health, runs OTP smoke test,
+# then keeps the server alive. Exits non-zero if OTP is not enforced.
+args = ["bash", "scripts/run-production.sh"]
 
 [services.production.run.env]
 PORT = "8080"
