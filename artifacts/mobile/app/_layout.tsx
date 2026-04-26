@@ -262,7 +262,11 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
       if (state.isConnected) {
-        retryPendingAvailabilityToggle().catch(() => {});
+        retryPendingAvailabilityToggle()
+          .then((ok) => {
+            if (ok) setSyncToastVisible(true);
+          })
+          .catch(() => {});
         if (
           needsRetry.current &&
           authUserRef.current?.role === "technician" &&
