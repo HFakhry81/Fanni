@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -23,6 +24,9 @@ import AppHeader from "@/components/AppHeader";
 
 type UserTab = "technicians" | "clients" | "admins" | "permissions";
 type StatusFilter = "all" | "active" | "suspended";
+
+const APP_SESSION_KEY = `fanni_session_${Date.now()}`;
+const savedTabFilters: Partial<Record<UserTab, StatusFilter>> = {};
 
 interface ApiUser {
   id: string;
@@ -86,6 +90,7 @@ export default function AdminUsersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [filterReady, setFilterReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -320,13 +325,47 @@ export default function AdminUsersScreen() {
   }, [sessionToken, tab, statusFilter]);
 
   useEffect(() => {
+    if (!filterReady) return;
     currentPage.current = 1;
     fetchUsers(1, true, debouncedSearch);
-  }, [fetchUsers, debouncedSearch]);
+  }, [fetchUsers, debouncedSearch, filterReady]);
 
   useEffect(() => {
+    if (!filterReady) return;
     fetchCounts(debouncedSearch);
-  }, [fetchCounts, debouncedSearch]);
+  }, [fetchCounts, debouncedSearch, filterReady]);
+
+  useEffect(() => {
+    (async () => {
+      const tabKeys: UserTab[] = ["technicians", "clients", "admins"];
+      await Promise.all(
+        tabKeys.map(async (t) => {
+          const raw = await AsyncStorage.getItem(`users_status_filter_${t}`).catch(() => null);
+          if (!raw) return;
+          try {
+            const parsed = JSON.parse(raw) as { filter?: string; session?: string };
+            if (
+              parsed.session === APP_SESSION_KEY &&
+              (parsed.filter === "active" || parsed.filter === "suspended" || parsed.filter === "all")
+            ) {
+              savedTabFilters[t] = parsed.filter;
+            }
+          } catch {}
+        })
+      );
+      setStatusFilter(savedTabFilters["technicians"] ?? "all");
+      setFilterReady(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!filterReady || tab === "permissions") return;
+    savedTabFilters[tab] = statusFilter;
+    AsyncStorage.setItem(
+      `users_status_filter_${tab}`,
+      JSON.stringify({ filter: statusFilter, session: APP_SESSION_KEY })
+    ).catch(() => {});
+  }, [tab, statusFilter, filterReady]);
 
   useEffect(() => {
     return () => {
@@ -739,7 +778,7 @@ export default function AdminUsersScreen() {
                   if (debounceTimer.current) clearTimeout(debounceTimer.current);
                   setSearchQuery("");
                   setDebouncedSearch("");
-                  setStatusFilter("all");
+                  setStatusFilter(savedTabFilters[key] ?? "all");
                   setTab(key);
                 }
               }}
