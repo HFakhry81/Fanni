@@ -295,7 +295,7 @@ export default function AdminProfileScreen() {
         if (!patchRes.ok) throw new Error(`Server update failed: ${patchRes.status}`);
       }
       if (user) await setUser({ ...user, avatar: url });
-      refreshUser().catch(() => {});
+      await refreshUser().catch(() => {});
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
     } catch (_) {
       setToastMessage(isRTL ? "فشل رفع الصورة، يرجى المحاولة مرة أخرى" : "Upload failed, please try again");
