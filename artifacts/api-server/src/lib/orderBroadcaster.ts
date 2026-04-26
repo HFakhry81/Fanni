@@ -85,7 +85,21 @@ let pendingOrders: unknown[] = [];
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEARTBEAT_TIMEOUT_MS = 60_000;
-const BROADCAST_RADIUS_KM = parseInt(process.env.BROADCAST_RADIUS_KM ?? "50", 10) || 50;
+
+const BROADCAST_RADIUS_TIERS_KM: number[] = (() => {
+  const raw = process.env.BROADCAST_RADIUS_TIERS_KM ?? process.env.BROADCAST_RADIUS_KM ?? "";
+  if (raw.trim()) {
+    const parsed = raw
+      .split(",")
+      .map((s) => parseFloat(s.trim()))
+      .filter((n) => !isNaN(n) && n > 0);
+    if (parsed.length > 0) {
+      const unique = [...new Set(parsed)].sort((a, b) => a - b);
+      return unique;
+    }
+  }
+  return [15, 50, 100];
+})();
 
 setInterval(() => {
   const now = Date.now();
@@ -384,39 +398,7 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
   if (coords) {
     const { lat, lon } = coords;
     try {
-      const radiusM = BROADCAST_RADIUS_KM * 1000;
-      const client = await pool.connect();
-      let spatialRows: Array<{ id: string; distance_m: number }> = [];
-      try {
-        const { rows } = await client.query<{ id: string; distance_m: number }>(
-          `SELECT u.id,
-                  ST_Distance(
-                    u.location,
-                    ST_SetSRID(ST_MakePoint($1,$2),4326)::geography
-                  ) AS distance_m
-           FROM users u
-           WHERE u.role = 'technician'
-             AND u.is_available = true
-             AND u.location IS NOT NULL
-             AND ST_DWithin(
-               u.location,
-               ST_SetSRID(ST_MakePoint($1,$2),4326)::geography,
-               $3
-             )
-           ORDER BY distance_m ASC`,
-          [lon, lat, radiusM],
-        );
-        spatialRows = rows;
-      } finally {
-        client.release();
-      }
-
       const orderCategory = (o["category"] as string | undefined)?.toLowerCase();
-      const notifiedTechIds = new Set<string>();
-      let sent = 0;
-      let skipped = 0;
-
-      const dbTechIds = new Set(spatialRows.map((r) => r.id));
 
       const techsWithLiveCoords = new Set<string>();
       for (const [techId, sockets] of technicianSockets) {
@@ -429,99 +411,156 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
         }
       }
 
-      for (const [techId, sockets] of technicianSockets) {
-        if (!techsWithLiveCoords.has(techId)) continue;
-        for (const ws of sockets) {
-          if (ws.readyState !== WebSocket.OPEN) continue;
-          const meta = clients.get(ws);
-          if (!meta?.registered || !meta.isAvailable) continue;
-          if (!hasRoutingConstraints(meta)) continue;
-          if (meta.currentLat == null || meta.currentLon == null) continue;
+      let spatialBroadcastSent = false;
 
-          const distM = haversineMeters(lat, lon, meta.currentLat, meta.currentLon);
-          if (distM > radiusM) continue;
+      for (let tierIdx = 0; tierIdx < BROADCAST_RADIUS_TIERS_KM.length; tierIdx++) {
+        const tierKm = BROADCAST_RADIUS_TIERS_KM[tierIdx];
+        const radiusM = tierKm * 1000;
 
-          if (meta.categories && meta.categories.length > 0) {
-            if (!orderCategory || !meta.categories.includes(orderCategory)) {
-              skipped++;
-              continue;
+        const client = await pool.connect();
+        let spatialRows: Array<{ id: string; distance_m: number }> = [];
+        try {
+          const { rows } = await client.query<{ id: string; distance_m: number }>(
+            `SELECT u.id,
+                    ST_Distance(
+                      u.location,
+                      ST_SetSRID(ST_MakePoint($1,$2),4326)::geography
+                    ) AS distance_m
+             FROM users u
+             WHERE u.role = 'technician'
+               AND u.is_available = true
+               AND u.location IS NOT NULL
+               AND ST_DWithin(
+                 u.location,
+                 ST_SetSRID(ST_MakePoint($1,$2),4326)::geography,
+                 $3
+               )
+             ORDER BY distance_m ASC`,
+            [lon, lat, radiusM],
+          );
+          spatialRows = rows;
+        } finally {
+          client.release();
+        }
+
+        const notifiedTechIds = new Set<string>();
+        let sent = 0;
+        let skipped = 0;
+
+        const dbTechIds = new Set(spatialRows.map((r) => r.id));
+
+        for (const [techId, sockets] of technicianSockets) {
+          if (!techsWithLiveCoords.has(techId)) continue;
+          for (const ws of sockets) {
+            if (ws.readyState !== WebSocket.OPEN) continue;
+            const meta = clients.get(ws);
+            if (!meta?.registered || !meta.isAvailable) continue;
+            if (!hasRoutingConstraints(meta)) continue;
+            if (meta.currentLat == null || meta.currentLon == null) continue;
+
+            const distM = haversineMeters(lat, lon, meta.currentLat, meta.currentLon);
+            if (distM > radiusM) continue;
+
+            if (meta.categories && meta.categories.length > 0) {
+              if (!orderCategory || !meta.categories.includes(orderCategory)) {
+                skipped++;
+                continue;
+              }
             }
+
+            ws.send(payload);
+            notifiedTechIds.add(techId);
+            sent++;
           }
-
-          ws.send(payload);
-          notifiedTechIds.add(techId);
-          sent++;
-        }
-      }
-
-      for (const row of spatialRows) {
-        if (notifiedTechIds.has(row.id)) continue;
-        if (techsWithLiveCoords.has(row.id)) {
-          skipped++;
-          continue;
         }
 
-        const sockets = technicianSockets.get(row.id);
-        if (!sockets) continue;
-
-        for (const ws of sockets) {
-          if (ws.readyState !== WebSocket.OPEN) continue;
-          const meta = clients.get(ws);
-          if (!meta?.registered || !meta.isAvailable) {
+        for (const row of spatialRows) {
+          if (notifiedTechIds.has(row.id)) continue;
+          if (techsWithLiveCoords.has(row.id)) {
             skipped++;
             continue;
           }
-          if (!hasRoutingConstraints(meta)) {
-            skipped++;
-            continue;
-          }
-          if (meta.categories && meta.categories.length > 0) {
-            if (!orderCategory || !meta.categories.includes(orderCategory)) {
+
+          const sockets = technicianSockets.get(row.id);
+          if (!sockets) continue;
+
+          for (const ws of sockets) {
+            if (ws.readyState !== WebSocket.OPEN) continue;
+            const meta = clients.get(ws);
+            if (!meta?.registered || !meta.isAvailable) {
               skipped++;
               continue;
             }
+            if (!hasRoutingConstraints(meta)) {
+              skipped++;
+              continue;
+            }
+            if (meta.categories && meta.categories.length > 0) {
+              if (!orderCategory || !meta.categories.includes(orderCategory)) {
+                skipped++;
+                continue;
+              }
+            }
+            ws.send(payload);
+            notifiedTechIds.add(row.id);
+            sent++;
           }
-          ws.send(payload);
-          notifiedTechIds.add(row.id);
-          sent++;
+        }
+
+        const liveCoordCount = [...technicianSockets.values()].reduce((acc, socks) => {
+          for (const ws of socks) {
+            const m = clients.get(ws);
+            if (m?.currentLat != null) return acc + 1;
+          }
+          return acc;
+        }, 0);
+
+        logger.info(
+          {
+            connectedClients: clients.size,
+            dbSpatialCandidates: dbTechIds.size,
+            liveCoordCandidates: liveCoordCount,
+            sent,
+            skipped,
+            lat,
+            lon,
+            radiusKm: tierKm,
+            radiusTiers: BROADCAST_RADIUS_TIERS_KM,
+            orderCategory: o["category"],
+          },
+          `Spatial broadcast attempt at ${tierKm} km radius`
+        );
+
+        if (sent > 0) {
+          logger.info(
+            { radiusKm: tierKm, sent, lat, lon },
+            `Order routed to nearest technicians — radius tier ${tierKm} km succeeded`
+          );
+          spatialBroadcastSent = true;
+          break;
+        }
+
+        if (dbTechIds.size > 0 || liveCoordCount > 0) {
+          logger.info(
+            { dbSpatialCandidates: dbTechIds.size, liveCoordCandidates: liveCoordCount, lat, lon, radiusKm: tierKm },
+            `Spatial candidates found at ${tierKm} km but none were connected/matched — trying next tier`
+          );
+        } else {
+          logger.info(
+            { lat, lon, radiusKm: tierKm, nextTierKm: BROADCAST_RADIUS_TIERS_KM[tierIdx + 1] ?? null },
+            `No spatially-indexed technicians within ${tierKm} km — trying next radius tier`
+          );
         }
       }
 
-      const liveCoordCount = [...technicianSockets.values()].reduce((acc, socks) => {
-        for (const ws of socks) {
-          const m = clients.get(ws);
-          if (m?.currentLat != null) return acc + 1;
-        }
-        return acc;
-      }, 0);
-
-      logger.info(
-        {
-          connectedClients: clients.size,
-          dbSpatialCandidates: dbTechIds.size,
-          liveCoordCandidates: liveCoordCount,
-          sent,
-          skipped,
-          lat,
-          lon,
-          radiusKm: radiusM / 1000,
-          orderCategory: o["category"],
-        },
-        "Routed new order to nearest technicians (spatial)"
-      );
-
-      if (sent > 0) {
+      if (spatialBroadcastSent) {
         return;
       }
 
-      if (dbTechIds.size > 0 || liveCoordCount > 0) {
-        logger.info(
-          { dbSpatialCandidates: dbTechIds.size, liveCoordCandidates: liveCoordCount, lat, lon },
-          "Spatial candidates found but none were connected/matched — falling back to text-based matching"
-        );
-      } else {
-        logger.info({ lat, lon, radiusKm: BROADCAST_RADIUS_KM }, "No spatially-indexed technicians within radius — falling back to text-based matching");
-      }
+      logger.info(
+        { lat, lon, tiersKm: BROADCAST_RADIUS_TIERS_KM },
+        "All spatial radius tiers exhausted with no matches — falling back to text-based matching"
+      );
     } catch (err) {
       logger.warn({ err, lat, lon }, "Spatial technician lookup failed — falling back to text-based matching");
     }
