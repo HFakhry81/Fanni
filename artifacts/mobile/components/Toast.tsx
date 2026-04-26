@@ -8,13 +8,14 @@ interface ToastProps {
   duration?: number;
   onHide: () => void;
   onPress?: () => void;
+  variant?: "success" | "error";
   action?: {
     label: string;
     onPress: () => void;
   };
 }
 
-export default function Toast({ visible, message, duration = 2000, onHide, onPress, action }: ToastProps) {
+export default function Toast({ visible, message, duration = 2000, onHide, onPress, variant = "success", action }: ToastProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const dismissedRef = useRef(false);
@@ -55,9 +56,13 @@ export default function Toast({ visible, message, duration = 2000, onHide, onPre
 
   if (!visible) return null;
 
+  const isError = variant === "error";
+  const bgColor = isError ? "#D9534F" : "#22A36B";
+  const iconName = isError ? "alert-circle" : "check-circle";
+
   const inner = (
     <>
-      <VectorIcon name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
+      <VectorIcon name={iconName} size={18} color="#FFF" style={{ marginRight: 8 }} />
       <Text style={[styles.text, { flex: 1 }]}>{message}</Text>
       {action && (
         <TouchableOpacity
@@ -76,7 +81,7 @@ export default function Toast({ visible, message, duration = 2000, onHide, onPre
 
   if (onPress) {
     return (
-      <Animated.View style={[styles.toast, { opacity }]}>
+      <Animated.View style={[styles.toast, { opacity, backgroundColor: bgColor }]}>
         <TouchableOpacity
           style={styles.pressableBody}
           onPress={() => {
@@ -92,7 +97,7 @@ export default function Toast({ visible, message, duration = 2000, onHide, onPre
   }
 
   return (
-    <Animated.View style={[styles.toast, { opacity }]}>
+    <Animated.View style={[styles.toast, { opacity, backgroundColor: bgColor }]}>
       {inner}
     </Animated.View>
   );
@@ -105,7 +110,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#22A36B",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 30,

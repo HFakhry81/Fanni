@@ -64,6 +64,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   });
 
   const [syncToastVisible, setSyncToastVisible] = useState(false);
+  const [syncErrorToastVisible, setSyncErrorToastVisible] = useState(false);
 
   useEffect(() => {
     sessionTokenRef.current = sessionToken;
@@ -211,10 +212,12 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
                 setSyncToastVisible(true);
               } else {
                 needsRetry.current = true;
+                setSyncErrorToastVisible(true);
               }
             })
             .catch(() => {
               needsRetry.current = true;
+              setSyncErrorToastVisible(true);
             });
         }
       }
@@ -251,6 +254,13 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         message={t("availability.synced")}
         duration={3000}
         onHide={() => setSyncToastVisible(false)}
+      />
+      <Toast
+        visible={syncErrorToastVisible}
+        message={t("availability.syncFailed")}
+        duration={4000}
+        variant="error"
+        onHide={() => setSyncErrorToastVisible(false)}
       />
     </View>
   );

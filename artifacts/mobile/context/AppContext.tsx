@@ -125,6 +125,7 @@ const translations: Record<string, Record<Language, string>> = {
   "register.noCategoriesHint": { ar: "لم يتم حفظ تخصصات بعد. يمكنك تحديثها من ملفك الشخصي.", en: "No specialties saved yet. You can add them from your profile." },
   "register.goHome": { ar: "ابدأ الآن", en: "Get Started" },
   "availability.synced": { ar: "تمت مزامنة التواجد", en: "Availability synced" },
+  "availability.syncFailed": { ar: "تعذّر مزامنة التواجد — يرجى التحقق من اتصالك", en: "Couldn't sync availability — please check your connection" },
 
   // Navigation
   "nav.home": { ar: "الرئيسية", en: "Home" },
