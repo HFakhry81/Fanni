@@ -43,15 +43,66 @@ if (!files.length) {
   process.exit(0);
 }
 
+/**
+ * Split a SQL file into individual statements, correctly handling dollar-quoted
+ * strings (DO $$ ... $$, DO $body$ ... $body$, etc.) so that semicolons inside
+ * those blocks are not treated as statement separators.
+ */
+function splitStatements(sql: string): string[] {
+  const results: string[] = [];
+  let current = "";
+  let i = 0;
+  let dollarTag: string | null = null;
+
+  while (i < sql.length) {
+    if (dollarTag === null) {
+      // Check for the start of a dollar-quoted block: $tag$ or $$
+      const dollarMatch = sql.slice(i).match(/^\$[^$\s]*\$/);
+      if (dollarMatch) {
+        dollarTag = dollarMatch[0];
+        current += dollarTag;
+        i += dollarTag.length;
+        continue;
+      }
+      // Check for statement separator: semicolon followed by optional whitespace then newline
+      if (sql[i] === ";") {
+        const rest = sql.slice(i + 1);
+        const wsNl = rest.match(/^[ \t]*\n/);
+        if (wsNl) {
+          const stmt = current.trim();
+          if (stmt) results.push(stmt);
+          current = "";
+          i += 1 + wsNl[0].length;
+          continue;
+        }
+      }
+    } else {
+      // Inside a dollar-quoted block — look for the closing tag
+      if (sql.slice(i).startsWith(dollarTag)) {
+        current += dollarTag;
+        i += dollarTag.length;
+        dollarTag = null;
+        continue;
+      }
+    }
+
+    current += sql[i];
+    i++;
+  }
+
+  // Handle a trailing statement that doesn't end with ";\n"
+  const last = current.trim();
+  if (last) results.push(last);
+
+  return results;
+}
+
 let applied = 0;
 for (const file of files) {
   const filePath = path.join(migrationsDir, file);
   const sql = await readFile(filePath, "utf8");
 
-  const statements = sql
-    .split(/;\s*\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const statements = splitStatements(sql);
 
   try {
     await client.query("BEGIN");

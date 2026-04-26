@@ -3,7 +3,10 @@
 -- Previously these ran on every server boot; they now run once as a proper migration.
 
 -- invoice_type enum ---------------------------------------------------------
-CREATE TYPE IF NOT EXISTS invoice_type AS ENUM ('technician', 'client', 'admin');
+DO $$ BEGIN
+  CREATE TYPE invoice_type AS ENUM ('technician', 'client', 'admin');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- invoices: three-party columns ---------------------------------------------
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS invoice_type invoice_type;
