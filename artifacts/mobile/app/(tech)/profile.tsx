@@ -148,7 +148,7 @@ export default function TechProfileScreen() {
   const [activeTimePicker, setActiveTimePicker] = useState<"start" | "end" | null>(null);
 
   // Validation errors
-  const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string; serviceStart?: string; serviceEnd?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string; serviceStart?: string; serviceEnd?: string; categories?: string }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
   const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -184,6 +184,7 @@ export default function TechProfileScreen() {
     setEditCategories((prev) =>
       prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]
     );
+    setErrors((prev) => ({ ...prev, categories: undefined }));
   };
 
   const openEdit = () => {
@@ -250,6 +251,10 @@ export default function TechProfileScreen() {
       if (toMinutes(editServiceEnd.trim()) <= toMinutes(editServiceStart.trim())) {
         newErrors.serviceEnd = isRTL ? "وقت الانتهاء يجب أن يكون بعد وقت البدء" : "Work End must be later than Work Start";
       }
+    }
+
+    if (editCategories.length === 0) {
+      newErrors.categories = isRTL ? "يرجى اختيار فئة واحدة على الأقل" : "Please select at least one category";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -1308,6 +1313,11 @@ export default function TechProfileScreen() {
                       );
                     })}
                   </View>
+                  {errors.categories ? (
+                    <Text style={{ color: "#DC2626", fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 6, textAlign: isRTL ? "right" : "left" }}>
+                      {errors.categories}
+                    </Text>
+                  ) : null}
                 </View>
 
                 {/* Divider */}
