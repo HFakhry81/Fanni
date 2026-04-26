@@ -913,7 +913,37 @@ router.post("/orders/:id/photos", authMiddleware, requireAuth, async (req: Reque
 
 router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const id = req.params.id;
+  const user = req.user!;
   try {
+    const [order] = await db
+      .select({ clientId: ordersTable.clientId, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id));
+
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+
+    if (user.role === "client") {
+      if (order.clientId !== user.id) {
+        res.status(403).json({ error: "You are not the client for this order" });
+        return;
+      }
+      if (order.status !== "pending") {
+        res.status(400).json({ error: "Only pending orders can be cancelled" });
+        return;
+      }
+    } else if (user.role === "admin") {
+      if (["completed", "cancelled"].includes(order.status)) {
+        res.status(400).json({ error: "Order is already in a terminal state" });
+        return;
+      }
+    } else {
+      res.status(403).json({ error: "Technicians cannot cancel orders" });
+      return;
+    }
+
     const [updated] = await db
       .update(ordersTable)
       .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, Animated } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, Animated, Alert } from "react-native";
 import { shareLegacyInvoicePdf } from "@/utils/invoicePdf";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useRouter } from "expo-router";
@@ -28,6 +28,7 @@ export default function ClientOrdersScreen() {
   const [loadingApi, setLoadingApi] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedOrderIds, setUpdatedOrderIds] = useState<Set<string>>(new Set());
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const prevStatusMapRef = useRef<Map<string, string>>(new Map());
   const badgeOpacity = useRef(new Animated.Value(0)).current;
   const highlightAnimRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -134,6 +135,47 @@ export default function ClientOrdersScreen() {
   const handleShareInvoice = useCallback(async (item: Order) => {
     await shareLegacyInvoicePdf({ order: item, isRTL, t });
   }, [isRTL, t]);
+
+  const handleCancelOrder = useCallback((orderId: string) => {
+    Alert.alert(
+      isRTL ? "إلغاء الطلب" : "Cancel Order",
+      isRTL ? "هل أنت متأكد أنك تريد إلغاء هذا الطلب؟" : "Are you sure you want to cancel this order?",
+      [
+        { text: isRTL ? "لا" : "No", style: "cancel" },
+        {
+          text: isRTL ? "نعم، إلغاء" : "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            const base = getApiBaseUrl();
+            if (!base || !sessionToken) return;
+            setCancellingOrderId(orderId);
+            try {
+              const res = await fetch(`${base}/api/orders/${orderId}/cancel`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${sessionToken}` },
+              });
+              if (res.ok) {
+                fetchOrdersFromApi(false);
+              } else {
+                const data = await res.json().catch(() => ({}));
+                Alert.alert(
+                  isRTL ? "خطأ" : "Error",
+                  (data as { error?: string }).error ?? (isRTL ? "فشل إلغاء الطلب" : "Failed to cancel order")
+                );
+              }
+            } catch {
+              Alert.alert(
+                isRTL ? "خطأ" : "Error",
+                isRTL ? "خطأ في الاتصال" : "Connection error"
+              );
+            } finally {
+              setCancellingOrderId(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [isRTL, sessionToken, fetchOrdersFromApi]);
 
   const renderOrder = ({ item }: { item: Order }) => {
     const isUpdated = updatedOrderIds.has(item.id);
@@ -243,6 +285,25 @@ export default function ClientOrdersScreen() {
               </>
             )}
           </View>
+        )}
+        {item.status === "pending" && (
+          <TouchableOpacity
+            style={[styles.cancelBtn, { borderColor: colors.destructive ?? "#EF4444", borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={(e) => { e.stopPropagation(); handleCancelOrder(item.id); }}
+            activeOpacity={0.8}
+            disabled={cancellingOrderId === item.id}
+          >
+            {cancellingOrderId === item.id ? (
+              <ActivityIndicator size="small" color={colors.destructive ?? "#EF4444"} />
+            ) : (
+              <>
+                <VectorIcon name="x-circle" size={14} color={colors.destructive ?? "#EF4444"} />
+                <Text style={{ color: colors.destructive ?? "#EF4444", fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
+                  {isRTL ? "إلغاء الطلب" : "Cancel Order"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         )}
       </View>
       </TouchableOpacity>
@@ -372,6 +433,7 @@ const styles = StyleSheet.create({
   callBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   smsBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   shareBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
+  cancelBtn: { alignItems: "center", justifyContent: "center", marginTop: 10, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, gap: 6 },
   empty: { alignItems: "center", paddingTop: 60 },
   bookBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 28, marginTop: 24 },
   emptyIcon: { width: 80, height: 80, alignItems: "center", justifyContent: "center" },
