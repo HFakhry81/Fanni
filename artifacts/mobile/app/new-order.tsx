@@ -172,6 +172,14 @@ export default function NewOrderScreen() {
   const routeParamsRef = useRef({ category, subCategory });
 
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [, setDraftTick] = useState(0);
+
+  useEffect(() => {
+    if (!showDraftBanner) return;
+    const id = setInterval(() => setDraftTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, [showDraftBanner]);
+
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxOpened, setLightboxOpened] = useState(false);
   const [photoLightboxVisible, setPhotoLightboxVisible] = useState(false);
