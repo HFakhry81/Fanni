@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import * as Location from "expo-location";
 import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
@@ -248,8 +248,22 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
 
     connect();
 
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+          if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+          }
+          connect();
+        }
+      }
+    });
+
     return () => {
       mountedRef.current = false;
+      appStateSubscription.remove();
       disconnect();
     };
   }, [sessionToken]);
