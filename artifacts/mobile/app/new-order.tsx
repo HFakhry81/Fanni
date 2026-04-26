@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
-  BackHandler, AppState,
+  BackHandler, AppState, Modal,
 } from "react-native";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
@@ -28,6 +29,19 @@ import * as FileSystem from "expo-file-system";
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
   return domain ? `https://${domain}` : "";
+}
+
+function timeStringToDate(hhmm: string): Date {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(isNaN(h) ? 8 : h, isNaN(m) ? 0 : m, 0, 0);
+  return d;
+}
+
+function dateToTimeString(date: Date): string {
+  const h = date.getHours().toString().padStart(2, "0");
+  const m = date.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 function draftAge(savedAt: unknown, isRTL: boolean): string {
@@ -135,6 +149,7 @@ export default function NewOrderScreen() {
   const [longitude, setLongitude] = useState<number | null>(null);
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
+  const [visitTimePicker, setVisitTimePicker] = useState(false);
 
   const navigation = useNavigation();
 
@@ -772,12 +787,60 @@ export default function NewOrderScreen() {
           placeholder="2025-01-25"
           style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
         />
-        <FanniInput
-          label={t("order.visitTime")} value={visitTime} onChangeText={setVisitTime}
-          placeholder="10:00 ص"
-          style={{ flex: 1 }}
-        />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+            {t("order.visitTime")}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setVisitTimePicker(true)}
+            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <Text style={{ color: visitTime ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+              {visitTime || (isRTL ? "اختر الوقت" : "Pick time")}
+            </Text>
+            <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Android time picker */}
+      {Platform.OS === "android" && visitTimePicker && (
+        <DateTimePicker
+          mode="time"
+          is24Hour
+          value={timeStringToDate(visitTime || "10:00")}
+          onChange={(event: DateTimePickerEvent, date?: Date) => {
+            setVisitTimePicker(false);
+            if (event.type === "set" && date) {
+              setVisitTime(dateToTimeString(date));
+            }
+          }}
+        />
+      )}
+
+      {/* iOS: modal with spinner picker + Done button */}
+      {Platform.OS === "ios" && visitTimePicker && (
+        <Modal transparent animationType="slide">
+          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setVisitTimePicker(false)} />
+          <View style={{ backgroundColor: colors.card, paddingBottom: 20 }}>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 12 }}>
+              <TouchableOpacity onPress={() => setVisitTimePicker(false)}>
+                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              mode="time"
+              is24Hour
+              display="spinner"
+              value={timeStringToDate(visitTime || "10:00")}
+              onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                if (date) setVisitTime(dateToTimeString(date));
+              }}
+              style={{ width: "100%" }}
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 
