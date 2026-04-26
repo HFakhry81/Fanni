@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Image,
   Alert,
   Modal,
+  Share,
   ImageSourcePropType,
 } from "react-native";
 import * as Print from "expo-print";
@@ -341,6 +342,32 @@ export default function OrderDetailsScreen() {
   const isAdmin = appUser?.role === "admin";
   const isTechnician = appUser?.role === "technician";
 
+  const handleShareTracking = useCallback(async () => {
+    const deepLink = `mobile://order-tracking?orderId=${orderId}`;
+    const message = t("order.shareTrackingMsg");
+    if (Platform.OS === "web") {
+      const url = typeof window !== "undefined" ? window.location.href : deepLink;
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({ title: t("order.shareTracking"), text: message, url });
+          return;
+        } catch {}
+      }
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(url);
+          Alert.alert(t("order.shareTrackingCopied"), url);
+          return;
+        } catch {}
+      }
+      Alert.alert(t("order.shareTracking"), url);
+    } else {
+      try {
+        await Share.share({ message: `${message}\n${deepLink}`, url: deepLink, title: t("order.shareTracking") });
+      } catch {}
+    }
+  }, [orderId, t]);
+
   const effectiveClientInvoice = fetchedClientInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, netTotal: order.threePartyInvoice.clientTotal, total: order.threePartyInvoice.clientTotal } as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
   const effectiveTechInvoice = fetchedTechInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, netTotal: order.threePartyInvoice.techNetTotal, total: order.threePartyInvoice.techNetTotal } as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
 
@@ -402,6 +429,18 @@ export default function OrderDetailsScreen() {
         title={order.orderNumber}
         showBack
         onBack={() => router.back()}
+        rightElement={
+          !isAdmin && !isTechnician && (order.status === "accepted" || order.status === "inProgress") ? (
+            <TouchableOpacity
+              onPress={handleShareTracking}
+              style={styles.shareBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel={t("order.shareTracking")}
+            >
+              <VectorIcon name="share-2" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : undefined
+        }
       />
 
       <ScrollView
@@ -888,4 +927,5 @@ const styles = StyleSheet.create({
   lightboxOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" },
   lightboxImage: { width: "100%", height: "80%" },
   lightboxClose: { position: "absolute", top: 48, right: 20, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 8 },
+  shareBtn: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
 });
