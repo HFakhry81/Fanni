@@ -8,7 +8,6 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
-import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import StatusBadge from "@/components/StatusBadge";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
@@ -55,8 +54,6 @@ export default function TechMapScreen() {
   const areaLabel = (isRTL ? user?.areaNameAr : user?.areaNameEn) ?? user?.area ?? null;
   const hasServiceArea = !!(govLabel && areaLabel);
   const serviceAreaDisplay = [govLabel, areaLabel].filter(Boolean).join(" — ");
-
-  useOrderNotifications(isOnline, user, sessionToken);
 
   const fetchServerPendingOrders = async () => {
     const apiBase = getApiBaseUrl();

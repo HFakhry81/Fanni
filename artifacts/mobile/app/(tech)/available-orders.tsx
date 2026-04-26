@@ -15,7 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
-import { useOrderNotifications } from "@/hooks/useOrderNotifications";
+import { useTechWs } from "@/context/TechWsContext";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
 import { useRouter } from "expo-router";
@@ -143,6 +143,8 @@ export default function AvailableOrdersScreen() {
     return () => clearTimeout(timer);
   }, [wsOrderStatusSignal]);
 
+  const { subscribeNewOrder, subscribeOrderCancelled } = useTechWs();
+
   const onNewOrderCallback = useCallback(() => {
     silentFetchRef.current();
   }, []);
@@ -157,7 +159,8 @@ export default function AvailableOrdersScreen() {
     });
   }, [setAvailablePendingCount]);
 
-  useOrderNotifications(true, user, sessionToken, onNewOrderCallback, onOrderCancelledCallback);
+  useEffect(() => subscribeNewOrder(onNewOrderCallback), [subscribeNewOrder, onNewOrderCallback]);
+  useEffect(() => subscribeOrderCancelled(onOrderCancelledCallback), [subscribeOrderCancelled, onOrderCancelledCallback]);
 
   const handleAccept = async (order: PendingOrder) => {
     setAcceptingId(order.id);

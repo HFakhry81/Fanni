@@ -8,7 +8,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, buildSimulatedOrder } from "@/context/OrderContext";
-import { useOrderNotifications } from "@/hooks/useOrderNotifications";
+import { TechWsProvider, useTechWs } from "@/context/TechWsContext";
 import Toast from "@/components/Toast";
 
 function CountBadge({ count }: { count: number }) {
@@ -154,8 +154,8 @@ const ADMIN_AVAILABILITY_MESSAGES = {
 const DEDUP_WINDOW_MS = 2000;
 
 function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => void) {
-  const { user } = useApp();
   const { sessionToken } = useAuth();
+  const { subscribeAvailabilityChanged } = useTechWs();
   const onChangedRef = useRef(onChanged);
   onChangedRef.current = onChanged;
   const lastShownAtRef = useRef<number>(0);
@@ -167,17 +167,9 @@ function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => v
     onChangedRef.current(isAvailable);
   }, []);
 
-  const stableCallback = deduplicatedCallback;
-
-  useOrderNotifications(
-    true,
-    user,
-    sessionToken,
-    undefined,
-    undefined,
-    stableCallback,
-    true,
-  );
+  useEffect(() => {
+    return subscribeAvailabilityChanged(deduplicatedCallback);
+  }, [subscribeAvailabilityChanged, deduplicatedCallback]);
 
   useEffect(() => {
     const domain = process.env["EXPO_PUBLIC_DOMAIN"];
@@ -265,7 +257,7 @@ function usePendingCountSync() {
   }, [fetchCount]);
 }
 
-export default function TechLayout() {
+function TechLayoutInner() {
   const { availablePendingCount } = useOrders();
   const { language } = useApp();
   const [adminNotification, setAdminNotification] = useState<{ message: string; visible: boolean }>({
@@ -306,6 +298,17 @@ export default function TechLayout() {
         onHide={hideAdminNotification}
       />
     </>
+  );
+}
+
+export default function TechLayout() {
+  const { user, isOnline } = useApp();
+  const { sessionToken } = useAuth();
+
+  return (
+    <TechWsProvider user={user} sessionToken={sessionToken} isOnline={isOnline}>
+      <TechLayoutInner />
+    </TechWsProvider>
   );
 }
 
