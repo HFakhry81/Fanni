@@ -164,7 +164,13 @@ router.get("/auth/user", async (req: Request, res: Response) => {
   }
   if (req.sessionSource === "admin") {
     const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, req.user.id));
-    res.json(GetCurrentAuthUserResponse.parse({ user: admin ? buildAdminUser(admin) : null }));
+    if (!admin || !admin.isActive) {
+      const sid = getSessionId(req);
+      await clearSession(res, sid);
+      res.json(GetCurrentAuthUserResponse.parse({ user: null }));
+      return;
+    }
+    res.json(GetCurrentAuthUserResponse.parse({ user: buildAdminUser(admin) }));
     return;
   }
   const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user.id));
