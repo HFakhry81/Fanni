@@ -300,9 +300,17 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
             authUserRef.current.role === "technician" &&
             sessionTokenRef.current
           ) {
-            syncAvailabilityFromServer(sessionTokenRef.current).catch(() => {
-              needsRetry.current = true;
-            });
+            syncAvailabilityFromServer(sessionTokenRef.current)
+              .then((ok) => {
+                if (!ok) {
+                  needsRetry.current = true;
+                  setSyncErrorToastVisible(true);
+                }
+              })
+              .catch(() => {
+                needsRetry.current = true;
+                setSyncErrorToastVisible(true);
+              });
           }
         }
       }
