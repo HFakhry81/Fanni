@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Platform, StyleSheet, View, Text, useColorScheme } from "react-native";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
@@ -11,10 +11,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useClientOrderUpdates, OrderStatusNotification } from "@/hooks/useClientOrderUpdates";
 import Toast from "@/components/Toast";
 
-interface NotificationState {
+interface QueuedNotification {
   orderId: string;
   message: string;
-  visible: boolean;
 }
 
 function ClientOrderUpdatesListener({
@@ -135,11 +134,27 @@ const STATUS_MESSAGES: Record<string, { ar: string; en: string }> = {
 export default function ClientLayout() {
   const router = useRouter();
   const { language } = useApp();
-  const [notification, setNotification] = useState<NotificationState>({
-    orderId: "",
-    message: "",
-    visible: false,
-  });
+
+  const queueRef = useRef<QueuedNotification[]>([]);
+  const [current, setCurrent] = useState<QueuedNotification | null>(null);
+  const currentRef = useRef<QueuedNotification | null>(null);
+  const isTransitioningRef = useRef(false);
+  const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNext = useCallback(() => {
+    isTransitioningRef.current = false;
+    const next = queueRef.current.shift() ?? null;
+    currentRef.current = next;
+    setCurrent(next);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (nextTimerRef.current) {
+        clearTimeout(nextTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleNotification = useCallback(
     (n: OrderStatusNotification) => {
@@ -147,28 +162,41 @@ export default function ClientLayout() {
       const statusMsg = STATUS_MESSAGES[n.status]?.[lang] ?? n.status;
       const orderLabel = lang === "ar" ? `طلب ${n.orderNumber}` : `Order ${n.orderNumber}`;
       const message = `${orderLabel} — ${statusMsg}`;
-      setNotification({ orderId: n.orderId, message, visible: true });
+      const queued: QueuedNotification = { orderId: n.orderId, message };
+
+      if (currentRef.current === null && !isTransitioningRef.current) {
+        currentRef.current = queued;
+        setCurrent(queued);
+      } else {
+        queueRef.current.push(queued);
+      }
     },
     [language]
   );
 
   const hideNotification = useCallback(() => {
-    setNotification((prev) => ({ ...prev, visible: false }));
-  }, []);
+    currentRef.current = null;
+    isTransitioningRef.current = true;
+    setCurrent(null);
+    if (nextTimerRef.current) {
+      clearTimeout(nextTimerRef.current);
+    }
+    nextTimerRef.current = setTimeout(showNext, 300);
+  }, [showNext]);
 
   const goToOrder = useCallback(() => {
-    if (notification.orderId) {
-      router.push({ pathname: "/order-details", params: { orderId: notification.orderId } });
+    if (current?.orderId) {
+      router.push({ pathname: "/order-details", params: { orderId: current.orderId } });
     }
-  }, [notification.orderId, router]);
+  }, [current?.orderId, router]);
 
   return (
     <>
       <ClientOrderUpdatesListener onNotification={handleNotification} />
       {isLiquidGlassAvailable() ? <NativeClientTabs /> : <ClassicClientTabs />}
       <Toast
-        visible={notification.visible}
-        message={notification.message}
+        visible={current !== null}
+        message={current?.message ?? ""}
         duration={5000}
         onHide={hideNotification}
         onPress={goToOrder}
