@@ -154,6 +154,25 @@ const ADMIN_AVAILABILITY_MESSAGES = {
 
 const DEDUP_WINDOW_MS = 2000;
 
+const ORDER_CANCELLED_MESSAGES = {
+  en: "An order was cancelled by the client",
+  ar: "طلب تم إلغاؤه بواسطة العميل",
+};
+
+function useOrderCancelledNotification(onCancelled: () => void) {
+  const { subscribeOrderCancelled } = useTechWs();
+  const onCancelledRef = useRef(onCancelled);
+  onCancelledRef.current = onCancelled;
+
+  const callback = useCallback((_orderId: string) => {
+    onCancelledRef.current();
+  }, []);
+
+  useEffect(() => {
+    return subscribeOrderCancelled(callback);
+  }, [subscribeOrderCancelled, callback]);
+}
+
 function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => void) {
   const { sessionToken } = useAuth();
   const { subscribeAvailabilityChanged } = useTechWs();
@@ -266,6 +285,10 @@ function TechLayoutInner() {
     message: "",
     visible: false,
   });
+  const [cancelledNotification, setCancelledNotification] = useState<{ visible: boolean; key: number }>({
+    visible: false,
+    key: 0,
+  });
 
   usePendingCountSync();
   useDemoOrderBroadcast();
@@ -284,13 +307,26 @@ function TechLayoutInner() {
 
   useAdminAvailabilityNotification(handleAdminAvailabilityChange);
 
+  const handleOrderCancelled = useCallback(() => {
+    setCancelledNotification((prev) => ({ visible: true, key: prev.key + 1 }));
+  }, []);
+
+  useOrderCancelledNotification(handleOrderCancelled);
+
   const hideAdminNotification = useCallback(() => {
     setAdminNotification((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const hideCancelledNotification = useCallback(() => {
+    setCancelledNotification((prev) => ({ ...prev, visible: false }));
   }, []);
 
   const tabs = isLiquidGlassAvailable() ? <NativeTechTabs availablePendingCount={availablePendingCount} /> : <ClassicTechTabs />;
 
   const reconnectLabel = language === "ar" ? "جارٍ إعادة الاتصال…" : "Reconnecting…";
+  const cancelledMessage = language === "ar"
+    ? `${ORDER_CANCELLED_MESSAGES.ar}\n${ORDER_CANCELLED_MESSAGES.en}`
+    : `${ORDER_CANCELLED_MESSAGES.en}\n${ORDER_CANCELLED_MESSAGES.ar}`;
 
   return (
     <>
@@ -301,6 +337,14 @@ function TechLayoutInner() {
         message={adminNotification.message}
         duration={6000}
         onHide={hideAdminNotification}
+      />
+      <Toast
+        key={cancelledNotification.key}
+        visible={cancelledNotification.visible}
+        message={cancelledMessage}
+        duration={5000}
+        variant="error"
+        onHide={hideCancelledNotification}
       />
     </>
   );
