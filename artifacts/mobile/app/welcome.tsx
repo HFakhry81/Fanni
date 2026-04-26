@@ -126,10 +126,18 @@ export default function WelcomeScreen() {
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
         </View>
 
-        <TouchableOpacity onPress={() => router.push("/register")} activeOpacity={0.8}>
-          <Text style={[styles.registerLink, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+        <TouchableOpacity
+          style={[styles.registerBtn, { borderColor: colors.primary, borderRadius: colors.radius }]}
+          onPress={() => router.push("/register")}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.btnIcon, { backgroundColor: "rgba(245,166,35,0.12)" }]}>
+            <Text style={styles.btnEmoji}>✨</Text>
+          </View>
+          <Text style={[styles.btnText, { color: colors.primary, fontFamily: "Inter_600SemiBold", flex: 1, textAlign: isRTL ? "right" : "left" }]}>
             {t("welcome.register")}
           </Text>
+          <Text style={{ color: colors.primary, fontSize: 20, opacity: 0.7 }}>{isRTL ? "‹" : "›"}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -232,5 +240,13 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 13 },
-  registerLink: { fontSize: 15, textAlign: "center" },
+  registerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 4,
+    gap: 12,
+    borderWidth: 1.5,
+  },
 });
