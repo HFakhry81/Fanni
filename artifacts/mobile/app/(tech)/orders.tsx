@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput, ImageSourcePropType, LayoutAnimation, UIManager } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput, ImageSourcePropType, LayoutAnimation, UIManager, Animated } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -103,8 +103,29 @@ export default function TechOrdersScreen() {
   const [expandedInvoices, setExpandedInvoices] = useState<Record<string, boolean>>({});
 
   const isFetchingRef = useRef(false);
+  const [updatedOrderIds, setUpdatedOrderIds] = useState<Set<string>>(new Set());
+  const prevStatusMapRef = useRef<Map<string, string>>(new Map());
+  const badgeOpacity = useRef(new Animated.Value(0)).current;
+  const clearUpdatedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchOrdersFromApi = useCallback(async () => {
+  const flashUpdatedBadges = useCallback((ids: Set<string>) => {
+    if (ids.size === 0) return;
+    if (clearUpdatedTimerRef.current) clearTimeout(clearUpdatedTimerRef.current);
+    setUpdatedOrderIds((prev) => new Set([...prev, ...ids]));
+    badgeOpacity.setValue(1);
+    clearUpdatedTimerRef.current = setTimeout(() => {
+      Animated.timing(badgeOpacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        setUpdatedOrderIds(new Set());
+        badgeOpacity.setValue(0);
+      });
+    }, 1500);
+  }, [badgeOpacity]);
+
+  const fetchOrdersFromApi = useCallback(async (detectChanges = false) => {
     const apiBase = getApiBaseUrl();
     if (!apiBase || !sessionToken || isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -115,19 +136,39 @@ export default function TechOrdersScreen() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json() as { orders: unknown[] };
       if (Array.isArray(json.orders)) {
-        syncOrders(json.orders as Parameters<typeof syncOrders>[0]);
+        const fetched = json.orders as Order[];
+
+        if (detectChanges && prevStatusMapRef.current.size > 0) {
+          const changed = new Set<string>();
+          for (const order of fetched) {
+            const prev = prevStatusMapRef.current.get(order.id);
+            if (prev !== undefined && prev !== order.status) {
+              changed.add(order.id);
+            }
+          }
+          flashUpdatedBadges(changed);
+        }
+
+        prevStatusMapRef.current = new Map(fetched.map((o) => [o.id, o.status]));
+        syncOrders(fetched as Parameters<typeof syncOrders>[0]);
       }
     } catch (err) {
       console.warn("[Fanni] Failed to re-fetch tech orders:", err);
     } finally {
       isFetchingRef.current = false;
     }
-  }, [sessionToken, syncOrders]);
+  }, [sessionToken, syncOrders, flashUpdatedBadges]);
+
+  useEffect(() => {
+    return () => {
+      if (clearUpdatedTimerRef.current) clearTimeout(clearUpdatedTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (wsOrderStatusSignal === 0) return;
     const timer = setTimeout(() => {
-      fetchOrdersFromApi();
+      fetchOrdersFromApi(true);
     }, 400);
     return () => clearTimeout(timer);
   }, [wsOrderStatusSignal, fetchOrdersFromApi]);
@@ -396,10 +437,16 @@ export default function TechOrdersScreen() {
 
   const renderCard = ({ item }: { item: Order }) => {
     const isActive = ["accepted", "inProgress"].includes(item.status);
+    const isUpdated = updatedOrderIds.has(item.id);
     return (
-      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: isUpdated ? "#F59E0B" : colors.border }]}>
         <View style={[styles.accentBar, { backgroundColor: isActive ? colors.primary : colors.success }]} />
         <View style={styles.cardBody}>
+          {isUpdated && (
+            <Animated.View style={[styles.updatedBadge, { opacity: badgeOpacity, alignSelf: isRTL ? "flex-start" : "flex-end" }]}>
+              <Text style={styles.updatedBadgeText}>✦ {t("order.updated")}</Text>
+            </Animated.View>
+          )}
           <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             {item.subImageKey && SUB_IMAGE_MAP[item.subImageKey] && (
               <Image
@@ -1150,4 +1197,6 @@ const styles = StyleSheet.create({
   contactBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 6, borderRightWidth: 0 },
   contactBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   feeInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular", marginBottom: 4 },
+  updatedBadge: { backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#F59E0B", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 6 },
+  updatedBadgeText: { color: "#B45309", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.3 },
 });
