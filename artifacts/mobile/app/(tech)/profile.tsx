@@ -825,6 +825,26 @@ export default function TechProfileScreen() {
             <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
 
+          {/* Work Hours */}
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+            onPress={openEdit}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: colors.accent, borderRadius: 10 }]}>
+              <VectorIcon name="clock" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL ? "ساعات العمل" : "Work Hours"}
+              </Text>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                {`${user?.serviceStart ?? "08:00"} – ${user?.serviceEnd ?? "22:00"}`}
+              </Text>
+            </View>
+            <VectorIcon name="edit-2" size={15} color={colors.mutedForeground} />
+          </TouchableOpacity>
+
           {/* Change Password */}
           <TouchableOpacity
             style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
