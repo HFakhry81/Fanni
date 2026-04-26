@@ -333,6 +333,57 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
   }
 });
 
+router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  const id = req.params.id;
+
+  if (user.role !== "client") {
+    res.status(403).json({ error: "Only clients can confirm arrival" });
+    return;
+  }
+
+  try {
+    const [existing] = await db
+      .select({ clientId: ordersTable.clientId, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+
+    if (existing.clientId !== user.id) {
+      res.status(403).json({ error: "You are not the client for this order" });
+      return;
+    }
+
+    if (existing.status !== "acknowledged") {
+      res.status(409).json({ error: "Order is not in an acknowledged state" });
+      return;
+    }
+
+    await db
+      .update(ordersTable)
+      .set({
+        status: "in_progress",
+        updatedAt: new Date(),
+        data: sql`${ordersTable.data} || '{"status":"inProgress"}'::jsonb`,
+      })
+      .where(eq(ordersTable.id, id));
+
+    logger.info({ id, clientId: user.id }, "Client confirmed technician arrival — order in_progress");
+
+    broadcastOrderStatusToClient(user.id, { id, status: "inProgress" });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to confirm arrival");
+    res.status(500).json({ error: "Failed to confirm arrival" });
+  }
+});
+
 router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
   const id = req.params.id;

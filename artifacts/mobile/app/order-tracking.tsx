@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors, type AppColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
 import {
   RouteData,
@@ -177,7 +178,8 @@ export default function OrderTrackingScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
-  const { orders } = useOrders();
+  const { sessionToken } = useAuth();
+  const { orders, updateOrder } = useOrders();
   const insets = useSafeAreaInsets();
 
   const order = orders.find((o) => o.id === orderId);
@@ -195,7 +197,33 @@ export default function OrderTrackingScreen() {
   const [progress, setProgress] = useState(0);
 
   const [arrived, setArrived] = useState(false);
+  const [jobStarted, setJobStarted] = useState(order?.status === "inProgress");
+  const [confirmingArrival, setConfirmingArrival] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleConfirmArrival = useCallback(async () => {
+    if (!orderId || confirmingArrival) return;
+    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+    const apiBase = domain ? `https://${domain}` : "";
+    if (!apiBase || !sessionToken) {
+      Alert.alert(t("common.error"), t("order.confirmArrivalError"));
+      return;
+    }
+    setConfirmingArrival(true);
+    try {
+      const res = await fetch(`${apiBase}/api/orders/${orderId}/confirm-arrival`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await updateOrder(orderId, { status: "inProgress" });
+      setJobStarted(true);
+    } catch {
+      Alert.alert(t("common.error"), t("order.confirmArrivalError"));
+    } finally {
+      setConfirmingArrival(false);
+    }
+  }, [orderId, sessionToken, confirmingArrival, updateOrder, t]);
 
   const [displayEtaSec, setDisplayEtaSec] = useState<number | null>(null);
   const etaFromRouteRef = useRef(false);
@@ -210,6 +238,9 @@ export default function OrderTrackingScreen() {
     if (order?.status === "completed" || order?.status === "cancelled") {
       delete _savedWebMapState[orderId];
       delete _savedNativeRegion[orderId];
+    }
+    if (order?.status === "inProgress") {
+      setJobStarted(true);
     }
   }, [order?.status, orderId]);
 
@@ -397,8 +428,15 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
-        <View style={[styles.etaBanner, { backgroundColor: arrived ? "#E8F5E9" : colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
-          {arrived ? (
+        <View style={[styles.etaBanner, { backgroundColor: jobStarted ? "#E3F2FD" : arrived ? "#E8F5E9" : colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
+          {jobStarted ? (
+            <>
+              <VectorIcon name="tool" size={15} color="#1565C0" />
+              <Text style={{ color: "#1565C0", fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                {t("order.jobInProgress")}
+              </Text>
+            </>
+          ) : arrived ? (
             <>
               <VectorIcon name="check-circle" size={15} color="#2E7D32" />
               <Text style={{ color: "#2E7D32", fontFamily: "Inter_700Bold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
@@ -440,6 +478,24 @@ export default function OrderTrackingScreen() {
           )}
         </View>
 
+        {arrived && !jobStarted && (
+          <TouchableOpacity
+            style={[styles.confirmArrivalBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: confirmingArrival ? 0.7 : 1 }]}
+            onPress={handleConfirmArrival}
+            activeOpacity={0.8}
+            disabled={confirmingArrival}
+          >
+            {confirmingArrival ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <VectorIcon name="check-circle" size={18} color="#FFF" />
+            )}
+            <Text style={[styles.confirmArrivalText, { marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+              {t("order.confirmArrival")}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {order.technicianName && (
           <View style={[styles.techRow, { flexDirection: isRTL ? "row-reverse" : "row", borderTopColor: colors.border }]}>
             {order.technicianAvatar ? (
@@ -457,8 +513,8 @@ export default function OrderTrackingScreen() {
               <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
                 {order.technicianName}
               </Text>
-              <Text style={{ color: arrived ? "#2E7D32" : colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                {arrived ? t("order.technicianArrived") : t("order.onTheWay")}
+              <Text style={{ color: jobStarted ? "#1565C0" : arrived ? "#2E7D32" : colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                {jobStarted ? t("order.jobInProgress") : arrived ? t("order.technicianArrived") : t("order.onTheWay")}
               </Text>
             </View>
             {order.technicianRating && (
@@ -1469,6 +1525,19 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
+  },
+  confirmArrivalBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  confirmArrivalText: {
+    color: "#FFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 15,
   },
   actionRow: {
     gap: 10,
