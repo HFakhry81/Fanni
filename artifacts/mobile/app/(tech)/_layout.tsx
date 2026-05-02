@@ -115,13 +115,8 @@ function ClassicTechTabs() {
         name="available-orders"
         options={{
           title: isRTL ? "المتاحة" : "Available",
-          tabBarIcon: () =>
-            isIOS ? null : (
-              <View>
-                <Text style={styles.tabIcon}>📥</Text>
-                {availablePendingCount > 0 && <CountBadge count={availablePendingCount} />}
-              </View>
-            ),
+          tabBarBadge: availablePendingCount > 0 ? (availablePendingCount > 99 ? "99+" : availablePendingCount) : undefined,
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📥</Text>,
         }}
       />
       <Tabs.Screen
