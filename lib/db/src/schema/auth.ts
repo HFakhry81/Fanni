@@ -38,7 +38,7 @@ export const usersTable = pgTable("users", {
   serviceEnd: varchar("service_end", { length: 5 }),
   isAvailable: boolean("is_available").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
-  location: geography("location"),
+  //location: geography("location"),
   passwordHash: varchar("password_hash"),
   expoPushToken: varchar("expo_push_token"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
