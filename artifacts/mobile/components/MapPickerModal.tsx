@@ -12,7 +12,7 @@ const DEFAULT_DELTA = { latitudeDelta: 0.08, longitudeDelta: 0.08 };
 
 function getApiBase(): string {
   if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
   }
   return "";
 }

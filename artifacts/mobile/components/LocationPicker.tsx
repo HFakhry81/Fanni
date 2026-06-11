@@ -12,7 +12,7 @@ import MapPickerModal, { type PickedLocation } from "@/components/MapPickerModal
 
 function getApiBase(): string {
   if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
   }
   return "";
 }

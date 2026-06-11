@@ -37,7 +37,7 @@ type FilterSuccess = "all" | "true" | "false";
 
 function getApiBaseUrl(): string {
   if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
   }
   return "";
 }
