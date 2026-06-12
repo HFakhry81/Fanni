@@ -16,7 +16,7 @@ function fetchAllLocations(): Promise<LocationEntry[]> {
   if (cachePromise) return cachePromise;
 
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  const base = domain ? `https://${domain}` : "";
+  const base = domain ? `http://${domain}` : "";
 
   cachePromise = fetch(`${base}/api/locations/all`)
     .then((r) => (r.ok ? r.json() : { locations: [] }))

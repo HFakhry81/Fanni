@@ -31,7 +31,7 @@ import SUB_IMAGE_MAP from "@/constants/subImageMap";
 // ── API helpers (mirror of LocationPicker) ────────────────────────────────────
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  return domain ? `https://${domain}` : "";
+  return domain ? `http://${domain}` : "";
 }
 
 function timeStringToDate(hhmm: string): Date {
@@ -688,7 +688,7 @@ export default function NewOrderScreen() {
         if (sessionToken) {
           headers["Authorization"] = `Bearer ${sessionToken}`;
         }
-        const res = await fetch(`https://${domain}/api/orders`, {
+        const res = await fetch(`http://${domain}/api/orders`, {
           method: "POST",
           headers,
           body: JSON.stringify(newOrder),

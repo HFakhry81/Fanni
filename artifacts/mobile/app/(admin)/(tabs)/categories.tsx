@@ -12,7 +12,7 @@ import AppHeader from "@/components/AppHeader";
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `https://${domain}` : "";
+  return domain ? `http://${domain}` : "";
 }
 
 interface Domain {

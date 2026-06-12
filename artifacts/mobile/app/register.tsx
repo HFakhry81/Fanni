@@ -27,7 +27,7 @@ interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `https://${domain}` : "";
+  return domain ? `http://${domain}` : "";
 }
 
 function timeStringToDate(hhmm: string): Date {

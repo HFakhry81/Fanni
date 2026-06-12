@@ -25,7 +25,7 @@ interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `https://${domain}` : "";
+  return domain ? `http://${domain}` : "";
 }
 
 function timeStringToDate(hhmm: string): Date {
@@ -427,7 +427,7 @@ export default function TechProfileScreen() {
     setResendWelcomeLoading(true);
     try {
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `https://${domain}` : "";
+      const apiBase = domain ? `http://${domain}` : "";
       if (!apiBase) {
         setToastMessage(t("profile.resendWelcomeError"));
         setToastAction(undefined);
@@ -485,7 +485,7 @@ export default function TechProfileScreen() {
       const { url } = await uploadPhotoToServer(uri, sessionToken, mimeType);
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
       if (domain) {
-        const patchRes = await fetch(`https://${domain}/api/auth/me`, {
+        const patchRes = await fetch(`http://${domain}/api/auth/me`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ profileImageUrl: url }),

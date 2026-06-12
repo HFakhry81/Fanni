@@ -235,7 +235,7 @@ export default function OrderTrackingScreen() {
   const handleConfirmArrival = useCallback(async () => {
     if (!orderId || confirmingArrival) return;
     const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    const apiBase = domain ? `https://${domain}` : "";
+    const apiBase = domain ? `http://${domain}` : "";
     if (!apiBase || !sessionToken) {
       Alert.alert(t("common.error"), t("order.confirmArrivalError"));
       return;
@@ -349,7 +349,7 @@ export default function OrderTrackingScreen() {
       return;
     }
     const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    const apiBase = domain ? `https://${domain}` : "";
+    const apiBase = domain ? `http://${domain}` : "";
     if (!apiBase) return;
 
     // Sample every Nth coordinate, capped at 25 samples
@@ -434,7 +434,7 @@ export default function OrderTrackingScreen() {
     const deepLink = `mobile://order-tracking?orderId=${orderId}`;
     const domain = process.env["EXPO_PUBLIC_DOMAIN"];
     const webLink = domain
-      ? `https://${domain}/order-tracking?orderId=${orderId}`
+      ? `http://${domain}/order-tracking?orderId=${orderId}`
       : null;
     const message = t("order.shareTrackingMsg");
     if (Platform.OS === "web") {

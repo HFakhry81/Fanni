@@ -8,7 +8,7 @@ export interface SaveProfileResult {
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `https://${domain}` : "";
+  return domain ? `http://${domain}` : "";
 }
 
 export function useSaveProfile() {

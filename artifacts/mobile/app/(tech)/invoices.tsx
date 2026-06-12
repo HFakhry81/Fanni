@@ -32,7 +32,7 @@ interface ApiInvoice {
 
 function getApiBaseUrl(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  if (domain) return `https://${domain}`;
+  if (domain) return `http://${domain}`;
   return "";
 }
 

@@ -9,7 +9,7 @@ export async function uploadPhotoToServer(
 ): Promise<UploadResult> {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
   if (!domain) throw new Error("EXPO_PUBLIC_DOMAIN not configured");
-  const apiBase = `https://${domain}`;
+  const apiBase = `http://${domain}`;
 
   const formData = new FormData();
   const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";

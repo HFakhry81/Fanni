@@ -473,7 +473,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const syncAvailabilityFromServer = async (sessionToken: string): Promise<boolean> => {
     const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-    const apiBase = domain ? `https://${domain}` : "";
+    const apiBase = domain ? `http://${domain}` : "";
     if (!apiBase) return false;
     let res: Response;
     try {
@@ -505,7 +505,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
     if (user?.id && sessionToken) {
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `https://${domain}` : "";
+      const apiBase = domain ? `http://${domain}` : "";
       if (apiBase) {
         try {
           const res = await fetch(
@@ -551,7 +551,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `https://${domain}` : "";
+      const apiBase = domain ? `http://${domain}` : "";
       if (!apiBase) return false;
       const res = await fetch(
         `${apiBase}/api/technicians/${userId}/availability`,

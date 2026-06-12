@@ -272,7 +272,7 @@ export default function ClientProfileScreen() {
     setResendWelcomeLoading(true);
     try {
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `https://${domain}` : "";
+      const apiBase = domain ? `http://${domain}` : "";
       if (!apiBase) {
         setToastMessage(t("profile.resendWelcomeError"));
         setToastAction(undefined);
@@ -330,7 +330,7 @@ export default function ClientProfileScreen() {
       const { url } = await uploadPhotoToServer(uri, sessionToken, mimeType);
       const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
       if (domain) {
-        const patchRes = await fetch(`https://${domain}/api/auth/me`, {
+        const patchRes = await fetch(`http://${domain}/api/auth/me`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ profileImageUrl: url }),
@@ -418,7 +418,7 @@ export default function ClientProfileScreen() {
                     undoAvatarRef.current = previousAvatar;
                     await setUser({ ...user, avatar: undefined });
                     const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-                    const apiBase = domain ? `https://${domain}` : "";
+                    const apiBase = domain ? `http://${domain}` : "";
                     if (!apiBase || !sessionToken) {
                       await setUser({ ...user, avatar: previousAvatar });
                       undoAvatarRef.current = undefined;

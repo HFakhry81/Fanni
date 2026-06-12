@@ -22,7 +22,7 @@ import VectorIcon from "@/components/VectorIcon";
 
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `https://${domain}` : "";
+  return domain ? `http://${domain}` : "";
 }
 
 interface LedgerEntry {

@@ -212,7 +212,7 @@ function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => v
 
     async function fetchPending() {
       try {
-        const res = await fetch(`https://${domain}/api/technician/notifications`, {
+        const res = await fetch(`http://${domain}/api/technician/notifications`, {
           headers: { Authorization: `Bearer ${sessionToken}` },
         });
         if (!res.ok) return;
@@ -273,7 +273,7 @@ function usePendingCountSync() {
     const domain = process.env["EXPO_PUBLIC_DOMAIN"];
     if (!domain || !sessionToken) return;
     try {
-      const res = await fetch(`https://${domain}/api/technician/pending-orders?limit=50`, {
+      const res = await fetch(`http://${domain}/api/technician/pending-orders?limit=50`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       if (res.ok) {

@@ -30,7 +30,7 @@ const AUTH_TOKEN_KEY = "fanni_auth_token";
 
 function getApiBaseUrl(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `https://${domain}` : "";
+  return domain ? `http://${domain}` : "";
 }
 
 export default function AdminProfileScreen() {
