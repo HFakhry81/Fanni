@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, customType, index, integer, jsonb, pgEnum, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import { bigserial, boolean, customType, index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 const geography = customType<{ data: string }>({
   dataType() {
@@ -21,7 +21,7 @@ export const sessionsTable = pgTable(
 
 export const usersTable = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  email: varchar("email").notNull().unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -144,6 +144,16 @@ export const availabilityAuditLogsTable = pgTable(
     index("availability_audit_logs_tech_id_idx").on(table.technicianId),
     index("availability_audit_logs_created_at_idx").on(table.createdAt),
   ],
+);
+
+export const rateLimitsTable = pgTable(
+  "rate_limits",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    key: text("key").notNull(),
+    hitAt: timestamp("hit_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("rate_limits_key_hit_at_idx").on(table.key, table.hitAt)],
 );
 
 export type AvailabilityAuditLog = typeof availabilityAuditLogsTable.$inferSelect;

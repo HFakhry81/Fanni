@@ -103,6 +103,7 @@ CREATE TABLE "users" (
 	"address" varchar(500),
 	"profession" varchar(100),
 	"specialty" varchar(100),
+	"location" geography(POINT, 4326),
 	"service_categories" jsonb,
 	"service_start" varchar(5),
 	"service_end" varchar(5),
@@ -197,7 +198,8 @@ CREATE TABLE "locations" (
 	"name_ar" varchar(200) NOT NULL,
 	"name_en" varchar(200) NOT NULL,
 	"parent_id" varchar,
-	"slug" varchar(200) NOT NULL
+	"slug" varchar(200) NOT NULL,
+	"centroid" geography(POINT, 4326)
 );
 --> statement-breakpoint
 CREATE TABLE "nominatim_cache" (

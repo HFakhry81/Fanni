@@ -48,19 +48,19 @@ function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSe
         <Icon sf={{ default: "map", selected: "map.fill" }} />
         <Label>Map</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="available-orders" badge={badgeValue}>
+      <NativeTabs.Trigger name="available-orders">
         <Icon sf={{ default: "tray", selected: "tray.fill" }} />
         <Label>Available</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="orders" badge={ordersBadgeValue}>
-        <Icon sf={{ default: "list.bullet", selected: "list.bullet.fill" }} />
+      <NativeTabs.Trigger name="orders">
+        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="invoices">
         <Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} />
         <Label>Invoices</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile" badge={profileBadge}>
+      <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
       </NativeTabs.Trigger>

@@ -27,6 +27,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS address VARCHAR(500);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS service_start VARCHAR(5);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS service_end VARCHAR(5);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token VARCHAR;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS location geography(POINT, 4326);
 
 -- service_domains ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS service_domains (

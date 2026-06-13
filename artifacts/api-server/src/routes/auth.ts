@@ -8,6 +8,7 @@ import {
   ExchangeMobileAuthorizationCodeResponse,
   LogoutMobileSessionResponse,
   SetUserRoleBody,
+  registerSchema,
 } from "@workspace/api-zod";
 import { db, pool, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
 import { eq, and, gt, isNull, lt, desc, sql } from "drizzle-orm";
@@ -634,70 +635,21 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
 
 // PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = req.body as {
-    name?: string;
-    email?: string;
-    mobile?: string;
-    password?: string;
-    role?: string;
-    nationalId?: string;
-    governorateId?: string;
-    areaId?: string;
-    address?: string;
-    latitude?: number;
-    longitude?: number;
-    verificationToken?: string;
-    serviceCategories?: string[];
-    profession?: string;
-    specialty?: string;
-    serviceStart?: string;
-    serviceEnd?: string;
-  };
+  const parsed = registerSchema.safeParse(req.body);
 
-  if (!name || !name.trim()) {
-    res.status(400).json({ error: "Name is required" });
+  if (!parsed.success) {
+    const errorMessages = parsed.error.errors
+      .map((err) => `${err.path.join(".")}: ${err.message}`)
+      .join("; ");
+    res.status(400).json({ error: errorMessages });
     return;
   }
-  if (!mobile || !mobile.trim()) {
-    res.status(400).json({ error: "Mobile number is required" });
-    return;
-  }
-  if (!EGYPT_MOBILE_RE.test(mobile.trim().replace(/\s|-/g, ""))) {
-    res.status(400).json({ error: "Invalid Egyptian mobile number" });
-    return;
-  }
-  if (!password) {
-    res.status(400).json({ error: "Password is required" });
-    return;
-  }
-  if (
-    password.length < 8 ||
-    !/[a-z]/.test(password) ||
-    !/[A-Z]/.test(password) ||
-    !/[0-9]/.test(password) ||
-    !/[^A-Za-z0-9]/.test(password)
-  ) {
-    res.status(400).json({ error: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character" });
-    return;
-  }
+
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = parsed.data;
+
   if (role && !["client", "technician"].includes(role)) {
     res.status(400).json({ error: "Invalid role" });
     return;
-  }
-
-  if ((latitude !== undefined && longitude === undefined) || (latitude === undefined && longitude !== undefined)) {
-    res.status(400).json({ error: "Both latitude and longitude must be provided together" });
-    return;
-  }
-  if (latitude !== undefined && longitude !== undefined) {
-    if (typeof latitude !== "number" || typeof longitude !== "number" || Number.isNaN(latitude) || Number.isNaN(longitude)) {
-      res.status(400).json({ error: "Invalid coordinates" });
-      return;
-    }
-    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-      res.status(400).json({ error: "Coordinates are out of range" });
-      return;
-    }
   }
 
   // OTP gate: when ENABLE_OTP=true, verificationToken is mandatory and must match the mobile number
@@ -736,7 +688,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   }
 
   if (email && email.trim()) {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email.toLowerCase();
     const [[existingUserEmail], [existingAdminEmail]] = await Promise.all([
       db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, normalizedEmail)),
       db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.email, normalizedEmail)),
@@ -758,7 +710,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   const [newUser] = await db
     .insert(usersTable)
     .values({
-      email: email ? email.trim().toLowerCase() : null,
+      email: email,
       firstName,
       lastName,
       mobile: normalizedMobile,

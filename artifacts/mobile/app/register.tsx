@@ -281,6 +281,12 @@ export default function RegisterScreen() {
         newErrors.name = isRTL ? "الاسم مطلوب" : "Name is required";
       }
 
+      if (!email.trim()) {
+        newErrors.email = isRTL ? "البريد الإلكتروني مطلوب" : "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        newErrors.email = isRTL ? "صيغة البريد الإلكتروني غير صحيحة" : "Invalid email format";
+      }
+
       const mobileDigits = mobile.trim().replace(/\s|-/g, "");
       if (!mobileDigits) {
         newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
@@ -424,7 +430,7 @@ export default function RegisterScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: name.trim(),
-            email: email.trim() || undefined,
+            email: email.trim(),
             mobile: normalizedMobile(),
             password,
             role: regType,
