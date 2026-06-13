@@ -39,9 +39,6 @@ function CountBadge({ count }: { count: number }) {
 }
 
 function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSetupIncomplete }: { availablePendingCount: number; unreadCompletedCount: number; profileSetupIncomplete: boolean }) {
-  const badgeValue = availablePendingCount > 0 ? (availablePendingCount > 99 ? "99+" : String(availablePendingCount)) : undefined;
-  const ordersBadgeValue = unreadCompletedCount > 0 ? (unreadCompletedCount > 99 ? "99+" : String(unreadCompletedCount)) : undefined;
-  const profileBadge = profileSetupIncomplete ? "" : undefined;
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="map">
@@ -353,7 +350,12 @@ function TechLayoutInner() {
   return (
     <>
       {tabs}
-      <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
+      
+      {/* 👈 تم تصحيح الكود هنا لتضمين الخصائص الفعلية وإزالة رمز النقاط الثلاث */}
+      {!isWsConnected && (
+        <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
+      )}
+      
       <SyncingBanner visible={hasPendingToggle} label={syncingLabel} topOffset={syncingTopOffset} />
       <Toast
         visible={adminNotification.visible}

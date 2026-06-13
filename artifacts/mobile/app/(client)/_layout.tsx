@@ -38,7 +38,7 @@ function NativeClientTabs() {
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="orders">
-        <Icon sf={{ default: "list.bullet", selected: "list.bullet.fill" }} />
+        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="invoices">
@@ -201,7 +201,12 @@ export default function ClientLayout() {
     <>
       <ClientOrderUpdatesListener onNotification={handleNotification} onConnectionChange={setIsWsConnected} />
       {isLiquidGlassAvailable() ? <NativeClientTabs /> : <ClassicClientTabs />}
-      <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
+      
+      {/* 👈 التعديل هنا: منع رندرة البانر نهائياً عند نجاح الاتصال لمنع ظهور الخط الرفيع */}
+      {!isWsConnected && (
+        <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
+      )}
+
       <Toast
         visible={current !== null}
         message={current?.message ?? ""}

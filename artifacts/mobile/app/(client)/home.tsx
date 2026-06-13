@@ -145,7 +145,7 @@ export default function ClientHomeScreen() {
         <View style={[styles.heroBanner, { backgroundColor: colors.darkMid, borderRadius: colors.radius }]}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18, textAlign: isRTL ? "right" : "left" }}>
-              {isRTL ? "اطلب فنيك الآن" : "Book a Technician"}
+              {isRTL ? "اطلب فني يصلك الآن" : "Book a Technician"}
             </Text>
             <Text style={{ color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
               {isRTL ? "خدمة سريعة وموثوقة في متناول يدك" : "Fast & trusted home maintenance"}
