@@ -8,13 +8,62 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import MapPickerModal, { type PickedLocation } from "@/components/MapPickerModal";
 
-// ─── API helpers ───────────────────────────────────────────────────────────────
+// ─── البيانات الاحتياطية (للعمل الفوري في حالة توقف السيرفر) ──────────────────────
+
+const EGYPT_GOVS_FALLBACK: LocationOption[] = [
+  { id: "alexandria", ar: "الإسكندرية", en: "Alexandria" },
+  { id: "cairo", ar: "القاهرة", en: "Cairo" },
+  { id: "giza", ar: "الجيزة", en: "Giza" },
+  { id: "qalyubia", ar: "القليوبية", en: "Qalyubia" },
+  { id: "dakahlia", ar: "الدقهلية", en: "Dakahlia" },
+  { id: "beheira", ar: "البحيرة", en: "Beheira" },
+  { id: "gharbia", ar: "الغربية", en: "Gharbia" },
+  { id: "monufia", ar: "المنوفية", en: "Monufia" },
+  { id: "sharqia", ar: "الشرقية", en: "Sharqia" },
+  { id: "damietta", ar: "دمياط", en: "Damietta" },
+  { id: "port_said", ar: "بورسعيد", en: "Port Said" },
+  { id: "ismailia", ar: "الإسماعيلية", en: "Ismailia" },
+  { id: "suez", ar: "السويس", en: "Suez" },
+  { id: "kafr_el_sheikh", ar: "كفر الشيخ", en: "Kafr El Sheikh" },
+  { id: "fayoum", ar: "الفيوم", en: "Fayoum" },
+  { id: "beni_suef", ar: "بني سويف", en: "Beni Suef" },
+  { id: "minya", ar: "المنيا", en: "Minya" },
+  { id: "assiut", ar: "أسيوط", en: "Assiut" },
+  { id: "sohag", ar: "سوهاج", en: "Sohag" },
+  { id: "qena", ar: "قنا", en: "Qena" },
+  { id: "luxor", ar: "الأقصر", en: "Luxor" },
+  { id: "aswan", ar: "أسوان", en: "Aswan" },
+];
+
+const ALEX_AREAS_FALLBACK: LocationOption[] = [
+  { id: "sidi_bisher", ar: "سيدي بشر", en: "Sidi Bishr" },
+  { id: "smouha", ar: "سموحة", en: "Smouha" },
+  { id: "miami", ar: "ميامي", en: "Miami" },
+  { id: "asafra", ar: "العصافرة", en: "Asafra" },
+  { id: "mandara", ar: "المندرة", en: "Mandara" },
+  { id: "glem", ar: "جليم", en: "Glem" },
+  { id: "laurent", ar: "لوران", en: "Laurent" },
+  { id: "sidi_gaber", ar: "سيدي جابر", en: "Sidi Gaber" },
+  { id: "cleopatra", ar: "كليوباترا", en: "Cleopatra" },
+  { id: "sporting", ar: "سبورتنج", en: "Sporting" },
+  { id: "ibrahimya", ar: "الإبراهيمية", en: "Ibrahimia" },
+  { id: "camp_shezar", ar: "كامب شيزار", en: "Camp de Cesar" },
+  { id: "shatby", ar: "الشاطبي", en: "Shatby" },
+  { id: "mahtet_raml", ar: "محطة الرمل", en: "Mahatet El Raml" },
+  { id: "mansheya", ar: "المنشية", en: "Mansheya" },
+  { id: "gomrok", ar: "الجمرك", en: "Gomrok" },
+  { id: "wardian", ar: "الورديان", en: "Wardian" },
+  { id: "dekheila", ar: "الدخيلة", en: "Dekheila" },
+  { id: "agamy", ar: "العجمي", en: "Agamy" },
+];
 
 function getApiBase(): string {
-  if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
-  }
-  return "";
+  const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
+  if (!domain) return "";
+  const isLocal =
+    domain.includes("192.168.") || domain.includes("10.") ||
+    domain.includes("localhost") || domain.includes("127.0.0.1");
+  return isLocal ? `http://${domain}` : `https://${domain}`;
 }
 
 interface LocationRow {
@@ -71,15 +120,9 @@ async function fetchLocationMatch(opts: {
     if (opts.suburbAr) params.set("suburb_ar", opts.suburbAr);
     if (opts.cityEn)   params.set("city_en",   opts.cityEn);
     if (opts.cityAr)   params.set("city_ar",   opts.cityAr);
-    if (!params.toString()) return null;
     const res = await fetch(`${base}/api/locations/match?${params.toString()}`);
     if (!res.ok) return null;
-    const json = await res.json();
-    if (typeof json !== "object" || json === null) return null;
-    return {
-      governorateId: typeof json.governorateId === "string" ? json.governorateId : null,
-      areaId: typeof json.areaId === "string" ? json.areaId : null,
-    };
+    return await res.json();
   } catch {
     return null;
   }
@@ -100,7 +143,33 @@ async function fetchStreetSuggestions(q: string, cityId: string, lang: string): 
   }
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+function smartAreaMatch(options: LocationOption[], suburbAr: string, suburbEn: string, cityAr: string, cityEn: string): LocationOption | null {
+  if (!options || options.length === 0) return null;
+  
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, "").trim();
+  const sAr = clean(suburbAr || "");
+  const sEn = clean(suburbEn || "");
+  const cAr = clean(cityAr || "");
+  const cEn = clean(cityEn || "");
+
+  if (!sAr && !sEn && !cAr && !cEn) return null;
+
+  for (const opt of options) {
+    const oAr = clean(opt.ar);
+    const oEn = clean(opt.en);
+    if (sAr && (oAr.includes(sAr) || sAr.includes(oAr))) return opt;
+    if (sEn && (oEn.includes(sEn) || sEn.includes(oEn))) return opt;
+  }
+
+  for (const opt of options) {
+    const oAr = clean(opt.ar);
+    const oEn = clean(opt.en);
+    if (cAr && (oAr.includes(cAr) || cAr.includes(oAr))) return opt;
+    if (cEn && (oEn.includes(cEn) || cEn.includes(oEn))) return opt;
+  }
+
+  return null;
+}
 
 type PickerType = "governorate" | "area";
 
@@ -129,24 +198,21 @@ interface LocationPickerProps {
   areaError?: string;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
 function rowToOption(r: LocationRow): LocationOption {
   return { id: r.id, ar: r.nameAr, en: r.nameEn };
 }
 
-function normalise(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, "");
+function optionMatches(opt: LocationOption, text?: string): boolean {
+  if (!text) return false;
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, "");
+  const query = normalize(text);
+  if (!query) return false;
+  const ar = normalize(opt.ar);
+  const en = normalize(opt.en);
+  
+  return (!!ar && (ar.includes(query) || query.includes(ar))) ||
+         (!!en && (en.includes(query) || query.includes(en)));
 }
-
-function optionMatches(opt: LocationOption, term: string): boolean {
-  if (!term) return false;
-  const t = normalise(term);
-  if (t.length < 2) return false;
-  return normalise(opt.en).includes(t) || normalise(opt.ar).includes(t);
-}
-
-// ─── Single dropdown ──────────────────────────────────────────────────────────
 
 function Dropdown({
   label, value, placeholder, onPress, required, loading, error,
@@ -208,8 +274,6 @@ function Dropdown({
     </View>
   );
 }
-
-// ─── Modal Picker ─────────────────────────────────────────────────────────────
 
 function ModalPicker({
   visible, title, options, selectedId, onSelect, onClose, loading,
@@ -304,8 +368,6 @@ function ModalPicker({
   );
 }
 
-// ─── Inline input ─────────────────────────────────────────────────────────────
-
 function InlineInput({
   label, value, onChange, placeholder, keyboardType,
 }: {
@@ -337,8 +399,6 @@ function InlineInput({
     </View>
   );
 }
-
-// ─── Street Autocomplete ───────────────────────────────────────────────────────
 
 function StreetAutocomplete({
   value, onChange, cityId, onCoordsChange,
@@ -445,8 +505,6 @@ function StreetAutocomplete({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export default function LocationPicker({
   governorateId, areaId,
   onGovernorateChange, onAreaChange,
@@ -469,6 +527,8 @@ export default function LocationPicker({
   const [areaOptions, setAreaOptions] = useState<LocationOption[]>([]);
   const [govLoading, setGovLoading] = useState(false);
   const [areaLoading, setAreaLoading] = useState(false);
+
+  const [geoAreaName, setGeoAreaName] = useState("");
 
   const autoFillOpacity = useRef(new Animated.Value(0)).current;
   const [autoFillVisible, setAutoFillVisible] = useState(false);
@@ -494,7 +554,11 @@ export default function LocationPicker({
   const loadGovernorates = useCallback(async () => {
     setGovLoading(true);
     const rows = await fetchGovernorates();
-    setGovOptions(rows.map(rowToOption));
+    if (rows && rows.length > 0) {
+      setGovOptions(rows.map(rowToOption));
+    } else {
+      setGovOptions(EGYPT_GOVS_FALLBACK);
+    }
     setGovLoading(false);
   }, []);
 
@@ -502,7 +566,13 @@ export default function LocationPicker({
     if (!govId) { setAreaOptions([]); return; }
     setAreaLoading(true);
     const rows = await fetchAreas(govId);
-    setAreaOptions(rows.map(rowToOption));
+    if (rows && rows.length > 0) {
+      setAreaOptions(rows.map(rowToOption));
+    } else if (govId === "alexandria" || govId.toLowerCase().includes("alex")) {
+      setAreaOptions(ALEX_AREAS_FALLBACK);
+    } else {
+      setAreaOptions([]);
+    }
     setAreaLoading(false);
   }, []);
 
@@ -514,13 +584,13 @@ export default function LocationPicker({
 
   const getModalOptions = (): LocationOption[] => {
     if (modalType === "governorate") return govOptions;
-    if (modalType === "area") return areaOptions;
+    if (modalType === "area") return areaOptions; // متاح يدوياً كخطة بديلة آمنة
     return [];
   };
 
   const getModalTitle = (): string => {
     if (modalType === "governorate") return isRTL ? "اختر المحافظة" : "Select Governorate";
-    return isRTL ? "اختر المنطقة / المدينة" : "Select Area / City";
+    return isRTL ? "اختر المنطقة" : "Select Area";
   };
 
   const getModalLoading = (): boolean => {
@@ -533,6 +603,7 @@ export default function LocationPicker({
       onGovernorateChange(opt.id);
       onGovernorateSelect?.(opt);
       onAreaChange("");
+      setGeoAreaName("");
     } else if (modalType === "area") {
       onAreaChange(opt.id);
       onAreaSelect?.(opt);
@@ -544,8 +615,10 @@ export default function LocationPicker({
     onCoordsChange?.(loc.latitude, loc.longitude);
 
     let streetFilled = false;
-    if (loc.street && !street) {
-      onStreetChange(loc.street);
+    const streetName = loc.street ?? "";
+
+    if (streetName && !street) {
+      onStreetChange(streetName);
       streetFilled = true;
     }
 
@@ -554,19 +627,31 @@ export default function LocationPicker({
     const cityAr = loc.cityAr ?? "";
     const suburbAr = loc.suburbAr ?? "";
 
+    const fallbackAreaName = isRTL ? (suburbAr || cityAr) : (suburbEn || cityEn);
+    setGeoAreaName(fallbackAreaName);
+
     let currentGovOptions = govOptions;
     if (currentGovOptions.length === 0) {
-      const rows = await fetchGovernorates();
-      const opts = rows.map(rowToOption);
-      setGovOptions(opts);
-      currentGovOptions = opts;
+      try {
+        const rows = await fetchGovernorates();
+        const opts = rows.length > 0 ? rows.map(rowToOption) : EGYPT_GOVS_FALLBACK;
+        setGovOptions(opts);
+        currentGovOptions = opts;
+      } catch {
+        setGovOptions(EGYPT_GOVS_FALLBACK);
+        currentGovOptions = EGYPT_GOVS_FALLBACK;
+      }
     }
-
-    if (currentGovOptions.length === 0) return;
 
     let anyFilled = false;
 
-    const serverMatch = await fetchLocationMatch({ suburbEn, suburbAr, cityEn, cityAr });
+    // حماية استدعاء الخادم من توقف الكود (Crash Protection)
+    let serverMatch: LocationMatchResult | null = null;
+    try {
+      serverMatch = await fetchLocationMatch({ suburbEn, suburbAr, cityEn, cityAr });
+    } catch (err) {
+      console.log("Safe ignore match error", err);
+    }
 
     if (serverMatch?.governorateId) {
       const govOpt = currentGovOptions.find((g) => g.id === serverMatch.governorateId);
@@ -579,11 +664,17 @@ export default function LocationPicker({
 
       if (serverMatch.areaId) {
         let currentAreaOptions = areaOptions;
-        if (!currentAreaOptions.length || (govOpt && govOpt.id !== governorateId)) {
-          const areaRows = await fetchAreas(serverMatch.governorateId);
-          const areaOpts = areaRows.map(rowToOption);
-          setAreaOptions(areaOpts);
-          currentAreaOptions = areaOpts;
+        try {
+          if (!currentAreaOptions.length || (govOpt && govOpt.id !== governorateId)) {
+            const areaRows = await fetchAreas(serverMatch.governorateId);
+            const areaOpts = areaRows.length > 0 
+              ? areaRows.map(rowToOption) 
+              : (serverMatch.governorateId === "alexandria" ? ALEX_AREAS_FALLBACK : []);
+            setAreaOptions(areaOpts);
+            currentAreaOptions = areaOpts;
+          }
+        } catch {
+          currentAreaOptions = serverMatch.governorateId === "alexandria" ? ALEX_AREAS_FALLBACK : [];
         }
         const areaOpt = currentAreaOptions.find((a) => a.id === serverMatch.areaId);
         if (areaOpt && areaOpt.id !== areaId) {
@@ -591,9 +682,6 @@ export default function LocationPicker({
           onAreaSelect?.(areaOpt);
           anyFilled = true;
         }
-      } else if (govOpt && govOpt.id !== governorateId) {
-        const areaRows = await fetchAreas(serverMatch.governorateId);
-        setAreaOptions(areaRows.map(rowToOption));
       }
     } else {
       const govMatch = currentGovOptions.find(
@@ -601,40 +689,41 @@ export default function LocationPicker({
                optionMatches(g, suburbEn) || optionMatches(g, suburbAr),
       );
 
+      const targetGovId = govMatch ? govMatch.id : governorateId;
+
       if (govMatch && govMatch.id !== governorateId) {
         onGovernorateChange(govMatch.id);
         onGovernorateSelect?.(govMatch);
         onAreaChange("");
         anyFilled = true;
+      }
 
-        const areaRows = await fetchAreas(govMatch.id);
-        const areaOpts = areaRows.map(rowToOption);
-        setAreaOptions(areaOpts);
-
-        const areaMatch = areaOpts.find(
-          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
-                 optionMatches(a, cityEn)   || optionMatches(a, cityAr),
-        );
-        if (areaMatch) {
-          onAreaChange(areaMatch.id);
-          onAreaSelect?.(areaMatch);
-        }
-      } else if (governorateId) {
+      if (targetGovId) {
         let currentAreaOptions = areaOptions;
-        if (currentAreaOptions.length === 0) {
-          const areaRows = await fetchAreas(governorateId);
-          const areaOpts = areaRows.map(rowToOption);
-          setAreaOptions(areaOpts);
-          currentAreaOptions = areaOpts;
+        try {
+          if (currentAreaOptions.length === 0 || (govMatch && govMatch.id !== governorateId)) {
+            const areaRows = await fetchAreas(targetGovId);
+            const areaOpts = areaRows.length > 0 
+              ? areaRows.map(rowToOption) 
+              : (targetGovId === "alexandria" ? ALEX_AREAS_FALLBACK : []);
+            setAreaOptions(areaOpts);
+            currentAreaOptions = areaOpts;
+          }
+        } catch {
+          currentAreaOptions = targetGovId === "alexandria" ? ALEX_AREAS_FALLBACK : [];
         }
-        const areaMatch = currentAreaOptions.find(
-          (a) => optionMatches(a, suburbEn) || optionMatches(a, suburbAr) ||
-                 optionMatches(a, cityEn)   || optionMatches(a, cityAr),
-        );
-        if (areaMatch && areaMatch.id !== areaId) {
-          onAreaChange(areaMatch.id);
-          onAreaSelect?.(areaMatch);
+
+        const matchedArea = smartAreaMatch(currentAreaOptions, suburbAr, suburbEn, cityAr, cityEn);
+        if (matchedArea) {
+          onAreaChange(matchedArea.id);
+          onAreaSelect?.(matchedArea);
           anyFilled = true;
+        } else {
+          // إذا لم يجد مطابقة، حدد أول منطقة كقيمة افتراضية تمنع الفشل وعرض الجغرافي للمستخدم
+          if (currentAreaOptions.length > 0 && !areaId) {
+            onAreaChange(currentAreaOptions[0].id);
+            onAreaSelect?.(currentAreaOptions[0]);
+          }
         }
       }
     }
@@ -642,7 +731,7 @@ export default function LocationPicker({
     if (anyFilled) {
       showAutoFillBanner({
         en: "Location auto-filled from map pin",
-        ar: "تم تعبئة الموقع تلقائياً من الخريطة",
+        ar: "تم تعبئة الموقع والمنطقة تلقائياً من الخريطة",
       });
     } else if (streetFilled) {
       showAutoFillBanner({
@@ -656,6 +745,7 @@ export default function LocationPicker({
 
   return (
     <View>
+      {/* اختيار المحافظة */}
       <Dropdown
         label={isRTL ? "المحافظة" : "Governorate"}
         value={govLabel ? (isRTL ? govLabel.ar : govLabel.en) : ""}
@@ -666,9 +756,10 @@ export default function LocationPicker({
         error={governorateError}
       />
 
+      {/* حقل المنطقة / المدينة - أصبح تفاعلياً كبديل آمن لحالات تعذر المطابقة التلقائية */}
       <Dropdown
         label={isRTL ? "المنطقة / المدينة" : "Area / City"}
-        value={areaLabel ? (isRTL ? areaLabel.ar : areaLabel.en) : ""}
+        value={areaLabel ? (isRTL ? areaLabel.ar : areaLabel.en) : geoAreaName}
         placeholder={governorateId ? (isRTL ? "اختر المنطقة" : "Select Area") : (isRTL ? "اختر المحافظة أولاً" : "Select governorate first")}
         onPress={() => governorateId && setModalType("area")}
         loading={areaLoading}
@@ -695,6 +786,7 @@ export default function LocationPicker({
         </Animated.View>
       )}
 
+      {/* حقل اسم الشارع مع خاصية الإكمال التلقائي وقابل للتعديل يدويًا للتدقيق */}
       <StreetAutocomplete
         value={street}
         onChange={onStreetChange}
@@ -718,6 +810,7 @@ export default function LocationPicker({
         </View>
       )}
 
+      {/* زر تحديد الموقع على الخريطة */}
       <TouchableOpacity
         style={[
           styles.mapPlaceholder,

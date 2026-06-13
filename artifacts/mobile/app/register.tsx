@@ -82,6 +82,8 @@ export default function RegisterScreen() {
   const [building, setBuilding] = useState("");
   const [floor, setFloor] = useState("");
   const [apartment, setApartment] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   // ── Technician service hours ───────────────────────────────────────────────
   const [serviceStart, setServiceStart] = useState("08:00");
@@ -340,6 +342,8 @@ export default function RegisterScreen() {
         newErrors.area = isRTL ? "يرجى اختيار المحافظة" : "Please select a governorate";
       } else if (!areaId) {
         newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
+      } else if (latitude == null || longitude == null) {
+        newErrors.area = isRTL ? "يرجى تثبيت الموقع على الخريطة" : "Please pin your location on the map";
       }
     }
 
@@ -412,7 +416,10 @@ export default function RegisterScreen() {
       } catch { /* keep current state on network error */ }
       try {
         const apiBase = getApiBase();
-        const res = await fetch(`${apiBase}/api/auth/register`, {
+        const addressParts = [street.trim(), building.trim(), floor.trim(), apartment.trim()].filter(Boolean);
+      const formattedAddress = addressParts.length ? addressParts.join(", ") : undefined;
+
+      const res = await fetch(`${apiBase}/api/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -424,6 +431,9 @@ export default function RegisterScreen() {
             nationalId: nationalId.trim() || undefined,
             governorateId: governorateId || undefined,
             areaId: areaId || undefined,
+            address: formattedAddress || undefined,
+            latitude: latitude != null ? latitude : undefined,
+            longitude: longitude != null ? longitude : undefined,
             verificationToken: verificationToken || undefined,
             profession: regType === "technician" && profession.trim() ? profession.trim() : undefined,
             specialty: regType === "technician" && specialty.trim() ? specialty.trim() : undefined,
@@ -931,6 +941,12 @@ export default function RegisterScreen() {
         onFloorChange={setFloor}
         apartment={apartment}
         onApartmentChange={setApartment}
+        latitude={latitude}
+        longitude={longitude}
+        onCoordsChange={(lat, lon) => {
+          setLatitude(lat);
+          setLongitude(lon);
+        }}
         showDetails
       />
       {errors.area ? (
@@ -1031,6 +1047,12 @@ export default function RegisterScreen() {
         onFloorChange={setFloor}
         apartment={apartment}
         onApartmentChange={setApartment}
+        latitude={latitude}
+        longitude={longitude}
+        onCoordsChange={(lat, lon) => {
+          setLatitude(lat);
+          setLongitude(lon);
+        }}
         showDetails
       />
       {errors.area ? (

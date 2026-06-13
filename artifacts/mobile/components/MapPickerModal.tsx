@@ -8,13 +8,15 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
 const ALEX_COORDS = { latitude: 31.2001, longitude: 29.9187 };
-const DEFAULT_DELTA = { latitudeDelta: 0.08, longitudeDelta: 0.08 };
+const DEFAULT_DELTA = { latitudeDelta: 0.008, longitudeDelta: 0.008 };
 
 function getApiBase(): string {
-  if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
-  }
-  return "";
+  const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
+  if (!domain) return "";
+  const isLocal =
+    domain.includes("192.168.") || domain.includes("10.") ||
+    domain.includes("localhost") || domain.includes("127.0.0.1");
+  return isLocal ? `http://${domain}` : `https://${domain}`;
 }
 
 export interface PickedLocation {
@@ -37,9 +39,8 @@ interface MapPickerModalProps {
 }
 
 type MapComponents = {
-  MapView: React.ComponentType<import("react-native-maps").MapViewProps>;
-  Marker: React.ComponentType<import("react-native-maps").MarkerProps>;
-  UrlTile: React.ComponentType<import("react-native-maps").UrlTileProps>;
+  MapView: typeof import("react-native-maps").default;
+  Marker: typeof import("react-native-maps").Marker;
 };
 
 interface SearchResult {
@@ -47,7 +48,6 @@ interface SearchResult {
   display_name: string;
   lat: string;
   lon: string;
-  address?: { suburb?: string; city?: string; town?: string; road?: string; neighbourhood?: string };
 }
 
 interface BilingualGeo {
@@ -63,31 +63,63 @@ interface BilingualGeo {
 async function reverseGeocodeBilingual(lat: number, lon: number): Promise<BilingualGeo> {
   const base = getApiBase();
   const empty: BilingualGeo = { displayNameAr: "", displayNameEn: "" };
-  if (!base) return empty;
 
   try {
-    const res = await fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}`);
-    if (!res.ok) return empty;
+    if (base) {
+      const res = await fetch(`${base}/api/geo/reverse?lat=${lat}&lon=${lon}`);
+      if (res.ok) {
+        const json = await res.json();
+        const ar = (json.resultAr ?? {}) as Record<string, unknown>;
+        const en = (json.resultEn ?? {}) as Record<string, unknown>;
 
-    const json = await res.json();
-    const ar = (json.resultAr ?? {}) as Record<string, unknown>;
-    const en = (json.resultEn ?? {}) as Record<string, unknown>;
+        const addr   = (ar.address ?? {}) as Record<string, string>;
+        const addrEn = (en.address ?? {}) as Record<string, string>;
 
-    const addr   = (ar.address ?? {}) as Record<string, string>;
-    const addrEn = (en.address ?? {}) as Record<string, string>;
-
-    return {
-      displayNameAr: (ar.display_name as string) ?? "",
-      displayNameEn: (en.display_name as string) ?? "",
-      suburbAr: addr.suburb ?? addr.neighbourhood,
-      suburbEn: addrEn.suburb ?? addrEn.neighbourhood,
-      cityAr:   addr.city ?? addr.town,
-      cityEn:   addrEn.city ?? addrEn.town,
-      street:   addrEn.road ?? addr.road,
-    };
-  } catch {
-    return empty;
+        return {
+          displayNameAr: (ar.display_name as string) ?? "",
+          displayNameEn: (en.display_name as string) ?? "",
+          suburbAr: addr.suburb ?? addr.neighbourhood ?? addr.quarter,
+          suburbEn: addrEn.suburb ?? addrEn.neighbourhood ?? addrEn.quarter,
+          cityAr:   addr.city ?? addr.town ?? addr.governorate,
+          cityEn:   addrEn.city ?? addrEn.town ?? addrEn.governorate,
+          street:   addrEn.road ?? addr.road,
+        };
+      }
+    }
+  } catch (e) {
+    console.log("Local reverse geocoding failed, trying public fallback...", e);
   }
+
+  try {
+    const resAr = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=ar`, {
+      headers: { "User-Agent": "FanniApp-Egypt/1.0" }
+    });
+    const resEn = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en`, {
+      headers: { "User-Agent": "FanniApp-Egypt/1.0" }
+    });
+
+    if (resAr.ok) {
+      const jsonAr = await resAr.json();
+      const jsonEn = resEn.ok ? await resEn.json() : jsonAr;
+
+      const addrAr = (jsonAr.address ?? {}) as Record<string, string>;
+      const addrEn = (jsonEn.address ?? {}) as Record<string, string>;
+
+      return {
+        displayNameAr: (jsonAr.display_name as string) ?? "",
+        displayNameEn: (jsonEn.display_name as string) ?? "",
+        suburbAr: addrAr.suburb ?? addrAr.neighbourhood ?? addrAr.quarter ?? addrAr.city_district,
+        suburbEn: addrEn.suburb ?? addrEn.neighbourhood ?? addrEn.quarter ?? addrEn.city_district,
+        cityAr:   addrAr.city ?? addrAr.town ?? addrAr.governorate,
+        cityEn:   addrEn.city ?? addrEn.town ?? addrEn.governorate,
+        street:   addrAr.road ?? addrEn.road ?? "",
+      };
+    }
+  } catch (err) {
+    console.log("Public fallback reverse geocode failed", err);
+  }
+
+  return empty;
 }
 
 export default function MapPickerModal({
@@ -103,6 +135,7 @@ export default function MapPickerModal({
   const [regionCoords, setRegionCoords] = useState(initialCoords ?? ALEX_COORDS);
   const [geoData, setGeoData] = useState<BilingualGeo | null>(null);
   const [reverseLoading, setReverseLoading] = useState(false);
+  const [locPermissionLoading, setLocPermissionLoading] = useState(false);
 
   const [searchQ, setSearchQ] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -114,7 +147,7 @@ export default function MapPickerModal({
     let cancelled = false;
     import("react-native-maps").then((mod) => {
       if (!cancelled) {
-        setComponents({ MapView: mod.default, Marker: mod.Marker, UrlTile: mod.UrlTile });
+        setComponents({ MapView: mod.default, Marker: mod.Marker });
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -128,7 +161,7 @@ export default function MapPickerModal({
     setSearchQ("");
     setSearchResults([]);
     setGeoData(null);
-  }, [visible, initialCoords]);
+  }, [visible]);
 
   const reverseGeocode = useCallback(async (lat: number, lon: number) => {
     setReverseLoading(true);
@@ -139,6 +172,30 @@ export default function MapPickerModal({
       setReverseLoading(false);
     }
   }, []);
+
+  // جلب موقع الهاتف الحالي عبر صلاحيات GPS
+  const handleMyLocationPress = async () => {
+    setLocPermissionLoading(true);
+    try {
+      // تحميل مكتبة تحديد الموقع التابعة لإكسبو ديناميكياً لتجنب المشاكل البرمجية
+      const Location = require("expo-location");
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        alert(isRTL ? "مطلوب صلاحية تحديد الموقع للعمل" : "Location permission is required");
+        return;
+      }
+      const currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { latitude: currentLoc.coords.latitude, longitude: currentLoc.coords.longitude };
+      
+      setMarkerCoords(coords);
+      mapRef.current?.animateToRegion({ ...coords, ...DEFAULT_DELTA }, 600);
+      await reverseGeocode(coords.latitude, coords.longitude);
+    } catch (e) {
+      console.log("Error getting location", e);
+    } finally {
+      setLocPermissionLoading(false);
+    }
+  };
 
   const searchGeo = useCallback(async (q: string) => {
     const base = getApiBase();
@@ -265,31 +322,37 @@ export default function MapPickerModal({
               <Text style={{ color: colors.mutedForeground, marginTop: 12, fontSize: 14, textAlign: "center" }}>
                 {isRTL ? "الخريطة التفاعلية متاحة على تطبيق الهاتف فقط" : "Interactive map is available on the mobile app"}
               </Text>
-              {displayName ? (
-                <Text style={{ color: colors.foreground, marginTop: 8, fontSize: 12, textAlign: "center", paddingHorizontal: 24 }}>
-                  {displayName}
-                </Text>
-              ) : null}
             </View>
           ) : components ? (
-            <components.MapView
-              ref={mapRef}
-              style={styles.map}
-              initialRegion={{ ...regionCoords, ...DEFAULT_DELTA }}
-              onPress={handleMapPress}
-            >
-              <components.UrlTile
-                urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maximumZ={19}
-                flipY={false}
-              />
-              <components.Marker
-                coordinate={markerCoords}
-                draggable
-                onDragEnd={onMarkerDragEnd}
-                pinColor="#F5A623"
-              />
-            </components.MapView>
+            <View style={{ flex: 1 }}>
+              <components.MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={{ ...regionCoords, ...DEFAULT_DELTA }}
+                onPress={handleMapPress}
+              >
+                <components.Marker
+                  coordinate={markerCoords}
+                  draggable
+                  onDragEnd={onMarkerDragEnd}
+                  pinColor="#F5A623"
+                  tracksViewChanges={false} // تسريع حركة الدبوس بشكل هائل
+                />
+              </components.MapView>
+
+              {/* زر تحديد الموقع الحالي الذهبي العائم */}
+              <TouchableOpacity
+                style={[styles.myLocBtn, { borderColor: colors.primary, backgroundColor: colors.card }]}
+                onPress={handleMyLocationPress}
+                activeOpacity={0.8}
+              >
+                {locPermissionLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <VectorIcon name="navigation" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={[styles.webFallback, { backgroundColor: colors.muted }]}>
               <ActivityIndicator color={colors.primary} size="large" />
@@ -378,6 +441,22 @@ const styles = StyleSheet.create({
   mapWrap: { flex: 1 },
   map: { flex: 1 },
   webFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
+  myLocBtn: {
+    position: "absolute",
+    bottom: 24,
+    right: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2, // الحلقة الذهبية
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
   infoBar: {
     borderTopWidth: 1,
     paddingHorizontal: 16,

@@ -634,7 +634,7 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
 
 // PUBLIC: Registers a new user account and returns a session token. No auth required.
 router.post("/auth/register", async (req: Request, res: Response) => {
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = req.body as {
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = req.body as {
     name?: string;
     email?: string;
     mobile?: string;
@@ -643,6 +643,9 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     nationalId?: string;
     governorateId?: string;
     areaId?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
     verificationToken?: string;
     serviceCategories?: string[];
     profession?: string;
@@ -680,6 +683,21 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   if (role && !["client", "technician"].includes(role)) {
     res.status(400).json({ error: "Invalid role" });
     return;
+  }
+
+  if ((latitude !== undefined && longitude === undefined) || (latitude === undefined && longitude !== undefined)) {
+    res.status(400).json({ error: "Both latitude and longitude must be provided together" });
+    return;
+  }
+  if (latitude !== undefined && longitude !== undefined) {
+    if (typeof latitude !== "number" || typeof longitude !== "number" || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+      res.status(400).json({ error: "Invalid coordinates" });
+      return;
+    }
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      res.status(400).json({ error: "Coordinates are out of range" });
+      return;
+    }
   }
 
   // OTP gate: when ENABLE_OTP=true, verificationToken is mandatory and must match the mobile number
@@ -748,11 +766,15 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       passwordHash,
       governorate: governorateId ?? null,
       area: areaId ?? null,
+      address: address?.trim() || null,
       profession: profession?.trim() || null,
       specialty: specialty?.trim() || null,
       serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
       serviceStart: serviceStart?.trim() || null,
       serviceEnd: serviceEnd?.trim() || null,
+      location: (latitude != null && longitude != null)
+        ? sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`
+        : null,
     })
     .returning();
 
@@ -762,8 +784,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   }
 
   // Fire-and-forget: geocode the technician's area and persist it in the background.
-  // This does not block the registration response.
-  if ((role === "technician") && (areaId || governorateId)) {
+  // If explicit coordinates were provided at registration, do not override them.
+  if ((role === "technician") && (areaId || governorateId) && (latitude === undefined || longitude === undefined)) {
     geocodeArea(areaId, governorateId)
       .then((geoPoint) => {
         if (!geoPoint) return;
