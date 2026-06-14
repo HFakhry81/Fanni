@@ -148,6 +148,7 @@ export function extractStreetFromDisplayName(displayName: string): string {
   const street = displayName.split(/[،,]/)[0]?.trim() ?? displayName;
   return street.replace(/^\d+[,،]?\s*/, "").trim();
 
+}
   // ─── التوافق مع الكود القديم (backward compatibility) ─────────
 // يحافظ على أي import قديم لـ geoMatcher بدون تعديل الملفات الأخرى
 
@@ -155,4 +156,4 @@ export { normalizeArabic as cleanArabicText } from "./arabicNormalizer";
 export { findBestMatch as matchAreaName    } from "./arabicNormalizer";
 export { similarityScore as calcSimilarity } from "./arabicNormalizer";
 
-}
+
