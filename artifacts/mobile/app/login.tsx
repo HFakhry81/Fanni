@@ -50,7 +50,7 @@ export default function LoginScreen() {
       } else if (user.role === "technician") {
         router.replace("/(tech)/map");
       } else if (user.role === "admin") {
-        router.replace("/(admin)/dashboard");
+        router.replace("/(admin)/(tabs)/dashboard");
       }
     }
   }, [isLoading, isAuthenticated, user]);

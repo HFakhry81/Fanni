@@ -112,7 +112,7 @@ function getSafeReturnTo(value: unknown): string {
 async function upsertUser(claims: Record<string, unknown>) {
   const userData = {
     id: claims.sub as string,
-    email: (claims.email as string) || null,
+    email: ((claims.email as string) || undefined) as string,
     firstName: (claims.first_name as string) || null,
     lastName: (claims.last_name as string) || null,
     profileImageUrl: (claims.profile_image_url || claims.picture) as string | null,
@@ -124,7 +124,7 @@ async function upsertUser(claims: Record<string, unknown>) {
     .onConflictDoUpdate({
       target: usersTable.id,
       set: {
-        email: userData.email,
+        email: userData.email as string,
         firstName: userData.firstName,
         lastName: userData.lastName,
         profileImageUrl: sql`COALESCE(${usersTable.profileImageUrl}, ${userData.profileImageUrl})`,
@@ -1053,7 +1053,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   const updates: Partial<typeof usersTable.$inferInsert> & { updatedAt: Date } = { updatedAt: now };
   if (firstNameVal !== undefined) updates.firstName = firstNameVal;
   if (lastNameVal !== undefined) updates.lastName = lastNameVal;
-  if (emailVal !== undefined) updates.email = emailVal;
+  if (emailVal !== undefined && emailVal !== null) updates.email = emailVal;
   if (mobileVal !== undefined) updates.mobile = mobileVal;
   if (profession !== undefined) updates.profession = profession ? String(profession).trim() || null : null;
   if (specialty !== undefined) updates.specialty = specialty ?? null;

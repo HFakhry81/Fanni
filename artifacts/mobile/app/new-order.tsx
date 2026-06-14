@@ -22,11 +22,12 @@ import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import ImageLightbox from "@/components/ImageLightbox";
 import Toast from "@/components/Toast";
-import type { LocationOption } from "@/components/LocationPicker";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import type { OrderPhoto } from "@/context/OrderContext";
 import * as FileSystem from "expo-file-system";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
+
+type LocationOption = { id?: string; ar: string; en: string };
 
 // ── API helpers (mirror of LocationPicker) ────────────────────────────────────
 function getApiBase(): string {

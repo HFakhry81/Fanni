@@ -21,7 +21,7 @@ function NativeAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }
         <Label>Users</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="orders">
-        <Icon sf={{ default: "list.bullet", selected: "list.bullet.fill" }} />
+        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="stats">

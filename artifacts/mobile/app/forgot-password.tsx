@@ -221,7 +221,7 @@ export default function ForgotPasswordScreen() {
                 value={code}
                 onChangeText={(v) => { setCode(v.replace(/\D/g, "").slice(0, 6)); setError(""); }}
                 placeholder={t("forgot.codePlaceholder")}
-                keyboardType="number-pad"
+                keyboardType="numeric"
                 maxLength={6}
               />
 

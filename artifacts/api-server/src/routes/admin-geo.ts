@@ -58,8 +58,7 @@ router.get("/api/admin/location-miss-log", async (req: Request, res: Response) =
     const logs = await db
       .select()
       .from(locationMissLogTable)
-      .where(eq(locationMissLogTable.resolved, false)) // تم إرجاعها إلى resolved
-      .orderBy(desc(locationMissLogTable.hitCount)); // تم إرجاعها إلى hitCount
+      .orderBy(desc(locationMissLogTable.seenCount));
 
     return res.json({ success: true, logs });
   } catch (error) {
@@ -87,8 +86,7 @@ router.post("/api/admin/location-aliases", async (req: Request, res: Response) =
 
       if (logId) {
         await tx
-          .update(locationMissLogTable)
-          .set({ resolved: true }) // تم تعديلها لـ resolved
+          .delete(locationMissLogTable)
           .where(eq(locationMissLogTable.id, logId));
       }
     });

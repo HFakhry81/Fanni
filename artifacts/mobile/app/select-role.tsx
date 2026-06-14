@@ -72,7 +72,7 @@ export default function SelectRoleScreen() {
       await setRole(selected);
       if (selected === "client") router.replace("/(client)/home");
       else if (selected === "technician") router.replace("/(tech)/map");
-      else router.replace("/(admin)/dashboard");
+      else router.replace("/(admin)/(tabs)/dashboard");
     } finally {
       setLoading(false);
     }

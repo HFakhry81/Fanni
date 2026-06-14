@@ -25,6 +25,7 @@ interface FanniInputProps {
   disabled?: boolean;
   required?: boolean;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  maxLength?: number;
 }
 
 export default function FanniInput({

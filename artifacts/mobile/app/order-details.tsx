@@ -137,8 +137,8 @@ export default function OrderDetailsScreen() {
 
   const { slugToName } = useLocationLabels();
 
-  const isAdmin = appUser?.role === "admin";
-  const isTechnician = appUser?.role === "technician";
+  const isAdmin = appUser?.type === "admin";
+  const isTechnician = appUser?.type === "technician";
 
   const handleShareTracking = useCallback(async () => {
     const deepLink = `mobile://order-tracking?orderId=${orderId}`;
@@ -166,8 +166,8 @@ export default function OrderDetailsScreen() {
     }
   }, [orderId, t]);
 
-  const effectiveClientInvoice = fetchedClientInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, netTotal: order.threePartyInvoice.clientTotal, total: order.threePartyInvoice.clientTotal } as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
-  const effectiveTechInvoice = fetchedTechInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, netTotal: order.threePartyInvoice.techNetTotal, total: order.threePartyInvoice.techNetTotal } as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
+  const effectiveClientInvoice = fetchedClientInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, ocrMaterialsTotal: order.threePartyInvoice.materialsTotal ?? 0, netTotal: order.threePartyInvoice.clientTotal, total: order.threePartyInvoice.clientTotal, materialsPhotos: [] } as unknown as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
+  const effectiveTechInvoice = fetchedTechInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, ocrMaterialsTotal: order.threePartyInvoice.materialsTotal ?? 0, netTotal: order.threePartyInvoice.techNetTotal, total: order.threePartyInvoice.techNetTotal, materialsPhotos: [] } as unknown as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
 
   function buildTechInvoice(ti: RawInvoice): ThreePartyInvoice {
     const labour = Number(ti.labourFee ?? 0);
@@ -538,14 +538,14 @@ export default function OrderDetailsScreen() {
                       Number(effectiveTechInvoice.transportFee ?? 0) > 0 ? [isRTL ? "تكلفة النقل" : "Transport", Number(effectiveTechInvoice.transportFee)] : null,
                       [isRTL ? "أجر العمالة" : "Labour Fee", Number(effectiveTechInvoice.labourFee ?? 0)],
                       [isRTL ? `خصم رسوم الخدمة (${15}%)` : `Service Fee Deduction (${15}%)`, -Number(effectiveTechInvoice.serviceFeeAmount ?? 0)],
-                    ].filter(Boolean).map(([label, val]) => (
+                    ].filter(Boolean).map((row) => { const [label, val] = row as [string, number]; return (
                       <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
                         <Text style={{ color: (val as number) < 0 ? colors.destructive : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
                           {(val as number) < 0 ? `−${Math.abs(val as number).toFixed(2)}` : (val as number).toFixed(2)} {t("common.egp")}
                         </Text>
                       </View>
-                    ))}
+                    ); })}
                     <View style={[{ padding: 10, borderRadius: 8, backgroundColor: colors.accent, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }]}>
                       <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{isRTL ? "صافي استحقاق الفني" : "Technician Net"}</Text>
                       <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>{effectiveThreePartyInvoice.techNetTotal.toFixed(2)} {t("common.egp")}</Text>
@@ -566,12 +566,12 @@ export default function OrderDetailsScreen() {
                   [isRTL ? "أجر العمالة" : "Labour Fee", effectiveThreePartyInvoice.labourFee],
                   [isRTL ? `رسوم الخدمة (${15}%)` : `Service Fee (${15}%)`, effectiveThreePartyInvoice.serviceFeeAmount],
                   [isRTL ? `ضريبة القيمة المضافة (${14}%)` : `VAT (${14}%)`, effectiveThreePartyInvoice.vatAmount],
-                ].filter(Boolean).map(([label, val]) => (
+                ].filter(Boolean).map((row) => { const [label, val] = row as [string, number]; return (
                   <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
                     <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
                   </View>
-                ))}
+                ); })}
                 <View style={[{ padding: 10, borderRadius: 8, backgroundColor: colors.accent, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }]}>
                   <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{isRTL ? "إجمالي العميل" : "Client Total"}</Text>
                   <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>{effectiveThreePartyInvoice.clientTotal.toFixed(2)} {t("common.egp")}</Text>
@@ -616,14 +616,14 @@ export default function OrderDetailsScreen() {
                     ? [isRTL ? `خصم رسوم الخدمة (${15}%)` : `Service Fee Deduction (${15}%)`, -effectiveThreePartyInvoice.serviceFeeAmount]
                     : [isRTL ? `رسوم الخدمة (${15}%)` : `Service Fee (${15}%)`, effectiveThreePartyInvoice.serviceFeeAmount],
                   isTechnician ? null : [isRTL ? `ضريبة القيمة المضافة (${14}%)` : `VAT (${14}%)`, effectiveThreePartyInvoice.vatAmount],
-                ].filter(Boolean).map(([label, val]) => (
+                ].filter(Boolean).map((row) => { const [label, val] = row as [string, number]; return (
                   <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>{label as string}</Text>
                     <Text style={{ color: (val as number) < 0 ? colors.destructive : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
                       {(val as number) < 0 ? `−${Math.abs(val as number).toFixed(2)}` : (val as number).toFixed(2)} {t("common.egp")}
                     </Text>
                   </View>
-                ))}
+                ); })}
                 <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "الإجمالي" : "Total"}</Text>
                   <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18 }}>

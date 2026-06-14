@@ -1361,10 +1361,10 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
 
 type MapComponents = {
   MapView: React.ComponentType<import("react-native-maps").MapViewProps>;
-  Marker: React.ComponentType<import("react-native-maps").MarkerProps>;
-  Polyline: React.ComponentType<import("react-native-maps").PolylineProps>;
-  UrlTile: React.ComponentType<import("react-native-maps").UrlTileProps>;
-  Circle: React.ComponentType<import("react-native-maps").CircleProps>;
+  Marker: React.ComponentType<import("react-native-maps").MapMarkerProps>;
+  Polyline: React.ComponentType<import("react-native-maps").MapPolylineProps>;
+  UrlTile: React.ComponentType<import("react-native-maps").MapUrlTileProps>;
+  Circle: React.ComponentType<import("react-native-maps").MapCircleProps>;
 };
 
 function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, routeColors }: MapProps) {
@@ -1599,8 +1599,7 @@ function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoo
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setSegmentTooltip(null)}
-          style={styles.nativeTooltipBackdrop}
-          pointerEvents="box-only"
+          style={[styles.nativeTooltipBackdrop, { pointerEvents: "box-only" } as object]}
         >
           <View style={[styles.nativeTooltipCard, { backgroundColor: "rgba(255,255,255,0.95)", borderColor: segmentTooltip.color }]}>
             <View style={[styles.trafficTooltipDot, { backgroundColor: segmentTooltip.color }]} />

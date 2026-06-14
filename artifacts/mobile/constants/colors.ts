@@ -58,6 +58,12 @@ const colors = {
     tabBar: "#FFFFFF",
     headerBg: "#0D1B2A",
     headerText: "#FFFFFF",
+
+    // Semantic shorthand aliases used by LocationPickerV2 and other components
+    error: "#E53E3E",          // same as destructive
+    warning: "#F5A623",        // golden/orange — matches brand warning tone
+    textMuted: "#6B7D8E",      // same as mutedForeground
+    textSecondary: "#6B7D8E",  // secondary text — same tone as mutedForeground
   },
 
   radius: 14,

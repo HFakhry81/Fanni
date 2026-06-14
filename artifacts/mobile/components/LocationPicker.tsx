@@ -25,12 +25,15 @@ export interface LocationPickerProps {
   longitude: number | null;
   onCoordsChange: (lat: number | null, lng: number | null) => void;
   showDetails?: boolean;
+  governorateError?: string;
+  areaError?: string;
 }
 
 export default function LocationPicker({
   governorateId, areaId, onGovernorateChange, onAreaChange, onGovernorateSelect, onAreaSelect,
   street, onStreetChange, building = "", onBuildingChange, floor = "", onFloorChange, apartment = "", onApartmentChange,
-  latitude, longitude, onCoordsChange, showDetails = true
+  latitude, longitude, onCoordsChange, showDetails = true,
+  governorateError: _governorateError, areaError: _areaError
 }: LocationPickerProps) {
   const colors = useColors();
   const { t, isRTL } = useApp();

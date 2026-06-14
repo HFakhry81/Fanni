@@ -179,7 +179,7 @@ export default function AddAdminScreen() {
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "admin")) {
-      router.replace("/(admin)/dashboard");
+      router.replace("/(admin)/(tabs)/dashboard");
     }
   }, [isLoading, user]);
 
