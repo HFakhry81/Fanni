@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { logger } from "./logger";
 import { generateClientInvoicePdf, generateTechnicianPayoutPdf, type InvoiceData } from "./invoicePdf.js";
 
 function escapeHtml(str: string): string {

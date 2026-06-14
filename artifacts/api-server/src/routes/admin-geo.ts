@@ -1,5 +1,6 @@
 // artifacts/api-server/src/routes/admin-geo.ts
 import { Router, Request, Response } from "express";
+import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { sql, eq, desc } from "drizzle-orm";
 import { usersTable, ordersTable, locationMissLogTable, locationAliasesTable } from "@workspace/db/schema";

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { logger } from "../lib/logger";
 import { eq } from "drizzle-orm";
 import { db, locationsTable } from "@workspace/db";
 import { NOMINATIM_BASE, nominatimFetch, getCached, setCache, cachedNominatim } from "../lib/nominatim";

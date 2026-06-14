@@ -1,3 +1,5 @@
+import { logger } from "./logger";
+
 interface SendWelcomeSmsOptions {
   to: string;
   name: string;
@@ -10,9 +12,9 @@ async function sendSmsViaProvider(to: string, body: string): Promise<boolean> {
   const sender = process.env.SMS_SENDER_ID ?? "Fanni";
 
   if (!apiKey) {
-    console.warn(`[SMS] SMS_API_KEY not configured — skipping SMS to ${to.slice(0, 4)}****`);
+    logger.warn(`[SMS] SMS_API_KEY not configured — skipping SMS to ${to.slice(0, 4)}****`);
     if (process.env.NODE_ENV !== "production") {
-      console.info(`[OTP-DEV] Code for ${to}: ${body}`);
+      logger.info(`[OTP-DEV] Code for ${to}: ${body}`);
     }
     return false;
   }
@@ -35,7 +37,7 @@ async function sendSmsViaProvider(to: string, body: string): Promise<boolean> {
       const data = (await res.json()) as { messages?: Array<{ status: string }> };
       const status = data?.messages?.[0]?.status;
       if (status !== "0") {
-        console.error("[SMS] Vonage returned non-zero status:", status);
+        logger.error("[SMS] Vonage returned non-zero status: %s", status);
         return false;
       }
       return true;
@@ -60,16 +62,16 @@ async function sendSmsViaProvider(to: string, body: string): Promise<boolean> {
       );
       if (!res.ok) {
         const err = await res.text();
-        console.error("[SMS] Twilio error:", err);
+        logger.error({ err }, "[SMS] Twilio error");
         return false;
       }
       return true;
     }
 
-    console.warn(`[SMS] Unknown SMS_PROVIDER "${provider}" — skipping SMS.`);
+    logger.warn(`[SMS] Unknown SMS_PROVIDER "${provider}" — skipping SMS.`);
     return false;
   } catch (err) {
-    console.error("[SMS] Failed to send SMS:", err);
+    logger.error({ err }, "[SMS] Failed to send SMS");
     return false;
   }
 }
