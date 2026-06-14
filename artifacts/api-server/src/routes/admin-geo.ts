@@ -45,7 +45,7 @@ router.get("/api/admin/map-data", async (req: Request, res: Response) => {
 
     return res.json({ success: true, techs, orders });
   } catch (error) {
-    console.error(error);
+    logger.error({ err: error }, "GET /api/admin/map-data failed");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -95,7 +95,7 @@ router.post("/api/admin/location-aliases", async (req: Request, res: Response) =
 
     return res.json({ success: true });
   } catch (error) {
-    console.error(error);
+    logger.error({ err: error }, "POST /api/admin/location-aliases failed");
     return res.status(500).json({ error: "Failed to resolve and save location alias" });
   }
 });

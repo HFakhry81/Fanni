@@ -46,7 +46,7 @@ export async function sendWelcomeEmail(opts: SendWelcomeOptions): Promise<boolea
   const transporter = createTransporter();
 
   if (!transporter) {
-    console.warn("[EMAIL] SMTP not configured — skipping welcome email.");
+    logger.warn("[EMAIL] SMTP not configured — skipping welcome email.");
     return false;
   }
 
@@ -88,7 +88,7 @@ export async function sendWelcomeEmail(opts: SendWelcomeOptions): Promise<boolea
     await transporter.sendMail({ from, to, subject, html });
     return true;
   } catch (err) {
-    console.error("[EMAIL] Failed to send welcome email:", err);
+    logger.error({ err }, "[EMAIL] Failed to send welcome email");
     return false;
   }
 }
@@ -99,7 +99,7 @@ export async function sendPasswordResetCode(opts: SendResetCodeOptions): Promise
   const transporter = createTransporter();
 
   if (!transporter) {
-    console.warn("[EMAIL] SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS to enable email delivery.");
+    logger.warn("[EMAIL] SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS to enable email delivery.");
     return false;
   }
 
@@ -129,7 +129,7 @@ export async function sendPasswordResetCode(opts: SendResetCodeOptions): Promise
     await transporter.sendMail({ from, to, subject, html });
     return true;
   } catch (err) {
-    console.error("[EMAIL] Failed to send reset code email:", err);
+    logger.error({ err }, "[EMAIL] Failed to send reset code email");
     return false;
   }
 }
@@ -146,7 +146,7 @@ export async function sendInvoiceEmails(opts: SendInvoiceEmailsOptions): Promise
   const result = { clientSent: false, technicianSent: false };
 
   if (!transporter) {
-    console.warn("[EMAIL] SMTP not configured — skipping invoice emails.");
+    logger.warn("[EMAIL] SMTP not configured — skipping invoice emails.");
     return result;
   }
 
@@ -187,9 +187,9 @@ export async function sendInvoiceEmails(opts: SendInvoiceEmailsOptions): Promise
         attachments: [{ filename: `fanni-invoice-${invoiceData.orderNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
       });
       result.clientSent = true;
-      console.info(`[EMAIL] Client invoice sent to ${clientEmail} for order ${invoiceData.orderNumber}`);
+      logger.info(`[EMAIL] Client invoice sent to ${clientEmail} for order ${invoiceData.orderNumber}`);
     } catch (err) {
-      console.error("[EMAIL] Failed to send client invoice email:", err);
+      logger.error({ err }, "[EMAIL] Failed to send client invoice email");
     }
   }
 
@@ -227,9 +227,9 @@ export async function sendInvoiceEmails(opts: SendInvoiceEmailsOptions): Promise
         attachments: [{ filename: `fanni-payout-${invoiceData.orderNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
       });
       result.technicianSent = true;
-      console.info(`[EMAIL] Technician payout sent to ${technicianEmail} for order ${invoiceData.orderNumber}`);
+      logger.info(`[EMAIL] Technician payout sent to ${technicianEmail} for order ${invoiceData.orderNumber}`);
     } catch (err) {
-      console.error("[EMAIL] Failed to send technician payout email:", err);
+      logger.error({ err }, "[EMAIL] Failed to send technician payout email");
     }
   }
 

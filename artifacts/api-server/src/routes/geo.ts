@@ -40,7 +40,7 @@ router.get("/geo/search", async (req, res) => {
     const { data, fromCache } = await cachedNominatim(url, cacheKey, lang);
     res.json({ results: data, cached: fromCache });
   } catch (err) {
-    console.error("[geo/search] error:", err);
+    logger.error({ err }, "[geo/search] error");
     res.status(502).json({ error: "Geocoding service unavailable" });
   }
 });
@@ -114,7 +114,7 @@ router.get("/geo/streets", async (req, res) => {
     }));
     res.json({ results, cached: false });
   } catch (err) {
-    console.error("[geo/streets] error:", err);
+    logger.error({ err }, "[geo/streets] error");
     res.status(502).json({ error: "Geocoding service unavailable" });
   }
 });
@@ -156,7 +156,7 @@ router.get("/geo/reverse", async (req, res) => {
 
     res.json({ resultAr: ar.data, resultEn: en.data, cached: ar.fromCache && en.fromCache });
   } catch (err) {
-    console.error("[geo/reverse] error:", err);
+    logger.error({ err }, "[geo/reverse] error");
     res.status(502).json({ error: "Geocoding service unavailable" });
   }
 });

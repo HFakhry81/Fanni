@@ -512,7 +512,7 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
   if (destination) {
     const sent = await sendPasswordResetCode({ to: destination, code });
     if (!sent) {
-      console.warn(`[PASSWORD RESET] Email not sent (SMTP unconfigured). Configure SMTP_HOST/SMTP_USER/SMTP_PASS to enable email delivery.`);
+      req.log.warn("[PASSWORD RESET] Email not sent (SMTP unconfigured). Configure SMTP_HOST/SMTP_USER/SMTP_PASS to enable email delivery.");
     }
   }
 
