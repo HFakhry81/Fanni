@@ -18,7 +18,6 @@
  * by a newline. Empty statements are skipped.
  */
 
-process.env.DATABASE_URL = "postgresql://postgres:123456@localhost:5432/fanni_db";
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import pg from "pg";

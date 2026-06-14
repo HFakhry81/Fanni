@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "api-typecheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
 [[workflows.workflow]]
 name = "api-typecheck"
 author = "agent"
@@ -31,9 +35,22 @@ args = "cd artifacts/api-server && npx tsc --noEmit"
 [workflows.workflow.metadata]
 isValidation = true
 
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run start"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
+integrations = ["javascript_openai_ai_integrations:2.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -42,10 +59,6 @@ timeoutMs = 45000
 [[ports]]
 localPort = 8080
 externalPort = 8080
-
-[[ports]]
-localPort = 8081
-externalPort = 80
 
 [[ports]]
 localPort = 8082
@@ -88,3 +101,6 @@ ENABLE_OTP = "false"
 
 [userenv.production]
 ENABLE_OTP = "true"
+
+[userenv.shared]
+PORT = "8080"
