@@ -15,7 +15,7 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ],
+, "../api-server/src/routes/admin-geo.ts"  ],
   "references": [
     {
       "path": "../../lib/api-client-react"

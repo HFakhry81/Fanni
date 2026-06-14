@@ -5,6 +5,8 @@ import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
 import { db, adminsTable, serviceDomainsTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import adminGeoRouter from "./routes/admin-geo";
+app.use(adminGeoRouter);
 
 const rawPort = process.env["PORT"];
 

@@ -206,7 +206,7 @@ export default function ClientOrdersScreen() {
               {item.orderNumber}
             </Text>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
-              {t(`cat.${item.category}`)} — {item.subCategory}
+              {t(`cat.${item.category}`)} — {item.category}
             </Text>
           </View>
           <StatusBadge status={item.status} />

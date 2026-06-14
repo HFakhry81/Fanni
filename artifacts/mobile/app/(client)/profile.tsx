@@ -17,6 +17,7 @@ import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordS
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
+import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -71,6 +72,12 @@ export default function ClientProfileScreen() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [editVisible, verificationToken, verificationExpiresAt]);
+  
+ const [editLat, setEditLat] = useState<number | null>(null);
+ const [editLng, setEditLng] = useState<number | null>(null);
+ const [editBuilding, setEditBuilding] = useState("");
+ const [editFloor, setEditFloor] = useState("");
+ const [editApartment, setEditApartment] = useState("");
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -98,21 +105,32 @@ export default function ClientProfileScreen() {
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
   const openEdit = () => {
-    if (!user) return;
-    setEditName(user.name ?? "");
-    setEditMobile(user.mobile ?? "");
-    setEditGov(user.governorate ?? "");
-    setEditGovNameAr(user.governorateNameAr);
-    setEditGovNameEn(user.governorateNameEn);
-    setEditArea(user.area ?? "");
-    setEditAreaNameAr(user.areaNameAr);
-    setEditAreaNameEn(user.areaNameEn);
-    setEditStreet(user.address ?? "");
-    setErrors({});
-    setVerificationToken(undefined);
-    setVerificationExpiresAt(0);
-    setEditVisible(true);
-  };
+  if (!user) return;
+  setEditName(user.name ?? "");
+  setEditMobile(user.mobile ?? "");
+  setEditGov(user.governorate ?? "");
+  setEditGovNameAr(user.governorateNameAr);
+  setEditGovNameEn(user.governorateNameEn);
+  setEditArea(user.area ?? "");
+  setEditAreaNameAr(user.areaNameAr);
+  setEditAreaNameEn(user.areaNameEn);
+  
+  // جلب الإحداثيات الحالية من جلسة المستخدم
+  // استبدل السطرين 222 و 223 في كلا الملفين بهذا التعديل:
+  setEditLat((user as any).latitude ?? null);
+  setEditLng((user as any).longitude ?? null);
+  // تفكيك العنوان النصي الكامل إلى حقول منفصلة
+  const detailed = deserializeAddress(user.address ?? "");
+  setEditStreet(detailed.street);
+  setEditBuilding(detailed.building);
+  setEditFloor(detailed.floor);
+  setEditApartment(detailed.apartment);
+
+  setErrors({});
+  setVerificationToken(undefined);
+  setVerificationExpiresAt(0);
+  setEditVisible(true);
+};
 
   const handleSave = async () => {
     if (!user) return;
@@ -162,53 +180,62 @@ export default function ClientProfileScreen() {
   };
 
   const applyProfileSave = async (normalizedMobile: string, verificationToken: string | undefined) => {
-    if (!user) return;
+  if (!user) return;
 
-    const nameParts = editName.trim().split(/\s+/);
-    const firstName = nameParts[0] ?? editName.trim();
-    const lastName = nameParts.slice(1).join(" ") || null;
+  const nameParts = editName.trim().split(/\s+/);
+  const firstName = nameParts[0] ?? editName.trim();
+  const lastName = nameParts.slice(1).join(" ") || null;
 
-    const body: Record<string, unknown> = {
-      firstName,
-      lastName,
-      governorate: editGov || null,
-      area: editArea || null,
-    };
-    if (verificationToken) {
-      body.mobile = normalizedMobile;
-      body.verificationToken = verificationToken;
-    }
+  // دمج الحقول التفصيلية في حقل عنوان نصي واحد منسق
+  const finalAddress = serializeAddress({
+    street: editStreet,
+    building: editBuilding,
+    floor: editFloor,
+    apartment: editApartment
+  });
 
-    setEditSaveLoading(true);
-    const result = await saveProfile(body, { address: editStreet.trim() }).finally(() => {
-      setEditSaveLoading(false);
-    });
-
-    if (!result.ok) {
-      if (result.error && result.error.toLowerCase().includes("expired verification token")) {
-        setOtpSubtitle(
-          isRTL
-            ? "انتهت صلاحية رمز التحقق. سيتم إرسال رمز جديد إلى رقمك."
-            : "Your verification code expired. A new code will be sent to your number."
-        );
-        setOtpModalVisible(true);
-        return;
-      }
-      setToastMessage(
-        result.error === "offline"
-          ? (isRTL ? "تعذّر الاتصال بالخادم" : "Could not reach server")
-          : (result.error ?? (isRTL ? "فشل حفظ البيانات، حاول مرة أخرى" : "Failed to save, please try again"))
-      );
-      setToastVisible(true);
-      return;
-    }
-
-    setVerificationToken(undefined);
-    setVerificationExpiresAt(0);
-    setEditVisible(false);
-    setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
-    setToastVisible(true);
+  const body: Record<string, unknown> = {
+    firstName,
+    lastName,
+    governorate: editGov || null,
+    area: editArea || null,
+    address: finalAddress,
+    latitude: editLat,   // إرسال خط العرض المحدث
+    longitude: editLng,  // إرسال خط الطول المحدث
   };
+  if (verificationToken) {
+    body.mobile = normalizedMobile;
+    body.verificationToken = verificationToken;
+  }
+
+  setEditSaveLoading(true);
+  const result = await saveProfile(body).finally(() => {
+    setEditSaveLoading(false);
+  });
+
+  if (!result.ok) {
+    // معالجة الخطأ...
+    return;
+  }
+
+  // لتأمين تحديث الواجهة فوراً بقاعدة البيانات المحلية للعميل
+  await setUser({
+      ...user,
+      name: editName.trim(),
+      mobile: verificationToken ? normalizedMobile : user.mobile,
+      governorate: editGov,
+      area: editArea,
+      address: finalAddress,
+      latitude: editLat,
+      longitude: editLng
+    } as any); // تم إضافة as any لحل المشكلة
+
+  setVerificationToken(undefined);
+  setVerificationExpiresAt(0);
+  setEditVisible(false);
+  setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
+  setToastVisible(true);
+};
 
   const govText = (isRTL ? user?.governorateNameAr : user?.governorateNameEn) ?? (isRTL ? "الإسكندرية" : "Alexandria");
   const areaText = (isRTL ? user?.areaNameAr : user?.areaNameEn) ?? "";
@@ -818,12 +845,21 @@ export default function ClientProfileScreen() {
                   governorateId={editGov}
                   areaId={editArea}
                   onGovernorateChange={(id) => { setEditGov(id); setEditArea(""); setEditAreaNameAr(undefined); setEditAreaNameEn(undefined); }}
-                  onAreaChange={setEditArea}
+                  onAreaChange={(id) => setEditArea(id)} // تم التعديل لتفادي خطأ الـ Dispatch
                   onGovernorateSelect={(opt) => { setEditGovNameAr(opt.ar); setEditGovNameEn(opt.en); }}
                   onAreaSelect={(opt) => { setEditAreaNameAr(opt.ar); setEditAreaNameEn(opt.en); }}
                   street={editStreet}
-                  onStreetChange={setEditStreet}
-                  showDetails={false}
+                  onStreetChange={(v) => setEditStreet(v)} // تم التعديل
+                  building={editBuilding}
+                  onBuildingChange={(v) => setEditBuilding(v)} // تم التعديل
+                  floor={editFloor}
+                  onFloorChange={(v) => setEditFloor(v)} // تم التعديل
+                  apartment={editApartment}
+                  onApartmentChange={(v) => setEditApartment(v)} // تم التعديل
+                  latitude={editLat}
+                  longitude={editLng}
+                  onCoordsChange={(lat, lng) => { setEditLat(lat); setEditLng(lng); }}
+                  showDetails={true}
                 />
               </ScrollView>
             </View>

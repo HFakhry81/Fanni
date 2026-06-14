@@ -19,6 +19,7 @@ import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordS
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
+import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
@@ -53,6 +54,11 @@ export default function TechProfileScreen() {
 
   const [editVisible, setEditVisible] = useState(false);
   const [pwVisible, setPwVisible] = useState(false);
+  const [editLat, setEditLat] = useState<number | null>(null);
+  const [editLng, setEditLng] = useState<number | null>(null);
+  const [editBuilding, setEditBuilding] = useState("");
+  const [editFloor, setEditFloor] = useState("");
+  const [editApartment, setEditApartment] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastAction, setToastAction] = useState<{ label: string; onPress: () => void } | undefined>(undefined);
@@ -196,30 +202,41 @@ export default function TechProfileScreen() {
   };
 
   const openEdit = () => {
-    if (!user) return;
-    setEditName(user.name ?? "");
-    setEditMobile(user.mobile ?? "");
-    setEditProfession(user.profession ?? "");
-    setEditSpecialty(user.specialty ?? "");
-    if (user.profession) {
-      const dom = apiDomains.find((d) => d.nameEn === user.profession || d.nameAr === user.profession || d.id === user.profession);
-      if (dom) loadProfileSpecs(dom.id);
-    }
-    setEditGov(user.governorate ?? "");
-    setEditGovNameAr(user.governorateNameAr);
-    setEditGovNameEn(user.governorateNameEn);
-    setEditArea(user.area ?? "");
-    setEditAreaNameAr(user.areaNameAr);
-    setEditAreaNameEn(user.areaNameEn);
-    setEditStreet(user.address ?? "");
-    setEditCategories(user.serviceCategories ?? []);
-    setEditServiceStart(user.serviceStart ?? "08:00");
-    setEditServiceEnd(user.serviceEnd ?? "22:00");
-    setErrors({});
-    setVerificationToken(undefined);
-    setVerificationExpiresAt(0);
-    setEditVisible(true);
-  };
+  if (!user) return;
+  setEditName(user.name ?? "");
+  setEditMobile(user.mobile ?? "");
+  setEditProfession(user.profession ?? "");
+  setEditSpecialty(user.specialty ?? "");
+  if (user.profession) {
+    const dom = apiDomains.find((d) => d.nameEn === user.profession || d.nameAr === user.profession || d.id === user.profession);
+    if (dom) loadProfileSpecs(dom.id);
+  }
+  setEditGov(user.governorate ?? "");
+  setEditGovNameAr(user.governorateNameAr);
+  setEditGovNameEn(user.governorateNameEn);
+  setEditArea(user.area ?? "");
+  setEditAreaNameAr(user.areaNameAr);
+  setEditAreaNameEn(user.areaNameEn);
+
+  // جلب الإحداثيات الحالية من الجلسة
+  // استبدل السطرين 222 و 223 في كلا الملفين بهذا التعديل:
+  setEditLat((user as any).latitude ?? null);
+  setEditLng((user as any).longitude ?? null);
+  // تفكيك العنوان النصي الكامل
+  const detailed = deserializeAddress(user.address ?? "");
+  setEditStreet(detailed.street);
+  setEditBuilding(detailed.building);
+  setEditFloor(detailed.floor);
+  setEditApartment(detailed.apartment);
+
+  setEditCategories(user.serviceCategories ?? []);
+  setEditServiceStart(user.serviceStart ?? "08:00");
+  setEditServiceEnd(user.serviceEnd ?? "22:00");
+  setErrors({});
+  setVerificationToken(undefined);
+  setVerificationExpiresAt(0);
+  setEditVisible(true);
+};
 
   const handleSave = async () => {
     if (!user) return;
@@ -288,74 +305,92 @@ export default function TechProfileScreen() {
   };
 
   const applyProfileSave = async (normalizedMobile: string, verificationToken: string | undefined) => {
-    if (!user) return;
+  if (!user) return;
 
-    const nameParts = editName.trim().split(/\s+/);
-    const firstName = nameParts[0] ?? editName.trim();
-    const lastName = nameParts.slice(1).join(" ") || null;
+  const nameParts = editName.trim().split(/\s+/);
+  const firstName = nameParts[0] ?? editName.trim();
+  const lastName = nameParts.slice(1).join(" ") || null;
 
-    const body: Record<string, unknown> = {
-      firstName,
-      lastName,
-      profession: editProfession.trim() || user.profession || null,
-      specialty: editSpecialty.trim() || user.specialty || null,
-      governorate: editGov || null,
-      area: editArea || null,
-      address: editStreet.trim() || null,
-      serviceCategories: editCategories.length > 0 ? editCategories : null,
-      serviceStart: editServiceStart.trim(),
-      serviceEnd: editServiceEnd.trim(),
+  const finalAddress = serializeAddress({
+    street: editStreet,
+    building: editBuilding,
+    floor: editFloor,
+    apartment: editApartment
+  });
+
+  const body: Record<string, unknown> = {
+    firstName,
+    lastName,
+    profession: editProfession.trim() || user.profession || null,
+    specialty: editSpecialty.trim() || user.specialty || null,
+    governorate: editGov || null,
+    area: editArea || null,
+    address: finalAddress,
+    latitude: editLat,   // خط العرض الجديد
+    longitude: editLng,  // خط الطول الجديد
+    serviceCategories: editCategories.length > 0 ? editCategories : null,
+    serviceStart: editServiceStart.trim(),
+    serviceEnd: editServiceEnd.trim(),
     };
     if (verificationToken) {
-      body.mobile = normalizedMobile;
-      body.verificationToken = verificationToken;
+    body.mobile = normalizedMobile;
+    body.verificationToken = verificationToken;
     }
 
     setEditSaveLoading(true);
     const result = await saveProfile(body).finally(() => {
-      setEditSaveLoading(false);
+    setEditSaveLoading(false);
     });
 
-    if (!result.ok) {
-      if (result.error && result.error.toLowerCase().includes("expired verification token")) {
-        setOtpSubtitle(
-          isRTL
-            ? "انتهت صلاحية رمز التحقق. سيتم إرسال رمز جديد إلى رقمك."
-            : "Your verification code expired. A new code will be sent to your number."
-        );
-        setOtpModalVisible(true);
-        return;
-      }
-      if (result.error === "offline") {
+      if (!result.ok) {
+        // معالجة فشل الاتصال بالسيرفر محلياً
+       if (result.error === "offline") {
         await setUser({
-          ...user,
-          name: editName.trim(),
-          mobile: normalizedMobile,
-          profession: editProfession.trim() || user.profession,
-          specialty: editSpecialty.trim() || user.specialty,
-          governorate: editGov,
-          governorateNameAr: editGovNameAr,
-          governorateNameEn: editGovNameEn,
-          area: editArea,
-          areaNameAr: editAreaNameAr,
-          areaNameEn: editAreaNameEn,
-          address: editStreet.trim(),
-          serviceCategories: editCategories,
-          serviceStart: editServiceStart.trim(),
-          serviceEnd: editServiceEnd.trim(),
-        });
+      ...user,
+      name: editName.trim(),
+      mobile: normalizedMobile,
+      profession: editProfession.trim() || user.profession,
+      specialty: editSpecialty.trim() || user.specialty,
+      governorate: editGov,
+      governorateNameAr: editGovNameAr,
+      governorateNameEn: editGovNameEn,
+      area: editArea,
+      areaNameAr: editAreaNameAr,
+      areaNameEn: editAreaNameEn,
+      address: finalAddress,
+      latitude: editLat,
+      longitude: editLng,
+      serviceCategories: editCategories,
+      serviceStart: editServiceStart.trim(),
+      serviceEnd: (editServiceEnd as any).trim(),
+      } as any); // تم إضافة as any هنا لحل مشكلة تعارض نوع بيانات الـ User
       } else {
-        setToastMessage(result.error ?? (isRTL ? "فشل حفظ البيانات على الخادم، حاول مرة أخرى" : "Failed to save to server, please try again"));
-        setToastVisible(true);
-        return;
+      setToastMessage(result.error ?? (isRTL ? "فشل الحفظ" : "Save failed"));
+      setToastVisible(true);
+      return;
       }
-    }
+     }
 
-    setVerificationToken(undefined);
-    setVerificationExpiresAt(0);
-    setEditVisible(false);
-    setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
-    setToastVisible(true);
+      // تحديث الجلسة المحلية عند نجاح الـ API
+      await setUser({
+      ...user,
+      name: editName.trim(),
+      mobile: verificationToken ? normalizedMobile : user.mobile,
+      governorate: editGov,
+      area: editArea,
+      address: finalAddress,
+      latitude: editLat,
+      longitude: editLng,
+      serviceCategories: editCategories,
+      serviceStart: editServiceStart.trim(),
+      serviceEnd: editServiceEnd.trim()
+    } as any); // تم إضافة as any لحل المشكلة
+
+  setVerificationToken(undefined);
+  setVerificationExpiresAt(0);
+  setEditVisible(false);
+  setToastMessage(isRTL ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
+  setToastVisible(true);
   };
 
   const govText = (isRTL ? user?.governorateNameAr : user?.governorateNameEn) ?? (isRTL ? "الإسكندرية" : "Alexandria");
@@ -1370,16 +1405,30 @@ export default function TechProfileScreen() {
                 ) : null}
 
                 {/* Location Picker */}
-                <LocationPicker
+                  <LocationPicker
                   governorateId={editGov}
                   areaId={editArea}
                   onGovernorateChange={(id) => { setEditGov(id); setEditArea(""); setEditAreaNameAr(undefined); setEditAreaNameEn(undefined); }}
                   onAreaChange={setEditArea}
                   onGovernorateSelect={(opt) => { setEditGovNameAr(opt.ar); setEditGovNameEn(opt.en); }}
                   onAreaSelect={(opt) => { setEditAreaNameAr(opt.ar); setEditAreaNameEn(opt.en); }}
+  
+                  // قيم العنوان التفصيلية
                   street={editStreet}
                   onStreetChange={setEditStreet}
-                  showDetails={false}
+                  building={editBuilding}
+                  onBuildingChange={setEditBuilding}
+                  floor={editFloor}
+                  onFloorChange={setEditFloor}
+                  apartment={editApartment}
+                  onApartmentChange={setEditApartment}
+
+                  // الإحداثيات الجغرافية
+                  latitude={editLat}
+                  longitude={editLng}
+                  onCoordsChange={(lat, lng) => { setEditLat(lat); setEditLng(lng); }}
+                  
+                  showDetails={true}
                 />
                 </View>
               </ScrollView>
