@@ -6,6 +6,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+import { getApiBase } from "@/utils/api";
 
 interface ApiInvoice {
   id: string;
@@ -29,11 +30,6 @@ interface ApiInvoice {
   createdAt: string;
 }
 
-function getApiBaseUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  if (domain) return `http://${domain}`;
-  return "";
-}
 
 function statusColor(status: string, colors: ReturnType<typeof useColors>) {
   switch (status) {
@@ -66,7 +62,7 @@ export default function ClientInvoicesScreen() {
 
   const fetchInvoices = useCallback(async () => {
     if (!isAuthenticated || !sessionToken) return;
-    const base = getApiBaseUrl();
+    const base = getApiBase();
     if (!base) return;
     setLoading(true);
     setError(null);

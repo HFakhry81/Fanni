@@ -12,6 +12,7 @@ import { TechWsProvider, useTechWs } from "@/context/TechWsContext";
 import Toast from "@/components/Toast";
 import ConnectionBanner, { CONNECTION_BANNER_HEIGHT } from "@/components/ConnectionBanner";
 import SyncingBanner from "@/components/SyncingBanner";
+import { getApiBase } from "@/utils/api";
 
 function CountBadge({ count }: { count: number }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -204,12 +205,11 @@ function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => v
   }, [subscribeAvailabilityChanged, deduplicatedCallback]);
 
   useEffect(() => {
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    if (!domain || !sessionToken) return;
+    if (!getApiBase() || !sessionToken) return;
 
     async function fetchPending() {
       try {
-        const res = await fetch(`http://${domain}/api/technician/notifications`, {
+        const res = await fetch(`${getApiBase()}/api/technician/notifications`, {
           headers: { Authorization: `Bearer ${sessionToken}` },
         });
         if (!res.ok) return;
@@ -267,10 +267,9 @@ function usePendingCountSync() {
 
   const fetchCount = useCallback(async () => {
     if (availableOrdersTabFocusedRef.current) return;
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    if (!domain || !sessionToken) return;
+    if (!getApiBase() || !sessionToken) return;
     try {
-      const res = await fetch(`http://${domain}/api/technician/pending-orders?limit=50`, {
+      const res = await fetch(`${getApiBase()}/api/technician/pending-orders?limit=50`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       if (res.ok) {

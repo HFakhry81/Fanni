@@ -11,12 +11,8 @@ import { useOrders, Order } from "@/context/OrderContext";
 import StatusBadge from "@/components/StatusBadge";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
+import { getApiBase } from "@/utils/api";
 
-function getApiBaseUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  if (domain) return `http://${domain}`;
-  return "";
-}
 
 export default function TechMapScreen() {
   const router = useRouter();
@@ -57,7 +53,7 @@ export default function TechMapScreen() {
   const serviceAreaDisplay = [govLabel, areaLabel].filter(Boolean).join(" — ");
 
   const fetchServerPendingOrders = async () => {
-    const apiBase = getApiBaseUrl();
+    const apiBase = getApiBase();
     if (!apiBase || !sessionToken) return;
     setIsFetchingOrders(true);
     try {
@@ -166,7 +162,7 @@ export default function TechMapScreen() {
     };
     let serverSynced = false;
     try {
-      const apiBase = getApiBaseUrl();
+      const apiBase = getApiBase();
       if (apiBase && sessionToken) {
         const res = await fetch(`${apiBase}/api/orders/${selectedOrder.id}/acknowledge`, {
           method: "PATCH",

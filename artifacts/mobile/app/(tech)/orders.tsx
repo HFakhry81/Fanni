@@ -19,12 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
+import { getApiBase } from "@/utils/api";
 
-function getApiBaseUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  if (domain) return `http://${domain}`;
-  return "";
-}
 
 const SERVICE_FEE_RATE = 15;
 const VAT_RATE = 14;
@@ -106,7 +102,7 @@ export default function TechOrdersScreen() {
   }, [badgeOpacity]);
 
   const fetchOrdersFromApi = useCallback(async (detectChanges = false) => {
-    const apiBase = getApiBaseUrl();
+    const apiBase = getApiBase();
     if (!apiBase || !sessionToken || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
@@ -182,7 +178,7 @@ export default function TechOrdersScreen() {
   };
 
   const runOCR = async (imageUrl: string): Promise<OcrReceiptData | null> => {
-    const apiBase = getApiBaseUrl();
+    const apiBase = getApiBase();
     if (!apiBase || !sessionToken) return null;
     setOcrRunning(true);
     try {
@@ -249,7 +245,7 @@ export default function TechOrdersScreen() {
     setPhaseUploading((prev) => ({ ...prev, [orderId]: true }));
     try {
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
-      const apiBase = getApiBaseUrl();
+      const apiBase = getApiBase();
       let savedOnServer = false;
       if (apiBase) {
         const res = await fetch(`${apiBase}/api/orders/${orderId}/photos`, {
@@ -321,7 +317,7 @@ export default function TechOrdersScreen() {
     let afterPhotosSaved = false;
 
     try {
-      const apiBase = getApiBaseUrl();
+      const apiBase = getApiBase();
       if (apiBase && sessionToken) {
         const res = await fetch(`${apiBase}/api/orders/${orderId}/complete`, {
           method: "PATCH",

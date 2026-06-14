@@ -22,11 +22,8 @@ import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
+import { getApiBase } from "@/utils/api";
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 type ReportView = "overview" | "pnl" | "balance" | "annual";
 type Period = "week" | "month" | "year";

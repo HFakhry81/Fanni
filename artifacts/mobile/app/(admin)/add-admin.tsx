@@ -14,15 +14,12 @@ import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import Toast from "@/components/Toast";
+import { getApiBase } from "@/utils/api";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -6,18 +6,11 @@ import {
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { getApiBase } from "@/utils/api";
 
 const ALEX_COORDS = { latitude: 31.2001, longitude: 29.9187 };
 const DEFAULT_DELTA = { latitudeDelta: 0.008, longitudeDelta: 0.008 };
 
-function getApiBase(): string {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
-  if (!domain) return "";
-  const isLocal =
-    domain.includes("192.168.") || domain.includes("10.") ||
-    domain.includes("localhost") || domain.includes("127.0.0.1");
-  return isLocal ? `http://${domain}` : `https://${domain}`;
-}
 
 export interface PickedLocation {
   latitude: number;
@@ -143,6 +136,7 @@ export default function MapPickerModal({
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (Platform.OS === "web") return;
     if (!visible) return;
     let cancelled = false;
     import("react-native-maps").then((mod) => {

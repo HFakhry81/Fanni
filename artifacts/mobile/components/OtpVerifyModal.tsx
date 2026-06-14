@@ -7,14 +7,11 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import VectorIcon from "@/components/VectorIcon";
 import FanniButton from "@/components/FanniButton";
+import { getApiBase } from "@/utils/api";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 interface Props {
   visible: boolean;

@@ -24,6 +24,7 @@ import { AppProvider, useApp, type UserType } from "@/context/AppContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { sweepExpiredRouteCache } from "@/utils/routeCache";
+import { getApiBase } from "@/utils/api";
 
 const LOC_CACHE_GOV_KEY = "location_cache_governorates";
 const LOC_CACHE_AREAS_KEY = "location_cache_areas";
@@ -57,10 +58,6 @@ interface LocationLabels {
   areaNameEn: string | undefined;
 }
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  return domain ? `http://${domain}` : "";
-}
 
 function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const { user: authUser, sessionToken, refreshUser } = useAuth();

@@ -10,12 +10,8 @@ import { useOrders, Order } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
+import { getApiBase } from "@/utils/api";
 
-function getApiBaseUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  if (domain) return `http://${domain}`;
-  return "";
-}
 
 export default function ClientOrdersScreen() {
   const router = useRouter();
@@ -58,7 +54,7 @@ export default function ClientOrdersScreen() {
 
   const fetchOrdersFromApi = useCallback(async (detectChanges = false) => {
     if (!isAuthenticated || !sessionToken) return;
-    const base = getApiBaseUrl();
+    const base = getApiBase();
     if (!base) return;
 
     setLoadingApi(true);
@@ -146,7 +142,7 @@ export default function ClientOrdersScreen() {
           text: isRTL ? "نعم، إلغاء" : "Yes, Cancel",
           style: "destructive",
           onPress: async () => {
-            const base = getApiBaseUrl();
+            const base = getApiBase();
             if (!base || !sessionToken) return;
             setCancellingOrderId(orderId);
             try {

@@ -18,13 +18,10 @@ import { useAuth } from "@/context/AuthContext";
 import FanniButton from "@/components/FanniButton";
 import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
+import { getApiBase } from "@/utils/api";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 export default function LoginScreen() {
   const router = useRouter();

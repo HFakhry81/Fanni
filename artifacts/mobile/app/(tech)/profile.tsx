@@ -20,14 +20,11 @@ import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
+import { getApiBase } from "@/utils/api";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 function timeStringToDate(hhmm: string): Date {
   const [h, m] = hhmm.split(":").map(Number);

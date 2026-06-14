@@ -16,6 +16,7 @@ import FanniButton from "@/components/FanniButton";
 import LocationPicker from "@/components/LocationPicker";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
+import { getApiBase } from "@/utils/api";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -25,10 +26,6 @@ const AUTH_TOKEN_KEY = "fanni_auth_token";
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 function timeStringToDate(hhmm: string): Date {
   const [h, m] = hhmm.split(":").map(Number);

@@ -26,14 +26,11 @@ import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import type { OrderPhoto } from "@/context/OrderContext";
 import * as FileSystem from "expo-file-system";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
+import { getApiBase } from "@/utils/api";
 
 type LocationOption = { id?: string; ar: string; en: string };
 
 // ── API helpers (mirror of LocationPicker) ────────────────────────────────────
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  return domain ? `http://${domain}` : "";
-}
 
 function timeStringToDate(hhmm: string): Date {
   const [h, m] = hhmm.split(":").map(Number);

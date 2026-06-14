@@ -19,11 +19,8 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import VectorIcon from "@/components/VectorIcon";
+import { getApiBase } from "@/utils/api";
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 interface LedgerEntry {
   id: string;

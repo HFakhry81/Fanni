@@ -1,4 +1,1 @@
-- [Type discrimination](type-discrimination.md) — AppContext `User` uses `.type`; AuthContext `AuthUser` uses `.role` — never mix them.
-- [Iterator workaround](iterator-workaround.md) — TypeScript refuses to destructure `filter(Boolean).map(([a,b])=>…)`; use `.map((row)=>{ const [a,b]=row as [A,B]; return … })` instead.
-- [react-native-maps types](rnmaps-types.md) — correct props types are `MapMarkerProps`, `MapPolylineProps`, `MapUrlTileProps`, `MapCircleProps` (not the bare `MarkerProps` etc.).
-- [Admin route path](admin-route.md) — valid Expo Router path for admin dashboard is `/(admin)/(tabs)/dashboard`, not `/(admin)/dashboard`.
+- [Metro web stub for react-native-maps](metro-web-native-modules.md) — resolveRequest in metro.config.js is the only reliable fix; .web.tsx stubs alone are insufficient

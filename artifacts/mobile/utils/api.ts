@@ -1,10 +1,25 @@
+import Constants from "expo-constants";
+
 export function getApiBase(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
-  if (!domain) return "";
-  const isLocal =
-    domain.includes("192.168.") ||
-    domain.includes("10.") ||
-    domain.includes("localhost") ||
-    domain.includes("127.0.0.1");
-  return isLocal ? `http://${domain}` : `https://${domain}`;
+
+  if (domain) {
+    const isLocal =
+      domain.startsWith("192.168.") ||
+      domain.startsWith("10.") ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(domain) ||
+      domain === "localhost" ||
+      domain.startsWith("127.");
+    return isLocal ? `http://${domain}` : `https://${domain}`;
+  }
+
+  if (__DEV__) {
+    const hostUri = Constants.expoConfig?.hostUri ?? "";
+    if (hostUri) {
+      const host = hostUri.split(":")[0];
+      return `http://${host}:8080`;
+    }
+  }
+
+  return "";
 }

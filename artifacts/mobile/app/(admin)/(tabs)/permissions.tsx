@@ -6,11 +6,8 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+import { getApiBase } from "@/utils/api";
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 interface Permission { id: string; group: string; groupAr: string; label: string; labelAr: string; enabled: boolean; }
 interface AdminEntry { id: string; name: string; email: string | null; isSuperAdmin: boolean; isActive: boolean; }

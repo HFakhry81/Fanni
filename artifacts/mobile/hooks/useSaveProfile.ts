@@ -1,15 +1,12 @@
 import { useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBase } from "@/utils/api";
 
 export interface SaveProfileResult {
   ok: boolean;
   error?: string;
 }
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 export function useSaveProfile() {
   const { refreshUser, sessionToken } = useAuth();

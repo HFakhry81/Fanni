@@ -20,12 +20,8 @@ import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
 import Toast from "@/components/Toast";
 import { useRouter } from "expo-router";
+import { getApiBase } from "@/utils/api";
 
-function getApiBaseUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  if (domain) return `http://${domain}`;
-  return "";
-}
 
 const CATEGORY_ICONS: Record<string, IconName> = {
   electricity: "zap",
@@ -79,7 +75,7 @@ export default function AvailableOrdersScreen() {
   const cancelledWhileAcceptingRef = useRef(false);
 
   const fetchOrders = useCallback(async (isRefresh = false, silent = false) => {
-    const apiBase = getApiBaseUrl();
+    const apiBase = getApiBase();
     if (!apiBase || !sessionToken) {
       setOrders([]);
       setAvailablePendingCount(0);
@@ -192,7 +188,7 @@ export default function AvailableOrdersScreen() {
     cancelledWhileAcceptingRef.current = false;
     setAcceptError(null);
     try {
-      const apiBase = getApiBaseUrl();
+      const apiBase = getApiBase();
       if (apiBase && sessionToken) {
         const res = await fetch(`${apiBase}/api/orders/${order.id}/acknowledge`, {
           method: "PATCH",

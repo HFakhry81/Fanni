@@ -15,13 +15,10 @@ import { useApp } from "@/context/AppContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
+import { getApiBase } from "@/utils/api";
 
 type Step = "request" | "reset" | "success";
 
-function getApiBase(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();

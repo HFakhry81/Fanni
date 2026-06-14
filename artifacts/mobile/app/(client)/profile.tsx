@@ -18,6 +18,7 @@ import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
+import { getApiBase } from "@/utils/api";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -298,8 +299,7 @@ export default function ClientProfileScreen() {
     }
     setResendWelcomeLoading(true);
     try {
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `http://${domain}` : "";
+      const apiBase = getApiBase();
       if (!apiBase) {
         setToastMessage(t("profile.resendWelcomeError"));
         setToastAction(undefined);
@@ -355,9 +355,8 @@ export default function ClientProfileScreen() {
     setToastVisible(true);
     try {
       const { url } = await uploadPhotoToServer(uri, sessionToken, mimeType);
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      if (domain) {
-        const patchRes = await fetch(`http://${domain}/api/auth/me`, {
+      if (getApiBase()) {
+        const patchRes = await fetch(`${getApiBase()}/api/auth/me`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ profileImageUrl: url }),
@@ -444,8 +443,7 @@ export default function ClientProfileScreen() {
                     const previousAvatar = user.avatar;
                     undoAvatarRef.current = previousAvatar;
                     await setUser({ ...user, avatar: undefined });
-                    const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-                    const apiBase = domain ? `http://${domain}` : "";
+                    const apiBase = getApiBase();
                     if (!apiBase || !sessionToken) {
                       await setUser({ ...user, avatar: previousAvatar });
                       undoAvatarRef.current = undefined;
