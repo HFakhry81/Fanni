@@ -64,6 +64,8 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 function getApiBaseUrl(): string {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (apiUrl) return apiUrl;
   if (process.env.EXPO_PUBLIC_DOMAIN) {
     return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
   }

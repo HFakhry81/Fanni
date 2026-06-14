@@ -1,6 +1,9 @@
 import Constants from "expo-constants";
 
 export function getApiBase(): string {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (apiUrl) return apiUrl;
+
   const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
 
   if (domain) {
