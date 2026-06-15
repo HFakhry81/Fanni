@@ -46,6 +46,8 @@ const args = [
 
 if (isReplit) {
   args.push("--localhost");
+} else {
+  args.push("--host", "lan");
 }
 
 console.log(`[start] pnpm ${args.join(" ")}\n`);

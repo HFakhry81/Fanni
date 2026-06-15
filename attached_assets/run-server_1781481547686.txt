@@ -1,0 +1,28 @@
+@echo off
+:: تغيير اللون إلى اللبني الداكن الأنيق
+color 0B
+title Fanni Backend Server
+
+echo ====================================================
+echo       ______ _   _   _ _   _ ___ 
+echo      ^|  ____/ \ ^| \ ^| ^| \ ^| ^|_ _^|
+echo      ^| ^|__ / _ \^|  \^| ^|  \^| ^| ^| ^| 
+echo      ^|  __^| / _ \ . ` ^| . ` ^| ^| ^| 
+echo      ^| ^| / ___ \ ^|\  ^| ^|\  ^|_^| ^|_
+echo      ^|_^|/_/   \_\_^| \_^|_^| \_^|_^|_____^|
+echo.
+echo  [SYSTEM] Active ^& Running
+echo  [PORT]   3000
+echo ====================================================
+echo.
+echo Starting Database connection and API services...
+echo.
+
+:: تعيين المتغيرات
+set DATABASE_URL=postgresql://postgres:123456@localhost:5432/fanni_db
+set PORT=3000
+
+:: الانتقال للمجلد والتشغيل
+cd /d "C:\Users\Sam\Downloads\Fanni\artifacts\api-server"
+pnpm run dev
+pause
