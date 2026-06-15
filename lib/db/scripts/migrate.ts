@@ -1,13 +1,18 @@
 /**
- * Simple sequential SQL migration runner.
+ * Idempotent sequential SQL migration runner with tracking.
  *
- * Reads every *.sql file from ../migrations/ in lexicographic order and
- * executes each one against DATABASE_URL. All statements within a file are
- * wrapped in a single transaction; any failure rolls back that file and
- * aborts the run.
+ * On every run it:
+ *  1. Checks if `schema_migrations` tracking table already exists.
+ *  2. Creates it (IF NOT EXISTS).
+ *  3. If the table was JUST created (first time this system is used), it
+ *     pre-seeds all currently-known migration files as already applied —
+ *     the old runner had no tracking and re-ran everything with IF NOT EXISTS
+ *     guards on every startup, so all existing files are guaranteed applied.
+ *  4. Skips files that are recorded in `schema_migrations`.
+ *  5. Applies new (unrecorded) files one at a time inside a transaction and
+ *     records each success.
  *
- * Usage:
- *   pnpm --filter @workspace/db run migrate
+ * This makes the runner safe to call on every application startup.
  *
  * Files must be named with a numeric prefix so they sort deterministically:
  *   001_location_aliases.sql
@@ -15,7 +20,9 @@
  *   …
  *
  * Individual statements within a file are separated by a semicolon followed
- * by a newline. Empty statements are skipped.
+ * by a newline. Empty statements are skipped.  Dollar-quoted blocks (DO $$
+ * … $$) are handled correctly so semicolons inside them are not treated as
+ * separators.
  */
 
 import { readdir, readFile } from "fs/promises";
@@ -32,13 +39,69 @@ if (!process.env.DATABASE_URL) {
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const client = await pool.connect();
 
+// ── Discover migration files first (needed for seeding below) ─────────────────
 const migrationsDir = path.join(import.meta.dirname, "..", "migrations");
 const files = (await readdir(migrationsDir))
   .filter((f) => f.endsWith(".sql"))
   .sort();
 
+// ── Check if the tracking table already exists ────────────────────────────────
+const { rows: existsCheck } = await client.query<{ exists: boolean }>(`
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'schema_migrations'
+  ) AS exists
+`);
+const trackingTableExisted = existsCheck[0]?.exists === true;
+
+// ── Bootstrap: create the tracking table (idempotent) ────────────────────────
+await client.query(`
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+    filename   VARCHAR(255) PRIMARY KEY,
+    applied_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+  )
+`);
+
+// ── Seed pre-tracking migrations on first use ─────────────────────────────────
+//
+// If the tracking table didn't exist before this run, all currently-known
+// migration files were already applied by the old runner (which ran everything
+// on every startup with IF NOT EXISTS guards). Record them all as pre-applied
+// so the new runner doesn't re-execute them.
+//
+if (!trackingTableExisted && files.length > 0) {
+  await client.query("BEGIN");
+  try {
+    for (const file of files) {
+      await client.query(
+        `INSERT INTO schema_migrations (filename, applied_at)
+         VALUES ($1, now())
+         ON CONFLICT (filename) DO NOTHING`,
+        [file],
+      );
+    }
+    await client.query("COMMIT");
+    console.log(
+      `📋 First use of migration tracking — pre-seeded ${files.length} existing file(s) as already applied.`,
+    );
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Failed to seed schema_migrations tracking table:", err);
+    client.release();
+    await pool.end();
+    process.exit(1);
+  }
+}
+
+// ── Load the set of already-applied migration filenames ───────────────────────
+const { rows: appliedRows } = await client.query<{ filename: string }>(
+  `SELECT filename FROM schema_migrations`,
+);
+const applied = new Set(appliedRows.map((r) => r.filename));
+
 if (!files.length) {
   console.log("No migration files found.");
+  client.release();
   await pool.end();
   process.exit(0);
 }
@@ -56,7 +119,6 @@ function splitStatements(sql: string): string[] {
 
   while (i < sql.length) {
     if (dollarTag === null) {
-      // Check for the start of a dollar-quoted block: $tag$ or $$
       const dollarMatch = sql.slice(i).match(/^\$[^$\s]*\$/);
       if (dollarMatch) {
         dollarTag = dollarMatch[0];
@@ -64,7 +126,6 @@ function splitStatements(sql: string): string[] {
         i += dollarTag.length;
         continue;
       }
-      // Check for statement separator: semicolon followed by optional whitespace then newline
       if (sql[i] === ";") {
         const rest = sql.slice(i + 1);
         const wsNl = rest.match(/^[ \t]*\n/);
@@ -77,7 +138,6 @@ function splitStatements(sql: string): string[] {
         }
       }
     } else {
-      // Inside a dollar-quoted block — look for the closing tag
       if (sql.slice(i).startsWith(dollarTag)) {
         current += dollarTag;
         i += dollarTag.length;
@@ -90,18 +150,24 @@ function splitStatements(sql: string): string[] {
     i++;
   }
 
-  // Handle a trailing statement that doesn't end with ";\n"
   const last = current.trim();
   if (last) results.push(last);
 
   return results;
 }
 
-let applied = 0;
+// ── Apply pending migrations ──────────────────────────────────────────────────
+let newlyApplied = 0;
+let skipped = 0;
+
 for (const file of files) {
+  if (applied.has(file)) {
+    skipped++;
+    continue;
+  }
+
   const filePath = path.join(migrationsDir, file);
   const sql = await readFile(filePath, "utf8");
-
   const statements = splitStatements(sql);
 
   try {
@@ -109,9 +175,13 @@ for (const file of files) {
     for (const stmt of statements) {
       await client.query(stmt);
     }
+    await client.query(
+      `INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING`,
+      [file],
+    );
     await client.query("COMMIT");
     console.log(`✓ Applied: ${file}`);
-    applied++;
+    newlyApplied++;
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(`✗ Failed: ${file}`, err);
@@ -123,4 +193,11 @@ for (const file of files) {
 
 client.release();
 await pool.end();
-console.log(`Migration complete: ${applied}/${files.length} file(s) applied.`);
+
+if (newlyApplied === 0 && skipped > 0) {
+  console.log(`Migration complete: all ${skipped} file(s) already applied — nothing to do.`);
+} else {
+  console.log(
+    `Migration complete: ${newlyApplied} new applied, ${skipped} skipped (${files.length} total).`,
+  );
+}
