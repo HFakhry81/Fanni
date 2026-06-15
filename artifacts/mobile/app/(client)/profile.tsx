@@ -809,18 +809,10 @@ export default function ClientProfileScreen() {
                   {t("register.address")}
                 </Text>
 
-                {/* Location errors */}
-                {errors.gov ? (
-                  <Text style={[styles.errorText, { marginBottom: 6, textAlign: isRTL ? "right" : "left" }]}>{errors.gov}</Text>
-                ) : null}
-                {errors.area ? (
-                  <Text style={[styles.errorText, { marginBottom: 6, textAlign: isRTL ? "right" : "left" }]}>{errors.area}</Text>
-                ) : null}
-
-                {/* Address Block */}
+                {/* Address Block — shows its own error */}
                 <AddressBlock
                   value={addrVal}
-                  onChange={setAddrVal}
+                  onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, gov: undefined, area: undefined })); }}
                   error={errors.gov ?? errors.area}
                 />
               </ScrollView>

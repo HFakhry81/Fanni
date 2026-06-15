@@ -26,11 +26,8 @@ import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import type { OrderPhoto } from "@/context/OrderContext";
 import * as FileSystem from "expo-file-system";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
-import { getApiBase } from "@/utils/api";
 
-type LocationOption = { id?: string; ar: string; en: string };
-
-// ── API helpers (mirror of LocationPicker) ────────────────────────────────────
+// ── Time helpers ─────────────────────────────────────────────────────────────
 
 function timeStringToDate(hhmm: string): Date {
   const [h, m] = hhmm.split(":").map(Number);
@@ -66,28 +63,6 @@ function draftAge(savedAt: unknown, isRTL: boolean): string {
     if (diffDay === 1) return "· Saved yesterday";
     return `· Saved ${diffDay} days ago`;
   }
-}
-
-interface LocationRow { id: string; nameAr: string; nameEn: string; }
-
-async function apiFetchGovernorates(): Promise<LocationRow[]> {
-  const base = getApiBase();
-  if (!base) return [];
-  try {
-    const res = await fetch(`${base}/api/locations/governorates`);
-    const json = await res.json();
-    return json.governorates ?? [];
-  } catch { return []; }
-}
-
-async function apiFetchAreas(govId: string): Promise<LocationRow[]> {
-  const base = getApiBase();
-  if (!base || !govId) return [];
-  try {
-    const res = await fetch(`${base}/api/locations/${govId}/areas`);
-    const json = await res.json();
-    return json.areas ?? [];
-  } catch { return []; }
 }
 
 type OrderStep = 1 | 2 | 3;
@@ -853,9 +828,9 @@ export default function NewOrderScreen() {
       { label: isRTL ? "نوع الخدمة" : "Service",     value: `${t(`cat.${category}`)} — ${subCategory}` },
       { label: t("order.problemDesc"),                 value: problemDesc || "—" },
       { label: t("order.deviceType"),                  value: deviceType || "—" },
-      { label: isRTL ? "المحافظة" : "Governorate",    value: govOpt  ? (isRTL ? govOpt.ar  : govOpt.en)  : "—" },
-      { label: isRTL ? "المنطقة" : "Area",            value: areaOpt ? (isRTL ? areaOpt.ar : areaOpt.en) : "—" },
-      { label: isRTL ? "الشارع" : "Street",           value: street || "—" },
+      { label: isRTL ? "المحافظة" : "Governorate",    value: addrVal.governorateName || "—" },
+      { label: isRTL ? "المنطقة" : "Area",            value: addrVal.areaName || "—" },
+      { label: isRTL ? "الشارع" : "Street",           value: addrVal.street || "—" },
       { label: t("order.visitDate"),                   value: visitDate || "—" },
       { label: t("order.visitTime"),                   value: visitTime || "—" },
     ];
