@@ -1,1 +1,3 @@
 - [Metro web stub for react-native-maps](metro-web-native-modules.md) — resolveRequest in metro.config.js is the only reliable fix; .web.tsx stubs alone are insufficient
+- [DB schema vs dist types](db-schema-dist-types.md) — after adding Drizzle schema columns, must rebuild lib/db AND lib/api-zod before API typecheck sees new types
+- [DB schema vs physical DB](db-schema-dist-types.md) — new Drizzle schema columns also need a SQL migration file (lib/db/migrations/NNN_*.sql) to exist in the real DB

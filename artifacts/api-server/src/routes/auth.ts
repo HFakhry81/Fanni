@@ -161,7 +161,7 @@ function buildAuthUser(
     specialty: dbUser.specialty ?? null,
     serviceCategories: (dbUser.serviceCategories as string[] | null) ?? null,
     isAvailable: dbUser.isAvailable ?? null,
-    mustChangePassword: (dbUser as Record<string, unknown>).mustChangePassword ?? false,
+    mustChangePassword: false as boolean,
     serviceStart: dbUser.serviceStart ?? null,
     serviceEnd: dbUser.serviceEnd ?? null,
   };
