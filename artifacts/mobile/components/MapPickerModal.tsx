@@ -21,6 +21,8 @@ export interface PickedLocation {
   suburbEn?: string;
   cityAr?: string;
   cityEn?: string;
+  stateAr?: string;
+  stateEn?: string;
   street?: string;
 }
 
@@ -50,6 +52,8 @@ interface BilingualGeo {
   suburbEn?: string;
   cityAr?: string;
   cityEn?: string;
+  stateAr?: string;
+  stateEn?: string;
   street?: string;
 }
 
@@ -73,8 +77,10 @@ async function reverseGeocodeBilingual(lat: number, lon: number): Promise<Biling
           displayNameEn: (en.display_name as string) ?? "",
           suburbAr: addr.suburb ?? addr.neighbourhood ?? addr.quarter,
           suburbEn: addrEn.suburb ?? addrEn.neighbourhood ?? addrEn.quarter,
-          cityAr:   addr.city ?? addr.town ?? addr.governorate,
-          cityEn:   addrEn.city ?? addrEn.town ?? addrEn.governorate,
+          cityAr:   addr.city ?? addr.town,
+          cityEn:   addrEn.city ?? addrEn.town,
+          stateAr:  addr.state ?? addr.governorate,
+          stateEn:  addrEn.state ?? addrEn.governorate,
           street:   addrEn.road ?? addr.road,
         };
       }
@@ -103,8 +109,10 @@ async function reverseGeocodeBilingual(lat: number, lon: number): Promise<Biling
         displayNameEn: (jsonEn.display_name as string) ?? "",
         suburbAr: addrAr.suburb ?? addrAr.neighbourhood ?? addrAr.quarter ?? addrAr.city_district,
         suburbEn: addrEn.suburb ?? addrEn.neighbourhood ?? addrEn.quarter ?? addrEn.city_district,
-        cityAr:   addrAr.city ?? addrAr.town ?? addrAr.governorate,
-        cityEn:   addrEn.city ?? addrEn.town ?? addrEn.governorate,
+        cityAr:   addrAr.city ?? addrAr.town,
+        cityEn:   addrEn.city ?? addrEn.town,
+        stateAr:  addrAr.state ?? addrAr.governorate,
+        stateEn:  addrEn.state ?? addrEn.governorate,
         street:   addrAr.road ?? addrEn.road ?? "",
       };
     }
@@ -247,6 +255,8 @@ export default function MapPickerModal({
       suburbEn: geoData?.suburbEn,
       cityAr:   geoData?.cityAr,
       cityEn:   geoData?.cityEn,
+      stateAr:  geoData?.stateAr,
+      stateEn:  geoData?.stateEn,
       street:   geoData?.street,
     });
   };

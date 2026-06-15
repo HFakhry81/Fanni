@@ -50,6 +50,11 @@ export const registerSchema = zod.object({
     .string()
     .optional(),
 
+  street: zod.string().optional(),
+  buildingNo: zod.string().optional(),
+  floorNo: zod.string().optional(),
+  aptNo: zod.string().optional(),
+
   latitude: zod
     .number()
     .min(-90, "Latitude must be between -90 and 90")

@@ -11,7 +11,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
-import LocationPicker from "@/components/LocationPicker";
+import AddressBlock, { AddressValue, EMPTY_ADDRESS } from "@/components/AddressBlock";
 import Toast from "@/components/Toast";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
@@ -74,22 +74,11 @@ export default function ClientProfileScreen() {
     return () => clearInterval(id);
   }, [editVisible, verificationToken, verificationExpiresAt]);
   
- const [editLat, setEditLat] = useState<number | null>(null);
- const [editLng, setEditLng] = useState<number | null>(null);
- const [editBuilding, setEditBuilding] = useState("");
- const [editFloor, setEditFloor] = useState("");
- const [editApartment, setEditApartment] = useState("");
+  const [addrVal, setAddrVal] = useState<AddressValue>(EMPTY_ADDRESS);
 
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editMobile, setEditMobile] = useState("");
-  const [editGov, setEditGov] = useState("");
-  const [editGovNameAr, setEditGovNameAr] = useState<string | undefined>(undefined);
-  const [editGovNameEn, setEditGovNameEn] = useState<string | undefined>(undefined);
-  const [editArea, setEditArea] = useState("");
-  const [editAreaNameAr, setEditAreaNameAr] = useState<string | undefined>(undefined);
-  const [editAreaNameEn, setEditAreaNameEn] = useState<string | undefined>(undefined);
-  const [editStreet, setEditStreet] = useState("");
 
   // Change password state
   const [currentPw, setCurrentPw] = useState("");
@@ -106,32 +95,27 @@ export default function ClientProfileScreen() {
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
   const openEdit = () => {
-  if (!user) return;
-  setEditName(user.name ?? "");
-  setEditMobile(user.mobile ?? "");
-  setEditGov(user.governorate ?? "");
-  setEditGovNameAr(user.governorateNameAr);
-  setEditGovNameEn(user.governorateNameEn);
-  setEditArea(user.area ?? "");
-  setEditAreaNameAr(user.areaNameAr);
-  setEditAreaNameEn(user.areaNameEn);
-  
-  // جلب الإحداثيات الحالية من جلسة المستخدم
-  // استبدل السطرين 222 و 223 في كلا الملفين بهذا التعديل:
-  setEditLat((user as any).latitude ?? null);
-  setEditLng((user as any).longitude ?? null);
-  // تفكيك العنوان النصي الكامل إلى حقول منفصلة
-  const detailed = deserializeAddress(user.address ?? "");
-  setEditStreet(detailed.street);
-  setEditBuilding(detailed.building);
-  setEditFloor(detailed.floor);
-  setEditApartment(detailed.apartment);
-
-  setErrors({});
-  setVerificationToken(undefined);
-  setVerificationExpiresAt(0);
-  setEditVisible(true);
-};
+    if (!user) return;
+    setEditName(user.name ?? "");
+    setEditMobile(user.mobile ?? "");
+    const detailed = deserializeAddress(user.address ?? "");
+    setAddrVal({
+      governorateId: user.governorate ?? "",
+      governorateName: (isRTL ? user.governorateNameAr : user.governorateNameEn) ?? "",
+      areaId: user.area ?? "",
+      areaName: (isRTL ? user.areaNameAr : user.areaNameEn) ?? "",
+      street: (user as any).street ?? detailed.street ?? "",
+      buildingNo: (user as any).buildingNo ?? detailed.building ?? "",
+      floorNo: (user as any).floorNo ?? detailed.floor ?? "",
+      aptNo: (user as any).aptNo ?? detailed.apartment ?? "",
+      latitude: (user as any).latitude ?? null,
+      longitude: (user as any).longitude ?? null,
+    });
+    setErrors({});
+    setVerificationToken(undefined);
+    setVerificationExpiresAt(0);
+    setEditVisible(true);
+  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -150,11 +134,11 @@ export default function ClientProfileScreen() {
       newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
     }
 
-    if (!editGov) {
+    if (!addrVal.governorateId) {
       newErrors.gov = isRTL ? "يرجى اختيار المحافظة" : "Please select a governorate";
     }
 
-    if (!editArea) {
+    if (!addrVal.areaId) {
       newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
     }
 
@@ -187,22 +171,18 @@ export default function ClientProfileScreen() {
   const firstName = nameParts[0] ?? editName.trim();
   const lastName = nameParts.slice(1).join(" ") || null;
 
-  // دمج الحقول التفصيلية في حقل عنوان نصي واحد منسق
-  const finalAddress = serializeAddress({
-    street: editStreet,
-    building: editBuilding,
-    floor: editFloor,
-    apartment: editApartment
-  });
-
   const body: Record<string, unknown> = {
     firstName,
     lastName,
-    governorate: editGov || null,
-    area: editArea || null,
-    address: finalAddress,
-    latitude: editLat,   // إرسال خط العرض المحدث
-    longitude: editLng,  // إرسال خط الطول المحدث
+    governorate: addrVal.governorateId || null,
+    area: addrVal.areaId || null,
+    street: addrVal.street || null,
+    buildingNo: addrVal.buildingNo || null,
+    floorNo: addrVal.floorNo || null,
+    aptNo: addrVal.aptNo || null,
+    address: [addrVal.street, addrVal.buildingNo, addrVal.floorNo, addrVal.aptNo].filter(Boolean).join(", ") || null,
+    latitude: addrVal.latitude,
+    longitude: addrVal.longitude,
   };
   if (verificationToken) {
     body.mobile = normalizedMobile;
@@ -221,15 +201,14 @@ export default function ClientProfileScreen() {
 
   // لتأمين تحديث الواجهة فوراً بقاعدة البيانات المحلية للعميل
   await setUser({
-      ...user,
-      name: editName.trim(),
-      mobile: verificationToken ? normalizedMobile : user.mobile,
-      governorate: editGov,
-      area: editArea,
-      address: finalAddress,
-      latitude: editLat,
-      longitude: editLng
-    } as any); // تم إضافة as any لحل المشكلة
+    ...user,
+    name: editName.trim(),
+    mobile: verificationToken ? normalizedMobile : user.mobile,
+    governorate: addrVal.governorateId,
+    area: addrVal.areaId,
+    address: [addrVal.street, addrVal.buildingNo, addrVal.floorNo, addrVal.aptNo].filter(Boolean).join(", ") || null,
+    ...(addrVal as any),
+  } as any);
 
   setVerificationToken(undefined);
   setVerificationExpiresAt(0);
@@ -838,26 +817,11 @@ export default function ClientProfileScreen() {
                   <Text style={[styles.errorText, { marginBottom: 6, textAlign: isRTL ? "right" : "left" }]}>{errors.area}</Text>
                 ) : null}
 
-                {/* Location Picker */}
-                <LocationPicker
-                  governorateId={editGov}
-                  areaId={editArea}
-                  onGovernorateChange={(id) => { setEditGov(id); setEditArea(""); setEditAreaNameAr(undefined); setEditAreaNameEn(undefined); }}
-                  onAreaChange={(id) => setEditArea(id)} // تم التعديل لتفادي خطأ الـ Dispatch
-                  onGovernorateSelect={(opt) => { setEditGovNameAr(opt.ar); setEditGovNameEn(opt.en); }}
-                  onAreaSelect={(opt) => { setEditAreaNameAr(opt.ar); setEditAreaNameEn(opt.en); }}
-                  street={editStreet}
-                  onStreetChange={(v) => setEditStreet(v)} // تم التعديل
-                  building={editBuilding}
-                  onBuildingChange={(v) => setEditBuilding(v)} // تم التعديل
-                  floor={editFloor}
-                  onFloorChange={(v) => setEditFloor(v)} // تم التعديل
-                  apartment={editApartment}
-                  onApartmentChange={(v) => setEditApartment(v)} // تم التعديل
-                  latitude={editLat}
-                  longitude={editLng}
-                  onCoordsChange={(lat, lng) => { setEditLat(lat); setEditLng(lng); }}
-                  showDetails={true}
+                {/* Address Block */}
+                <AddressBlock
+                  value={addrVal}
+                  onChange={setAddrVal}
+                  error={errors.gov ?? errors.area}
                 />
               </ScrollView>
             </View>

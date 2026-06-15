@@ -13,7 +13,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
-import LocationPicker from "@/components/LocationPicker";
+import AddressBlock, { AddressValue, EMPTY_ADDRESS } from "@/components/AddressBlock";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import { getApiBase } from "@/utils/api";
@@ -73,14 +73,7 @@ export default function RegisterScreen() {
   const [experience, setExperience] = useState("");
 
   // ── Location (shared) ──────────────────────────────────────────────────────
-  const [governorateId, setGovernorateId] = useState("");
-  const [areaId, setAreaId] = useState("");
-  const [street, setStreet] = useState("");
-  const [building, setBuilding] = useState("");
-  const [floor, setFloor] = useState("");
-  const [apartment, setApartment] = useState("");
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
+  const [addrVal, setAddrVal] = useState<AddressValue>(EMPTY_ADDRESS);
 
   // ── Technician service hours ───────────────────────────────────────────────
   const [serviceStart, setServiceStart] = useState("08:00");
@@ -341,11 +334,11 @@ export default function RegisterScreen() {
     }
 
     if (step === totalSteps) {
-      if (!governorateId) {
+      if (!addrVal.governorateId) {
         newErrors.area = isRTL ? "يرجى اختيار المحافظة" : "Please select a governorate";
-      } else if (!areaId) {
+      } else if (!addrVal.areaId) {
         newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
-      } else if (latitude == null || longitude == null) {
+      } else if (addrVal.latitude == null) {
         newErrors.area = isRTL ? "يرجى تثبيت الموقع على الخريطة" : "Please pin your location on the map";
       }
     }
@@ -419,10 +412,7 @@ export default function RegisterScreen() {
       } catch { /* keep current state on network error */ }
       try {
         const apiBase = getApiBase();
-        const addressParts = [street.trim(), building.trim(), floor.trim(), apartment.trim()].filter(Boolean);
-      const formattedAddress = addressParts.length ? addressParts.join(", ") : undefined;
-
-      const res = await fetch(`${apiBase}/api/auth/register`, {
+        const res = await fetch(`${apiBase}/api/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -432,11 +422,14 @@ export default function RegisterScreen() {
             password,
             role: regType,
             nationalId: nationalId.trim() || undefined,
-            governorateId: governorateId || undefined,
-            areaId: areaId || undefined,
-            address: formattedAddress || undefined,
-            latitude: latitude != null ? latitude : undefined,
-            longitude: longitude != null ? longitude : undefined,
+            governorateId: addrVal.governorateId || undefined,
+            areaId: addrVal.areaId || undefined,
+            street: addrVal.street || undefined,
+            buildingNo: addrVal.buildingNo || undefined,
+            floorNo: addrVal.floorNo || undefined,
+            aptNo: addrVal.aptNo || undefined,
+            latitude: addrVal.latitude ?? undefined,
+            longitude: addrVal.longitude ?? undefined,
             verificationToken: verificationToken || undefined,
             profession: regType === "technician" && profession.trim() ? profession.trim() : undefined,
             specialty: regType === "technician" && specialty.trim() ? specialty.trim() : undefined,
@@ -931,32 +924,11 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      <LocationPicker
-        governorateId={governorateId}
-        areaId={areaId}
-        onGovernorateChange={setGovernorateId}
-        onAreaChange={(id) => { setAreaId(id); if (id) setErrors((e) => ({ ...e, area: undefined })); }}
-        street={street}
-        onStreetChange={setStreet}
-        building={building}
-        onBuildingChange={setBuilding}
-        floor={floor}
-        onFloorChange={setFloor}
-        apartment={apartment}
-        onApartmentChange={setApartment}
-        latitude={latitude}
-        longitude={longitude}
-        onCoordsChange={(lat, lon) => {
-          setLatitude(lat);
-          setLongitude(lon);
-        }}
-        showDetails
+      <AddressBlock
+        value={addrVal}
+        onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, area: undefined })); }}
+        error={errors.area}
       />
-      {errors.area ? (
-        <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: -8, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
-          {errors.area}
-        </Text>
-      ) : null}
     </View>
   );
 
@@ -1037,32 +1009,11 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      <LocationPicker
-        governorateId={governorateId}
-        areaId={areaId}
-        onGovernorateChange={setGovernorateId}
-        onAreaChange={(id) => { setAreaId(id); if (id) setErrors((e) => ({ ...e, area: undefined })); }}
-        street={street}
-        onStreetChange={setStreet}
-        building={building}
-        onBuildingChange={setBuilding}
-        floor={floor}
-        onFloorChange={setFloor}
-        apartment={apartment}
-        onApartmentChange={setApartment}
-        latitude={latitude}
-        longitude={longitude}
-        onCoordsChange={(lat, lon) => {
-          setLatitude(lat);
-          setLongitude(lon);
-        }}
-        showDetails
+      <AddressBlock
+        value={addrVal}
+        onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, area: undefined })); }}
+        error={errors.area}
       />
-      {errors.area ? (
-        <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: -8, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
-          {errors.area}
-        </Text>
-      ) : null}
     </View>
   );
 

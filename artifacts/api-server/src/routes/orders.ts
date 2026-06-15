@@ -240,6 +240,10 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
         category: order.category as string,
         governorate: routingMeta.governorate,
         area: routingMeta.area,
+        street: (order.street as string | undefined)?.trim() || null,
+        buildingNo: (order.buildingNo as string | undefined)?.trim() || null,
+        floorNo: (order.floorNo as string | undefined)?.trim() || null,
+        aptNo: (order.aptNo as string | undefined)?.trim() || null,
         data: order,
       })
       .onConflictDoNothing()

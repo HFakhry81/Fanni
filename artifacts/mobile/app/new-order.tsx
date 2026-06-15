@@ -18,7 +18,7 @@ import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
-import LocationPicker from "@/components/LocationPicker";
+import AddressBlock, { AddressValue, EMPTY_ADDRESS } from "@/components/AddressBlock";
 import AppHeader from "@/components/AppHeader";
 import ImageLightbox from "@/components/ImageLightbox";
 import Toast from "@/components/Toast";
@@ -117,18 +117,9 @@ export default function NewOrderScreen() {
   const [deviceType, setDeviceType] = useState("");
 
   // ── Step 2 – Location ───────────────────────────────────────────────────────
-  const [governorateId, setGovernorateId] = useState("");
-  const [areaId, setAreaId] = useState("");
-  const [govOpt, setGovOpt] = useState<LocationOption | null>(null);
-  const [areaOpt, setAreaOpt] = useState<LocationOption | null>(null);
+  const [addrVal, setAddrVal] = useState<AddressValue>(EMPTY_ADDRESS);
   const [locationError, setLocationError] = useState<{ governorate?: string; area?: string }>({});
-  const [street, setStreet] = useState("");
-  const [building, setBuilding] = useState("");
-  const [floor, setFloor] = useState("");
-  const [apartment, setApartment] = useState("");
   const [landmark, setLandmark] = useState("");
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
   const [visitTimePicker, setVisitTimePicker] = useState(false);
@@ -145,9 +136,8 @@ export default function NewOrderScreen() {
   const fieldsRef = useRef({
     step,
     problemDesc, deviceType,
-    governorateId, areaId, govOpt, areaOpt,
-    street, building, floor, apartment, landmark,
-    latitude, longitude, visitDate, visitTime,
+    addrVal, landmark,
+    visitDate, visitTime,
     orderPhotos,
   });
   const routeParamsRef = useRef({ category, subCategory });
@@ -230,17 +220,8 @@ export default function NewOrderScreen() {
       draftRestoredRef.current = true;
       if (draft.problemDesc)    setProblemDesc(draft.problemDesc as string);
       if (draft.deviceType)     setDeviceType(draft.deviceType as string);
-      if (draft.governorateId)  setGovernorateId(draft.governorateId as string);
-      if (draft.areaId)         setAreaId(draft.areaId as string);
-      if (draft.govOpt)         setGovOpt(draft.govOpt as LocationOption);
-      if (draft.areaOpt)        setAreaOpt(draft.areaOpt as LocationOption);
-      if (draft.street)         setStreet(draft.street as string);
-      if (draft.building)       setBuilding(draft.building as string);
-      if (draft.floor)          setFloor(draft.floor as string);
-      if (draft.apartment)      setApartment(draft.apartment as string);
+      if (draft.addrVal)        setAddrVal(draft.addrVal as AddressValue);
       if (draft.landmark)       setLandmark(draft.landmark as string);
-      if (draft.latitude  != null) setLatitude(draft.latitude as number);
-      if (draft.longitude != null) setLongitude(draft.longitude as number);
       if (draft.visitDate)      setVisitDate(draft.visitDate as string);
       if (draft.visitTime)      setVisitTime(draft.visitTime as string);
       const { photos: restoredPhotos, hadMissing } = await restorePhotosFromDraft(draft.photoUris);
@@ -258,44 +239,13 @@ export default function NewOrderScreen() {
     })();
   }, [authLoading, isAuthenticated, category, subCategory]);
 
-  // ── Fallback: resolve govOpt / areaOpt from API if IDs exist but labels are missing ──
-  // Handles older drafts that were saved before govOpt/areaOpt were tracked in state.
-  useEffect(() => {
-    if (!governorateId) return;
-    if (govOpt && areaOpt) return;       // both already resolved — nothing to do
-    if (govOpt && !areaId) return;       // gov resolved, no area selected — nothing to do
-
-    (async () => {
-      let resolvedGovOpt = govOpt;
-
-      if (!govOpt) {
-        const rows = await apiFetchGovernorates();
-        const match = rows.find((r) => r.id === governorateId);
-        if (match) {
-          resolvedGovOpt = { id: match.id, ar: match.nameAr, en: match.nameEn };
-          setGovOpt(resolvedGovOpt);
-        }
-      }
-
-      if (areaId && !areaOpt) {
-        const rows = await apiFetchAreas(governorateId);
-        const match = rows.find((r) => r.id === areaId);
-        if (match) {
-          setAreaOpt({ id: match.id, ar: match.nameAr, en: match.nameEn });
-        }
-      }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [governorateId, areaId]);
-
   // ── Keep fieldsRef and routeParamsRef in sync so the unmount/background cleanup always has fresh values ──
   useEffect(() => {
     fieldsRef.current = {
       step,
       problemDesc, deviceType,
-      governorateId, areaId, govOpt, areaOpt,
-      street, building, floor, apartment, landmark,
-      latitude, longitude, visitDate, visitTime,
+      addrVal, landmark,
+      visitDate, visitTime,
       orderPhotos,
     };
     routeParamsRef.current = { category, subCategory };
@@ -337,10 +287,10 @@ export default function NewOrderScreen() {
     const { category: cat, subCategory: sub } = routeParamsRef.current;
     const hasContent =
       f.problemDesc || f.deviceType ||
-      f.governorateId || f.areaId ||
-      f.street || f.building || f.floor || f.apartment || f.landmark ||
+      f.addrVal.governorateId || f.addrVal.areaId ||
+      f.addrVal.street || f.addrVal.buildingNo || f.addrVal.floorNo || f.addrVal.aptNo ||
+      f.addrVal.latitude != null || f.landmark ||
       f.visitDate || f.visitTime ||
-      f.latitude != null || f.longitude != null ||
       f.orderPhotos.length > 0;
     if (!hasContent) return;                        // nothing to save
     const { orderPhotos: _photos, ...fieldData } = f;
@@ -408,10 +358,7 @@ export default function NewOrderScreen() {
     const draft = {
       category, subCategory,
       problemDesc, deviceType,
-      governorateId, areaId,
-      govOpt, areaOpt,
-      street, building, floor, apartment, landmark,
-      latitude, longitude,
+      addrVal, landmark,
       visitDate, visitTime,
       savedAt: Date.now(),
       loginFlow: true,
@@ -437,17 +384,8 @@ export default function NewOrderScreen() {
     const d = pendingDraft;
     if (d.problemDesc)    setProblemDesc(d.problemDesc as string);
     if (d.deviceType)     setDeviceType(d.deviceType as string);
-    if (d.governorateId)  setGovernorateId(d.governorateId as string);
-    if (d.areaId)         setAreaId(d.areaId as string);
-    if (d.govOpt)         setGovOpt(d.govOpt as LocationOption);
-    if (d.areaOpt)        setAreaOpt(d.areaOpt as LocationOption);
-    if (d.street)         setStreet(d.street as string);
-    if (d.building)       setBuilding(d.building as string);
-    if (d.floor)          setFloor(d.floor as string);
-    if (d.apartment)      setApartment(d.apartment as string);
+    if (d.addrVal)        setAddrVal(d.addrVal as AddressValue);
     if (d.landmark)       setLandmark(d.landmark as string);
-    if (d.latitude  != null) setLatitude(d.latitude as number);
-    if (d.longitude != null) setLongitude(d.longitude as number);
     if (d.visitDate)      setVisitDate(d.visitDate as string);
     if (d.visitTime)      setVisitTime(d.visitTime as string);
     if (d.step && (d.step === 1 || d.step === 2 || d.step === 3)) setStep(d.step as OrderStep);
@@ -471,16 +409,14 @@ export default function NewOrderScreen() {
   const hasFormData = useCallback((): boolean => {
     return !!(
       problemDesc || deviceType ||
-      governorateId || areaId ||
-      street || building || floor || apartment || landmark ||
+      addrVal.governorateId || addrVal.areaId ||
+      addrVal.street || addrVal.buildingNo || addrVal.floorNo || addrVal.aptNo ||
+      addrVal.latitude != null || landmark ||
       visitDate || visitTime ||
-      latitude != null || longitude != null ||
       orderPhotos.length > 0
     );
   }, [
-    problemDesc, deviceType, governorateId, areaId,
-    street, building, floor, apartment, landmark,
-    visitDate, visitTime, latitude, longitude, orderPhotos,
+    problemDesc, deviceType, addrVal, landmark, visitDate, visitTime, orderPhotos,
   ]);
 
   // ── Shared "Leave form?" confirmation dialog ─────────────────────────────────
@@ -563,15 +499,14 @@ export default function NewOrderScreen() {
 
   const validateLocation = (): { governorate?: string; area?: string } => {
     const errors: { governorate?: string; area?: string } = {};
-    if (!governorateId || !govOpt) {
-      errors.governorate = isRTL
-        ? "المحافظة غير معروفة — الرجاء الاختيار من القائمة"
-        : "Governorate could not be matched — please select from the list";
+    if (!addrVal.governorateId) {
+      errors.governorate = isRTL ? "يرجى اختيار المحافظة" : "Please select a governorate";
     }
-    if (!areaId || !areaOpt) {
-      errors.area = isRTL
-        ? "المنطقة غير معروفة — الرجاء الاختيار من القائمة"
-        : "Area could not be matched — please select from the list";
+    if (!addrVal.areaId) {
+      errors.area = isRTL ? "يرجى اختيار المنطقة / الحي" : "Please select an area / district";
+    }
+    if (addrVal.latitude == null) {
+      errors.area = (errors.area ? errors.area + " · " : "") + (isRTL ? "يرجى تثبيت الموقع على الخريطة" : "Please pin your location on the map");
     }
     return errors;
   };

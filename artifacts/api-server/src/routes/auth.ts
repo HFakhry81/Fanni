@@ -645,7 +645,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return;
   }
 
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = parsed.data;
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, street, buildingNo, floorNo, aptNo, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = parsed.data;
 
   if (role && !["client", "technician"].includes(role)) {
     res.status(400).json({ error: "Invalid role" });
@@ -719,6 +719,10 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       governorate: governorateId ?? null,
       area: areaId ?? null,
       address: address?.trim() || null,
+      street: street?.trim() || null,
+      buildingNo: buildingNo?.trim() || null,
+      floorNo: floorNo?.trim() || null,
+      aptNo: aptNo?.trim() || null,
       profession: profession?.trim() || null,
       specialty: specialty?.trim() || null,
       serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
@@ -914,7 +918,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
 // PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, mobile, verificationToken, profession, specialty, governorate, area, district, address, serviceCategories, profileImageUrl, serviceStart, serviceEnd } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, profession, specialty, governorate, area, district, address, street, buildingNo, floorNo, aptNo, serviceCategories, profileImageUrl, serviceStart, serviceEnd } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -926,6 +930,10 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     area?: string | null;
     district?: string | null;
     address?: string | null;
+    street?: string | null;
+    buildingNo?: string | null;
+    floorNo?: string | null;
+    aptNo?: string | null;
     serviceCategories?: string[] | null;
     profileImageUrl?: string | null;
     serviceStart?: string | null;
@@ -1061,6 +1069,10 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (area !== undefined) updates.area = area ?? null;
   if (district !== undefined) updates.district = district ?? null;
   if (address !== undefined) updates.address = address ? String(address).trim() || null : null;
+  if (street !== undefined) updates.street = street ? String(street).trim() || null : null;
+  if (buildingNo !== undefined) updates.buildingNo = buildingNo ? String(buildingNo).trim() || null : null;
+  if (floorNo !== undefined) updates.floorNo = floorNo ? String(floorNo).trim() || null : null;
+  if (aptNo !== undefined) updates.aptNo = aptNo ? String(aptNo).trim() || null : null;
   if (serviceCategories !== undefined) updates.serviceCategories = serviceCategories ?? null;
   if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl ?? null;
   if (serviceStart !== undefined) updates.serviceStart = serviceStart ? String(serviceStart).trim() || null : null;
