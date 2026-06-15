@@ -142,6 +142,11 @@ export default function ClientProfileScreen() {
       newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
     }
 
+    if (!addrVal.latitude) {
+      newErrors.area = (newErrors.area ? newErrors.area + " · " : "") +
+        (isRTL ? "يرجى تثبيت الموقع على الخريطة" : "Please pin your location on the map");
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;

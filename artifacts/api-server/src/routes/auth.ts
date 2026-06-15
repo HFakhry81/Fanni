@@ -135,7 +135,10 @@ async function upsertUser(claims: Record<string, unknown>) {
   return user;
 }
 
-function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
+function buildAuthUser(
+  dbUser: typeof usersTable.$inferSelect,
+  coords?: { latitude: number | null; longitude: number | null },
+) {
   return {
     id: dbUser.id,
     email: dbUser.email ?? null,
@@ -148,13 +151,39 @@ function buildAuthUser(dbUser: typeof usersTable.$inferSelect) {
     area: dbUser.area ?? null,
     district: dbUser.district ?? null,
     address: dbUser.address ?? null,
+    street: dbUser.street ?? null,
+    buildingNo: dbUser.buildingNo ?? null,
+    floorNo: dbUser.floorNo ?? null,
+    aptNo: dbUser.aptNo ?? null,
+    latitude: coords?.latitude ?? null,
+    longitude: coords?.longitude ?? null,
     profession: dbUser.profession ?? null,
     specialty: dbUser.specialty ?? null,
     serviceCategories: (dbUser.serviceCategories as string[] | null) ?? null,
     isAvailable: dbUser.isAvailable ?? null,
+    mustChangePassword: (dbUser as Record<string, unknown>).mustChangePassword ?? false,
     serviceStart: dbUser.serviceStart ?? null,
     serviceEnd: dbUser.serviceEnd ?? null,
   };
+}
+
+async function getUserCoords(userId: string): Promise<{ latitude: number | null; longitude: number | null }> {
+  try {
+    const result = await pool.query<{ latitude: number | null; longitude: number | null }>(
+      `SELECT ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude
+       FROM users WHERE id = $1 AND location IS NOT NULL`,
+      [userId],
+    );
+    if (result.rows.length > 0) {
+      return {
+        latitude: result.rows[0].latitude ?? null,
+        longitude: result.rows[0].longitude ?? null,
+      };
+    }
+  } catch {
+    // PostGIS extension not available or location is null — return nulls silently
+  }
+  return { latitude: null, longitude: null };
 }
 
 function buildAdminUser(admin: typeof adminsTable.$inferSelect) {
@@ -195,10 +224,11 @@ router.get("/auth/user", async (req: Request, res: Response) => {
   }
   const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user.id));
   if (!dbUser || !dbUser.isActive) {
-    res.json(GetCurrentAuthUserResponse.parse({ user: null }));
+    res.json({ user: null });
     return;
   }
-  res.json(GetCurrentAuthUserResponse.parse({ user: buildAuthUser(dbUser) }));
+  const coords = await getUserCoords(dbUser.id);
+  res.json({ user: buildAuthUser(dbUser, coords) });
 });
 
 router.post("/auth/role", authMiddleware, requireAuth, async (req: Request, res: Response) => {
@@ -918,7 +948,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
 // PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, mobile, verificationToken, profession, specialty, governorate, area, district, address, street, buildingNo, floorNo, aptNo, serviceCategories, profileImageUrl, serviceStart, serviceEnd } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, profession, specialty, governorate, area, district, address, street, buildingNo, floorNo, aptNo, serviceCategories, profileImageUrl, serviceStart, serviceEnd, latitude, longitude } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -938,6 +968,8 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     profileImageUrl?: string | null;
     serviceStart?: string | null;
     serviceEnd?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   };
 
   const now = new Date();
@@ -1078,15 +1110,25 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (serviceStart !== undefined) updates.serviceStart = serviceStart ? String(serviceStart).trim() || null : null;
   if (serviceEnd !== undefined) updates.serviceEnd = serviceEnd ? String(serviceEnd).trim() || null : null;
 
-  // When a technician updates their area or governorate, geocode the new location.
-  // Always clear the stored geography first so a stale point is never left behind
-  // if the new area can't be resolved (e.g. unknown slug or Nominatim unavailable).
-  // Then overwrite with the fresh geocoded point when geocoding succeeds.
-  // We read current values from the DB (not the session snapshot) so that a partial
-  // patch (e.g. only changing `area`) picks up the persisted `governorate`.
+  const hasExplicitCoords = latitude !== undefined || longitude !== undefined;
+
+  // When explicit coordinates are provided by the client (map pin), store them directly
+  // in the PostGIS location column. This works for both clients and technicians.
+  if (hasExplicitCoords) {
+    const lat = typeof latitude === "number" ? latitude : null;
+    const lon = typeof longitude === "number" ? longitude : null;
+    if (lat !== null && lon !== null && isFinite(lat) && isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+      (updates as Record<string, unknown>).location = sql`ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography`;
+    } else {
+      (updates as Record<string, unknown>).location = null;
+    }
+  }
+
+  // When a technician updates their area or governorate (and no explicit map pin was sent),
+  // geocode the new location as a fallback. Always clear first to avoid stale points.
   const isTechnician = req.user!.role === "technician";
   const locationChanged = area !== undefined || governorate !== undefined;
-  if (isTechnician && locationChanged) {
+  if (isTechnician && locationChanged && !hasExplicitCoords) {
     (updates as Record<string, unknown>).location = null;
     const [currentRow] = await db
       .select({ area: usersTable.area, governorate: usersTable.governorate })
@@ -1110,7 +1152,8 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     .where(eq(usersTable.id, req.user!.id))
     .returning();
 
-  res.json({ user: buildAuthUser(updatedUser) });
+  const updatedCoords = await getUserCoords(updatedUser.id);
+  res.json({ user: buildAuthUser(updatedUser, updatedCoords) });
 });
 
 // PROTECTED: Re-sends the welcome message (email-first, SMS fallback) to the authenticated user.
