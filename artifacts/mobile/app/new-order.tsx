@@ -583,12 +583,6 @@ export default function NewOrderScreen() {
     const orderId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
     const orderNumber = `ORD-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000) + 1000}`;
 
-    const fullAddress = [
-      govOpt  ? (isRTL ? govOpt.ar  : govOpt.en)  : "",
-      areaOpt ? (isRTL ? areaOpt.ar : areaOpt.en) : "",
-      street,
-    ].filter(Boolean).join(isRTL ? "، " : ", ");
-
     const newOrder = {
       id: orderId,
       orderNumber,
@@ -601,12 +595,15 @@ export default function NewOrderScreen() {
       problemDescription: problemDesc,
       deviceType,
       photos: resolvedPhotos,
-      street: fullAddress,
-      building, floor, apartment, landmark,
-      governorate: govOpt ? govOpt.en.toLowerCase() : undefined,
-      area: areaOpt ? areaOpt.en.toLowerCase() : undefined,
-      latitude:  latitude  ?? undefined,
-      longitude: longitude ?? undefined,
+      street: addrVal.street || undefined,
+      buildingNo: addrVal.buildingNo || undefined,
+      floorNo: addrVal.floorNo || undefined,
+      aptNo: addrVal.aptNo || undefined,
+      landmark: landmark || undefined,
+      governorate: addrVal.governorateName || undefined,
+      area: addrVal.areaName || undefined,
+      latitude:  addrVal.latitude  ?? undefined,
+      longitude: addrVal.longitude ?? undefined,
       visitDate, visitTime,
       status: "pending" as const,
       createdAt: new Date().toISOString(),
@@ -762,34 +759,13 @@ export default function NewOrderScreen() {
         </View>
       </View>
 
-      <LocationPicker
-        governorateId={governorateId}
-        areaId={areaId}
-        onGovernorateChange={(id) => { setGovernorateId(id); if (!id) { setGovOpt(null); setAreaOpt(null); } }}
-        onAreaChange={(id) => { setAreaId(id); if (!id) setAreaOpt(null); }}
-        onGovernorateSelect={(opt) => {
-          setGovOpt(opt);
-          setAreaOpt(null);
-          setLocationError((prev) => ({ ...prev, governorate: undefined }));
+      <AddressBlock
+        value={addrVal}
+        onChange={(v) => {
+          setAddrVal(v);
+          setLocationError({});
         }}
-        onAreaSelect={(opt) => {
-          setAreaOpt(opt);
-          setLocationError((prev) => ({ ...prev, area: undefined }));
-        }}
-        governorateError={locationError.governorate}
-        areaError={locationError.area}
-        street={street}
-        onStreetChange={setStreet}
-        building={building}
-        onBuildingChange={setBuilding}
-        floor={floor}
-        onFloorChange={setFloor}
-        apartment={apartment}
-        onApartmentChange={setApartment}
-        showDetails
-        latitude={latitude}
-        longitude={longitude}
-        onCoordsChange={(lat, lon) => { setLatitude(lat); setLongitude(lon); }}
+        error={locationError.governorate ?? locationError.area}
       />
 
       <FanniInput
