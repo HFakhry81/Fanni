@@ -47,3 +47,11 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Local env file (use .env.example as reference)
+.env
+.env.local
+.env.*.local
+
+# Local file uploads (used when PRIVATE_OBJECT_DIR=./uploads locally)
+uploads/
