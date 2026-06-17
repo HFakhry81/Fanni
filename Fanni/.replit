@@ -1,0 +1,130 @@
+modules = ["nodejs-24", "postgresql-16", "python-3.11"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "api-typecheck"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Mobile App"
+
+[[workflows.workflow]]
+name = "api-typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/api-server && npx tsc --noEmit"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run start"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Mobile App"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=5000 pnpm --filter @workspace/mobile run dev"
+waitForPort = 5000
+
+[agent]
+stack = "BEST_EFFORT_FALLBACK"
+expertMode = true
+integrations = ["javascript_openai_ai_integrations:2.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 45000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 8082
+externalPort = 3003
+
+[[ports]]
+localPort = 8083
+externalPort = 3001
+
+[[ports]]
+localPort = 8084
+externalPort = 4200
+
+[[ports]]
+localPort = 8085
+externalPort = 5000
+
+[[ports]]
+localPort = 8086
+externalPort = 5173
+
+[[ports]]
+localPort = 18115
+externalPort = 3000
+
+[[ports]]
+localPort = 18116
+externalPort = 3002
+
+[objectStorage]
+defaultBucketID = "replit-objstore-c6dc6f98-de6b-4277-be93-de5a32e94dc2"
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.development]
+ENABLE_OTP = "false"
+
+[userenv.production]
+ENABLE_OTP = "true"
+
+[userenv.shared]
+PORT = "8080"

@@ -1,0 +1,40 @@
+@echo off
+:: تغيير اللون إلى الأصفر الذهبي
+color 0E
+title Fanni Mobile App
+
+echo ====================================================
+echo       ______ _   _   _ _   _ ___ 
+echo      ^|  ____/ \ ^| \ ^| ^| \ ^| ^|_ _^|
+echo      ^| ^|__ / _ \^|  \^| ^|  \^| ^| ^| ^| 
+echo      ^|  __^| / _ \ . ` ^| . ` ^| ^| ^| 
+echo      ^| ^| / ___ \ ^|\  ^| ^|\  ^|_^| ^|_
+echo      ^|_^|/_/   \_\_^| \_^|_^| \_^|_^|_____^|
+echo.
+echo  [MOBILE] Metro Bundler ^& Expo Environment
+echo  [STATUS] Loading...
+echo ====================================================
+echo.
+
+:: 1. ضع هنا رقم الـ IP الخاص بجهاز الكمبيوتر الخاص بك:
+set MY_IP=192.168.1.11
+
+:: 2. إجبار المترجم (Metro) على بث الرابط عبر الواي فاي باستخدام الـ IP الفعلي لجهازك
+set REACT_NATIVE_PACKAGER_HOSTNAME=%MY_IP%
+
+:: 3. حقن المتغيرات البيئية المطلوبة للتطبيق ليتحدث مع السيرفر المحلي
+set EXPO_PUBLIC_DOMAIN=%MY_IP%:3000
+set EXPO_PUBLIC_API_URL=http://%MY_IP%:3000
+set EXPO_PUBLIC_REPL_ID=local
+
+echo [INFO] Computer IP set to: %MY_IP%
+echo [INFO] Forcing Metro Hostname to: %MY_IP%
+echo [INFO] Connecting Mobile App to Backend: http://%MY_IP%:3000
+echo.
+echo Launching local development environment with cleared cache...
+echo.
+
+:: الانتقال لمجلد الموبايل الصحيح وتشغيله
+cd /d "C:\Users\Sam\Downloads\Fanni\artifacts\mobile"
+npx expo start --host lan -c
+pause
