@@ -1164,6 +1164,114 @@ router.get(
   },
 );
 
+// ─── ADMIN: Technician Approval Workflow ─────────────────────────────────────
+
+// GET /admin/technicians/pending — list unapproved technicians awaiting review
+router.get(
+  "/admin/technicians/pending",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const limitRaw = queryInt(req.query.limit, 20);
+    const limit = Math.min(Math.max(1, limitRaw), 100);
+    const offsetRaw = queryInt(req.query.offset, 0);
+    const offset = Math.max(0, offsetRaw);
+
+    const [rows, [{ total }]] = await Promise.all([
+      db
+        .select({
+          id: usersTable.id,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+          mobile: usersTable.mobile,
+          profession: usersTable.profession,
+          specialty: usersTable.specialty,
+          governorate: usersTable.governorate,
+          area: usersTable.area,
+          nationalIdFrontUrl: usersTable.nationalIdFrontUrl,
+          nationalIdBackUrl: usersTable.nationalIdBackUrl,
+          licenseCardUrl: usersTable.licenseCardUrl,
+          bio: usersTable.bio,
+          yearsOfExperience: usersTable.yearsOfExperience,
+          createdAt: usersTable.createdAt,
+        })
+        .from(usersTable)
+        .where(and(eq(usersTable.role, "technician"), eq(usersTable.isApproved, false), eq(usersTable.isActive, true)))
+        .orderBy(desc(usersTable.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ total: sql<number>`COUNT(*)::int` })
+        .from(usersTable)
+        .where(and(eq(usersTable.role, "technician"), eq(usersTable.isApproved, false), eq(usersTable.isActive, true))),
+    ]);
+
+    res.json({ total, limit, offset, technicians: rows });
+  },
+);
+
+// PATCH /admin/technicians/:id/approve — approve a technician
+router.patch(
+  "/admin/technicians/:id/approve",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    const [tech] = await db
+      .select({ id: usersTable.id, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+
+    if (!tech || tech.role !== "technician") {
+      res.status(404).json({ error: "Technician not found" });
+      return;
+    }
+
+    await db
+      .update(usersTable)
+      .set({ isApproved: true, updatedAt: new Date() })
+      .where(eq(usersTable.id, id));
+
+    req.log.info({ adminId: req.user?.id, techId: id }, "Technician approved");
+    res.json({ success: true, approved: true });
+  },
+);
+
+// PATCH /admin/technicians/:id/reject — reject/suspend a technician (deactivate)
+router.patch(
+  "/admin/technicians/:id/reject",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { reason } = req.body as { reason?: string };
+
+    const [tech] = await db
+      .select({ id: usersTable.id, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+
+    if (!tech || tech.role !== "technician") {
+      res.status(404).json({ error: "Technician not found" });
+      return;
+    }
+
+    await db
+      .update(usersTable)
+      .set({ isApproved: false, isActive: false, updatedAt: new Date() })
+      .where(eq(usersTable.id, id));
+
+    req.log.info({ adminId: req.user?.id, techId: id, reason }, "Technician rejected/suspended");
+    res.json({ success: true, rejected: true });
+  },
+);
+
 // ─── ADMIN: Re-geocode technicians with no map location ──────────────────────
 router.post(
   "/admin/technicians/backfill-locations",

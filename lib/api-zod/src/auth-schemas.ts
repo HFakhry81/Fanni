@@ -92,6 +92,12 @@ export const registerSchema = zod.object({
     .string()
     .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Service end must be in HH:mm format (e.g., 22:00)")
     .optional(),
+
+  nationalIdFrontUrl: zod.string().optional(),
+  nationalIdBackUrl: zod.string().optional(),
+  licenseCardUrl: zod.string().optional(),
+  bio: zod.string().max(500, "Bio must be at most 500 characters").optional(),
+  yearsOfExperience: zod.number().int().min(0).max(50).optional(),
 }).refine(
   (data) => {
     // If both latitude and longitude are provided, both must be numbers

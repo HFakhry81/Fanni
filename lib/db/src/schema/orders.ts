@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { customType, index, jsonb, pgEnum, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import { customType, index, jsonb, pgEnum, pgTable, serial, smallint, timestamp, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 
 const geography = customType<{ data: string }>({
@@ -34,6 +34,10 @@ export const ordersTable = pgTable(
     floorNo: varchar("floor_no", { length: 50 }),
     aptNo: varchar("apt_no", { length: 50 }),
     data: jsonb("data").notNull(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    clientRating: smallint("client_rating"),
+    techRating: smallint("tech_rating"),
+    specialtyId: varchar("specialty_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),
     acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
