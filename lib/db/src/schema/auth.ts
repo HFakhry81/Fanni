@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigserial, boolean, customType, index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { bigserial, boolean, customType, index, integer, jsonb, numeric, pgEnum, pgTable, serial, smallint, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 const geography = customType<{ data: string }>({
   dataType() {
@@ -43,6 +43,15 @@ export const usersTable = pgTable("users", {
   serviceEnd: varchar("service_end", { length: 5 }),
   isAvailable: boolean("is_available").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
+  isApproved: boolean("is_approved").notNull().default(false),
+  nationalId: varchar("national_id", { length: 14 }),
+  nationalIdFrontUrl: text("national_id_front_url"),
+  nationalIdBackUrl: text("national_id_back_url"),
+  licenseCardUrl: text("license_card_url"),
+  bio: text("bio"),
+  yearsOfExperience: integer("years_of_experience"),
+  rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),
+  ratingCount: integer("rating_count").notNull().default(0),
   //location: geography("location"),
   passwordHash: varchar("password_hash"),
   expoPushToken: varchar("expo_push_token"),
@@ -73,6 +82,7 @@ export const adminsTable = pgTable("admins", {
   profileImageUrl: varchar("profile_image_url"),
   isActive: boolean("is_active").notNull().default(true),
   isSuperAdmin: boolean("is_super_admin").notNull().default(false),
+  adminRole: varchar("admin_role", { length: 20 }).notNull().default("admin"),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
   permissions: jsonb("permissions").$type<string[]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

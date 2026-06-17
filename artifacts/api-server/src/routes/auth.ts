@@ -161,9 +161,14 @@ function buildAuthUser(
     specialty: dbUser.specialty ?? null,
     serviceCategories: (dbUser.serviceCategories as string[] | null) ?? null,
     isAvailable: dbUser.isAvailable ?? null,
+    isApproved: dbUser.isApproved ?? false,
     mustChangePassword: false as boolean,
     serviceStart: dbUser.serviceStart ?? null,
     serviceEnd: dbUser.serviceEnd ?? null,
+    bio: dbUser.bio ?? null,
+    yearsOfExperience: dbUser.yearsOfExperience ?? null,
+    rating: dbUser.rating ? Number(dbUser.rating) : 0,
+    ratingCount: dbUser.ratingCount ?? 0,
   };
 }
 
@@ -675,7 +680,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return;
   }
 
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, street, buildingNo, floorNo, aptNo, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd } = parsed.data;
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, street, buildingNo, floorNo, aptNo, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd, nationalIdFrontUrl, nationalIdBackUrl, licenseCardUrl, bio, yearsOfExperience } = parsed.data;
 
   if (role && !["client", "technician"].includes(role)) {
     res.status(400).json({ error: "Invalid role" });
@@ -758,6 +763,12 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
       serviceStart: serviceStart?.trim() || null,
       serviceEnd: serviceEnd?.trim() || null,
+      nationalIdFrontUrl: nationalIdFrontUrl?.trim() || null,
+      nationalIdBackUrl: nationalIdBackUrl?.trim() || null,
+      licenseCardUrl: licenseCardUrl?.trim() || null,
+      bio: bio?.trim() || null,
+      yearsOfExperience: yearsOfExperience ?? null,
+      isApproved: role === "client",
       location: (latitude != null && longitude != null)
         ? sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`
         : null,
@@ -948,7 +959,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
 // PROTECTED: Updates the current user's profile. Mobile changes require a valid OTP verificationToken. Role is immutable.
 router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: Response) => {
-  const { firstName, lastName, email, mobile, verificationToken, profession, specialty, governorate, area, district, address, street, buildingNo, floorNo, aptNo, serviceCategories, profileImageUrl, serviceStart, serviceEnd, latitude, longitude } = req.body as {
+  const { firstName, lastName, email, mobile, verificationToken, profession, specialty, governorate, area, district, address, street, buildingNo, floorNo, aptNo, serviceCategories, profileImageUrl, serviceStart, serviceEnd, latitude, longitude, bio, yearsOfExperience, nationalIdFrontUrl, nationalIdBackUrl, licenseCardUrl } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -970,6 +981,11 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     serviceEnd?: string | null;
     latitude?: number | null;
     longitude?: number | null;
+    bio?: string | null;
+    yearsOfExperience?: number | null;
+    nationalIdFrontUrl?: string | null;
+    nationalIdBackUrl?: string | null;
+    licenseCardUrl?: string | null;
   };
 
   const now = new Date();
@@ -1109,6 +1125,11 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl ?? null;
   if (serviceStart !== undefined) updates.serviceStart = serviceStart ? String(serviceStart).trim() || null : null;
   if (serviceEnd !== undefined) updates.serviceEnd = serviceEnd ? String(serviceEnd).trim() || null : null;
+  if (bio !== undefined) updates.bio = bio ? String(bio).trim() || null : null;
+  if (yearsOfExperience !== undefined) updates.yearsOfExperience = yearsOfExperience ?? null;
+  if (nationalIdFrontUrl !== undefined) updates.nationalIdFrontUrl = nationalIdFrontUrl ?? null;
+  if (nationalIdBackUrl !== undefined) updates.nationalIdBackUrl = nationalIdBackUrl ?? null;
+  if (licenseCardUrl !== undefined) updates.licenseCardUrl = licenseCardUrl ?? null;
 
   const hasExplicitCoords = latitude !== undefined || longitude !== undefined;
 

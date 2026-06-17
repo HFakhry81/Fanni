@@ -26,6 +26,64 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
+## Local Development (VS Code + PgAdmin 4)
+
+### Prerequisites
+- Node.js 24, pnpm 9+
+- PostgreSQL 15+ with PostGIS extension
+- PgAdmin 4 (optional, for DB browsing)
+
+### One-time Setup
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Copy env file and fill in your local DB password
+cp .env.example .env
+# Edit .env — set DATABASE_URL to your local PostgreSQL
+
+# 3. Create the database (in PgAdmin 4 or psql)
+createdb fanni_db
+# Then enable PostGIS:  psql fanni_db -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+# 4. Run migrations (creates all tables + seeds demo data automatically)
+pnpm --filter @workspace/db run migrate
+
+# 5. Seed Egypt location data (27 governorates, 396 areas)
+pnpm --filter @workspace/api-server exec tsx migrations/009-reseed-locations.ts
+```
+
+### Running Locally
+```bash
+# Terminal 1 — API server (port 8080)
+pnpm --filter @workspace/api-server run dev
+
+# Terminal 2 — Mobile app (port 5000, opens in browser)
+PORT=5000 pnpm --filter @workspace/mobile run dev
+```
+
+### PgAdmin 4 Connection
+| Field    | Value            |
+|----------|------------------|
+| Host     | localhost        |
+| Port     | 5432             |
+| Database | fanni_db         |
+| Username | postgres         |
+| Password | (your password)  |
+
+### Demo Seed (auto-applied on first API server start)
+The API server seeds these on startup if they don't exist:
+- Admin: mobile `admin` / password `admin`
+- Client: `01012345678` / `123456`
+- Technician: `01098765432` / `123456`
+- 8 service domains with specializations
+
+### Notes
+- **Object storage** (photo uploads): GCS sidecar only works on Replit. Locally, set `PRIVATE_OBJECT_DIR=./uploads` in `.env` — photos save to disk.
+- **OTP**: set `ENABLE_OTP=false` in `.env` to skip OTP during dev (password login only).
+- **OpenAI / OCR**: set `AI_INTEGRATIONS_OPENAI_API_KEY` in `.env` for the invoice OCR feature.
+- The mobile app auto-detects Replit vs local via `REPLIT_DEV_DOMAIN` env var.
+
 ## Fanni Mobile App (`artifacts/mobile`)
 
 Bilingual (Arabic RTL + English LTR) home maintenance service app built with Expo Router.

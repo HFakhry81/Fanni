@@ -319,17 +319,35 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
   if (technicianRating !== undefined) dataPatch.technicianRating = technicianRating;
 
   try {
-    const [updated] = await db
-      .update(ordersTable)
-      .set({
-        status: "acknowledged",
-        technicianId: user.id,
-        acknowledgedAt: new Date(),
-        updatedAt: new Date(),
-        data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
-      })
-      .where(eq(ordersTable.id, id))
-      .returning({ clientId: ordersTable.clientId });
+    let updated: { clientId: string | null } | undefined;
+
+    await db.transaction(async (tx) => {
+      const locked = await tx.execute(
+        sql`SELECT id FROM orders WHERE id = ${id} AND status = 'pending' FOR UPDATE SKIP LOCKED`,
+      );
+      if (locked.rows.length === 0) {
+        return;
+      }
+
+      const rows = await tx
+        .update(ordersTable)
+        .set({
+          status: "acknowledged",
+          technicianId: user.id,
+          acknowledgedAt: new Date(),
+          updatedAt: new Date(),
+          data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
+        })
+        .where(and(eq(ordersTable.id, id), eq(ordersTable.status, "pending")))
+        .returning({ clientId: ordersTable.clientId });
+
+      updated = rows[0];
+    });
+
+    if (!updated) {
+      res.status(409).json({ error: "Order already accepted by another technician" });
+      return;
+    }
 
     removeOrderFromPending(id);
     logger.info({ id, technicianId: user.id }, "Order acknowledged and data JSONB updated");
@@ -1094,6 +1112,99 @@ router.patch("/orders/:id", authMiddleware, requireAuth, async (req: Request<{ i
   } catch (err) {
     logger.error({ err, id }, "Failed to update order location fields");
     res.status(500).json({ error: "Failed to update order" });
+  }
+});
+
+// PROTECTED: Rate a completed order. Client rates the technician, technician rates the client.
+// Updates order.client_rating / order.tech_rating and recalculates the user's running average.
+router.post("/orders/:id/rate", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  const id = req.params.id;
+  const { rating } = req.body as { rating?: number };
+
+  if (typeof rating !== "number" || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    res.status(400).json({ error: "Rating must be an integer between 1 and 5" });
+    return;
+  }
+
+  try {
+    const [order] = await db
+      .select({
+        id: ordersTable.id,
+        status: ordersTable.status,
+        clientId: ordersTable.clientId,
+        technicianId: ordersTable.technicianId,
+        clientRating: ordersTable.clientRating,
+        techRating: ordersTable.techRating,
+      })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .limit(1);
+
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    if (order.status !== "completed") {
+      res.status(400).json({ error: "Only completed orders can be rated" });
+      return;
+    }
+
+    if (user.role === "client") {
+      if (order.clientId !== user.id) {
+        res.status(403).json({ error: "You are not the client of this order" });
+        return;
+      }
+      if (order.clientRating !== null) {
+        res.status(409).json({ error: "You have already rated this order" });
+        return;
+      }
+      await db.transaction(async (tx) => {
+        await tx.update(ordersTable).set({ clientRating: rating }).where(eq(ordersTable.id, id));
+        if (order.technicianId) {
+          await tx.execute(sql`
+            UPDATE users
+            SET rating = ROUND(((rating * rating_count) + ${rating}) / (rating_count + 1), 2),
+                rating_count = rating_count + 1,
+                updated_at = now()
+            WHERE id = ${order.technicianId}
+          `);
+        }
+      });
+      logger.info({ orderId: id, by: user.id, rating }, "Client rated order");
+
+    } else if (user.role === "technician") {
+      if (order.technicianId !== user.id) {
+        res.status(403).json({ error: "You are not the technician of this order" });
+        return;
+      }
+      if (order.techRating !== null) {
+        res.status(409).json({ error: "You have already rated this order" });
+        return;
+      }
+      await db.transaction(async (tx) => {
+        await tx.update(ordersTable).set({ techRating: rating }).where(eq(ordersTable.id, id));
+        if (order.clientId) {
+          await tx.execute(sql`
+            UPDATE users
+            SET rating = ROUND(((rating * rating_count) + ${rating}) / (rating_count + 1), 2),
+                rating_count = rating_count + 1,
+                updated_at = now()
+            WHERE id = ${order.clientId}
+          `);
+        }
+      });
+      logger.info({ orderId: id, by: user.id, rating }, "Technician rated order");
+
+    } else {
+      res.status(403).json({ error: "Only clients and technicians can rate orders" });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, orderId: id }, "Failed to rate order");
+    res.status(500).json({ error: "Failed to submit rating" });
   }
 });
 
