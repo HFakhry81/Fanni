@@ -52,6 +52,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+node_modules/
+.pnpm-store/
 
 # Local file uploads (used when PRIVATE_OBJECT_DIR=./uploads locally)
 uploads/
