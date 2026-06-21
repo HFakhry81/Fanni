@@ -26,8 +26,10 @@ if (isReplit) {
   env.REACT_NATIVE_PACKAGER_HOSTNAME = devDomain;
   env.EXPO_PUBLIC_DOMAIN = devDomain;
   env.EXPO_PUBLIC_REPL_ID = process.env.REPL_ID || "";
+  // API calls go through the reverse proxy (port 443 / https), NOT directly
+  // to port 8080 which is internal-only on Replit.
   env.EXPO_PUBLIC_API_URL =
-    env.EXPO_PUBLIC_API_URL || `https://${devDomain}:8080`;
+    env.EXPO_PUBLIC_API_URL || `https://${devDomain}`;
 
   console.log(`[Replit] Expo proxy → https://${expoDomain}`);
   console.log(`[Replit] API base   → ${env.EXPO_PUBLIC_API_URL}`);
