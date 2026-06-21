@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development pnpm run build && pnpm run start",
+    "dev": "NODE_ENV=development pnpm run build && pnpm run start",
     "prebuild": "pnpm --filter @workspace/db --filter @workspace/api-zod build",
     "build": "node ./build.mjs",
     "prestart": "pnpm --filter @workspace/db run migrate",

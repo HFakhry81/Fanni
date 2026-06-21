@@ -40,6 +40,10 @@ function NativeAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }
         <Icon sf={{ default: "banknote", selected: "banknote.fill" }} />
         <Label>Ledger</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="pending">
+        <Icon sf={{ default: "person.badge.clock", selected: "person.badge.clock.fill" }} />
+        <Label>Pending</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="login-logs">
         <Icon sf={{ default: "list.bullet.clipboard", selected: "list.bullet.clipboard.fill" }} />
         <Label>Logs</Label>
@@ -130,6 +134,13 @@ function ClassicAdminTabs({ mustChangePassword }: { mustChangePassword: boolean 
         options={{
           title: isRTL ? "دفتر الأستاذ" : "Ledger",
           tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>💰</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="pending"
+        options={{
+          title: isRTL ? "انتظار الموافقة" : "Pending",
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>⏳</Text>,
         }}
       />
       <Tabs.Screen

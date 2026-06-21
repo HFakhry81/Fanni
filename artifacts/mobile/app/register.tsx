@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Platform, TextInput, Modal,
+  TouchableOpacity, Platform, TextInput, Modal, Image, ActivityIndicator, Alert,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
+import * as ImagePicker from "expo-image-picker";
 import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -71,6 +72,13 @@ export default function RegisterScreen() {
   const [profession, setProfession] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [experience, setExperience] = useState("");
+  const [bio, setBio] = useState("");
+
+  // ── ID & License photo URIs (stored locally, uploaded after registration) ─
+  const [nationalIdFrontUri, setNationalIdFrontUri] = useState<string | null>(null);
+  const [nationalIdBackUri, setNationalIdBackUri] = useState<string | null>(null);
+  const [licenseCardUri, setLicenseCardUri] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState<"front" | "back" | "license" | null>(null);
 
   // ── Location (shared) ──────────────────────────────────────────────────────
   const [addrVal, setAddrVal] = useState<AddressValue>(EMPTY_ADDRESS);
@@ -205,6 +213,59 @@ export default function RegisterScreen() {
       setOtpLoading(false);
     }
   };
+
+  // ── Photo picker helper ────────────────────────────────────────────────────
+  const pickPhoto = useCallback(async (slot: "front" | "back" | "license") => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        isRTL ? "الإذن مطلوب" : "Permission Required",
+        isRTL ? "يرجى السماح بالوصول إلى الصور" : "Please allow access to your photo library",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsEditing: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      if (slot === "front") setNationalIdFrontUri(uri);
+      else if (slot === "back") setNationalIdBackUri(uri);
+      else setLicenseCardUri(uri);
+    }
+  }, [isRTL]);
+
+  const pickPhotoCamera = useCallback(async (slot: "front" | "back" | "license") => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        isRTL ? "الإذن مطلوب" : "Permission Required",
+        isRTL ? "يرجى السماح بالوصول إلى الكاميرا" : "Please allow camera access",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true });
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      if (slot === "front") setNationalIdFrontUri(uri);
+      else if (slot === "back") setNationalIdBackUri(uri);
+      else setLicenseCardUri(uri);
+    }
+  }, [isRTL]);
+
+  const showPhotoPicker = useCallback((slot: "front" | "back" | "license", label: string) => {
+    Alert.alert(
+      isRTL ? "رفع صورة" : "Upload Photo",
+      label,
+      [
+        { text: isRTL ? "المعرض" : "Photo Library", onPress: () => pickPhoto(slot) },
+        { text: isRTL ? "الكاميرا" : "Camera", onPress: () => pickPhotoCamera(slot) },
+        { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+      ],
+    );
+  }, [isRTL, pickPhoto, pickPhotoCamera]);
 
   // ── API-fetched domains & specializations ──────────────────────────────────
   const [apiDomains, setApiDomains] = useState<ApiDomain[]>([]);
@@ -436,11 +497,53 @@ export default function RegisterScreen() {
             serviceCategories: regType === "technician" && selectedCategories.length > 0 ? selectedCategories : undefined,
             serviceStart: regType === "technician" ? serviceStart.trim() : undefined,
             serviceEnd: regType === "technician" ? serviceEnd.trim() : undefined,
+            bio: regType === "technician" && bio.trim() ? bio.trim() : undefined,
+            yearsOfExperience: regType === "technician" && experience.trim() ? Number(experience.trim()) : undefined,
           }),
         });
         const data = await res.json() as { token?: string; user?: { id: string }; error?: string };
         if (data.token) {
           await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+
+          // Upload ID photos + license card if provided (tech only)
+          if (regType === "technician" && (nationalIdFrontUri || nationalIdBackUri || licenseCardUri)) {
+            try {
+              setUploadingPhoto("front");
+              const photoUpdates: Record<string, string> = {};
+
+              const uploadOne = async (uri: string | null, field: string, slot: "front" | "back" | "license") => {
+                if (!uri) return;
+                setUploadingPhoto(slot);
+                const formData = new FormData();
+                const ext = uri.endsWith(".png") ? "png" : uri.endsWith(".webp") ? "webp" : "jpg";
+                formData.append("file", { uri, type: `image/${ext === "jpg" ? "jpeg" : ext}`, name: `photo.${ext}` } as unknown as Blob);
+                const uploadRes = await fetch(`${apiBase}/api/upload`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${data.token!}` },
+                  body: formData,
+                });
+                if (uploadRes.ok) {
+                  const uploadData = await uploadRes.json() as { url?: string };
+                  if (uploadData.url) photoUpdates[field] = uploadData.url;
+                }
+              };
+
+              await uploadOne(nationalIdFrontUri, "nationalIdFrontUrl", "front");
+              await uploadOne(nationalIdBackUri, "nationalIdBackUrl", "back");
+              await uploadOne(licenseCardUri, "licenseCardUrl", "license");
+
+              if (Object.keys(photoUpdates).length > 0) {
+                await fetch(`${apiBase}/api/auth/me`, {
+                  method: "PATCH",
+                  headers: { Authorization: `Bearer ${data.token!}`, "Content-Type": "application/json" },
+                  body: JSON.stringify(photoUpdates),
+                });
+              }
+            } catch { /* non-fatal — photos can be re-uploaded from profile */ } finally {
+              setUploadingPhoto(null);
+            }
+          }
+
           await refreshUser();
           let confirmedCategories: string[] = regType === "technician" ? selectedCategories : [];
           if (regType === "technician" && selectedCategories.length > 0) {
@@ -624,15 +727,47 @@ export default function RegisterScreen() {
       )}
 
       {regType === "technician" && (
-        <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
-          <VectorIcon name="camera" size={24} color={colors.secondary} />
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
-            {t("register.idPhoto")}
+        <View style={{ gap: 10 }}>
+          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, textAlign: isRTL ? "right" : "left", marginBottom: 2 }}>
+            {isRTL ? "صور بطاقة الهوية الوطنية" : "National ID Photos"} <Text style={{ color: colors.destructive }}>*</Text>
           </Text>
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 3 }}>
-            {isRTL ? "صورة واضحة من الوجهين" : "Clear photo of both sides"}
-          </Text>
-        </TouchableOpacity>
+          <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }]}>
+            {/* Front */}
+            <TouchableOpacity
+              style={[styles.uploadBox, { borderColor: nationalIdFrontUri ? colors.primary : colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, flex: 1 }]}
+              onPress={() => showPhotoPicker("front", isRTL ? "وجه البطاقة" : "ID Front")}
+            >
+              {nationalIdFrontUri ? (
+                <Image source={{ uri: nationalIdFrontUri }} style={{ width: 80, height: 60, borderRadius: 6 }} resizeMode="cover" />
+              ) : (
+                <VectorIcon name="camera" size={22} color={colors.secondary} />
+              )}
+              <Text style={{ color: nationalIdFrontUri ? colors.primary : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 6, textAlign: "center" }}>
+                {isRTL ? "وجه البطاقة" : "ID Front"}
+              </Text>
+              {nationalIdFrontUri && (
+                <VectorIcon name="check-circle" size={14} color={colors.primary} style={{ marginTop: 2 }} />
+              )}
+            </TouchableOpacity>
+            {/* Back */}
+            <TouchableOpacity
+              style={[styles.uploadBox, { borderColor: nationalIdBackUri ? colors.primary : colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, flex: 1 }]}
+              onPress={() => showPhotoPicker("back", isRTL ? "ظهر البطاقة" : "ID Back")}
+            >
+              {nationalIdBackUri ? (
+                <Image source={{ uri: nationalIdBackUri }} style={{ width: 80, height: 60, borderRadius: 6 }} resizeMode="cover" />
+              ) : (
+                <VectorIcon name="camera" size={22} color={colors.secondary} />
+              )}
+              <Text style={{ color: nationalIdBackUri ? colors.primary : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 6, textAlign: "center" }}>
+                {isRTL ? "ظهر البطاقة" : "ID Back"}
+              </Text>
+              {nationalIdBackUri && (
+                <VectorIcon name="check-circle" size={14} color={colors.primary} style={{ marginTop: 2 }} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </View>
   );
@@ -884,17 +1019,37 @@ export default function RegisterScreen() {
         </Modal>
       )}
 
-      <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}>
-        <VectorIcon name="image" size={24} color={colors.secondary} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
-          {t("register.workPhotos")} (5 {isRTL ? "صور" : "photos"})
+      <FanniInput
+        label={isRTL ? "نبذة شخصية (اختياري)" : "Bio (optional)"}
+        value={bio}
+        onChangeText={setBio}
+        placeholder={isRTL ? "اكتب نبذة مختصرة عن خبرتك..." : "Write a brief description of your experience..."}
+        multiline
+        numberOfLines={3}
+        style={{ minHeight: 80 }}
+      />
+
+      {/* License Card Upload */}
+      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, textAlign: isRTL ? "right" : "left", marginBottom: 8, marginTop: 4 }}>
+        {isRTL ? "كارنيه مزاولة المهنة" : "Professional License Card"}
+      </Text>
+      <TouchableOpacity
+        style={[styles.uploadBox, { borderColor: licenseCardUri ? colors.primary : colors.border, borderRadius: colors.radius, backgroundColor: colors.muted }]}
+        onPress={() => showPhotoPicker("license", isRTL ? "كارنيه مزاولة المهنة" : "Professional License Card")}
+      >
+        {licenseCardUri ? (
+          <Image source={{ uri: licenseCardUri }} style={{ width: 120, height: 80, borderRadius: 8 }} resizeMode="cover" />
+        ) : (
+          <VectorIcon name="award" size={24} color={colors.secondary} />
+        )}
+        <Text style={{ color: licenseCardUri ? colors.primary : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
+          {licenseCardUri ? (isRTL ? "تم الرفع ✓" : "Uploaded ✓") : (isRTL ? "ارفع صورة الكارنيه" : "Upload License Card Photo")}
         </Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.uploadBox, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, marginTop: 10 }]}>
-        <VectorIcon name="award" size={24} color={colors.secondary} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
-          {t("register.licensePhoto")}
-        </Text>
+        {!licenseCardUri && (
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 3 }}>
+            {isRTL ? "وجه وظهر الكارنيه" : "Front and back of license"}
+          </Text>
+        )}
       </TouchableOpacity>
     </View>
   );
