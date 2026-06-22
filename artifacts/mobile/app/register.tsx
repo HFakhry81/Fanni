@@ -563,12 +563,16 @@ export default function RegisterScreen() {
               return;
             }
           }
+          const categoryMeta = apiDomains
+            .filter((d) => confirmedCategories.includes(d.id))
+            .map((d) => ({ id: d.id, nameAr: d.nameAr, nameEn: d.nameEn, icon: d.icon ?? null }));
           router.replace({
             pathname: "/register-success",
             params: {
               name: name.trim(),
               role: regType,
               categories: JSON.stringify(confirmedCategories),
+              categoryMeta: JSON.stringify(categoryMeta),
             },
           });
         } else {

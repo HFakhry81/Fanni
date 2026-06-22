@@ -106,6 +106,7 @@ export default function TechProfileScreen() {
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editMobile, setEditMobile] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editProfession, setEditProfession] = useState("");
   const [editSpecialty, setEditSpecialty] = useState("");
   const [editGov, setEditGov] = useState("");
@@ -159,7 +160,7 @@ export default function TechProfileScreen() {
   const [activeTimePicker, setActiveTimePicker] = useState<"start" | "end" | null>(null);
 
   // Validation errors
-  const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string; serviceStart?: string; serviceEnd?: string; categories?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; mobile?: string; email?: string; gov?: string; area?: string; serviceStart?: string; serviceEnd?: string; categories?: string }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
   const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -202,6 +203,7 @@ export default function TechProfileScreen() {
   if (!user) return;
   setEditName(user.name ?? "");
   setEditMobile(user.mobile ?? "");
+  setEditEmail(user.email ?? "");
   setEditProfession(user.profession ?? "");
   setEditSpecialty(user.specialty ?? "");
   if (user.profession) {
@@ -250,6 +252,10 @@ export default function TechProfileScreen() {
       newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
     } else if (!mobileMatch) {
       newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
+    }
+
+    if (editEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail.trim())) {
+      newErrors.email = isRTL ? "البريد الإلكتروني غير صحيح" : "Invalid email address";
     }
 
     if (!editGov) {
@@ -318,6 +324,7 @@ export default function TechProfileScreen() {
   const body: Record<string, unknown> = {
     firstName,
     lastName,
+    email: editEmail.trim() || null,
     profession: editProfession.trim() || user.profession || null,
     specialty: editSpecialty.trim() || user.specialty || null,
     governorate: editGov || null,
@@ -1212,6 +1219,25 @@ export default function TechProfileScreen() {
                   />
                   {errors.mobile ? (
                     <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.mobile}</Text>
+                  ) : null}
+                </View>
+
+                {/* Email */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("profile.emailOptional")}
+                  </Text>
+                  <TextInput
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    placeholder="example@email.com"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.email ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                  {errors.email ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.email}</Text>
                   ) : null}
                 </View>
 

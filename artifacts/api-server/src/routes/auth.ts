@@ -1082,6 +1082,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     if (firstNameVal !== undefined) adminUpdates.firstName = firstNameVal;
     if (lastNameVal !== undefined) adminUpdates.lastName = lastNameVal;
     if (emailVal !== undefined) adminUpdates.email = emailVal;
+    if (mobileVal !== undefined) adminUpdates.mobile = mobileVal;
     if (profileImageUrl !== undefined) adminUpdates.profileImageUrl = profileImageUrl ?? null;
 
     const [updatedAdmin] = await db

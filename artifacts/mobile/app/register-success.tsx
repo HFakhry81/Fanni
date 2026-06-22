@@ -1,32 +1,29 @@
 import React from "react";
-import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity, Image, ImageSourcePropType } from "react-native";
+import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import VectorIcon from "@/components/VectorIcon";
+import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import FanniButton from "@/components/FanniButton";
 
-const CATEGORY_IMAGES: Record<string, ImageSourcePropType> = {
-  electricity: require("@/assets/images/icon_electricity.webp"),
-  plumbing:    require("@/assets/images/icon_plumbing.webp"),
-  ac:          require("@/assets/images/icon_ac.webp"),
-  carpentry:   require("@/assets/images/icon_carpentry.webp"),
-  appliances:  require("@/assets/images/icon_appliances.webp"),
-  painting:    require("@/assets/images/icon_painting.webp"),
-  pest:        require("@/assets/images/icon_pest.webp"),
-  flooring:    require("@/assets/images/icon_flooring.webp"),
-};
+interface CategoryMeta {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  icon: string | null;
+}
 
 export default function RegisterSuccessScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
   const insets = useSafeAreaInsets();
-  const { name, role, categories } = useLocalSearchParams<{
+  const { name, role, categories, categoryMeta } = useLocalSearchParams<{
     name: string;
     role: string;
     categories: string;
+    categoryMeta: string;
   }>();
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
@@ -34,17 +31,30 @@ export default function RegisterSuccessScreen() {
 
   const isTech = role === "technician";
   const firstName = name ? name.trim().split(/\s+/)[0] : "";
-  const nextSteps = isTech ? t("register.techNextSteps") : t("register.clientNextSteps");
 
-  let savedCategories: string[] = [];
+  let parsedMeta: CategoryMeta[] = [];
+  if (isTech && categoryMeta) {
+    try {
+      const parsed = JSON.parse(categoryMeta);
+      if (Array.isArray(parsed)) parsedMeta = parsed;
+    } catch {
+      parsedMeta = [];
+    }
+  }
+
+  let savedCategoryIds: string[] = [];
   if (isTech && categories) {
     try {
       const parsed = JSON.parse(categories);
-      if (Array.isArray(parsed)) savedCategories = parsed;
+      if (Array.isArray(parsed)) savedCategoryIds = parsed;
     } catch {
-      savedCategories = [];
+      savedCategoryIds = [];
     }
   }
+
+  const displayCategories = parsedMeta.length > 0
+    ? parsedMeta
+    : savedCategoryIds.map((id) => ({ id, nameAr: id, nameEn: id, icon: null }));
 
   const handleGetStarted = () => {
     if (isTech) {
@@ -53,6 +63,13 @@ export default function RegisterSuccessScreen() {
       router.replace("/(client)/home");
     }
   };
+
+  const handleBackToLogin = () => {
+    router.replace("/login");
+  };
+
+  const AMBER = "#F59E0B";
+  const AMBER_BG = "#FEF3C7";
 
   return (
     <View
@@ -66,14 +83,26 @@ export default function RegisterSuccessScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          <View
-            style={[
-              styles.iconCircle,
-              { backgroundColor: colors.success, borderRadius: 60 },
-            ]}
-          >
-            <VectorIcon name="check" size={60} color="#FFF" />
-          </View>
+          {isTech ? (
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: AMBER_BG, borderRadius: 60 },
+              ]}
+            >
+              <VectorIcon name="clock" size={60} color={AMBER} />
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: colors.success + "22", borderRadius: 60 },
+              ]}
+            >
+              <VectorIcon name="check" size={60} color={colors.success} />
+            </View>
+          )}
+
           <Text
             style={[
               styles.title,
@@ -82,26 +111,37 @@ export default function RegisterSuccessScreen() {
           >
             {t("register.success")}
           </Text>
+
           {firstName ? (
             <Text
               style={[
                 styles.nameLabel,
-                { color: colors.primary, fontFamily: "Inter_700Bold", textAlign: "center" },
+                { color: isTech ? AMBER : colors.primary, fontFamily: "Inter_700Bold", textAlign: "center" },
               ]}
             >
               {t("register.welcomeName")} {firstName}!
             </Text>
           ) : null}
+
+          {isTech ? (
+            <View style={[styles.pendingBadge, { backgroundColor: AMBER_BG, borderColor: AMBER }]}>
+              <VectorIcon name="clock" size={14} color={AMBER} />
+              <Text style={[styles.pendingBadgeText, { color: AMBER, fontFamily: "Inter_600SemiBold" }]}>
+                {t("register.techPendingBadge")}
+              </Text>
+            </View>
+          ) : null}
+
           <Text
             style={[
               styles.subtitle,
               { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center" },
             ]}
           >
-            {nextSteps}
+            {isTech ? t("register.techNextSteps") : t("register.clientNextSteps")}
           </Text>
 
-          {isTech ? (
+          {isTech && displayCategories.length > 0 ? (
             <View
               style={[
                 styles.categoriesCard,
@@ -117,63 +157,74 @@ export default function RegisterSuccessScreen() {
                 {t("register.savedCategories")}
               </Text>
 
-              {savedCategories.length > 0 ? (
-                <View style={styles.chipsRow}>
-                  {savedCategories.map((key) => (
+              <View style={styles.chipsRow}>
+                {displayCategories.map((cat) => {
+                  const label = isRTL ? cat.nameAr : cat.nameEn;
+                  const iconName = toIconName(cat.icon ?? "tool");
+                  return (
                     <View
-                      key={key}
-                      style={[styles.chip, { backgroundColor: colors.primary + "22", borderColor: colors.primary }]}
+                      key={cat.id}
+                      style={[styles.chip, { backgroundColor: AMBER_BG, borderColor: AMBER }]}
                     >
-                      {CATEGORY_IMAGES[key] ? (
-                        <Image
-                          source={CATEGORY_IMAGES[key]}
-                          style={styles.chipIcon}
-                          resizeMode="cover"
-                        />
-                      ) : null}
+                      <VectorIcon name={iconName} size={14} color={AMBER} />
                       <Text
-                        style={[styles.chipText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}
+                        style={[styles.chipText, { color: AMBER, fontFamily: "Inter_600SemiBold" }]}
                       >
-                        {t(`cat.${key}`)}
+                        {label}
                       </Text>
                     </View>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.nudgeRow}>
-                  <VectorIcon name="info" size={16} color={colors.mutedForeground} />
-                  <Text
-                    style={[
-                      styles.nudgeText,
-                      { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" },
-                    ]}
-                  >
-                    {t("register.noCategoriesHint")}
-                  </Text>
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[styles.editCategoriesBtn, { borderColor: colors.primary }]}
-                onPress={() => router.push("/(tech)/profile?openCategories=1")}
-                activeOpacity={0.7}
-              >
-                <VectorIcon name="edit-2" size={14} color={colors.primary} />
-                <Text style={[styles.editCategoriesText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
-                  {t("register.editCategories")}
+                  );
+                })}
+              </View>
+            </View>
+          ) : isTech && displayCategories.length === 0 ? (
+            <View
+              style={[
+                styles.categoriesCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.nudgeRow}>
+                <VectorIcon name="info" size={16} color={colors.mutedForeground} />
+                <Text
+                  style={[
+                    styles.nudgeText,
+                    { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" },
+                  ]}
+                >
+                  {t("register.noCategoriesHint")}
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
           ) : null}
         </View>
       </ScrollView>
 
       <View style={[styles.btnArea, { paddingHorizontal: 24 }]}>
-        <FanniButton
-          title={t("register.goHome")}
-          onPress={handleGetStarted}
-          fullWidth
-        />
+        {isTech ? (
+          <>
+            <FanniButton
+              title={t("register.goHome")}
+              onPress={handleGetStarted}
+              fullWidth
+            />
+            <TouchableOpacity
+              style={styles.loginLink}
+              onPress={handleBackToLogin}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.loginLinkText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                {t("register.backToLogin")}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <FanniButton
+            title={t("register.goHome")}
+            onPress={handleGetStarted}
+            fullWidth
+          />
+        )}
       </View>
     </View>
   );
@@ -198,6 +249,17 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 26, marginBottom: 12 },
   nameLabel: { fontSize: 20, marginBottom: 12 },
+  pendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 16,
+  },
+  pendingBadgeText: { fontSize: 13 },
   subtitle: { fontSize: 16, lineHeight: 24, marginBottom: 24 },
   categoriesCard: {
     width: "100%",
@@ -222,11 +284,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  chipIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-  },
   chipText: { fontSize: 13 },
   nudgeRow: {
     flexDirection: "row",
@@ -234,17 +291,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   nudgeText: { fontSize: 13, lineHeight: 20, flex: 1 },
-  editCategoriesBtn: {
-    flexDirection: "row",
+  btnArea: { paddingBottom: 16, gap: 8 },
+  loginLink: {
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    alignSelf: "flex-start",
+    paddingVertical: 10,
   },
-  editCategoriesText: { fontSize: 13 },
-  btnArea: { paddingBottom: 16 },
+  loginLinkText: { fontSize: 14 },
 });

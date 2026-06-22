@@ -29,6 +29,8 @@ export interface User {
   serviceCategories?: string[];
   serviceStart?: string;
   serviceEnd?: string;
+  isApproved?: boolean;
+  profileImageUrl?: string;
 }
 
 interface AppContextType {
@@ -122,11 +124,17 @@ const translations: Record<string, Record<Language, string>> = {
   "register.successMsg": { ar: "تم حفظ بياناتك بنجاح. يمكنك الآن تسجيل الدخول.", en: "Your details have been saved. You can now sign in." },
   "register.welcomeName": { ar: "مرحباً،", en: "Welcome," },
   "register.clientNextSteps": { ar: "يمكنك الآن تصفح الخدمات وطلب فني متخصص بنقرة واحدة.", en: "You can now browse services and book a specialist with just one tap." },
-  "register.techNextSteps": { ar: "أنت جاهز لاستقبال الطلبات. فعّل تواجدك لتبدأ العمل.", en: "You're ready to receive orders. Enable your availability to start working." },
+  "register.techNextSteps": { ar: "تم استلام طلب تسجيلك! سيقوم فريقنا بمراجعة بياناتك والموافقة على حسابك قريباً.", en: "Your registration request has been received! Our team will review your details and approve your account soon." },
+  "register.techPendingBadge": { ar: "في انتظار الموافقة", en: "Pending Approval" },
   "register.savedCategories": { ar: "تخصصاتك المحفوظة", en: "Your Saved Specialties" },
   "register.noCategoriesHint": { ar: "لم يتم حفظ تخصصات بعد. يمكنك تحديثها من ملفك الشخصي.", en: "No specialties saved yet. You can add them from your profile." },
   "register.goHome": { ar: "ابدأ الآن", en: "Get Started" },
+  "register.backToLogin": { ar: "العودة لتسجيل الدخول", en: "Back to Login" },
   "register.editCategories": { ar: "تعديل التخصصات", en: "Edit Categories" },
+  "tech.pendingTitle": { ar: "حسابك قيد المراجعة", en: "Account Under Review" },
+  "tech.pendingDesc": { ar: "شكراً لانضمامك إلى فني! يقوم فريقنا الآن بمراجعة بياناتك. ستتلقى إشعاراً فور تفعيل حسابك.", en: "Thank you for joining Fanni! Our team is reviewing your details. You will be notified once your account is activated." },
+  "tech.pendingContact": { ar: "إذا استغرق الأمر أكثر من 24 ساعة، تواصل معنا عبر رقم الدعم.", en: "If it takes more than 24 hours, please contact our support number." },
+  "tech.pendingLogout": { ar: "تسجيل خروج", en: "Sign Out" },
   "availability.synced": { ar: "تمت مزامنة التواجد", en: "Availability synced" },
   "availability.syncFailed": { ar: "تعذّر مزامنة التواجد — يرجى التحقق من اتصالك", en: "Couldn't sync availability — please check your connection" },
 
@@ -300,6 +308,11 @@ const translations: Record<string, Record<Language, string>> = {
   "profile.logoutConfirm": { ar: "هل أنت متأكد أنك تريد تسجيل الخروج؟", en: "Are you sure you want to log out?" },
   "profile.adminRole": { ar: "مسئول النظام", en: "System Admin" },
   "profile.mobileReadOnly": { ar: "رقم الجوال لا يمكن تغييره", en: "Mobile number cannot be changed" },
+  "profile.changeEmail": { ar: "تغيير البريد الإلكتروني", en: "Change Email" },
+  "profile.emailLabel": { ar: "البريد الإلكتروني", en: "Email Address" },
+  "profile.emailOptional": { ar: "البريد الإلكتروني (اختياري)", en: "Email Address (optional)" },
+  "profile.emailReadOnly": { ar: "البريد الإلكتروني لا يمكن تغييره من هنا", en: "Email cannot be changed here" },
+  "profile.changeMobile": { ar: "تغيير رقم الجوال", en: "Change Mobile" },
   "profile.noServer": { ar: "تعذر الاتصال بالخادم", en: "Unable to reach server" },
   "profile.saveFailed": { ar: "فشل الحفظ", en: "Failed to save" },
   "profile.saving": { ar: "جاري الحفظ...", en: "Saving..." },

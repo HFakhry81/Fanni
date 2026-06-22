@@ -25,6 +25,7 @@ import Toast from "@/components/Toast";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
+import OtpVerifyModal from "@/components/OtpVerifyModal";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -59,6 +60,14 @@ export default function AdminProfileScreen() {
   const [changingPw, setChangingPw] = useState(false);
   const [revokingOtherSessions, setRevokingOtherSessions] = useState(false);
 
+  // Mobile-change OTP state
+  const [editMobile, setEditMobile] = useState("");
+  const [pendingMobile, setPendingMobile] = useState("");
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [otpSubtitle, setOtpSubtitle] = useState<string | undefined>(undefined);
+  const [verificationToken, setVerificationToken] = useState<string | undefined>(undefined);
+  const [verificationExpiresAt, setVerificationExpiresAt] = useState(0);
+
   useEffect(() => {
     if (mode === "change-password" && !changePwMode) {
       setCurrentPassword("");
@@ -72,7 +81,7 @@ export default function AdminProfileScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [errors, setErrors] = useState<{ firstName?: string; email?: string }>({});
+  const [errors, setErrors] = useState<{ firstName?: string; email?: string; mobile?: string }>({});
 
   const openEdit = () => {
     if (!user) return;
@@ -80,6 +89,9 @@ export default function AdminProfileScreen() {
     setFirstName(nameParts[0] ?? "");
     setLastName(nameParts.slice(1).join(" ") ?? "");
     setEmail(user.email ?? "");
+    setEditMobile(user.mobile ?? "");
+    setVerificationToken(undefined);
+    setVerificationExpiresAt(0);
     setErrors({});
     setEditMode(true);
   };
@@ -87,6 +99,42 @@ export default function AdminProfileScreen() {
   const cancelEdit = () => {
     setEditMode(false);
     setErrors({});
+  };
+
+  const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
+
+  const applyAdminSave = async (verTok: string | undefined) => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || null,
+        email: email.trim() || null,
+      };
+      const mobileDigits = editMobile.trim().replace(/\s|-/g, "");
+      const mobileMatch = mobileDigits ? mobileDigits.match(EGYPT_MOBILE_RE) : null;
+      const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+      if (normalizedMobile !== (user.mobile ?? "") && verTok) {
+        body.mobile = normalizedMobile;
+        body.verificationToken = verTok;
+      }
+      const result = await saveProfile(body);
+      if (!result.ok) {
+        throw new Error(result.error ?? t("profile.saveFailed"));
+      }
+      setVerificationToken(undefined);
+      setVerificationExpiresAt(0);
+      setEditMode(false);
+      setToastMessage(t("profile.saveSuccess"));
+      setToastVisible(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToastMessage(msg || t("profile.saveFailed"));
+      setToastVisible(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -101,33 +149,32 @@ export default function AdminProfileScreen() {
       newErrors.email = isRTL ? "البريد الإلكتروني غير صحيح" : "Invalid email address";
     }
 
+    const mobileDigits = editMobile.trim().replace(/\s|-/g, "");
+    const mobileMatch = mobileDigits ? mobileDigits.match(EGYPT_MOBILE_RE) : null;
+    if (mobileDigits && !mobileMatch) {
+      newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    setSaving(true);
-    try {
-      const result = await saveProfile({
-        firstName: firstName.trim(),
-        lastName: lastName.trim() || null,
-        email: email.trim() || null,
-      });
+    const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+    const mobileChanged = normalizedMobile !== (user.mobile ?? "");
 
-      if (!result.ok) {
-        throw new Error(result.error ?? t("profile.saveFailed"));
+    if (mobileChanged) {
+      if (verificationToken && verificationExpiresAt > Date.now() + 10_000 && normalizedMobile === pendingMobile) {
+        await applyAdminSave(verificationToken);
+        return;
       }
-
-      setEditMode(false);
-      setToastMessage(t("profile.saveSuccess"));
-      setToastVisible(true);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setToastMessage(msg || t("profile.saveFailed"));
-      setToastVisible(true);
-    } finally {
-      setSaving(false);
+      setPendingMobile(normalizedMobile);
+      setOtpSubtitle(undefined);
+      setOtpModalVisible(true);
+      return;
     }
+
+    await applyAdminSave(undefined);
   };
 
   const openChangePw = () => {
@@ -480,20 +527,14 @@ export default function AdminProfileScreen() {
               error={errors.email}
             />
 
-            {/* Mobile — read-only */}
-            <View style={{ marginBottom: 12 }}>
-              <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-                {t("register.mobile")}
-              </Text>
-              <View style={[styles.readOnlyField, { backgroundColor: colors.muted, borderColor: colors.border, borderRadius: colors.radius }]}>
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15 }}>
-                  {user?.mobile ?? ""}
-                </Text>
-              </View>
-              <Text style={[styles.hint, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
-                {t("profile.mobileReadOnly")}
-              </Text>
-            </View>
+            <FanniInput
+              label={t("register.mobile")}
+              value={editMobile}
+              onChangeText={setEditMobile}
+              keyboardType="phone-pad"
+              placeholder="+20 1XX XXX XXXX"
+              error={errors.mobile}
+            />
 
             <View style={[styles.btnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <FanniButton
@@ -639,6 +680,20 @@ export default function AdminProfileScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <OtpVerifyModal
+        visible={otpModalVisible}
+        mobile={pendingMobile}
+        subtitle={otpSubtitle}
+        onCancel={() => { setOtpModalVisible(false); setOtpSubtitle(undefined); }}
+        onVerified={(token, expiresAt) => {
+          setOtpModalVisible(false);
+          setOtpSubtitle(undefined);
+          setVerificationToken(token);
+          setVerificationExpiresAt(expiresAt);
+          applyAdminSave(token);
+        }}
+      />
 
       <Toast
         visible={toastVisible}

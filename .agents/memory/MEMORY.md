@@ -1,2 +1,2 @@
-- [DB schema-migration drift](db-schema-drift.md) — schema code can diverge from applied migrations; always verify columns exist in DB before deploying.
-- [Auth token pattern](auth-token-pattern.md) — use `sessionToken` from `useAuth()`, NOT `token`; context exports `sessionToken: string | null`.
+- [Tech approval gate](tech-approval-gate.md) — `isApproved` on User; (tech)/_layout.tsx redirects unapproved techs to /tech-pending screen.
+- [Admin mobile change via OTP](admin-mobile-otp.md) — admin PATCH /api/auth/me now supports mobile via OTP; mobileVal must be in adminUpdates.

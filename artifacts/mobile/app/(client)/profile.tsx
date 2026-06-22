@@ -79,6 +79,7 @@ export default function ClientProfileScreen() {
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editMobile, setEditMobile] = useState("");
+  const [editEmail, setEditEmail] = useState("");
 
   // Change password state
   const [currentPw, setCurrentPw] = useState("");
@@ -90,7 +91,7 @@ export default function ClientProfileScreen() {
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   // Validation errors
-  const [errors, setErrors] = useState<{ name?: string; mobile?: string; gov?: string; area?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; mobile?: string; email?: string; gov?: string; area?: string }>({});
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
@@ -98,6 +99,7 @@ export default function ClientProfileScreen() {
     if (!user) return;
     setEditName(user.name ?? "");
     setEditMobile(user.mobile ?? "");
+    setEditEmail(user.email ?? "");
     const detailed = deserializeAddress(user.address ?? "");
     setAddrVal({
       governorateId: user.governorate ?? "",
@@ -132,6 +134,10 @@ export default function ClientProfileScreen() {
       newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
     } else if (!mobileMatch) {
       newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
+    }
+
+    if (editEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail.trim())) {
+      newErrors.email = isRTL ? "البريد الإلكتروني غير صحيح" : "Invalid email address";
     }
 
     if (!addrVal.governorateId) {
@@ -179,6 +185,7 @@ export default function ClientProfileScreen() {
   const body: Record<string, unknown> = {
     firstName,
     lastName,
+    email: editEmail.trim() || null,
     governorate: addrVal.governorateId || null,
     area: addrVal.areaId || null,
     street: addrVal.street || null,
@@ -806,6 +813,25 @@ export default function ClientProfileScreen() {
                   />
                   {errors.mobile ? (
                     <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.mobile}</Text>
+                  ) : null}
+                </View>
+
+                {/* Email */}
+                <View style={styles.fieldWrap}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {t("profile.emailOptional")}
+                  </Text>
+                  <TextInput
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    placeholder="example@email.com"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={[styles.textInput, { backgroundColor: colors.card, borderColor: errors.email ? colors.destructive : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+                  />
+                  {errors.email ? (
+                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.email}</Text>
                   ) : null}
                 </View>
 

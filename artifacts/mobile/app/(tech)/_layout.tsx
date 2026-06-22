@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, Redirect } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
@@ -377,6 +377,10 @@ function TechLayoutInner() {
 export default function TechLayout() {
   const { user, isOnline } = useApp();
   const { sessionToken } = useAuth();
+
+  if (user?.type === "technician" && user?.isApproved === false) {
+    return <Redirect href="/tech-pending" />;
+  }
 
   return (
     <TechWsProvider user={user} sessionToken={sessionToken} isOnline={isOnline}>
