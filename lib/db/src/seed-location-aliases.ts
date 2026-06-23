@@ -16,6 +16,7 @@
  * Safe to re-run: uses INSERT … ON CONFLICT DO NOTHING.
  */
 
+import "dotenv/config";
 import pg from "pg";
 
 const { Pool } = pg;

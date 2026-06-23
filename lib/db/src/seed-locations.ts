@@ -1,17 +1,34 @@
+import "dotenv/config";
 import pg from "pg";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url"; // تم استيراد pathToFileURL هنا
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const { EGYPT_LOCATIONS } = await import(
-  path.resolve(__dirname, "../../../artifacts/mobile/constants/egyptLocations.ts")
-);
+// تحويل المسار إلى تنسيق file:// متوافق مع نظام التشغيل ويندوز لتجنب خطأ ESM
+const egyptLocationsPath = path.resolve(__dirname, "../../../artifacts/mobile/constants/egyptLocations.ts");
+const importedModule = await import(pathToFileURL(egyptLocationsPath).href);
+
+// جلب البيانات بمرونة بناءً على طريقة التصدير المستخدمة في الملف
+// جلب البيانات بمرونة بناءً على طريقة التصدير المستخدمة في الملف
+// جلب البيانات بمرونة بناءً على طريقة التصدير المستخدمة في الملف
+const EGYPT_LOCATIONS = 
+  importedModule.EGYPT_LOCATIONS || // تأكد أن هذا السطر هو الأول تماماً
+  importedModule.default || 
+  importedModule.egyptLocations;
+
+// التحقق من أن البيانات التي جلبناها هي مصفوفة بالفعل
+if (!EGYPT_LOCATIONS || !Array.isArray(EGYPT_LOCATIONS)) {
+  console.error("خطأ: لم يتم العثور على مصفوفة المواقع داخل ملف egyptLocations.ts.");
+  console.error("المفاتيح المصدرة المتوفرة في الملف هي:", Object.keys(importedModule));
+  process.exit(1);
+}
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const client = await pool.connect();
+console.log("العنصر الأول في المصفوفة المستوردة:", EGYPT_LOCATIONS[0]);
 
 try {
   await client.query("BEGIN");

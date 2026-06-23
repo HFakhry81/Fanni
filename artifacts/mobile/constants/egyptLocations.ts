@@ -52,3 +52,11 @@ export const ALEXANDRIA_CENTER = { lat: 31.2001, lng: 29.9187, latitudeDelta: 0.
 export function getGovById(id: string): GovCoordinate | undefined {
   return EGYPT_GOV_COORDINATES.find((g) => g.id === id);
 }
+
+  // نقوم بإنشاء وتصدير المصفوفة بالأسماء التي يتوقعها سكربت الـ Seed تلقائياً
+export const EGYPT_LOCATIONS = EGYPT_GOV_COORDINATES.map(gov => ({
+  ...gov,
+  ar: gov.nameAr,
+  en: gov.nameEn
+}));
+

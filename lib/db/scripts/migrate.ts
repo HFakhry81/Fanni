@@ -25,6 +25,7 @@
  * separators.
  */
 
+import "dotenv/config";
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import pg from "pg";
