@@ -137,7 +137,7 @@ export default function AdminPermissionsScreen() {
   if (initLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <AppHeader title={t("admin.permissions")} showHome showLogout />
+        <AppHeader title={t("admin.sysAdmins")} showHome showLogout />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -149,7 +149,7 @@ export default function AdminPermissionsScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader
-          title={t("admin.permissions")}
+          title={t("admin.sysAdmins")}
           subtitle={isRTL ? "وصول محظور" : "Access Restricted"}
           showHome
           showLogout
@@ -172,7 +172,7 @@ export default function AdminPermissionsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
-        title={t("admin.permissions")}
+        title={t("admin.sysAdmins")}
         subtitle={selectedAdmin ? (enabledCount + "/" + perms.length + (isRTL ? " مفعلة" : " enabled")) : (isRTL ? "اختر مسئولاً" : "Select an admin")}
         showHome
         showLogout

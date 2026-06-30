@@ -1,63 +1,59 @@
-import { Tabs, useRouter } from "expo-router";
+import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { NativeTabs, Icon, Label, Badge } from "expo-router/unstable-native-tabs";
+import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import React, { useState } from "react";
-import { Platform, StyleSheet, View, Text, TouchableOpacity, useColorScheme } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  useColorScheme,
+} from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import VectorIcon from "@/components/VectorIcon";
 
-function NativeAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }) {
+// ─── Native tabs (iOS 26 Liquid Glass) ──────────────────────────────────────
+function NativeAdminTabs() {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="dashboard">
-        <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
-        <Label>Dashboard</Label>
+      <NativeTabs.Trigger name="profile">
+        <Icon sf={{ default: "person", selected: "person.fill" }} />
+        <Label>Profile</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="users">
         <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
         <Label>Users</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="categories">
+        <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
+        <Label>Categories</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="orders">
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Orders</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ledger">
+        <Icon sf={{ default: "book.closed", selected: "book.closed.fill" }} />
+        <Label>Ledger</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="permissions">
+        <Icon sf={{ default: "shield", selected: "shield.fill" }} />
+        <Label>Admins</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="stats">
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
         <Label>Stats</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="categories">
-        <Icon sf={{ default: "list.bullet.rectangle", selected: "list.bullet.rectangle.fill" }} />
-        <Label>Categories</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="permissions">
-        <Icon sf={{ default: "shield", selected: "shield.fill" }} />
-        <Label>Permissions</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ledger">
-        <Icon sf={{ default: "banknote", selected: "banknote.fill" }} />
-        <Label>Ledger</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="pending">
-        <Icon sf={{ default: "person.badge.clock", selected: "person.badge.clock.fill" }} />
-        <Label>Pending</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="login-logs">
-        <Icon sf={{ default: "list.bullet.clipboard", selected: "list.bullet.clipboard.fill" }} />
-        <Label>Logs</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
-        {mustChangePassword && <Badge>{""}</Badge>}
-      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
 
-function ClassicAdminTabs({ mustChangePassword }: { mustChangePassword: boolean }) {
+// ─── Classic tabs (Android / web / older iOS) ────────────────────────────────
+function ClassicAdminTabs() {
   const colors = useColors();
   const { t, isRTL } = useApp();
   const colorScheme = useColorScheme();
@@ -65,110 +61,110 @@ function ClassicAdminTabs({ mustChangePassword }: { mustChangePassword: boolean 
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
+  const tabScreenOptions = {
+    tabBarActiveTintColor: colors.primary,
+    tabBarInactiveTintColor: colors.mutedForeground,
+    headerShown: false,
+    tabBarStyle: {
+      position: "absolute" as const,
+      backgroundColor: isIOS ? "transparent" : colors.card,
+      borderTopWidth: isWeb ? 1 : 0,
+      borderTopColor: colors.border,
+      elevation: 0,
+      ...(isWeb ? { height: 64 } : {}),
+    },
+    tabBarLabelStyle: {
+      fontFamily: "Inter_500Medium",
+      fontSize: 10,
+    },
+    tabBarBackground: () =>
+      isIOS ? (
+        <BlurView
+          intensity={100}
+          tint={isDark ? "dark" : "light"}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : isWeb ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
+      ) : null,
+  };
+
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
-        headerShown: false,
-        tabBarStyle: {
-          position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.card,
-          borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: colors.border,
-          elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
-        },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView intensity={100} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
-          ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
-          ) : null,
-      }}
-    >
+    <Tabs initialRouteName="profile" screenOptions={tabScreenOptions}>
+      {/* ── Visible tabs ── */}
       <Tabs.Screen
-        name="dashboard"
+        name="profile"
         options={{
-          title: t("admin.dashboard"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🗂️</Text>,
+          title: isRTL ? "الملف الشخصي" : "Profile",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="user" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="users"
         options={{
-          title: t("admin.users"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>👥</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: t("admin.orders"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📋</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: t("admin.stats"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📈</Text>,
+          title: isRTL ? "المستخدمون" : "Users",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="users" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="categories"
         options={{
           title: isRTL ? "الفئات" : "Categories",
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🗂️</Text>,
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="grid" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="permissions"
+        name="orders"
         options={{
-          title: t("admin.permissions"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>🛡️</Text>,
+          title: isRTL ? "الطلبات" : "Orders",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="list" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="ledger"
         options={{
-          title: isRTL ? "دفتر الأستاذ" : "Ledger",
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>💰</Text>,
+          title: isRTL ? "الأستاذ" : "Ledger",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="book-open" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="pending"
+        name="permissions"
         options={{
-          title: isRTL ? "انتظار الموافقة" : "Pending",
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>⏳</Text>,
+          title: isRTL ? "المسئولون" : "Admins",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="shield" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="login-logs"
+        name="stats"
         options={{
-          title: t("loginLogs.title"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📋</Text>,
+          title: isRTL ? "الإحصائيات" : "Stats",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="bar-chart-2" size={20} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t("nav.profile"),
-          tabBarBadge: mustChangePassword ? "" : undefined,
-          tabBarBadgeStyle: { backgroundColor: "#F5A623", minWidth: 10, height: 10, borderRadius: 5 },
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>👤</Text>,
-        }}
-      />
+
+      {/* ── Hidden screens (navigable but not in tab bar) ── */}
+      <Tabs.Screen name="dashboard"        options={{ href: null }} />
+      <Tabs.Screen name="pending"          options={{ href: null }} />
+      <Tabs.Screen name="login-logs"       options={{ href: null }} />
+      <Tabs.Screen name="map-dashboard"    options={{ href: null }} />
+      <Tabs.Screen name="missed-locations" options={{ href: null }} />
     </Tabs>
   );
 }
 
+// ─── Main layout ─────────────────────────────────────────────────────────────
 export default function AdminTabsLayout() {
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const { user } = useAuth();
   const { t, isRTL } = useApp();
-  const router = useRouter();
   const colors = useColors();
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const showBanner = !bannerDismissed && user?.mustChangePassword === true;
 
@@ -181,61 +177,50 @@ export default function AdminTabsLayout() {
             { flexDirection: isRTL ? "row-reverse" : "row" },
           ]}
         >
-          <VectorIcon name="alert-triangle" size={18} color="#C8880A" style={{ marginTop: 1 }} />
-          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
-            <Text style={[styles.bannerText, { textAlign: isRTL ? "right" : "left" }]}>
+          <VectorIcon name="alert-triangle" size={16} color="#C8880A" style={{ marginTop: 1 }} />
+          <View
+            style={{
+              flex: 1,
+              marginLeft: isRTL ? 0 : 8,
+              marginRight: isRTL ? 8 : 0,
+            }}
+          >
+            <Text
+              style={[styles.bannerText, { textAlign: isRTL ? "right" : "left" }]}
+            >
               {t("admin.defaultPasswordBanner")}
             </Text>
-            <TouchableOpacity
-              onPress={() =>
-                router.push({ pathname: "/(admin)/(tabs)/profile", params: { mode: "change-password" } })
-              }
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.bannerLink, { textAlign: isRTL ? "right" : "left" }]}>
-                {t("admin.changePasswordNow")} →
-              </Text>
-            </TouchableOpacity>
           </View>
           <TouchableOpacity
             onPress={() => setBannerDismissed(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <VectorIcon name="x" size={18} color="#C8880A" />
+            <VectorIcon name="x" size={16} color="#C8880A" />
           </TouchableOpacity>
         </View>
       )}
-      {isLiquidGlassAvailable()
-        ? <NativeAdminTabs mustChangePassword={user?.mustChangePassword === true} />
-        : <ClassicAdminTabs mustChangePassword={user?.mustChangePassword === true} />
-      }
+
+      {isLiquidGlassAvailable() ? <NativeAdminTabs /> : <ClassicAdminTabs />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  tabIcon: { fontSize: 22 },
   banner: {
     backgroundColor: "#FFF3CD",
     borderBottomWidth: 1.5,
     borderBottomColor: "#F5A623",
     paddingHorizontal: 16,
     paddingVertical: 10,
-    alignItems: "flex-start",
-    gap: 4,
+    alignItems: "center",
+    gap: 8,
     zIndex: 10,
   },
   bannerText: {
     fontFamily: "Inter_500Medium",
-    fontSize: 13,
+    fontSize: 12,
     color: "#7A5200",
-    lineHeight: 18,
-  },
-  bannerLink: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 13,
-    color: "#C8880A",
-    marginTop: 4,
+    lineHeight: 17,
   },
 });

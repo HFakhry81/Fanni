@@ -1,2 +1,3 @@
 - [Tech approval gate](tech-approval-gate.md) — `isApproved` on User; (tech)/_layout.tsx redirects unapproved techs to /tech-pending screen.
 - [Admin mobile change via OTP](admin-mobile-otp.md) — admin PATCH /api/auth/me now supports mobile via OTP; mobileVal must be in adminUpdates.
+- [Admin interface redesign](admin-redesign.md) — 7-tab layout (profile initial), users.tsx hub with 4 sections; permissions.tsx repurposed as "مسئولو النظام".
