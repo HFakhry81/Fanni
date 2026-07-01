@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool } from "@workspace/db";
-import { and, eq, ne, sql, SQL } from "drizzle-orm";
+import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool, walletsTable, leadUnlocksTable, unlockCostsTable, walletTransactionsTable } from "@workspace/db";
+import { and, eq, ne, sql, SQL, inArray } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
@@ -404,7 +404,44 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     const total = allMatched.length;
     const totalPages = Math.ceil(total / limit);
     const offset = (page - 1) * limit;
-    const results = allMatched.slice(offset, offset + limit);
+    const pageOrders = allMatched.slice(offset, offset + limit);
+
+    // ── Points system: determine which orders this tech has already unlocked ──
+    const defaultUnlockCost = 15;
+    let defaultCost = defaultUnlockCost;
+    try {
+      const [defCost] = await db.select().from(unlockCostsTable)
+        .where(and(sql`specialty_slug IS NULL`, sql`category_slug IS NULL`));
+      if (defCost) defaultCost = defCost.pointsCost;
+    } catch { /* fall back to 15 */ }
+
+    const orderIds = pageOrders.map((o) => o.id);
+    const unlockedSet = new Set<string>();
+    if (orderIds.length > 0) {
+      try {
+        const unlocks = await db.select({ orderId: leadUnlocksTable.orderId })
+          .from(leadUnlocksTable)
+          .where(and(eq(leadUnlocksTable.technicianId, user.id), inArray(leadUnlocksTable.orderId, orderIds)));
+        for (const u of unlocks) unlockedSet.add(u.orderId);
+      } catch { /* non-fatal */ }
+    }
+
+    const results = pageOrders.map((o) => {
+      const isUnlocked = unlockedSet.has(o.id);
+      if (isUnlocked) return { ...o, isUnlocked: true, unlockCost: defaultCost };
+      // Mask sensitive contact + precise location data for locked orders
+      return {
+        ...o,
+        isUnlocked: false,
+        unlockCost: defaultCost,
+        street: null,
+        building: null,
+        floor: null,
+        landmark: null,
+        latitude: null,
+        longitude: null,
+      };
+    });
 
     logger.info({ techId: user.id, total: pendingRows.length, matched: total, page, limit }, "Technician fetched pending orders");
     res.json({ orders: results, meta: { total, page, limit, totalPages } });

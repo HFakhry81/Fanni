@@ -10,6 +10,8 @@ import geoRouter from "./geo";
 import uploadRouter from "./upload";
 import ocrRouter from "./ocr";
 import trafficRouter from "./traffic";
+import walletRouter from "./wallet";
+import disputesRouter from "./disputes";
 
 const router: IRouter = Router();
 
@@ -24,5 +26,7 @@ router.use(geoRouter);
 router.use(uploadRouter);
 router.use(ocrRouter);
 router.use(trafficRouter);
+router.use(walletRouter);
+router.use(disputesRouter);
 
 export default router;

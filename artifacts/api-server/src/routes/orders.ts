@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and, inArray, not } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
-import { db, ordersTable, invoicesTable, pool, usersTable } from "@workspace/db";
+import { db, ordersTable, invoicesTable, pool, usersTable, walletsTable, leadUnlocksTable, unlockCostsTable, walletTransactionsTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../lib/locationNormalizer";
@@ -285,6 +285,123 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   } catch (err) {
     logger.error({ err, orderId: order.id }, "Failed to save order to database");
     res.status(500).json({ error: "Failed to persist order" });
+  }
+});
+
+// ── Unlock order contact details (spend points) ──────────────────────────────
+router.post("/orders/:id/unlock", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  const orderId = req.params.id;
+
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can unlock orders" });
+    return;
+  }
+
+  try {
+    // Check order exists and is still pending
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+    if (order.status !== "pending") { res.status(409).json({ error: "Order is no longer available" }); return; }
+
+    // Check if already unlocked
+    const [existing] = await db.select().from(leadUnlocksTable)
+      .where(and(eq(leadUnlocksTable.technicianId, user.id), eq(leadUnlocksTable.orderId, orderId)));
+    if (existing) {
+      const data = order.data as Record<string, unknown>;
+      res.json({
+        alreadyUnlocked: true,
+        unlock: existing,
+        contact: {
+          clientName: data.clientName,
+          clientMobile: data.clientMobile,
+          street: data.street ?? null,
+          building: data.building ?? null,
+          floor: data.floor ?? null,
+          apartment: data.apartment ?? null,
+          landmark: data.landmark ?? null,
+          latitude: data.latitude ?? null,
+          longitude: data.longitude ?? null,
+        },
+      });
+      return;
+    }
+
+    // Determine unlock cost
+    let costPoints = 15;
+    try {
+      const [defCost] = await db.select().from(unlockCostsTable)
+        .where(and(sql`specialty_slug IS NULL`, sql`category_slug IS NULL`));
+      if (defCost) costPoints = defCost.pointsCost;
+    } catch { /* fall back */ }
+
+    // Get or create wallet
+    const [walletRow] = await db.select().from(walletsTable).where(eq(walletsTable.userId, user.id));
+    let wallet = walletRow;
+    if (!wallet) {
+      const [created] = await db.insert(walletsTable).values({ userId: user.id }).returning();
+      wallet = created!;
+    }
+
+    if (wallet.pointsBalance < costPoints) {
+      res.status(402).json({ error: "Insufficient points", balance: wallet.pointsBalance, required: costPoints });
+      return;
+    }
+
+    // Deduct points and record unlock atomically
+    const newBalance = wallet.pointsBalance - costPoints;
+    await db.update(walletsTable).set({ pointsBalance: newBalance, updatedAt: new Date() }).where(eq(walletsTable.id, wallet.id));
+    const [unlock] = await db.insert(leadUnlocksTable).values({
+      technicianId: user.id,
+      orderId,
+      pointsDeducted: costPoints,
+    }).returning();
+    await db.insert(walletTransactionsTable).values({
+      walletId: wallet.id,
+      pointsAmount: -costPoints,
+      type: "lead_unlock",
+      description: `Unlock order ${orderId}`,
+      orderId,
+    });
+
+    const data = order.data as Record<string, unknown>;
+    logger.info({ techId: user.id, orderId, costPoints, newBalance }, "Order unlocked");
+    res.json({
+      alreadyUnlocked: false,
+      unlock,
+      newBalance,
+      contact: {
+        clientName: data.clientName,
+        clientMobile: data.clientMobile,
+        street: data.street ?? null,
+        building: data.building ?? null,
+        floor: data.floor ?? null,
+        apartment: data.apartment ?? null,
+        landmark: data.landmark ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err, orderId }, "Failed to unlock order");
+    res.status(500).json({ error: "Failed to unlock order" });
+  }
+});
+
+// ── Track call/whatsapp click after unlock ────────────────────────────────────
+router.patch("/orders/:id/unlock/track", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") { res.status(403).json({ error: "Forbidden" }); return; }
+  const { action } = req.body as { action?: "call" | "whatsapp" };
+  if (action !== "call" && action !== "whatsapp") { res.status(400).json({ error: "action must be call or whatsapp" }); return; }
+  try {
+    const updates = action === "call" ? { clickedCall: true } : { clickedWhatsapp: true };
+    await db.update(leadUnlocksTable).set(updates)
+      .where(and(eq(leadUnlocksTable.technicianId, user.id), eq(leadUnlocksTable.orderId, req.params.id)));
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to track unlock action");
+    res.status(500).json({ error: "Failed to track" });
   }
 });
 

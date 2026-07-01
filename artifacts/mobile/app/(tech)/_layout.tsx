@@ -58,6 +58,10 @@ function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSe
         <Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} />
         <Label>Invoices</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="wallet">
+        <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
+        <Label>Wallet</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -135,6 +139,13 @@ function ClassicTechTabs() {
         options={{
           title: t("nav.invoices"),
           tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📄</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          title: isRTL ? "المحفظة" : "Wallet",
+          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>💳</Text>,
         }}
       />
       <Tabs.Screen
