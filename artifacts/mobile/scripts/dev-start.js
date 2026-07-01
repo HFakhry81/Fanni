@@ -16,7 +16,7 @@ const projectRoot = path.resolve(__dirname, "..");
 const isReplit = !!process.env.REPLIT_DEV_DOMAIN;
 const port = process.env.PORT || "5000";
 
-const env = { ...process.env };
+const env = { ...process.env, EXPO_OFFLINE: "1" };
 
 if (isReplit) {
   const devDomain = process.env.REPLIT_DEV_DOMAIN;
