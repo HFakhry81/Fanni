@@ -40,6 +40,10 @@ function NativeAdminTabs() {
         <Icon sf={{ default: "book.closed", selected: "book.closed.fill" }} />
         <Label>Ledger</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="disputes">
+        <Icon sf={{ default: "exclamationmark.bubble", selected: "exclamationmark.bubble.fill" }} />
+        <Label>Disputes</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="permissions">
         <Icon sf={{ default: "shield", selected: "shield.fill" }} />
         <Label>Admins</Label>
@@ -130,6 +134,14 @@ function ClassicAdminTabs() {
           title: isRTL ? "الأستاذ" : "Ledger",
           tabBarIcon: ({ color }) =>
             isIOS ? null : <VectorIcon name="book-open" size={20} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="disputes"
+        options={{
+          title: isRTL ? "النزاعات" : "Disputes",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="alert-circle" size={20} color={color} />,
         }}
       />
       <Tabs.Screen

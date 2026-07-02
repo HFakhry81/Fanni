@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import app from "./app";
 import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { logger } from "./lib/logger";
-import { db, adminsTable, serviceDomainsTable, pool } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, adminsTable, serviceDomainsTable, usersTable, walletsTable, walletTransactionsTable, pool } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 import adminGeoRouter from "./routes/admin-geo";
 app.use(adminGeoRouter);
 
