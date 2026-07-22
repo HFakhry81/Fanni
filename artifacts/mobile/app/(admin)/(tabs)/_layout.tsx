@@ -44,6 +44,14 @@ function NativeAdminTabs() {
         <Icon sf={{ default: "exclamationmark.bubble", selected: "exclamationmark.bubble.fill" }} />
         <Label>Disputes</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="payments">
+        <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
+        <Label>Payments</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="accounting">
+        <Icon sf={{ default: "chart.bar.doc.horizontal", selected: "chart.bar.doc.horizontal.fill" }} />
+        <Label>Accounting</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="permissions">
         <Icon sf={{ default: "shield", selected: "shield.fill" }} />
         <Label>Admins</Label>
@@ -142,6 +150,22 @@ function ClassicAdminTabs() {
           title: isRTL ? "النزاعات" : "Disputes",
           tabBarIcon: ({ color }) =>
             isIOS ? null : <VectorIcon name="alert-circle" size={20} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="payments"
+        options={{
+          title: isRTL ? "المدفوعات" : "Payments",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="credit-card" size={20} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="accounting"
+        options={{
+          title: isRTL ? "الحسابات" : "Accounting",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="bar-chart" size={20} color={color} />,
         }}
       />
       <Tabs.Screen

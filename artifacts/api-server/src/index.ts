@@ -167,8 +167,88 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
+// ── Seed points demo data for technicians ─────────────────────────────────────
+async function seedPointsDemo(): Promise<void> {
+  try {
+    // Ensure default packages exist
+    const pkgCheck = await pool.query(`SELECT id FROM point_packages LIMIT 1`);
+    if (pkgCheck.rows.length === 0) {
+      await pool.query(`
+        INSERT INTO point_packages (name_en, name_ar, points_amount, price_egp, original_price_egp, sort_order)
+        VALUES
+          ('Basic Package',  'الحزمة الأساسية',  100, 100.00, NULL,   1),
+          ('Bronze Package', 'الحزمة البرونزية', 250, 235.00, 250.00, 2),
+          ('Gold Package',   'الحزمة الذهبية',   500, 450.00, 500.00, 3)
+        ON CONFLICT DO NOTHING
+      `);
+      logger.info("DB seed: default point packages seeded");
+    }
+    // Ensure default unlock cost exists
+    const costCheck = await pool.query(
+      `SELECT id FROM unlock_costs WHERE specialty_slug IS NULL AND category_slug IS NULL LIMIT 1`
+    );
+    if (costCheck.rows.length === 0) {
+      await pool.query(`
+        INSERT INTO unlock_costs (specialty_slug, category_slug, points_cost, label)
+        VALUES (NULL, NULL, 15, 'Default unlock cost')
+        ON CONFLICT DO NOTHING
+      `);
+      logger.info("DB seed: default unlock cost (15 pts) seeded");
+    }
+    // Ensure default payment account config exists
+    const configCheck = await pool.query(`SELECT id FROM payment_account_config LIMIT 1`);
+    if (configCheck.rows.length === 0) {
+      await pool.query(`
+        INSERT INTO payment_account_config (bank_name, account_name, account_number, instapay_id, notes)
+        VALUES (
+          'البنك الأهلي المصري',
+          'شركة فاني للصيانة المنزلية',
+          '1234567890',
+          'fanni@instapay',
+          'يرجى كتابة رقم الهاتف المسجل في التطبيق كمرجع للتحويل'
+        ) ON CONFLICT DO NOTHING
+      `);
+      logger.info("DB seed: default payment account config seeded");
+    }
+    // Seed welcome bonus wallets for all technicians (idempotent)
+    const techs = await pool.query<{ id: string; first_name: string | null }>(
+      `SELECT id, first_name FROM users WHERE role = 'technician' LIMIT 30`
+    );
+    for (const tech of techs.rows) {
+      const walletRow = await pool.query<{ id: string; points_balance: number }>(
+        `SELECT id, points_balance FROM wallets WHERE user_id = $1`, [tech.id]
+      );
+      let walletId: string;
+      if (walletRow.rows[0]) {
+        walletId = walletRow.rows[0].id;
+      } else {
+        const created = await pool.query<{ id: string }>(
+          `INSERT INTO wallets (user_id, points_balance) VALUES ($1, 0) RETURNING id`, [tech.id]
+        );
+        walletId = created.rows[0]!.id;
+      }
+      const alreadySeeded = await pool.query(
+        `SELECT id FROM wallet_transactions WHERE wallet_id = $1 AND type = 'welcome_bonus' LIMIT 1`, [walletId]
+      );
+      if (alreadySeeded.rows.length === 0) {
+        await pool.query(
+          `INSERT INTO wallet_transactions (wallet_id, points_amount, type, description) VALUES ($1, 50, 'welcome_bonus', 'مكافأة ترحيبية — Welcome bonus')`,
+          [walletId]
+        );
+        await pool.query(
+          `UPDATE wallets SET points_balance = points_balance + 50, updated_at = NOW() WHERE id = $1`, [walletId]
+        );
+        logger.info({ techId: tech.id }, "DB seed: welcome bonus added to technician wallet");
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "Points demo seed failed (non-fatal)");
+  }
+}
+
 seedDefaultCategories()
   .then(() => seedDefaultAdmin())
+  .then(() => seedPointsDemo())
   .catch((err) => {
     logger.error({ err }, "Startup seed failed — server will still start");
   })

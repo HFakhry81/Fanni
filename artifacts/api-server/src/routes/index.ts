@@ -12,6 +12,7 @@ import ocrRouter from "./ocr";
 import trafficRouter from "./traffic";
 import walletRouter from "./wallet";
 import disputesRouter from "./disputes";
+import paymentsRouter from "./payments";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(ocrRouter);
 router.use(trafficRouter);
 router.use(walletRouter);
 router.use(disputesRouter);
+router.use(paymentsRouter);
 
 export default router;

@@ -2,3 +2,4 @@
 - [Admin mobile change via OTP](admin-mobile-otp.md) — admin PATCH /api/auth/me now supports mobile via OTP; mobileVal must be in adminUpdates.
 - [Admin interface redesign](admin-redesign.md) — 7-tab layout (profile initial), users.tsx hub with 4 sections; permissions.tsx repurposed as "مسئولو النظام".
 - [Fanni Points system](fanni-points-system.md) — prepaid points wallet for techs; unlock pending orders for 15 pts; 6 DB tables + migration 007; wallet tab in tech layout.
+- [Payment request flow](payment-request-flow.md) — manual bank transfer flow: client submits proof → admin confirms → points credited; migration 008; payments + accounting tabs in admin layout.
