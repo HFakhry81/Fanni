@@ -19,7 +19,9 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "com.fanni.app",
-            "CFBundleURLSchemes": ["mobile"]
+            "CFBundleURLSchemes": [
+              "mobile"
+            ]
           }
         ]
       }
@@ -33,7 +35,10 @@
               "scheme": "mobile"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -57,7 +62,8 @@
           "icon": "./assets/images/icon.png",
           "color": "#0D1B2A"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,
