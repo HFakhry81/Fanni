@@ -34,6 +34,143 @@ function getApiBaseUrl(): string {
   return domain ? `http://${domain}` : "";
 }
 
+// ─── Payment Manager Picker ───────────────────────────────────────────────────
+interface AdminOption { id: string; firstName: string | null; lastName: string | null; mobile: string | null }
+
+function PaymentManagerPicker({ sessionToken, isRTL, colors }: {
+  sessionToken: string | null | undefined;
+  isRTL: boolean;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [admins, setAdmins] = useState<AdminOption[]>([]);
+  const [currentManagerId, setCurrentManagerId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+
+  const apiBase = getApiBaseUrl();
+  const headers = { "Content-Type": "application/json", ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) };
+
+  const load = async () => {
+    if (!apiBase || !sessionToken) return;
+    setLoading(true);
+    try {
+      const [cfgRes, listRes] = await Promise.all([
+        fetch(`${apiBase}/api/admin/payment-config`, { headers }),
+        fetch(`${apiBase}/api/admin/admins-list`, { headers }),
+      ]);
+      const cfg = cfgRes.ok ? await cfgRes.json() as { config: { paymentManagerId?: string | null } } : null;
+      const list = listRes.ok ? await listRes.json() as { admins: AdminOption[] } : null;
+      if (cfg?.config) setCurrentManagerId(cfg.config.paymentManagerId ?? null);
+      if (list?.admins) setAdmins(list.admins);
+    } catch (_) {}
+    finally { setLoading(false); }
+  };
+
+  const pick = async (adminId: string | null) => {
+    if (!apiBase || !sessionToken) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/payment-config`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ paymentManagerId: adminId ?? "" }),
+      });
+      if (res.ok) {
+        setCurrentManagerId(adminId);
+        setToastMsg(isRTL ? "تم حفظ مدير المدفوعات" : "Payment manager updated");
+      } else {
+        setToastMsg(isRTL ? "فشل الحفظ" : "Save failed");
+      }
+    } catch (_) { setToastMsg(isRTL ? "خطأ في الاتصال" : "Connection error"); }
+    finally { setSaving(false); setTimeout(() => setToastMsg(""), 3000); }
+  };
+
+  useEffect(() => { if (expanded) load(); }, [expanded]);
+
+  const managerName = (id: string | null) => {
+    if (!id) return isRTL ? "غير محدد" : "Not set";
+    const a = admins.find((x) => x.id === id);
+    if (!a) return id;
+    return [a.firstName, a.lastName].filter(Boolean).join(" ") || a.mobile || id;
+  };
+
+  return (
+    <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: (colors as unknown as Record<string,number>).radius ?? 12, backgroundColor: colors.card, overflow: "hidden", marginBottom: 0 }}>
+      <TouchableOpacity
+        style={{ padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}
+        onPress={() => setExpanded((v) => !v)}
+        activeOpacity={0.8}
+      >
+        <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", backgroundColor: "#FEF3C7", borderRadius: 10 }}>
+          <Text style={{ fontSize: 20 }}>💳</Text>
+        </View>
+        <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL ? "مدير تأكيد المدفوعات" : "Payment Manager"}
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>
+            {managerName(currentManagerId)}
+          </Text>
+        </View>
+        <Text style={{ color: colors.mutedForeground, fontSize: 16 }}>{expanded ? "▲" : "▼"}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ margin: 16 }} />
+          ) : (
+            <>
+              {/* "None" option */}
+              <TouchableOpacity
+                style={{ padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+                onPress={() => { void pick(null); }}
+                disabled={saving}
+              >
+                <Text style={{ flex: 1, color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                  {isRTL ? "— بدون مدير محدد (إشعار الكل)" : "— None (notify all admins)"}
+                </Text>
+                {!currentManagerId && <Text style={{ color: colors.primary, fontSize: 18 }}>✓</Text>}
+              </TouchableOpacity>
+              {admins.map((a) => {
+                const name = [a.firstName, a.lastName].filter(Boolean).join(" ") || a.mobile || a.id;
+                const selected = currentManagerId === a.id;
+                return (
+                  <TouchableOpacity
+                    key={a.id}
+                    style={{ padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+                    onPress={() => { void pick(a.id); }}
+                    disabled={saving}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                        {name}
+                      </Text>
+                      {a.mobile ? (
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>
+                          {a.mobile}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {selected && <Text style={{ color: colors.primary, fontSize: 18 }}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          )}
+          {!!toastMsg && (
+            <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, padding: 12, textAlign: "center" }}>
+              {toastMsg}
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function AdminProfileScreen() {
   const router = useRouter();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
@@ -645,6 +782,9 @@ export default function AdminProfileScreen() {
             <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
           </TouchableOpacity>
         )}
+
+        {/* Payment Manager Picker */}
+        <PaymentManagerPicker sessionToken={sessionToken} isRTL={isRTL} colors={colors} />
 
         {/* Sign out of all other devices */}
         <TouchableOpacity

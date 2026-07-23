@@ -21,6 +21,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/utils/api";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface PointPackage {
   id: string;
   nameEn: string;
@@ -57,25 +58,41 @@ interface PaymentConfig {
   notes: string | null;
 }
 
+/** All keys are camelCase — matching Drizzle ORM output */
 interface PaymentRequest {
   id: string;
-  amount_egp: string;
-  points_requested: number;
-  payment_method: string;
-  reference_number: string | null;
+  amountEgp: string;
+  pointsRequested: number;
+  paymentMethod: "bank_transfer" | "instapay" | "e_wallet";
+  referenceNumber: string | null;
+  transferNote: string | null;
+  senderDetails: Record<string, string> | null;
   status: "pending" | "confirmed" | "rejected";
-  created_at: string;
+  adminNotes: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
 }
 
-const METHOD_OPTIONS = [
-  { key: "bank_transfer", ar: "تحويل بنكي", en: "Bank Transfer", icon: "credit-card" },
-  { key: "instapay", ar: "إنستا باي", en: "InstaPay", icon: "zap" },
-  { key: "e_wallet", ar: "محفظة إلكترونية", en: "E-Wallet", icon: "smartphone" },
-] as const;
+interface AppNotification {
+  id: string;
+  type: string;
+  titleAr: string;
+  titleEn: string;
+  bodyAr: string | null;
+  bodyEn: string | null;
+  createdAt: string;
+}
 
+const METHODS = [
+  { key: "bank_transfer" as const, ar: "تحويل بنكي", en: "Bank Transfer", icon: "credit-card" as const },
+  { key: "instapay" as const, ar: "إنستا باي", en: "InstaPay", icon: "zap" as const },
+  { key: "e_wallet" as const, ar: "محفظة إلكترونية", en: "E-Wallet", icon: "smartphone" as const },
+];
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WalletScreen() {
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { isRTL } = useApp();
   const { sessionToken } = useAuth();
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -83,17 +100,22 @@ export default function WalletScreen() {
   const [packages, setPackages] = useState<PointPackage[]>([]);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [myRequests, setMyRequests] = useState<PaymentRequest[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Payment modal state
+  // Modal state
   const [selectedPkg, setSelectedPkg] = useState<PointPackage | null>(null);
-  const [modalStep, setModalStep] = useState<"account" | "reference">("account");
-  const [payMethod, setPayMethod] = useState<"bank_transfer" | "instapay" | "e_wallet">("bank_transfer");
-  const [reference, setReference] = useState("");
-  const [transferNote, setTransferNote] = useState("");
-  const [submitLoading, setSubmitLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  /** Step 1: choose method. Step 2: enter sender account. Step 3: review & confirm */
+  const [modalStep, setModalStep] = useState<"method" | "sender" | "review">("method");
+  const [payMethod, setPayMethod] = useState<"bank_transfer" | "instapay" | "e_wallet">("bank_transfer");
+  const [senderAccount, setSenderAccount] = useState(""); // the tech's OWN account/id/number
+  const [senderName, setSenderName] = useState("");        // optional sender name for bank
+  const [submitLoading, setSubmitLoading] = useState(false);
+
+  // Notifications modal
+  const [notifVisible, setNotifVisible] = useState(false);
 
   const apiHeaders = useCallback(() => ({
     "Content-Type": "application/json",
@@ -105,11 +127,12 @@ export default function WalletScreen() {
     if (!apiBase || !sessionToken) { setLoading(false); return; }
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const [walletRes, pkgRes, configRes, requestsRes] = await Promise.all([
+      const [walletRes, pkgRes, configRes, requestsRes, notifRes] = await Promise.all([
         fetch(`${apiBase}/api/wallet`, { headers: apiHeaders() }),
         fetch(`${apiBase}/api/wallet/packages`),
         fetch(`${apiBase}/api/payment-config`, { headers: apiHeaders() }),
         fetch(`${apiBase}/api/payments/my-requests`, { headers: apiHeaders() }),
+        fetch(`${apiBase}/api/notifications`, { headers: apiHeaders() }),
       ]);
       if (walletRes.ok) {
         const json = await walletRes.json() as { wallet: Wallet; transactions: WalletTx[] };
@@ -125,8 +148,13 @@ export default function WalletScreen() {
         setPaymentConfig(json.config);
       }
       if (requestsRes.ok) {
+        // Drizzle returns camelCase keys
         const json = await requestsRes.json() as { requests: PaymentRequest[] };
-        setMyRequests(json.requests ?? []);
+        setMyRequests(Array.isArray(json.requests) ? json.requests : []);
+      }
+      if (notifRes.ok) {
+        const json = await notifRes.json() as { notifications: AppNotification[] };
+        setNotifications(Array.isArray(json.notifications) ? json.notifications : []);
       }
     } catch (err) {
       console.warn("[Wallet] fetch error:", err);
@@ -136,23 +164,59 @@ export default function WalletScreen() {
     }
   }, [sessionToken, apiHeaders]);
 
-  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
+  useFocusEffect(useCallback(() => { void fetchData(); }, [fetchData]));
 
+  // ─── Dismiss notification ──────────────────────────────────────────────────
+  const dismissNotification = async (id: string) => {
+    const apiBase = getApiBase();
+    if (!apiBase || !sessionToken) return;
+    try {
+      await fetch(`${apiBase}/api/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: apiHeaders(),
+      });
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch {}
+  };
+
+  const dismissAllNotifications = async () => {
+    const apiBase = getApiBase();
+    if (!apiBase || !sessionToken) return;
+    try {
+      await fetch(`${apiBase}/api/notifications/read-all`, {
+        method: "PATCH",
+        headers: apiHeaders(),
+      });
+      setNotifications([]);
+      setNotifVisible(false);
+    } catch {}
+  };
+
+  // ─── Open buy modal ────────────────────────────────────────────────────────
   const openBuyModal = (pkg: PointPackage) => {
     setSelectedPkg(pkg);
-    setModalStep("account");
+    setModalStep("method");
     setPayMethod("bank_transfer");
-    setReference("");
-    setTransferNote("");
+    setSenderAccount("");
+    setSenderName("");
     setModalVisible(true);
   };
 
+  // ─── Submit payment request ────────────────────────────────────────────────
   const submitPaymentRequest = async () => {
     if (!selectedPkg) return;
-    if (!reference.trim()) {
+    const senderKey = payMethod === "bank_transfer"
+      ? "accountNumber"
+      : payMethod === "instapay"
+      ? "instapayId"
+      : "walletNumber";
+
+    if (!senderAccount.trim()) {
       Alert.alert(
         isRTL ? "مطلوب" : "Required",
-        isRTL ? "يرجى إدخال رقم مرجع التحويل" : "Please enter the transfer reference number",
+        isRTL
+          ? "يرجى إدخال بيانات حسابك"
+          : "Please enter your account details",
       );
       return;
     }
@@ -160,6 +224,9 @@ export default function WalletScreen() {
     if (!apiBase || !sessionToken) return;
     setSubmitLoading(true);
     try {
+      const senderDetails: Record<string, string> = { [senderKey]: senderAccount.trim() };
+      if (senderName.trim()) senderDetails.accountName = senderName.trim();
+
       const res = await fetch(`${apiBase}/api/payments/request`, {
         method: "POST",
         headers: apiHeaders(),
@@ -168,18 +235,17 @@ export default function WalletScreen() {
           amountEgp: parseFloat(selectedPkg.priceEgp),
           pointsRequested: selectedPkg.pointsAmount,
           paymentMethod: payMethod,
-          referenceNumber: reference.trim(),
-          transferNote: transferNote.trim() || undefined,
+          senderDetails,
         }),
       });
       if (res.ok) {
         setModalVisible(false);
         await fetchData(true);
         Alert.alert(
-          isRTL ? "تم إرسال الطلب ✓" : "Request Submitted ✓",
+          isRTL ? "📨 تم إرسال الطلب" : "📨 Request Submitted",
           isRTL
-            ? "سنضيف النقاط بعد مراجعة وتأكيد التحويل من قِبل الإدارة"
-            : "We'll credit your points once admin verifies the transfer",
+            ? `طلبك لإضافة ${selectedPkg.pointsAmount} نقطة قيد المراجعة. سيتم إشعارك فور تأكيد الدفع.`
+            : `Your request for ${selectedPkg.pointsAmount} pts is under review. You'll be notified once confirmed.`,
         );
       } else {
         const json = await res.json() as { error?: string };
@@ -192,12 +258,24 @@ export default function WalletScreen() {
     }
   };
 
-  const copyToClipboard = (text: string, label: string) => {
+  // ─── Copy to clipboard ─────────────────────────────────────────────────────
+  const copy = (text: string) => {
     Clipboard.setString(text);
-    Alert.alert(isRTL ? "تم النسخ" : "Copied", label);
+    Alert.alert(isRTL ? "تم النسخ ✓" : "Copied ✓", text);
   };
 
-  const txLabel = (type: string) => t(`wallet.type.${type}`) || type;
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+  const txLabel = (type: string): string => {
+    const map: Record<string, { ar: string; en: string }> = {
+      package_purchase: { ar: "شراء حزمة", en: "Package Purchase" },
+      lead_unlock: { ar: "فتح طلب", en: "Lead Unlock" },
+      dispute_refund: { ar: "استرداد نزاع", en: "Dispute Refund" },
+      admin_adjustment: { ar: "تعديل إداري", en: "Admin Adjustment" },
+      welcome_bonus: { ar: "مكافأة ترحيبية", en: "Welcome Bonus" },
+    };
+    return isRTL ? (map[type]?.ar ?? type) : (map[type]?.en ?? type);
+  };
+
   const txColor = (amt: number) => (amt > 0 ? "#22c55e" : "#ef4444");
 
   const statusColor = (s: string) =>
@@ -208,12 +286,29 @@ export default function WalletScreen() {
       ? isRTL ? "مؤكد ✓" : "Confirmed ✓"
       : s === "rejected"
       ? isRTL ? "مرفوض ✗" : "Rejected ✗"
-      : isRTL ? "قيد الانتظار…" : "Pending…";
+      : isRTL ? "⏳ في انتظار التأكيد" : "⏳ Pending";
 
+  const senderLabel = () => {
+    if (payMethod === "bank_transfer") return isRTL ? "رقم حسابك البنكي" : "Your Bank Account Number";
+    if (payMethod === "instapay")     return isRTL ? "رقم إنستا باي الخاص بك" : "Your InstaPay ID";
+    return isRTL ? "رقم محفظتك الإلكترونية" : "Your E-Wallet Number";
+  };
+
+  const companyAccountValue = () => {
+    if (!paymentConfig) return null;
+    if (payMethod === "bank_transfer") return paymentConfig.accountNumber;
+    if (payMethod === "instapay")      return paymentConfig.instapayId;
+    return paymentConfig.ewalletNumber;
+  };
+
+  const methodLabel = (m: string) =>
+    METHODS.find((x) => x.key === m)?.[isRTL ? "ar" : "en"] ?? m;
+
+  // ─── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <AppHeader title={t("wallet.title")} showLangToggle />
+        <AppHeader title={isRTL ? "محفظة النقاط" : "Points Wallet"} showLangToggle />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -222,10 +317,29 @@ export default function WalletScreen() {
   }
 
   const balance = wallet?.pointsBalance ?? 0;
+  const unreadCount = notifications.length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title={t("wallet.title")} showLangToggle />
+      <AppHeader title={isRTL ? "محفظة النقاط" : "Points Wallet"} showLangToggle />
+
+      {/* Notifications bell */}
+      {unreadCount > 0 && (
+        <TouchableOpacity
+          style={[styles.notifBanner, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }]}
+          onPress={() => setNotifVisible(true)}
+          activeOpacity={0.8}
+        >
+          <VectorIcon name="bell" size={16} color={colors.primary} />
+          <Text style={[styles.notifBannerText, { color: colors.primary }]}>
+            {isRTL
+              ? `لديك ${unreadCount} ${unreadCount === 1 ? "إشعار" : "إشعارات"} جديدة`
+              : `You have ${unreadCount} new notification${unreadCount !== 1 ? "s" : ""}`}
+          </Text>
+          <VectorIcon name="chevron-right" size={14} color={colors.primary} />
+        </TouchableOpacity>
+      )}
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
@@ -240,55 +354,29 @@ export default function WalletScreen() {
         {/* ── Balance Card ── */}
         <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
           <VectorIcon name="credit-card" size={28} color="#fff" />
-          <Text style={styles.balanceLabel}>{t("wallet.balance")}</Text>
+          <Text style={styles.balanceLabel}>{isRTL ? "رصيدك الحالي" : "Your Balance"}</Text>
           <View style={styles.balanceRow}>
             <Text style={styles.balanceAmount}>{balance.toLocaleString()}</Text>
-            <Text style={styles.balancePtsLabel}>{t("wallet.points")}</Text>
+            <Text style={styles.balancePtsLabel}>{isRTL ? "نقطة" : "pts"}</Text>
           </View>
         </View>
 
-        {/* ── How to buy (steps) ── */}
-        <View
-          style={[
-            styles.howToCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text
-            style={[
-              styles.howToTitle,
-              { color: colors.foreground, textAlign: isRTL ? "right" : "left" },
-            ]}
-          >
-            {t("payment.howTo")}
+        {/* ── How it works ── */}
+        <View style={[styles.howToCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.howToTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+            {isRTL ? "كيفية شراء النقاط" : "How to buy points"}
           </Text>
           {[
-            t("payment.step1"),
-            t("payment.step2"),
-            t("payment.step3"),
-            t("payment.step4"),
+            isRTL ? "اختر الباقة المناسبة واضغط عليها" : "Pick a package and tap it",
+            isRTL ? "اختر وسيلة الدفع وأدخل بيانات حسابك أنت" : "Choose a payment method and enter YOUR account details",
+            isRTL ? "أرسل الطلب — سيراجعه المسئول" : "Submit — admin will review your request",
+            isRTL ? "تُضاف النقاط فور تأكيد الدفع وستصلك إشعار" : "Points credited on confirmation + you'll get a notification",
           ].map((step, i) => (
-            <View
-              key={i}
-              style={[
-                styles.stepRow,
-                { flexDirection: isRTL ? "row-reverse" : "row" },
-              ]}
-            >
-              <View
-                style={[styles.stepNum, { backgroundColor: colors.primary }]}
-              >
+            <View key={i} style={[styles.stepRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <View style={[styles.stepNum, { backgroundColor: colors.primary }]}>
                 <Text style={styles.stepNumText}>{i + 1}</Text>
               </View>
-              <Text
-                style={[
-                  styles.stepText,
-                  {
-                    color: colors.foreground,
-                    textAlign: isRTL ? "right" : "left",
-                  },
-                ]}
-              >
+              <Text style={[styles.stepText, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
                 {step}
               </Text>
             </View>
@@ -296,282 +384,146 @@ export default function WalletScreen() {
         </View>
 
         {/* ── Packages ── */}
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: colors.foreground, textAlign: isRTL ? "right" : "left" },
-          ]}
-        >
-          {t("wallet.buyPoints")}
+        <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+          {isRTL ? "الباقات المتاحة" : "Available Packages"}
         </Text>
-        <View
-          style={[
-            styles.packagesRow,
-            { flexDirection: isRTL ? "row-reverse" : "row" },
-          ]}
-        >
-          {packages.map((pkg) => {
-            const name = isRTL ? pkg.nameAr : pkg.nameEn;
-            const price = parseFloat(pkg.priceEgp);
-            const origPrice = pkg.originalPriceEgp
-              ? parseFloat(pkg.originalPriceEgp)
-              : null;
-            const savePct =
-              origPrice && origPrice > price
-                ? Math.round((1 - price / origPrice) * 100)
-                : null;
-            return (
-              <TouchableOpacity
-                key={pkg.id}
-                style={[
-                  styles.pkgCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    borderRadius: colors.radius,
-                  },
-                ]}
-                onPress={() => openBuyModal(pkg)}
-              >
-                {savePct ? (
-                  <View
-                    style={[styles.saveBadge, { backgroundColor: "#22c55e" }]}
-                  >
-                    <Text style={styles.saveBadgeText}>
-                      {t("wallet.save")} {savePct}%
-                    </Text>
-                  </View>
-                ) : null}
-                <Text style={[styles.pkgPoints, { color: colors.primary }]}>
-                  {pkg.pointsAmount.toLocaleString()}
-                </Text>
-                <Text
-                  style={[
-                    styles.pkgPtsLabel,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {t("wallet.points")}
-                </Text>
-                <Text
-                  style={[styles.pkgName, { color: colors.foreground }]}
-                  numberOfLines={2}
-                >
-                  {name}
-                </Text>
-                {origPrice ? (
-                  <Text
-                    style={[
-                      styles.pkgOrigPrice,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    {origPrice.toFixed(0)} {t("wallet.egp")}
-                  </Text>
-                ) : null}
-                <Text style={[styles.pkgPrice, { color: colors.foreground }]}>
-                  {price.toFixed(0)} {t("wallet.egp")}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
-        {/* ── Previous payment requests ── */}
+        {packages.filter((p) => p.isActive).map((pkg) => {
+          const name = isRTL ? pkg.nameAr : pkg.nameEn;
+          const price = parseFloat(pkg.priceEgp);
+          const origPrice = pkg.originalPriceEgp ? parseFloat(pkg.originalPriceEgp) : null;
+          const discount = origPrice ? Math.round((1 - price / origPrice) * 100) : null;
+          return (
+            <TouchableOpacity
+              key={pkg.id}
+              style={[styles.pkgCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => openBuyModal(pkg)}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.pkgLeft, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <View style={[styles.pkgPtsBadge, { backgroundColor: colors.primary + "18" }]}>
+                  <Text style={[styles.pkgPtsNum, { color: colors.primary }]}>{pkg.pointsAmount}</Text>
+                  <Text style={[styles.pkgPtsLabel, { color: colors.primary }]}>{isRTL ? "نقطة" : "pts"}</Text>
+                </View>
+                <View style={styles.pkgInfo}>
+                  <Text style={[styles.pkgName, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                    {name}
+                  </Text>
+                  {origPrice && (
+                    <Text style={[styles.pkgOrigPrice, { color: colors.mutedForeground }]}>
+                      {origPrice.toFixed(0)} {isRTL ? "ج.م" : "EGP"}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <View style={styles.pkgRight}>
+                {discount && (
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>-{discount}%</Text>
+                  </View>
+                )}
+                <Text style={[styles.pkgPrice, { color: colors.primary }]}>
+                  {price.toFixed(0)} {isRTL ? "ج.م" : "EGP"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* ── Payment Requests History ── */}
         {myRequests.length > 0 && (
           <>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color: colors.foreground,
-                  textAlign: isRTL ? "right" : "left",
-                },
-              ]}
-            >
-              {t("payment.historyTitle")}
+            <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left", marginTop: 20 }]}>
+              {isRTL ? "طلبات الدفع السابقة" : "Previous Requests"}
             </Text>
-            {myRequests.slice(0, 5).map((req) => (
-              <View
-                key={req.id}
-                style={[
-                  styles.reqRow,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    borderLeftColor: statusColor(req.status),
-                    flexDirection: isRTL ? "row-reverse" : "row",
-                  },
-                ]}
-              >
-                <View style={[styles.reqStripe, { backgroundColor: statusColor(req.status) }]} />
-                <View style={{ flex: 1 }}>
-                  <View
-                    style={[
-                      styles.reqHeader,
-                      { flexDirection: isRTL ? "row-reverse" : "row" },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.reqAmount,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      {parseFloat(req.amount_egp).toFixed(0)} {t("wallet.egp")}
+            {myRequests.slice(0, 10).map((req) => {
+              const sc = statusColor(req.status);
+              return (
+                <View
+                  key={req.id}
+                  style={[
+                    styles.reqRow,
+                    { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" },
+                  ]}
+                >
+                  <View style={[styles.reqStripe, { backgroundColor: sc }]} />
+                  <View style={{ flex: 1, paddingVertical: 2 }}>
+                    <View style={[styles.reqHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                      <Text style={[styles.reqAmount, { color: colors.primary }]}>
+                        {parseFloat(req.amountEgp).toFixed(0)} {isRTL ? "ج.م" : "EGP"}
+                      </Text>
+                      <Text style={[styles.reqPts, { color: colors.mutedForeground }]}>
+                        → {req.pointsRequested} {isRTL ? "نقطة" : "pts"}
+                      </Text>
+                    </View>
+                    <Text style={[styles.reqStatus, { color: sc }]}>{statusLabel(req.status)}</Text>
+                    <Text style={[styles.reqMethod, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                      {methodLabel(req.paymentMethod)}
                     </Text>
-                    <Text
-                      style={[
-                        styles.reqPts,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      → {req.points_requested.toLocaleString()} {t("wallet.points")}
+                    {req.adminNotes ? (
+                      <Text style={[styles.reqNote, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]} numberOfLines={2}>
+                        {isRTL ? "ملاحظة: " : "Note: "}{req.adminNotes}
+                      </Text>
+                    ) : null}
+                    <Text style={[styles.reqDate, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                      {new Date(req.createdAt).toLocaleString(isRTL ? "ar-EG" : "en-GB", {
+                        day: "2-digit", month: "short", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
                     </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.reqStatus,
-                      { color: statusColor(req.status), textAlign: isRTL ? "right" : "left" },
-                    ]}
-                  >
-                    {statusLabel(req.status)}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.reqDate,
-                      { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" },
-                    ]}
-                  >
-                    {new Date(req.created_at).toLocaleDateString(
-                      isRTL ? "ar-EG" : "en-GB",
-                      { day: "numeric", month: "short", year: "numeric" },
-                    )}
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {/* ── Transaction History ── */}
+        {transactions.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left", marginTop: 20 }]}>
+              {isRTL ? "سجل المعاملات" : "Transaction History"}
+            </Text>
+            {transactions.slice(0, 20).map((tx) => (
+              <View
+                key={tx.id}
+                style={[
+                  styles.txRow,
+                  { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" },
+                ]}
+              >
+                <View style={[styles.txIcon, { backgroundColor: txColor(tx.pointsAmount) + "18" }]}>
+                  <VectorIcon
+                    name={tx.pointsAmount > 0 ? "arrow-down-left" : "arrow-up-right"}
+                    size={16}
+                    color={txColor(tx.pointsAmount)}
+                  />
+                </View>
+                <View style={[styles.txInfo, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
+                  <Text style={[styles.txLabel, { color: colors.foreground }]}>{txLabel(tx.type)}</Text>
+                  {tx.description ? (
+                    <Text style={[styles.txDesc, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {tx.description}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.txDate, { color: colors.mutedForeground }]}>
+                    {new Date(tx.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-GB")}
                   </Text>
                 </View>
+                <Text style={[styles.txAmount, { color: txColor(tx.pointsAmount) }]}>
+                  {tx.pointsAmount > 0 ? "+" : ""}{tx.pointsAmount} {isRTL ? "ن" : "pt"}
+                </Text>
               </View>
             ))}
           </>
         )}
 
-        {/* ── Transaction History ── */}
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: colors.foreground, textAlign: isRTL ? "right" : "left" },
-          ]}
-        >
-          {t("wallet.history")}
-        </Text>
-        {transactions.length === 0 ? (
-          <View
-            style={[
-              styles.emptyTx,
-              {
-                backgroundColor: colors.card,
-                borderRadius: colors.radius,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <VectorIcon name="inbox" size={32} color={colors.mutedForeground} />
-            <Text
-              style={{
-                color: colors.mutedForeground,
-                fontFamily: "Inter_400Regular",
-                fontSize: 13,
-                marginTop: 8,
-              }}
-            >
-              {t("wallet.noHistory")}
-            </Text>
-          </View>
-        ) : (
-          transactions.map((tx) => (
-            <View
-              key={tx.id}
-              style={[
-                styles.txRow,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                  borderRadius: colors.radius,
-                  flexDirection: isRTL ? "row-reverse" : "row",
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.txIcon,
-                  {
-                    backgroundColor:
-                      tx.pointsAmount > 0 ? "#dcfce7" : "#fee2e2",
-                  },
-                ]}
-              >
-                <VectorIcon
-                  name={
-                    tx.pointsAmount > 0 ? "arrow-down-left" : "arrow-up-right"
-                  }
-                  size={16}
-                  color={txColor(tx.pointsAmount)}
-                />
-              </View>
-              <View
-                style={[
-                  styles.txInfo,
-                  { alignItems: isRTL ? "flex-end" : "flex-start" },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: colors.foreground,
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 13,
-                  }}
-                >
-                  {txLabel(tx.type)}
-                </Text>
-                {tx.description ? (
-                  <Text
-                    style={{
-                      color: colors.mutedForeground,
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 11,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {tx.description}
-                  </Text>
-                ) : null}
-                <Text
-                  style={{
-                    color: colors.mutedForeground,
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 11,
-                  }}
-                >
-                  {new Date(tx.createdAt).toLocaleDateString(
-                    isRTL ? "ar-EG" : "en-US",
-                    { day: "numeric", month: "short" },
-                  )}
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.txAmount,
-                  { color: txColor(tx.pointsAmount) },
-                ]}
-              >
-                {tx.pointsAmount > 0 ? "+" : ""}
-                {tx.pointsAmount} {t("wallet.points")}
-              </Text>
-            </View>
-          ))
-        )}
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── Payment Modal ── */}
+      {/* ════════════════════════════════════════════════════════════════════
+          BUY MODAL — 3 steps
+       ════════════════════════════════════════════════════════════════════ */}
       <Modal
         visible={modalVisible}
         transparent
@@ -579,315 +531,277 @@ export default function WalletScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalBox,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
+          <View style={[styles.modalBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {/* Header */}
-            <View
-              style={[
-                styles.modalHeader,
-                { flexDirection: isRTL ? "row-reverse" : "row" },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.modalTitle,
-                  {
-                    color: colors.foreground,
-                    textAlign: isRTL ? "right" : "left",
-                  },
-                ]}
-              >
-                {modalStep === "account"
-                  ? isRTL
-                    ? "تفاصيل الدفع"
-                    : "Payment Details"
-                  : isRTL
-                  ? "تأكيد التحويل"
-                  : "Confirm Transfer"}
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                {modalStep === "method"
+                  ? isRTL ? "اختر وسيلة الدفع" : "Choose Payment Method"
+                  : modalStep === "sender"
+                  ? isRTL ? "بيانات حسابك" : "Your Account Details"
+                  : isRTL ? "مراجعة وتأكيد" : "Review & Confirm"}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <VectorIcon name="x" size={20} color={colors.mutedForeground} />
+                <VectorIcon name="x" size={22} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
-            {/* Package summary */}
+            {/* Package summary pill */}
             {selectedPkg && (
-              <View
-                style={[
-                  styles.pkgSummary,
-                  { backgroundColor: colors.accent, borderRadius: 10 },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.pkgSummaryName,
-                    { color: colors.primary },
-                  ]}
-                >
+              <View style={[styles.pkgSummary, { backgroundColor: colors.primary + "12", borderRadius: 10 }]}>
+                <Text style={[styles.pkgSummaryName, { color: colors.primary, textAlign: isRTL ? "right" : "left" }]}>
                   {isRTL ? selectedPkg.nameAr : selectedPkg.nameEn}
                 </Text>
-                <Text style={[styles.pkgSummaryDetail, { color: colors.foreground }]}>
-                  {selectedPkg.pointsAmount.toLocaleString()} {t("wallet.points")} —{" "}
-                  {parseFloat(selectedPkg.priceEgp).toFixed(0)} {t("wallet.egp")}
+                <Text style={[styles.pkgSummaryDetail, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                  {selectedPkg.pointsAmount} {isRTL ? "نقطة" : "pts"}
+                  {"  "}·{"  "}
+                  {parseFloat(selectedPkg.priceEgp).toFixed(0)} {isRTL ? "ج.م" : "EGP"}
                 </Text>
               </View>
             )}
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 420 }}
-            >
-              {modalStep === "account" ? (
-                <>
-                  {/* Payment method selector */}
-                  <Text
-                    style={[
-                      styles.fieldLabel,
-                      {
-                        color: colors.mutedForeground,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
-                  >
-                    {isRTL ? "وسيلة الدفع" : "Payment Method"}
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* ── STEP 1: Method ── */}
+              {modalStep === "method" && (
+                <View style={{ gap: 10, marginTop: 8 }}>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                    {isRTL ? "اختر الطريقة التي ستدفع بها" : "How would you like to pay?"}
                   </Text>
-                  <View
-                    style={[
-                      styles.methodRow,
-                      { flexDirection: isRTL ? "row-reverse" : "row" },
-                    ]}
-                  >
-                    {METHOD_OPTIONS.map((m) => (
-                      <TouchableOpacity
-                        key={m.key}
-                        style={[
-                          styles.methodChip,
-                          {
-                            borderColor:
-                              payMethod === m.key
-                                ? colors.primary
-                                : colors.border,
-                            backgroundColor:
-                              payMethod === m.key
-                                ? colors.primary + "18"
-                                : colors.background,
-                          },
-                        ]}
-                        onPress={() => setPayMethod(m.key)}
-                      >
-                        <VectorIcon
-                          name={m.icon as never}
-                          size={14}
-                          color={
-                            payMethod === m.key
-                              ? colors.primary
-                              : colors.mutedForeground
-                          }
-                        />
-                        <Text
-                          style={[
-                            styles.methodText,
-                            {
-                              color:
-                                payMethod === m.key
-                                  ? colors.primary
-                                  : colors.mutedForeground,
-                            },
-                          ]}
-                        >
-                          {isRTL ? m.ar : m.en}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {/* Account details */}
-                  {paymentConfig && (
-                    <View
+                  {METHODS.map((m) => (
+                    <TouchableOpacity
+                      key={m.key}
                       style={[
-                        styles.accountCard,
+                        styles.methodCard,
                         {
-                          backgroundColor: colors.background,
-                          borderColor: colors.border,
+                          borderColor: payMethod === m.key ? colors.primary : colors.border,
+                          backgroundColor: payMethod === m.key ? colors.primary + "10" : colors.background,
+                          flexDirection: isRTL ? "row-reverse" : "row",
                         },
                       ]}
+                      onPress={() => setPayMethod(m.key)}
+                      activeOpacity={0.85}
                     >
-                      {paymentConfig.bankName && (
-                        <AccountRow
-                          label={isRTL ? "البنك" : "Bank"}
-                          value={paymentConfig.bankName}
-                          colors={colors}
-                          isRTL={isRTL}
-                          onCopy={copyToClipboard}
-                        />
+                      <VectorIcon name={m.icon} size={20} color={payMethod === m.key ? colors.primary : colors.mutedForeground} />
+                      <Text style={[styles.methodCardText, { color: payMethod === m.key ? colors.primary : colors.foreground }]}>
+                        {isRTL ? m.ar : m.en}
+                      </Text>
+                      {payMethod === m.key && (
+                        <VectorIcon name="check-circle" size={18} color={colors.primary} style={{ marginLeft: "auto" }} />
                       )}
-                      {paymentConfig.accountName && (
-                        <AccountRow
-                          label={isRTL ? "اسم الحساب" : "Account Name"}
-                          value={paymentConfig.accountName}
-                          colors={colors}
-                          isRTL={isRTL}
-                          onCopy={copyToClipboard}
-                        />
-                      )}
-                      {paymentConfig.accountNumber && payMethod === "bank_transfer" && (
-                        <AccountRow
-                          label={isRTL ? "رقم الحساب" : "Account No."}
-                          value={paymentConfig.accountNumber}
-                          colors={colors}
-                          isRTL={isRTL}
-                          onCopy={copyToClipboard}
-                        />
-                      )}
-                      {paymentConfig.iban && payMethod === "bank_transfer" && (
-                        <AccountRow
-                          label="IBAN"
-                          value={paymentConfig.iban}
-                          colors={colors}
-                          isRTL={isRTL}
-                          onCopy={copyToClipboard}
-                        />
-                      )}
-                      {paymentConfig.instapayId && payMethod === "instapay" && (
-                        <AccountRow
-                          label={isRTL ? "رقم إنستا باي" : "InstaPay ID"}
-                          value={paymentConfig.instapayId}
-                          colors={colors}
-                          isRTL={isRTL}
-                          onCopy={copyToClipboard}
-                        />
-                      )}
-                      {paymentConfig.ewalletNumber && payMethod === "e_wallet" && (
-                        <AccountRow
-                          label={isRTL ? "رقم المحفظة" : "Wallet No."}
-                          value={paymentConfig.ewalletNumber}
-                          colors={colors}
-                          isRTL={isRTL}
-                          onCopy={copyToClipboard}
-                        />
-                      )}
-                      {paymentConfig.notes && (
-                        <Text
-                          style={[
-                            styles.configNote,
-                            {
-                              color: colors.mutedForeground,
-                              textAlign: isRTL ? "right" : "left",
-                            },
-                          ]}
-                        >
-                          ℹ️ {paymentConfig.notes}
+                    </TouchableOpacity>
+                  ))}
+                  <FanniButton
+                    title={isRTL ? "التالي →" : "Next →"}
+                    onPress={() => setModalStep("sender")}
+                    style={{ marginTop: 8 }}
+                  />
+                </View>
+              )}
+
+              {/* ── STEP 2: Sender account ── */}
+              {modalStep === "sender" && (
+                <View style={{ gap: 12, marginTop: 8 }}>
+                  {/* Company account (where to send) */}
+                  {paymentConfig && (
+                    <View style={[styles.accountCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                      <Text style={[styles.accountCardTitle, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                        {isRTL ? "📋 حوّل المبلغ إلى" : "📋 Transfer to"}
+                      </Text>
+                      {paymentConfig.bankName && payMethod === "bank_transfer" ? (
+                        <CopyRow label={isRTL ? "البنك" : "Bank"} value={paymentConfig.bankName} onCopy={copy} isRTL={isRTL} colors={colors} />
+                      ) : null}
+                      {paymentConfig.accountName && payMethod === "bank_transfer" ? (
+                        <CopyRow label={isRTL ? "الحساب" : "Account"} value={paymentConfig.accountName} onCopy={copy} isRTL={isRTL} colors={colors} />
+                      ) : null}
+                      {payMethod === "bank_transfer" && paymentConfig.accountNumber ? (
+                        <CopyRow label={isRTL ? "رقم الحساب" : "Account No."} value={paymentConfig.accountNumber} onCopy={copy} isRTL={isRTL} colors={colors} />
+                      ) : null}
+                      {payMethod === "instapay" && paymentConfig.instapayId ? (
+                        <CopyRow label="InstaPay" value={paymentConfig.instapayId} onCopy={copy} isRTL={isRTL} colors={colors} />
+                      ) : null}
+                      {payMethod === "e_wallet" && paymentConfig.ewalletNumber ? (
+                        <CopyRow label={isRTL ? "المحفظة" : "Wallet"} value={paymentConfig.ewalletNumber} onCopy={copy} isRTL={isRTL} colors={colors} />
+                      ) : null}
+                      {paymentConfig.notes ? (
+                        <Text style={[styles.configNote, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                          {paymentConfig.notes}
                         </Text>
-                      )}
+                      ) : null}
                     </View>
                   )}
 
-                  <FanniButton
-                    title={
-                      isRTL
-                        ? "التالي: أدخل رقم المرجع"
-                        : "Next: Enter Reference"
-                    }
-                    onPress={() => setModalStep("reference")}
-                    style={{ marginTop: 14 }}
-                  />
-                </>
-              ) : (
-                <>
-                  {/* Reference input */}
-                  <Text
-                    style={[
-                      styles.fieldLabel,
-                      {
-                        color: colors.mutedForeground,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
-                  >
-                    {t("payment.reference")} *
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      {
-                        color: colors.foreground,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
-                    placeholder={
-                      isRTL
-                        ? "مثال: 202507231234"
-                        : "e.g. 202507231234"
-                    }
-                    placeholderTextColor={colors.mutedForeground}
-                    value={reference}
-                    onChangeText={setReference}
-                    keyboardType="default"
-                  />
-
-                  <Text
-                    style={[
-                      styles.fieldLabel,
-                      {
-                        color: colors.mutedForeground,
-                        textAlign: isRTL ? "right" : "left",
-                        marginTop: 12,
-                      },
-                    ]}
-                  >
-                    {t("payment.note")}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      styles.textArea,
-                      {
-                        color: colors.foreground,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
-                    placeholder={
-                      isRTL
-                        ? "أي ملاحظات إضافية للإدارة"
-                        : "Any additional notes for admin"
-                    }
-                    placeholderTextColor={colors.mutedForeground}
-                    value={transferNote}
-                    onChangeText={setTransferNote}
-                    multiline
-                    numberOfLines={3}
-                  />
-
-                  <TouchableOpacity
-                    style={{ alignItems: isRTL ? "flex-end" : "flex-start", marginBottom: 4 }}
-                    onPress={() => setModalStep("account")}
-                  >
-                    <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13 }}>
-                      ← {isRTL ? "رجوع" : "Back"}
+                  {/* Sender account input */}
+                  <View>
+                    <Text style={[styles.fieldLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                      {senderLabel()} *
                     </Text>
-                  </TouchableOpacity>
+                    <TextInput
+                      style={[styles.textInput, {
+                        color: colors.foreground,
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                        textAlign: isRTL ? "right" : "left",
+                      }]}
+                      placeholder={isRTL ? "أدخل رقم حسابك / معرّفك" : "Enter your account / ID"}
+                      placeholderTextColor={colors.mutedForeground}
+                      value={senderAccount}
+                      onChangeText={setSenderAccount}
+                      keyboardType="default"
+                      autoCapitalize="none"
+                    />
+                  </View>
 
-                  <FanniButton
-                    title={
-                      isRTL
-                        ? "إرسال طلب الدفع"
-                        : "Submit Payment Request"
-                    }
-                    onPress={submitPaymentRequest}
-                    loading={submitLoading}
-                    style={{ marginTop: 8 }}
-                  />
-                </>
+                  {payMethod === "bank_transfer" && (
+                    <View>
+                      <Text style={[styles.fieldLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                        {isRTL ? "اسم صاحب الحساب (اختياري)" : "Account holder name (optional)"}
+                      </Text>
+                      <TextInput
+                        style={[styles.textInput, {
+                          color: colors.foreground,
+                          borderColor: colors.border,
+                          backgroundColor: colors.background,
+                          textAlign: isRTL ? "right" : "left",
+                        }]}
+                        placeholder={isRTL ? "اسمك كما في البنك" : "Your name as on bank"}
+                        placeholderTextColor={colors.mutedForeground}
+                        value={senderName}
+                        onChangeText={setSenderName}
+                      />
+                    </View>
+                  )}
+
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={[styles.backBtn, { borderColor: colors.border }]}
+                      onPress={() => setModalStep("method")}
+                    >
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                        {isRTL ? "← السابق" : "← Back"}
+                      </Text>
+                    </TouchableOpacity>
+                    <FanniButton
+                      title={isRTL ? "مراجعة →" : "Review →"}
+                      onPress={() => {
+                        if (!senderAccount.trim()) {
+                          Alert.alert(isRTL ? "مطلوب" : "Required", isRTL ? "أدخل بيانات حسابك" : "Enter your account details");
+                          return;
+                        }
+                        setModalStep("review");
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* ── STEP 3: Review & Confirm ── */}
+              {modalStep === "review" && selectedPkg && (
+                <View style={{ gap: 12, marginTop: 8 }}>
+                  <View style={[styles.reviewCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                    <ReviewRow label={isRTL ? "الباقة" : "Package"} value={isRTL ? selectedPkg.nameAr : selectedPkg.nameEn} isRTL={isRTL} colors={colors} />
+                    <ReviewRow label={isRTL ? "المبلغ" : "Amount"} value={`${parseFloat(selectedPkg.priceEgp).toFixed(0)} ${isRTL ? "ج.م" : "EGP"}`} isRTL={isRTL} colors={colors} />
+                    <ReviewRow label={isRTL ? "النقاط" : "Points"} value={`${selectedPkg.pointsAmount} ${isRTL ? "نقطة" : "pts"}`} isRTL={isRTL} colors={colors} />
+                    <ReviewRow label={isRTL ? "وسيلة الدفع" : "Method"} value={methodLabel(payMethod)} isRTL={isRTL} colors={colors} />
+                    <ReviewRow
+                      label={isRTL ? "حسابك" : "Your account"}
+                      value={senderAccount}
+                      isRTL={isRTL}
+                      colors={colors}
+                      highlight
+                    />
+                    {companyAccountValue() && (
+                      <ReviewRow
+                        label={isRTL ? "إلى حساب" : "To account"}
+                        value={companyAccountValue()!}
+                        isRTL={isRTL}
+                        colors={colors}
+                      />
+                    )}
+                  </View>
+
+                  <View style={[styles.warningBox, { borderColor: "#F59E0B44", backgroundColor: "#FEF3C7" }]}>
+                    <Text style={{ color: "#92400E", fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                      {isRTL
+                        ? "⚠️ بعد إرسال الطلب ستبقى النقاط «قيد الانتظار» حتى يتأكد المسؤول من استلام التحويل. ستصلك إشعار فور التأكيد."
+                        : "⚠️ After submitting, points stay 'pending' until admin confirms receipt. You'll receive an in-app notification once confirmed."}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
+                    <TouchableOpacity
+                      style={[styles.backBtn, { borderColor: colors.border }]}
+                      onPress={() => setModalStep("sender")}
+                    >
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                        {isRTL ? "← السابق" : "← Back"}
+                      </Text>
+                    </TouchableOpacity>
+                    <FanniButton
+                      title={submitLoading ? (isRTL ? "جارٍ الإرسال…" : "Sending…") : (isRTL ? "إرسال الطلب ✓" : "Submit ✓")}
+                      onPress={submitPaymentRequest}
+                      loading={submitLoading}
+                      style={{ flex: 1 }}
+                    />
+                  </View>
+                </View>
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          NOTIFICATIONS MODAL
+       ════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={notifVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNotifVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                {isRTL ? "🔔 الإشعارات" : "🔔 Notifications"}
+              </Text>
+              <TouchableOpacity onPress={() => setNotifVisible(false)}>
+                <VectorIcon name="x" size={22} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {notifications.map((n) => (
+                <View key={n.id} style={[styles.notifItem, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.notifTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                      {isRTL ? n.titleAr : n.titleEn}
+                    </Text>
+                    {(isRTL ? n.bodyAr : n.bodyEn) ? (
+                      <Text style={[styles.notifBody, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                        {isRTL ? n.bodyAr : n.bodyEn}
+                      </Text>
+                    ) : null}
+                    <Text style={[styles.notifDate, { color: colors.mutedForeground }]}>
+                      {new Date(n.createdAt).toLocaleString(isRTL ? "ar-EG" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => void dismissNotification(n.id)} style={styles.notifDismiss}>
+                    <VectorIcon name="x" size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+            {notifications.length > 1 && (
+              <TouchableOpacity
+                style={[styles.readAllBtn, { borderColor: colors.border }]}
+                onPress={() => void dismissAllNotifications()}
+              >
+                <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                  {isRTL ? "تحديد الكل كمقروء" : "Mark all as read"}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -895,121 +809,169 @@ export default function WalletScreen() {
   );
 }
 
-// ── Account detail row ────────────────────────────────────────────────────────
-function AccountRow({
-  label,
-  value,
-  colors,
-  isRTL,
-  onCopy,
-}: {
-  label: string;
-  value: string;
-  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
-  isRTL: boolean;
-  onCopy: (v: string, l: string) => void;
-}) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function CopyRow({
+  label, value, onCopy, isRTL, colors,
+}: { label: string; value: string; onCopy: (v: string) => void; isRTL: boolean; colors: ReturnType<typeof import("@/hooks/useColors").useColors> }) {
   return (
     <TouchableOpacity
-      style={[
-        styles.accountRow,
-        { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border },
-      ]}
-      onPress={() => onCopy(value, label)}
+      style={[styles.copyRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}
+      onPress={() => onCopy(value)}
       activeOpacity={0.7}
     >
-      <Text style={[styles.accountLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      <Text
-        style={[
-          styles.accountValue,
-          { color: colors.foreground, textAlign: isRTL ? "left" : "right" },
-        ]}
-        selectable
-      >
-        {value}
-      </Text>
-      <VectorIcon name="copy" size={13} color={colors.mutedForeground} style={{ marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }} />
+      <Text style={[styles.copyLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}>
+        <Text style={[styles.copyValue, { color: colors.foreground }]}>{value}</Text>
+        <VectorIcon name="copy" size={12} color={colors.mutedForeground} />
+      </View>
     </TouchableOpacity>
   );
 }
 
+function ReviewRow({
+  label, value, isRTL, colors, highlight,
+}: { label: string; value: string; isRTL: boolean; colors: ReturnType<typeof import("@/hooks/useColors").useColors>; highlight?: boolean }) {
+  return (
+    <View style={[styles.reviewRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      <Text style={[styles.reviewLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[styles.reviewValue, { color: highlight ? colors.primary : colors.foreground }]}>{value}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: { padding: 16, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 },
+
+  notifBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, marginBottom: 2,
+  },
+  notifBannerText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13 },
+
+  // Balance
   balanceCard: {
-    borderRadius: 16, padding: 24, alignItems: "center", marginBottom: 20, gap: 8,
+    borderRadius: 16, padding: 20, alignItems: "center", gap: 6, marginBottom: 16,
   },
-  balanceLabel: { color: "#fff", fontFamily: "Inter_500Medium", fontSize: 14, opacity: 0.85 },
-  balanceRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  balanceAmount: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 42 },
-  balancePtsLabel: { color: "#fff", fontFamily: "Inter_400Regular", fontSize: 16, opacity: 0.8 },
-  howToCard: {
-    borderRadius: 12, padding: 14, borderWidth: 1, marginBottom: 20, gap: 8,
-  },
+  balanceLabel: { fontFamily: "Inter_500Medium", fontSize: 14, color: "rgba(255,255,255,0.8)" },
+  balanceRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  balanceAmount: { fontFamily: "Inter_700Bold", fontSize: 40, color: "#fff" },
+  balancePtsLabel: { fontFamily: "Inter_500Medium", fontSize: 16, color: "rgba(255,255,255,0.8)" },
+
+  // How-to
+  howToCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 16, gap: 10 },
   howToTitle: { fontFamily: "Inter_700Bold", fontSize: 14, marginBottom: 4 },
   stepRow: { alignItems: "flex-start", gap: 10 },
   stepNum: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", marginTop: 1 },
   stepNumText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 11 },
-  stepText: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18 },
-  sectionTitle: { fontFamily: "Inter_700Bold", fontSize: 16, marginBottom: 12, marginTop: 4 },
-  packagesRow: { gap: 10, marginBottom: 24, flexWrap: "wrap" },
+  stepText: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 },
+
+  // Section
+  sectionTitle: { fontFamily: "Inter_700Bold", fontSize: 15, marginBottom: 10 },
+
+  // Package
   pkgCard: {
-    flex: 1, minWidth: 90, padding: 12, alignItems: "center",
-    borderWidth: 1, overflow: "visible", position: "relative",
+    borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 10,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
-  saveBadge: { position: "absolute", top: -8, right: -8, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 },
-  saveBadgeText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9 },
-  pkgPoints: { fontFamily: "Inter_700Bold", fontSize: 24 },
-  pkgPtsLabel: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
-  pkgName: { fontFamily: "Inter_500Medium", fontSize: 11, textAlign: "center", marginTop: 6 },
-  pkgOrigPrice: { fontFamily: "Inter_400Regular", fontSize: 11, textDecorationLine: "line-through", marginTop: 4 },
-  pkgPrice: { fontFamily: "Inter_700Bold", fontSize: 14, marginTop: 2 },
-  reqRow: {
-    borderRadius: 10, borderWidth: 1, marginBottom: 8, overflow: "hidden",
-    paddingRight: 12, paddingVertical: 10,
-  },
-  reqStripe: { width: 4, marginRight: 10 },
-  reqHeader: { alignItems: "center", gap: 6, marginBottom: 2 },
+  pkgLeft: { alignItems: "center", gap: 12, flex: 1 },
+  pkgPtsBadge: { borderRadius: 12, padding: 10, alignItems: "center", minWidth: 60 },
+  pkgPtsNum: { fontFamily: "Inter_700Bold", fontSize: 20 },
+  pkgPtsLabel: { fontFamily: "Inter_500Medium", fontSize: 11 },
+  pkgInfo: { flex: 1, gap: 2 },
+  pkgName: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  pkgOrigPrice: { fontFamily: "Inter_400Regular", fontSize: 12, textDecorationLine: "line-through" },
+  pkgRight: { alignItems: "flex-end", gap: 4 },
+  discountBadge: { backgroundColor: "#22C55E", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  discountText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 10 },
+  pkgPrice: { fontFamily: "Inter_700Bold", fontSize: 16 },
+
+  // Request rows
+  reqRow: { borderRadius: 10, borderWidth: 1, marginBottom: 8, overflow: "hidden" },
+  reqStripe: { width: 4 },
+  reqHeader: { alignItems: "center", gap: 6, marginBottom: 2, padding: 10, paddingBottom: 0 },
   reqAmount: { fontFamily: "Inter_700Bold", fontSize: 15 },
   reqPts: { fontFamily: "Inter_500Medium", fontSize: 12 },
-  reqStatus: { fontFamily: "Inter_600SemiBold", fontSize: 12, marginBottom: 2 },
-  reqDate: { fontFamily: "Inter_400Regular", fontSize: 11, opacity: 0.7 },
-  emptyTx: { padding: 32, alignItems: "center", borderWidth: 1 },
-  txRow: { padding: 12, borderWidth: 1, marginBottom: 8, alignItems: "center", gap: 10 },
+  reqStatus: { fontFamily: "Inter_600SemiBold", fontSize: 12, paddingHorizontal: 10 },
+  reqMethod: { fontFamily: "Inter_400Regular", fontSize: 12, paddingHorizontal: 10 },
+  reqNote: { fontFamily: "Inter_400Regular", fontSize: 11, paddingHorizontal: 10, marginTop: 2, fontStyle: "italic" },
+  reqDate: { fontFamily: "Inter_400Regular", fontSize: 11, paddingHorizontal: 10, paddingBottom: 10, marginTop: 2, opacity: 0.7 },
+
+  // Transactions
+  txRow: { borderRadius: 10, borderWidth: 1, marginBottom: 8, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
   txIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   txInfo: { flex: 1, gap: 2 },
-  txAmount: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  txLabel: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  txDesc: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  txDate: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  txAmount: { fontFamily: "Inter_700Bold", fontSize: 14 },
+
   // Modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
   modalBox: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     borderWidth: 1, padding: 20, paddingBottom: 40, gap: 12,
-    maxHeight: "90%",
+    maxHeight: "92%",
   },
   modalHeader: { justifyContent: "space-between", alignItems: "center" },
   modalTitle: { fontFamily: "Inter_700Bold", fontSize: 18 },
   pkgSummary: { padding: 12, gap: 4 },
   pkgSummaryName: { fontFamily: "Inter_700Bold", fontSize: 15 },
   pkgSummaryDetail: { fontFamily: "Inter_500Medium", fontSize: 13 },
+
   fieldLabel: { fontFamily: "Inter_500Medium", fontSize: 12, marginBottom: 6 },
-  methodRow: { gap: 8, marginBottom: 14, flexWrap: "wrap" },
-  methodChip: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5,
-  },
-  methodText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
-  accountCard: { borderRadius: 10, borderWidth: 1, overflow: "hidden", marginBottom: 6 },
-  accountRow: {
-    flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  accountLabel: { fontFamily: "Inter_500Medium", fontSize: 12, flex: 1 },
-  accountValue: { fontFamily: "Inter_600SemiBold", fontSize: 13, flex: 2 },
-  configNote: { fontFamily: "Inter_400Regular", fontSize: 11, padding: 10, paddingTop: 6 },
   textInput: {
     borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
     fontFamily: "Inter_400Regular", fontSize: 14,
   },
-  textArea: { minHeight: 72, textAlignVertical: "top" },
+  backBtn: {
+    borderWidth: 1, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 16,
+    alignItems: "center", justifyContent: "center",
+  },
+
+  // Method cards
+  methodCard: {
+    borderWidth: 1.5, borderRadius: 12, padding: 14, gap: 10, alignItems: "center",
+  },
+  methodCardText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 14 },
+
+  // Account card (copy rows)
+  accountCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden", padding: 4 },
+  accountCardTitle: { fontFamily: "Inter_500Medium", fontSize: 12, padding: 10, paddingBottom: 6 },
+  copyRow: {
+    paddingHorizontal: 12, paddingVertical: 9,
+    justifyContent: "space-between", alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth, borderColor: "#00000011",
+  },
+  copyLabel: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  copyValue: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  configNote: { fontFamily: "Inter_400Regular", fontSize: 11, padding: 10, paddingTop: 6 },
+
+  // Review card
+  reviewCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  reviewRow: {
+    paddingHorizontal: 14, paddingVertical: 10,
+    justifyContent: "space-between", alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth, borderColor: "#00000011",
+  },
+  reviewLabel: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  reviewValue: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+
+  warningBox: { borderRadius: 10, borderWidth: 1, padding: 12 },
+
+  // Notifications modal
+  notifItem: {
+    borderRadius: 10, borderWidth: 1, padding: 12, marginBottom: 8,
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+  },
+  notifTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginBottom: 4 },
+  notifBody: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18 },
+  notifDate: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 6, opacity: 0.7 },
+  notifDismiss: { padding: 4 },
+  readAllBtn: {
+    borderWidth: 1, borderRadius: 10, paddingVertical: 10, alignItems: "center", marginTop: 8,
+  },
 });

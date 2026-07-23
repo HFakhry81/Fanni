@@ -39,7 +39,7 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSetupIncomplete }: { availablePendingCount: number; unreadCompletedCount: number; profileSetupIncomplete: boolean }) {
+function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSetupIncomplete, notifUnreadCount }: { availablePendingCount: number; unreadCompletedCount: number; profileSetupIncomplete: boolean; notifUnreadCount: number }) {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="map">
@@ -74,7 +74,7 @@ function DotBadge() {
   return <View style={styles.dotBadge} />;
 }
 
-function ClassicTechTabs() {
+function ClassicTechTabs({ notifUnreadCount }: { notifUnreadCount: number }) {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { availablePendingCount, unreadCompletedCount } = useOrders();
@@ -145,7 +145,13 @@ function ClassicTechTabs() {
         name="wallet"
         options={{
           title: isRTL ? "المحفظة" : "Wallet",
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>💳</Text>,
+          tabBarBadge: notifUnreadCount > 0 ? (notifUnreadCount > 99 ? "99+" : notifUnreadCount) : undefined,
+          tabBarIcon: () => isIOS ? null : (
+            <View>
+              <Text style={styles.tabIcon}>💳</Text>
+              {notifUnreadCount > 0 && <CountBadge count={notifUnreadCount} />}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -302,11 +308,44 @@ function usePendingCountSync() {
   }, [fetchCount]);
 }
 
+function useNotificationUnreadCount() {
+  const { sessionToken } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchCount = useCallback(async () => {
+    if (!getApiBase() || !sessionToken) return;
+    try {
+      const res = await fetch(`${getApiBase()}/api/notifications/unread-count`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (res.ok) {
+        const json = await res.json() as { count?: number };
+        setUnreadCount(json.count ?? 0);
+      }
+    } catch (_) {}
+  }, [sessionToken]);
+
+  useEffect(() => {
+    fetchCount();
+    const interval = setInterval(fetchCount, 30_000);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") fetchCount();
+    });
+    return () => {
+      clearInterval(interval);
+      sub.remove();
+    };
+  }, [fetchCount]);
+
+  return unreadCount;
+}
+
 function TechLayoutInner() {
   const { availablePendingCount, unreadCompletedCount } = useOrders();
   const { language, user, hasPendingToggle } = useApp();
   const profileSetupIncomplete = !user?.serviceCategories || user.serviceCategories.length === 0;
   const { isWsConnected } = useTechWs();
+  const notifUnreadCount = useNotificationUnreadCount();
   const [adminNotification, setAdminNotification] = useState<{ message: string; visible: boolean }>({
     message: "",
     visible: false,
@@ -347,7 +386,9 @@ function TechLayoutInner() {
     setCancelledNotification((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  const tabs = isLiquidGlassAvailable() ? <NativeTechTabs availablePendingCount={availablePendingCount} unreadCompletedCount={unreadCompletedCount} profileSetupIncomplete={profileSetupIncomplete} /> : <ClassicTechTabs />;
+  const tabs = isLiquidGlassAvailable()
+    ? <NativeTechTabs availablePendingCount={availablePendingCount} unreadCompletedCount={unreadCompletedCount} profileSetupIncomplete={profileSetupIncomplete} notifUnreadCount={notifUnreadCount} />
+    : <ClassicTechTabs notifUnreadCount={notifUnreadCount} />;
 
   const reconnectLabel = language === "ar" ? "جارٍ إعادة الاتصال…" : "Reconnecting…";
   const syncingLabel = language === "ar" ? "جارٍ المزامنة…" : "Syncing…";

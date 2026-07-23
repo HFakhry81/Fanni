@@ -1,4 +1,4 @@
-import { boolean, integer, numeric, pgEnum, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, integer, json, numeric, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { usersTable } from "./auth";
 import { pointPackagesTable, walletTransactionsTable } from "./points";
@@ -24,6 +24,8 @@ export const paymentRequestsTable = pgTable("payment_requests", {
   paymentMethod: paymentMethodTypeEnum("payment_method").notNull().default("bank_transfer"),
   referenceNumber: varchar("reference_number", { length: 255 }),
   transferNote: text("transfer_note"),
+  /** JSON: { accountNumber?, instapayId?, walletNumber?, accountName? } */
+  senderDetails: json("sender_details").$type<Record<string, string>>(),
   status: paymentRequestStatusEnum("status").notNull().default("pending"),
   adminId: varchar("admin_id"),
   adminNotes: text("admin_notes"),
@@ -43,5 +45,21 @@ export const paymentAccountConfigTable = pgTable("payment_account_config", {
   ewalletNumber: varchar("ewallet_number", { length: 50 }),
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
+  /** Which admin user is responsible for confirming payments (VARCHAR, same type as users.id) */
+  paymentManagerId: varchar("payment_manager_id", { length: 36 }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const notificationsTable = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // No FK — user_id can be either a usersTable.id (tech/client) or adminsTable.id
+  userId: varchar("user_id").notNull(),
+  type: varchar("type", { length: 60 }).notNull(),
+  titleAr: text("title_ar").notNull(),
+  titleEn: text("title_en").notNull(),
+  bodyAr: text("body_ar"),
+  bodyEn: text("body_en"),
+  payload: json("payload").$type<Record<string, unknown>>(),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

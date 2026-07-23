@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, isNull } from "drizzle-orm";
 import {
   db,
   paymentRequestsTable,
@@ -8,11 +8,14 @@ import {
   walletsTable,
   walletTransactionsTable,
   usersTable,
+  adminsTable,
+  notificationsTable,
 } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
 import { getOrCreateWallet } from "./wallet";
+import { createNotification } from "./notifications";
 
 const router: IRouter = Router();
 
@@ -31,22 +34,30 @@ router.get("/payment-config", authMiddleware, async (_req, res) => {
   }
 });
 
-// ── POST /api/payments/request — technician submits a payment proof ────────────
+// ── POST /api/payments/request — technician submits a payment request ──────────
 router.post("/payments/request", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
   if (user.role !== "technician") {
     res.status(403).json({ error: "Only technicians can request payments" });
     return;
   }
-  const { packageId, amountEgp, pointsRequested, paymentMethod, referenceNumber, transferNote } =
-    req.body as {
-      packageId?: string;
-      amountEgp?: number;
-      pointsRequested?: number;
-      paymentMethod?: string;
-      referenceNumber?: string;
-      transferNote?: string;
-    };
+  const {
+    packageId,
+    amountEgp,
+    pointsRequested,
+    paymentMethod,
+    senderDetails,
+    referenceNumber,
+    transferNote,
+  } = req.body as {
+    packageId?: string;
+    amountEgp?: number;
+    pointsRequested?: number;
+    paymentMethod?: string;
+    senderDetails?: Record<string, string>;
+    referenceNumber?: string;
+    transferNote?: string;
+  };
 
   if (!amountEgp || !pointsRequested) {
     res.status(400).json({ error: "amountEgp and pointsRequested are required" });
@@ -67,8 +78,48 @@ router.post("/payments/request", authMiddleware, requireAuth, async (req, res) =
         paymentMethod: method,
         referenceNumber: referenceNumber ?? null,
         transferNote: transferNote ?? null,
+        senderDetails: senderDetails ?? null,
       })
       .returning();
+
+    // Notify the payment manager admin (if configured)
+    const [config] = await db
+      .select({ paymentManagerId: paymentAccountConfigTable.paymentManagerId })
+      .from(paymentAccountConfigTable)
+      .limit(1);
+
+    if (config?.paymentManagerId) {
+      const techName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.mobile || "فني";
+      await createNotification({
+        userId: config.paymentManagerId,
+        type: "payment_request",
+        titleAr: "طلب دفع جديد",
+        titleEn: "New Payment Request",
+        bodyAr: `${techName} طلب إضافة ${pointsRequested} نقطة مقابل ${amountEgp} ج.م`,
+        bodyEn: `${techName} requested ${pointsRequested} pts for ${amountEgp} EGP`,
+        payload: { requestId: request?.id, techUserId: user.id, amountEgp, pointsRequested },
+      });
+    } else {
+      // Notify all active admins if no payment manager is set
+      const admins = await db
+        .select({ id: adminsTable.id })
+        .from(adminsTable)
+        .where(eq(adminsTable.isActive, true))
+        .limit(5);
+      for (const admin of admins) {
+        const techName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.mobile || "فني";
+        await createNotification({
+          userId: admin.id,
+          type: "payment_request",
+          titleAr: "طلب دفع جديد",
+          titleEn: "New Payment Request",
+          bodyAr: `${techName} طلب إضافة ${pointsRequested} نقطة مقابل ${amountEgp} ج.م`,
+          bodyEn: `${techName} requested ${pointsRequested} pts for ${amountEgp} EGP`,
+          payload: { requestId: request?.id, techUserId: user.id, amountEgp, pointsRequested },
+        });
+      }
+    }
+
     res.json({ request });
   } catch (err) {
     logger.error({ err }, "Failed to create payment request");
@@ -112,6 +163,7 @@ router.get("/admin/payments", authMiddleware, requireAuth, async (req, res) => {
         pr.payment_method,
         pr.reference_number,
         pr.transfer_note,
+        pr.sender_details,
         pr.status,
         pr.admin_notes,
         pr.confirmed_at,
@@ -180,7 +232,7 @@ router.patch(
           type: "package_purchase",
           cashAmountPaid: existing.amountEgp,
           paymentStatus: "completed",
-          description: `تحويل بنكي مؤكد — Confirmed transfer (ref: ${existing.referenceNumber ?? "—"})`,
+          description: `تحويل مؤكد — Confirmed transfer (ref: ${existing.referenceNumber ?? "—"})`,
         })
         .returning();
 
@@ -197,6 +249,17 @@ router.patch(
         })
         .where(eq(paymentRequestsTable.id, id))
         .returning();
+
+      // Notify the technician
+      await createNotification({
+        userId: existing.userId,
+        type: "payment_confirmed",
+        titleAr: "✅ تم تأكيد الدفع",
+        titleEn: "✅ Payment Confirmed",
+        bodyAr: `تم إضافة ${existing.pointsRequested} نقطة إلى محفظتك. رصيدك الجديد: ${newBalance} نقطة.`,
+        bodyEn: `${existing.pointsRequested} pts have been credited. New balance: ${newBalance} pts.`,
+        payload: { requestId: id, pointsAdded: existing.pointsRequested, newBalance },
+      });
 
       res.json({ request: updated, newBalance });
     } catch (err) {
@@ -239,6 +302,21 @@ router.patch(
         .where(eq(paymentRequestsTable.id, id))
         .returning();
 
+      // Notify the technician
+      await createNotification({
+        userId: existing.userId,
+        type: "payment_rejected",
+        titleAr: "❌ تم رفض طلب الدفع",
+        titleEn: "❌ Payment Request Rejected",
+        bodyAr: adminNotes
+          ? `تم رفض طلب دفع ${existing.pointsRequested} نقطة. السبب: ${adminNotes}`
+          : `تم رفض طلب دفع ${existing.pointsRequested} نقطة. تواصل مع الإدارة لمزيد من التفاصيل.`,
+        bodyEn: adminNotes
+          ? `Your request for ${existing.pointsRequested} pts was rejected. Reason: ${adminNotes}`
+          : `Your request for ${existing.pointsRequested} pts was rejected. Contact admin for details.`,
+        payload: { requestId: id, pointsRequested: existing.pointsRequested, adminNotes },
+      });
+
       res.json({ request: updated });
     } catch (err) {
       logger.error({ err }, "Failed to reject payment");
@@ -257,7 +335,6 @@ router.get("/admin/accounting/points", authMiddleware, requireAuth, async (req, 
   const toDate = to ?? new Date().toISOString().slice(0, 10);
 
   try {
-    // Summary
     const summary = await db.execute(sql`
       SELECT
         COUNT(*) FILTER (WHERE pr.status = 'confirmed')                           AS confirmed_count,
@@ -270,7 +347,6 @@ router.get("/admin/accounting/points", authMiddleware, requireAuth, async (req, 
         AND pr.created_at <  (${toDate}::date + INTERVAL '1 day')
     `);
 
-    // Wallet transaction totals (gateway fees, purchase revenue)
     const txSummary = await db.execute(sql`
       SELECT
         COALESCE(SUM(wt.cash_amount_paid), 0)      AS total_cash_from_transactions,
@@ -285,7 +361,6 @@ router.get("/admin/accounting/points", authMiddleware, requireAuth, async (req, 
         AND wt.created_at <  (${toDate}::date + INTERVAL '1 day')
     `);
 
-    // Daily breakdown
     const daily = await db.execute(sql`
       SELECT
         DATE(pr.created_at)                                                         AS day,
@@ -299,7 +374,6 @@ router.get("/admin/accounting/points", authMiddleware, requireAuth, async (req, 
       ORDER BY day DESC
     `);
 
-    // Payment method breakdown
     const byMethod = await db.execute(sql`
       SELECT
         pr.payment_method,
@@ -325,7 +399,7 @@ router.get("/admin/accounting/points", authMiddleware, requireAuth, async (req, 
   }
 });
 
-// ── GET/PUT /api/admin/payment-config — manage account details ─────────────────
+// ── GET /api/admin/payment-config ─────────────────────────────────────────────
 router.get("/admin/payment-config", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
   if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
@@ -338,10 +412,11 @@ router.get("/admin/payment-config", authMiddleware, requireAuth, async (req, res
   }
 });
 
+// ── PUT /api/admin/payment-config ─────────────────────────────────────────────
 router.put("/admin/payment-config", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
   if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
-  const { bankName, accountName, accountNumber, iban, instapayId, ewalletNumber, notes } =
+  const { bankName, accountName, accountNumber, iban, instapayId, ewalletNumber, notes, paymentManagerId } =
     req.body as Record<string, string | undefined>;
   try {
     const [existing] = await db.select().from(paymentAccountConfigTable).limit(1);
@@ -353,6 +428,7 @@ router.put("/admin/payment-config", authMiddleware, requireAuth, async (req, res
       instapayId: instapayId ?? null,
       ewalletNumber: ewalletNumber ?? null,
       notes: notes ?? null,
+      paymentManagerId: paymentManagerId ?? null,
       updatedAt: new Date(),
     };
     if (existing) {
@@ -368,6 +444,28 @@ router.put("/admin/payment-config", authMiddleware, requireAuth, async (req, res
     }
   } catch (err) {
     logger.error({ err }, "Failed to update payment config");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ── GET /api/admin/admins-list — list admin users (for payment manager picker) ─
+router.get("/admin/admins-list", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+  try {
+    const admins = await db
+      .select({
+        id: adminsTable.id,
+        firstName: adminsTable.firstName,
+        lastName: adminsTable.lastName,
+        mobile: adminsTable.mobile,
+      })
+      .from(adminsTable)
+      .where(eq(adminsTable.isActive, true))
+      .orderBy(adminsTable.firstName);
+    res.json({ admins });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch admins list");
     res.status(500).json({ error: "Failed" });
   }
 });

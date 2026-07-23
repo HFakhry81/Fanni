@@ -13,6 +13,7 @@ import trafficRouter from "./traffic";
 import walletRouter from "./wallet";
 import disputesRouter from "./disputes";
 import paymentsRouter from "./payments";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(trafficRouter);
 router.use(walletRouter);
 router.use(disputesRouter);
 router.use(paymentsRouter);
+router.use(notificationsRouter);
 
 export default router;

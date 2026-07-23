@@ -199,7 +199,7 @@ export default function AvailableOrdersScreen() {
   useEffect(() => subscribeNewOrder(onNewOrderCallback), [subscribeNewOrder, onNewOrderCallback]);
   useEffect(() => subscribeOrderCancelled(onOrderCancelledCallback), [subscribeOrderCancelled, onOrderCancelledCallback]);
 
-  const handleUnlock = async (order: PendingOrder) => {
+  const doUnlock = async (order: PendingOrder) => {
     const apiBase = getApiBase();
     if (!apiBase || !sessionToken) return;
     setUnlockingId(order.id);
@@ -220,7 +220,7 @@ export default function AvailableOrdersScreen() {
         Alert.alert(
           isRTL ? "رصيد غير كافٍ" : "Insufficient Points",
           isRTL
-            ? `رصيدك ${json.error?.includes("balance") ? "" : ""}غير كافٍ لفتح هذا الطلب. يرجى شراء نقاط إضافية من المحفظة.`
+            ? "رصيدك غير كافٍ لفتح هذا الطلب. يرجى شراء نقاط إضافية من المحفظة."
             : "Your points balance is insufficient. Please buy more points from your wallet.",
           [{ text: isRTL ? "حسناً" : "OK" }],
         );
@@ -232,6 +232,25 @@ export default function AvailableOrdersScreen() {
     } finally {
       setUnlockingId(null);
     }
+  };
+
+  const handleUnlock = (order: PendingOrder) => {
+    // Show non-refundable warning before deducting
+    const cost = order.unlockCost ?? 15;
+    Alert.alert(
+      isRTL ? "⚠️ تأكيد خصم النقاط" : "⚠️ Confirm Point Deduction",
+      isRTL
+        ? `سيتم خصم ${cost} نقطة من رصيدك مقابل عرض بيانات التواصل مع العميل.\n\nتنبيه: النقاط المخصومة لا يمكن استردادها إلا وفق شروط الاستخدام.`
+        : `${cost} pts will be deducted from your balance to reveal this client's contact details.\n\n⚠️ Deducted points are non-refundable except under the Terms of Use.`,
+      [
+        { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+        {
+          text: isRTL ? `خصم ${cost} نقطة والمتابعة` : `Deduct ${cost} pts & Continue`,
+          style: "destructive",
+          onPress: () => { void doUnlock(order); },
+        },
+      ],
+    );
   };
 
   const handleCallClient = async (orderId: string, mobile: string) => {

@@ -21,6 +21,14 @@ import AppHeader from "@/components/AppHeader";
 import VectorIcon from "@/components/VectorIcon";
 import { getApiBase } from "@/utils/api";
 
+interface SenderDetails {
+  accountNumber?: string;
+  accountName?: string;
+  instapayId?: string;
+  walletNumber?: string;
+  bankName?: string;
+}
+
 interface PaymentRequest {
   id: string;
   amount_egp: string;
@@ -28,6 +36,7 @@ interface PaymentRequest {
   payment_method: "bank_transfer" | "instapay" | "e_wallet";
   reference_number: string | null;
   transfer_note: string | null;
+  sender_details: SenderDetails | null;
   status: "pending" | "confirmed" | "rejected";
   admin_notes: string | null;
   confirmed_at: string | null;
@@ -225,6 +234,40 @@ export default function AdminPaymentsScreen() {
               </Text>
             ) : null}
           </View>
+
+          {/* Sender details (source account) */}
+          {item.sender_details && Object.keys(item.sender_details).length > 0 && (
+            <View style={[styles.senderBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Text style={[styles.senderTitle, { color: colors.foreground }]}>
+                {isRTL ? "بيانات حساب المُرسِل" : "Sender Account Details"}
+              </Text>
+              {item.sender_details.bankName ? (
+                <Text style={[styles.senderRow, { color: colors.mutedForeground }]}>
+                  🏦 {item.sender_details.bankName}
+                </Text>
+              ) : null}
+              {item.sender_details.accountName ? (
+                <Text style={[styles.senderRow, { color: colors.mutedForeground }]}>
+                  👤 {item.sender_details.accountName}
+                </Text>
+              ) : null}
+              {item.sender_details.accountNumber ? (
+                <Text style={[styles.senderRow, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                  #{item.sender_details.accountNumber}
+                </Text>
+              ) : null}
+              {item.sender_details.instapayId ? (
+                <Text style={[styles.senderRow, { color: colors.mutedForeground }]}>
+                  InstaPay: {item.sender_details.instapayId}
+                </Text>
+              ) : null}
+              {item.sender_details.walletNumber ? (
+                <Text style={[styles.senderRow, { color: colors.mutedForeground }]}>
+                  📱 {item.sender_details.walletNumber}
+                </Text>
+              ) : null}
+            </View>
+          )}
 
           {/* Mobile */}
           <Text
@@ -620,6 +663,16 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   modalActions: { gap: 10 },
+  senderBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 4,
+    gap: 2,
+  },
+  senderTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, marginBottom: 4 },
+  senderRow: { fontFamily: "Inter_400Regular", fontSize: 12 },
   modalBtn: {
     flex: 1,
     alignItems: "center",

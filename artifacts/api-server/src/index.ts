@@ -223,7 +223,9 @@ async function seedPointsDemo(): Promise<void> {
         walletId = walletRow.rows[0].id;
       } else {
         const created = await pool.query<{ id: string }>(
-          `INSERT INTO wallets (user_id, points_balance) VALUES ($1, 0) RETURNING id`, [tech.id]
+          `INSERT INTO wallets (user_id, points_balance) VALUES ($1, 0)
+           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+           RETURNING id`, [tech.id]
         );
         walletId = created.rows[0]!.id;
       }
