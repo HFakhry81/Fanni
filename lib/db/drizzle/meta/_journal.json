@@ -15,6 +15,13 @@
       "when": 1782147079036,
       "tag": "0001_minor_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784756551755,
+      "tag": "0002_dashing_the_fallen",
+      "breakpoints": true
     }
   ]
 }
