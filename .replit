@@ -22,10 +22,6 @@ args = "api-typecheck"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Mobile App"
 
 [[workflows.workflow]]
@@ -38,17 +34,6 @@ args = "cd artifacts/api-server && npx tsc --noEmit"
 
 [workflows.workflow.metadata]
 isValidation = true
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run dev"
 
 [[workflows.workflow]]
 name = "Mobile App"
