@@ -9,7 +9,16 @@ const geography = customType<{ data: string }>({
 
 export const userRoleEnum = pgEnum("user_role", ["client", "technician"]);
 
+export const approvalStatusEnum = pgEnum("approval_status", [
+  "not_submitted",
+  "pending_review",
+  "approved",
+  "rejected",
+  "needs_correction",
+]);
+
 export const sessionsTable = pgTable(
+
   "sessions",
   {
     sid: varchar("sid").primaryKey(),
@@ -37,20 +46,30 @@ export const usersTable = pgTable("users", {
   aptNo: varchar("apt_no", { length: 50 }),
   profession: varchar("profession", { length: 100 }),
   specialty: varchar("specialty", { length: 100 }),
-  location: geography("location"),
+    location: geography("location"),
+  locationAccuracy: numeric("location_accuracy", { precision: 10, scale: 2 }),
+  locationSource: varchar("location_source", { length: 50 }), // 'gps', 'network', 'manual', 'map_picker'
+  locationCapturedAt: timestamp("location_captured_at", { withTimezone: true }),
+  activeLocation: geography("active_location"), // The location used for matching
   serviceCategories: jsonb("service_categories").$type<string[]>(),
+
   serviceStart: varchar("service_start", { length: 5 }),
   serviceEnd: varchar("service_end", { length: 5 }),
-  isAvailable: boolean("is_available").notNull().default(true),
+    isAvailable: boolean("is_available").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
   isApproved: boolean("is_approved").notNull().default(false),
+  approvalStatus: approvalStatusEnum("approval_status").notNull().default("not_submitted"),
   nationalId: varchar("national_id", { length: 14 }),
+
   nationalIdFrontUrl: text("national_id_front_url"),
   nationalIdBackUrl: text("national_id_back_url"),
-  licenseCardUrl: text("license_card_url"),
+    licenseCardUrl: text("license_card_url"),
   bio: text("bio"),
   yearsOfExperience: integer("years_of_experience"),
+  workingHours: jsonb("working_hours"),
+  paymentPreference: varchar("payment_preference", { length: 50 }),
   rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),
+
   ratingCount: integer("rating_count").notNull().default(0),
   //location: geography("location"),
   passwordHash: varchar("password_hash"),
@@ -170,7 +189,39 @@ export const rateLimitsTable = pgTable(
   (table) => [index("rate_limits_key_hit_at_idx").on(table.key, table.hitAt)],
 );
 
+export const systemSettingsTable = pgTable("system_settings", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: jsonb("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: varchar("updated_by").references(() => adminsTable.id),
+});
+
+export const adminAuditLogsTable = pgTable(
+
+  "admin_audit_logs",
+  {
+    id: serial("id").primaryKey(),
+    adminId: varchar("admin_id").notNull().references(() => adminsTable.id),
+    action: varchar("action", { length: 100 }).notNull(),
+    targetType: varchar("target_type", { length: 50 }).notNull(), // e.g., 'technician', 'user', 'order'
+    targetId: varchar("target_id").notNull(),
+    previousStatus: varchar("previous_status", { length: 50 }),
+    newStatus: varchar("new_status", { length: 50 }),
+    reason: text("reason"),
+    metadata: jsonb("metadata"),
+    ipAddress: varchar("ip_address", { length: 50 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("admin_audit_logs_admin_id_idx").on(table.adminId),
+    index("admin_audit_logs_target_idx").on(table.targetType, table.targetId),
+    index("admin_audit_logs_created_at_idx").on(table.createdAt),
+  ],
+);
+
 export type AvailabilityAuditLog = typeof availabilityAuditLogsTable.$inferSelect;
+
 
 export type UpsertUser = typeof usersTable.$inferInsert;
 export type User = typeof usersTable.$inferSelect;

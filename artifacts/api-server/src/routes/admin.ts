@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable } from "@workspace/db";
+import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable, adminAuditLogsTable } from "@workspace/db";
 import { invalidateLocationCache } from "../lib/locationNormalizer";
+
 import { eq, desc, sql, and, or, ilike, gte, lte, asc, ne } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -1194,18 +1195,20 @@ router.get(
           licenseCardUrl: usersTable.licenseCardUrl,
           bio: usersTable.bio,
           yearsOfExperience: usersTable.yearsOfExperience,
+          approvalStatus: usersTable.approvalStatus,
           createdAt: usersTable.createdAt,
-        })
-        .from(usersTable)
-        .where(and(eq(usersTable.role, "technician"), eq(usersTable.isApproved, false), eq(usersTable.isActive, true)))
-        .orderBy(desc(usersTable.createdAt))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ total: sql<number>`COUNT(*)::int` })
-        .from(usersTable)
-        .where(and(eq(usersTable.role, "technician"), eq(usersTable.isApproved, false), eq(usersTable.isActive, true))),
-    ]);
+      })
+      .from(usersTable)
+      .where(and(eq(usersTable.role, "technician"), eq(usersTable.approvalStatus, "pending_review"), eq(usersTable.isActive, true)))
+      .orderBy(desc(usersTable.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ total: sql<number>`COUNT(*)::int` })
+      .from(usersTable)
+      .where(and(eq(usersTable.role, "technician"), eq(usersTable.approvalStatus, "pending_review"), eq(usersTable.isActive, true))),
+  ]);
+
 
     res.json({ total, limit, offset, technicians: rows });
   },
@@ -1217,11 +1220,12 @@ router.patch(
   authMiddleware,
   requireAuth,
   requireAdmin,
-  async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+    async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     const { id } = req.params;
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
 
     const [tech] = await db
-      .select({ id: usersTable.id, role: usersTable.role })
+      .select({ id: usersTable.id, role: usersTable.role, approvalStatus: usersTable.approvalStatus })
       .from(usersTable)
       .where(eq(usersTable.id, id))
       .limit(1);
@@ -1231,13 +1235,91 @@ router.patch(
       return;
     }
 
-    await db
-      .update(usersTable)
-      .set({ isApproved: true, updatedAt: new Date() })
-      .where(eq(usersTable.id, id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(usersTable)
+        .set({ isApproved: true, approvalStatus: "approved", updatedAt: new Date() })
+        .where(eq(usersTable.id, id));
+
+      await tx.insert(adminAuditLogsTable).values({
+        adminId: req.user!.id,
+        action: "approve_technician",
+        targetType: "technician",
+        targetId: id,
+        previousStatus: tech.approvalStatus,
+        newStatus: "approved",
+        ipAddress: ip,
+      });
+    });
 
     req.log.info({ adminId: req.user?.id, techId: id }, "Technician approved");
-    res.json({ success: true, approved: true });
+        res.json({ success: true, approved: true });
+  },
+);
+
+// PATCH /admin/technicians/:id/reset-location — Admin can reset/clear tech location
+router.patch(
+  "/admin/technicians/:id/reset-location",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+    const { id } = req.params;
+    await db.update(usersTable).set({
+      location: null,
+      updatedAt: new Date()
+    }).where(eq(usersTable.id, id));
+    res.json({ success: true });
+  }
+);
+
+// PATCH /admin/technicians/:id/request-correction — ask technician to fix data
+
+router.patch(
+  "/admin/technicians/:id/request-correction",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { reason } = req.body as { reason: string };
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
+
+    if (!reason?.trim()) {
+      res.status(400).json({ error: "Reason for correction is required" });
+      return;
+    }
+
+    const [tech] = await db
+      .select({ id: usersTable.id, role: usersTable.role, approvalStatus: usersTable.approvalStatus })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+
+    if (!tech || tech.role !== "technician") {
+      res.status(404).json({ error: "Technician not found" });
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(usersTable)
+        .set({ approvalStatus: "needs_correction", updatedAt: new Date() })
+        .where(eq(usersTable.id, id));
+
+      await tx.insert(adminAuditLogsTable).values({
+        adminId: req.user!.id,
+        action: "request_correction",
+        targetType: "technician",
+        targetId: id,
+        previousStatus: tech.approvalStatus,
+        newStatus: "needs_correction",
+        reason,
+        ipAddress: ip,
+      });
+    });
+
+    res.json({ success: true, status: "needs_correction" });
   },
 );
 
@@ -1250,9 +1332,10 @@ router.patch(
   async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     const { id } = req.params;
     const { reason } = req.body as { reason?: string };
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
 
     const [tech] = await db
-      .select({ id: usersTable.id, role: usersTable.role })
+      .select({ id: usersTable.id, role: usersTable.role, approvalStatus: usersTable.approvalStatus })
       .from(usersTable)
       .where(eq(usersTable.id, id))
       .limit(1);
@@ -1262,15 +1345,29 @@ router.patch(
       return;
     }
 
-    await db
-      .update(usersTable)
-      .set({ isApproved: false, isActive: false, updatedAt: new Date() })
-      .where(eq(usersTable.id, id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(usersTable)
+        .set({ isApproved: false, approvalStatus: "rejected", isActive: false, updatedAt: new Date() })
+        .where(eq(usersTable.id, id));
+
+      await tx.insert(adminAuditLogsTable).values({
+        adminId: req.user!.id,
+        action: "reject_technician",
+        targetType: "technician",
+        targetId: id,
+        previousStatus: tech.approvalStatus,
+        newStatus: "rejected",
+        reason,
+        ipAddress: ip,
+      });
+    });
 
     req.log.info({ adminId: req.user?.id, techId: id, reason }, "Technician rejected/suspended");
     res.json({ success: true, rejected: true });
   },
 );
+
 
 // ─── ADMIN: Re-geocode technicians with no map location ──────────────────────
 router.post(

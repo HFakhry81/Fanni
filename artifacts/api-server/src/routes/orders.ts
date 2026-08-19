@@ -2,13 +2,16 @@ import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and, inArray, not } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
-import { db, ordersTable, invoicesTable, pool, usersTable, walletsTable, leadUnlocksTable, unlockCostsTable, walletTransactionsTable } from "@workspace/db";
+import { db, ordersTable, invoicesTable, pool, usersTable, leadUnlocksTable, walletTransactionsTable, orderDeclinesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../lib/locationNormalizer";
 import { queryString } from "../lib/queryParams";
-import { sendOrderStatusPushNotification } from "../lib/pushNotifications";
+import { sendOrderStatusPushNotification, sendExpoPushNotification } from "../lib/pushNotifications";
 import { sendInvoiceEmails } from "../lib/email";
+import { resolveLeadCost } from "../lib/leadPricing";
+import { contactFromOrderData, InsufficientPointsError, maskSensitiveOrderFields, unlockLeadAtomically } from "../lib/leadUnlock";
+import { dropTechnicianAndRematch, markTechnicianAvailable, markTechnicianBusy } from "../lib/orderLifecycle";
 
 const router: IRouter = Router();
 
@@ -16,13 +19,60 @@ function formatOrderNumber(serial: number): string {
   return `ORD-${String(serial).padStart(6, "0")}`;
 }
 
-type DbStatus = "pending" | "acknowledged" | "in_progress" | "completed" | "cancelled";
+type DbStatus = "pending" | "acknowledged" | "en_route" | "arrived" | "in_progress" | "completed" | "cancelled";
 type MobileStatus = "pending" | "accepted" | "inProgress" | "completed" | "cancelled";
 
 function toMobileStatus(dbStatus: DbStatus): MobileStatus {
-  if (dbStatus === "acknowledged") return "accepted";
+  if (dbStatus === "acknowledged" || dbStatus === "en_route" || dbStatus === "arrived") return "accepted";
   if (dbStatus === "in_progress") return "inProgress";
   return dbStatus as MobileStatus;
+}
+
+function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?: boolean }) {
+  const data = row.data as Record<string, unknown>;
+  const mapped = {
+    id: row.id,
+    orderNumber: row.orderNumber,
+    orderSerial: row.orderSerial,
+    status: toMobileStatus(row.status as DbStatus),
+    createdAt: row.createdAt,
+    category: row.category ?? data.category,
+    subCategory: data.subCategory,
+    street: data.street,
+    floor: data.floor,
+    visitDate: data.visitDate,
+    visitTime: data.visitTime,
+    technicianId: row.technicianId ?? data.technicianId ?? null,
+    technicianName: data.technicianName ?? null,
+    technicianMobile: data.technicianMobile ?? null,
+    technicianAvatar: data.technicianAvatar ?? null,
+    technicianRating: data.technicianRating ?? null,
+    problemDescription: data.problemDescription,
+    deviceType: data.deviceType,
+    building: data.building,
+    apartment: data.apartment,
+    landmark: data.landmark,
+    governorate: row.governorate ?? data.governorate ?? null,
+    area: row.area ?? data.area ?? null,
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
+    clientId: row.clientId ?? data.clientId,
+    clientName: data.clientName,
+    clientMobile: data.clientMobile,
+    photos: data.photos ?? [],
+    materials: data.materials ?? null,
+    solutionDescription: data.solutionDescription ?? null,
+    invoice: data.invoice ?? null,
+    clientRating: data.clientRating ?? row.clientRating ?? null,
+    clientComment: data.clientComment ?? null,
+    arrivalDetectedAt: row.arrivalDetectedAt ?? null,
+    incompleteReason: data.incompleteReason ?? null,
+    incompleteDetails: data.incompleteDetails ?? null,
+  };
+  if (opts?.maskClient) {
+    return maskSensitiveOrderFields(mapped as Record<string, unknown>);
+  }
+  return mapped;
 }
 
 router.get("/orders/pending", authMiddleware, requireAuth, async (req, res) => {
@@ -51,45 +101,7 @@ router.get("/orders/pending", authMiddleware, requireAuth, async (req, res) => {
       .where(and(...conditions))
       .orderBy(desc(ordersTable.createdAt));
 
-    const orders = rows.map((row) => {
-      const data = row.data as Record<string, unknown>;
-      return {
-        id: row.id,
-        orderNumber: row.orderNumber,
-        orderSerial: row.orderSerial,
-        status: toMobileStatus(row.status as DbStatus),
-        createdAt: row.createdAt,
-        category: row.category ?? data.category,
-        subCategory: data.subCategory,
-        street: data.street,
-        floor: data.floor,
-        visitDate: data.visitDate,
-        visitTime: data.visitTime,
-        technicianId: row.technicianId ?? data.technicianId ?? null,
-        technicianName: data.technicianName ?? null,
-        technicianMobile: data.technicianMobile ?? null,
-        technicianAvatar: data.technicianAvatar ?? null,
-        technicianRating: data.technicianRating ?? null,
-        problemDescription: data.problemDescription,
-        deviceType: data.deviceType,
-        building: data.building,
-        apartment: data.apartment,
-        landmark: data.landmark,
-        governorate: row.governorate ?? data.governorate ?? null,
-        area: row.area ?? data.area ?? null,
-        latitude: data.latitude ?? null,
-        longitude: data.longitude ?? null,
-        clientId: row.clientId ?? data.clientId,
-        clientName: data.clientName,
-        clientMobile: data.clientMobile,
-        photos: data.photos ?? [],
-        materials: data.materials ?? null,
-        solutionDescription: data.solutionDescription ?? null,
-        invoice: data.invoice ?? null,
-        clientRating: data.clientRating ?? null,
-        clientComment: data.clientComment ?? null,
-      };
-    });
+    const orders = rows.map((row) => mapOrderRow(row, { maskClient: user.role === "technician" }));
 
     res.json({ orders });
   } catch (err) {
@@ -108,45 +120,7 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
       .where(eq(ordersTable.clientId, userId))
       .orderBy(desc(ordersTable.createdAt));
 
-    const orders = rows.map((row) => {
-      const data = row.data as Record<string, unknown>;
-      return {
-        id: row.id,
-        orderNumber: row.orderNumber,
-        orderSerial: row.orderSerial,
-        status: toMobileStatus(row.status as DbStatus),
-        createdAt: row.createdAt,
-        category: row.category ?? data.category,
-        subCategory: data.subCategory,
-        street: data.street,
-        floor: data.floor,
-        visitDate: data.visitDate,
-        visitTime: data.visitTime,
-        technicianId: row.technicianId ?? data.technicianId ?? null,
-        technicianName: data.technicianName ?? null,
-        technicianMobile: data.technicianMobile ?? null,
-        technicianAvatar: data.technicianAvatar ?? null,
-        technicianRating: data.technicianRating ?? null,
-        problemDescription: data.problemDescription,
-        deviceType: data.deviceType,
-        building: data.building,
-        apartment: data.apartment,
-        landmark: data.landmark,
-        governorate: row.governorate ?? data.governorate ?? null,
-        area: row.area ?? data.area ?? null,
-        latitude: data.latitude ?? null,
-        longitude: data.longitude ?? null,
-        clientId: row.clientId ?? data.clientId,
-        clientName: data.clientName,
-        clientMobile: data.clientMobile,
-        photos: data.photos ?? [],
-        materials: data.materials ?? null,
-        solutionDescription: data.solutionDescription ?? null,
-        invoice: data.invoice ?? null,
-        clientRating: data.clientRating ?? null,
-        clientComment: data.clientComment ?? null,
-      };
-    });
+    const orders = rows.map((row) => mapOrderRow(row, { maskClient: user.role === "technician" }));
 
     res.json({ orders });
   } catch (err) {
@@ -288,103 +262,209 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   }
 });
 
-// ── Unlock order contact details (spend points) ──────────────────────────────
+function leadErrorResponse(res: import("express").Response, err: unknown, orderId: string, fallback: string) {
+  if (err instanceof InsufficientPointsError) {
+    res.status(402).json({
+      error: "Insufficient points",
+      message: `رصيدك الحالي مش كافي لإظهار بيانات العميل. محتاج ${err.required} نقطة، ورصيدك الحالي ${err.balance} نقاط.`,
+      balance: err.balance,
+      required: err.required,
+    });
+    return true;
+  }
+  if (err instanceof Error && err.message === "ORDER_NOT_FOUND") {
+    res.status(404).json({ error: "Order not found" });
+    return true;
+  }
+  if (err instanceof Error && err.message === "ORDER_UNAVAILABLE") {
+    res.status(409).json({ error: "Order is no longer available" });
+    return true;
+  }
+  logger.error({ err, orderId }, fallback);
+  return false;
+}
+
+async function assignPendingOrderToTechnician(opts: {
+  orderId: string;
+  technicianId: string;
+  technicianName?: string;
+  technicianMobile?: string;
+  technicianAvatar?: string;
+  technicianRating?: number;
+}): Promise<{ clientId: string | null } | null> {
+  const dataPatch: Record<string, unknown> = {
+    status: "en_route",
+    technicianId: opts.technicianId,
+  };
+  if (opts.technicianName !== undefined) dataPatch.technicianName = opts.technicianName;
+  if (opts.technicianMobile !== undefined) dataPatch.technicianMobile = opts.technicianMobile;
+  if (opts.technicianAvatar !== undefined) dataPatch.technicianAvatar = opts.technicianAvatar;
+  if (opts.technicianRating !== undefined) dataPatch.technicianRating = opts.technicianRating;
+
+  let updated: { clientId: string | null } | undefined;
+  await db.transaction(async (tx) => {
+    const locked = await tx.execute(
+      sql`SELECT id FROM orders WHERE id = ${opts.orderId} AND status = 'pending' FOR UPDATE SKIP LOCKED`,
+    );
+    if (locked.rows.length === 0) return;
+    const rows = await tx
+      .update(ordersTable)
+      .set({
+        status: "en_route",
+        technicianId: opts.technicianId,
+        acknowledgedAt: new Date(),
+        updatedAt: new Date(),
+        data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
+      })
+      .where(and(eq(ordersTable.id, opts.orderId), eq(ordersTable.status, "pending")))
+      .returning({ clientId: ordersTable.clientId });
+    updated = rows[0];
+  });
+  return updated ?? null;
+}
+
+function notifyClientAccepted(orderId: string, clientId: string, technician: {
+  technicianId: string;
+  technicianName?: string;
+  technicianMobile?: string;
+  technicianAvatar?: string;
+  technicianRating?: number;
+}) {
+  broadcastOrderStatusToClient(clientId, {
+    id: orderId,
+    status: "accepted",
+    technicianId: technician.technicianId,
+    ...(technician.technicianName !== undefined && { technicianName: technician.technicianName }),
+    ...(technician.technicianMobile !== undefined && { technicianMobile: technician.technicianMobile }),
+    ...(technician.technicianAvatar !== undefined && { technicianAvatar: technician.technicianAvatar }),
+    ...(technician.technicianRating !== undefined && { technicianRating: technician.technicianRating }),
+  });
+
+  void (async () => {
+    try {
+      const [orderRow] = await db
+        .select({ orderNumber: ordersTable.orderNumber })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId))
+        .limit(1);
+      const [clientRow] = await db
+        .select({ expoPushToken: usersTable.expoPushToken })
+        .from(usersTable)
+        .where(eq(usersTable.id, clientId))
+        .limit(1);
+      if (clientRow?.expoPushToken) {
+        await sendOrderStatusPushNotification(clientRow.expoPushToken, orderId, orderRow?.orderNumber ?? orderId, "accepted");
+      }
+    } catch (pushErr) {
+      logger.warn({ pushErr, orderId }, "Failed to send accepted push notification");
+    }
+  })();
+}
+
 router.post("/orders/:id/unlock", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
   const orderId = req.params.id;
-
   if (user.role !== "technician") {
     res.status(403).json({ error: "Only technicians can unlock orders" });
     return;
   }
-
   try {
-    // Check order exists and is still pending
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
     if (!order) { res.status(404).json({ error: "Order not found" }); return; }
-    if (order.status !== "pending") { res.status(409).json({ error: "Order is no longer available" }); return; }
-
-    // Check if already unlocked
-    const [existing] = await db.select().from(leadUnlocksTable)
-      .where(and(eq(leadUnlocksTable.technicianId, user.id), eq(leadUnlocksTable.orderId, orderId)));
-    if (existing) {
-      const data = order.data as Record<string, unknown>;
-      res.json({
-        alreadyUnlocked: true,
-        unlock: existing,
-        contact: {
-          clientName: data.clientName,
-          clientMobile: data.clientMobile,
-          street: data.street ?? null,
-          building: data.building ?? null,
-          floor: data.floor ?? null,
-          apartment: data.apartment ?? null,
-          landmark: data.landmark ?? null,
-          latitude: data.latitude ?? null,
-          longitude: data.longitude ?? null,
-        },
-      });
-      return;
-    }
-
-    // Determine unlock cost
-    let costPoints = 15;
-    try {
-      const [defCost] = await db.select().from(unlockCostsTable)
-        .where(and(sql`specialty_slug IS NULL`, sql`category_slug IS NULL`));
-      if (defCost) costPoints = defCost.pointsCost;
-    } catch { /* fall back */ }
-
-    // Get or create wallet
-    const [walletRow] = await db.select().from(walletsTable).where(eq(walletsTable.userId, user.id));
-    let wallet = walletRow;
-    if (!wallet) {
-      const [created] = await db.insert(walletsTable).values({ userId: user.id }).returning();
-      wallet = created!;
-    }
-
-    if (wallet.pointsBalance < costPoints) {
-      res.status(402).json({ error: "Insufficient points", balance: wallet.pointsBalance, required: costPoints });
-      return;
-    }
-
-    // Deduct points and record unlock atomically
-    const newBalance = wallet.pointsBalance - costPoints;
-    await db.update(walletsTable).set({ pointsBalance: newBalance, updatedAt: new Date() }).where(eq(walletsTable.id, wallet.id));
-    const [unlock] = await db.insert(leadUnlocksTable).values({
+    const data = order.data as Record<string, unknown>;
+    const result = await unlockLeadAtomically({
       technicianId: user.id,
       orderId,
-      pointsDeducted: costPoints,
-    }).returning();
-    await db.insert(walletTransactionsTable).values({
-      walletId: wallet.id,
-      pointsAmount: -costPoints,
-      type: "lead_unlock",
-      description: `Unlock order ${orderId}`,
-      orderId,
+      category: order.category,
+      specialty: (data.subCategory as string | undefined) ?? order.specialtyId,
     });
-
-    const data = order.data as Record<string, unknown>;
-    logger.info({ techId: user.id, orderId, costPoints, newBalance }, "Order unlocked");
-    res.json({
-      alreadyUnlocked: false,
-      unlock,
-      newBalance,
-      contact: {
-        clientName: data.clientName,
-        clientMobile: data.clientMobile,
-        street: data.street ?? null,
-        building: data.building ?? null,
-        floor: data.floor ?? null,
-        apartment: data.apartment ?? null,
-        landmark: data.landmark ?? null,
-        latitude: data.latitude ?? null,
-        longitude: data.longitude ?? null,
-      },
-    });
+    logger.info({ techId: user.id, orderId, costPoints: result.costPoints, newBalance: result.newBalance }, "Order unlocked");
+    res.json(result);
   } catch (err) {
-    logger.error({ err, orderId }, "Failed to unlock order");
-    res.status(500).json({ error: "Failed to unlock order" });
+    if (!leadErrorResponse(res, err, orderId, "Failed to unlock order")) {
+      res.status(500).json({ error: "Failed to unlock order" });
+    }
+  }
+});
+
+router.post("/orders/:id/decline", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can decline orders" });
+    return;
+  }
+  try {
+    await db.insert(orderDeclinesTable).values({
+      technicianId: user.id,
+      orderId: req.params.id,
+    }).onConflictDoNothing();
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to decline order");
+    res.status(500).json({ error: "Failed to decline order" });
+  }
+});
+
+router.post("/orders/:id/accept", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  const id = req.params.id;
+  if (user.role !== "technician" && user.role !== "admin") {
+    res.status(403).json({ error: "Only technicians can accept orders" });
+    return;
+  }
+  const {
+    technicianName,
+    technicianMobile,
+    technicianAvatar,
+    technicianRating,
+  } = req.body as {
+    technicianName?: string;
+    technicianMobile?: string;
+    technicianAvatar?: string;
+    technicianRating?: number;
+  };
+
+  try {
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+    if (order.status !== "pending") {
+      res.status(409).json({ error: "Order is no longer available" }); return;
+    }
+    const data = order.data as Record<string, unknown>;
+    const result = await unlockLeadAtomically({
+      technicianId: user.id,
+      orderId: id,
+      category: order.category,
+      specialty: (data.subCategory as string | undefined) ?? order.specialtyId,
+    });
+    const assigned = await assignPendingOrderToTechnician({
+      orderId: id,
+      technicianId: user.id,
+      technicianName,
+      technicianMobile,
+      technicianAvatar,
+      technicianRating,
+    });
+    if (!assigned) {
+      res.status(409).json({ error: "Order already accepted by another technician" });
+      return;
+    }
+    removeOrderFromPending(id);
+    logger.info({ id, technicianId: user.id }, "Lead accepted after point confirmation");
+    if (assigned.clientId) {
+      notifyClientAccepted(id, assigned.clientId, {
+        technicianId: user.id,
+        technicianName,
+        technicianMobile,
+        technicianAvatar,
+        technicianRating,
+      });
+    }
+    res.json({ success: true, assigned: true, ...result });
+  } catch (err) {
+    if (!leadErrorResponse(res, err, id, "Failed to accept order with lead")) {
+      res.status(500).json({ error: "Failed to accept order" });
+    }
   }
 });
 
@@ -427,7 +507,7 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
   };
 
   const dataPatch: Record<string, unknown> = {
-    status: "acknowledged",
+    status: "en_route", // Transitioning to en_route upon acceptance
     technicianId: user.id,
   };
   if (technicianName !== undefined) dataPatch.technicianName = technicianName;
@@ -449,7 +529,7 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
       const rows = await tx
         .update(ordersTable)
         .set({
-          status: "acknowledged",
+          status: "en_route",
           technicianId: user.id,
           acknowledgedAt: new Date(),
           updatedAt: new Date(),
@@ -467,7 +547,7 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
     }
 
     removeOrderFromPending(id);
-    logger.info({ id, technicianId: user.id }, "Order acknowledged and data JSONB updated");
+    logger.info({ id, technicianId: user.id }, "Order acknowledged and status set to en_route");
 
     if (updated?.clientId) {
       broadcastOrderStatusToClient(updated.clientId, {
@@ -513,6 +593,7 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
 router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
   const id = req.params.id;
+  const { confirmed, rejectionReason } = req.body as { confirmed: boolean, rejectionReason?: string };
 
   if (user.role !== "client") {
     res.status(403).json({ error: "Only clients can confirm arrival" });
@@ -521,7 +602,7 @@ router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (
 
   try {
     const [existing] = await db
-      .select({ clientId: ordersTable.clientId, status: ordersTable.status })
+      .select({ clientId: ordersTable.clientId, status: ordersTable.status, arrivalDetectedAt: ordersTable.arrivalDetectedAt })
       .from(ordersTable)
       .where(eq(ordersTable.id, id))
       .limit(1);
@@ -536,43 +617,36 @@ router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (
       return;
     }
 
-    if (existing.status !== "acknowledged") {
-      res.status(409).json({ error: "Order is not in an acknowledged state" });
+    // Client can only confirm if tech is arrived or en_route
+    if (!["en_route", "arrived", "acknowledged"].includes(existing.status)) {
+      res.status(409).json({ error: "Order is not in a state where arrival can be confirmed" });
       return;
     }
 
-    await db
-      .update(ordersTable)
-      .set({
-        status: "in_progress",
-        updatedAt: new Date(),
-        data: sql`${ordersTable.data} || '{"status":"inProgress"}'::jsonb`,
-      })
-      .where(eq(ordersTable.id, id));
+    const now = new Date();
+    if (confirmed) {
+      await db
+        .update(ordersTable)
+        .set({
+          status: "in_progress",
+          arrivalConfirmedAt: now,
+          updatedAt: now,
+          data: sql`${ordersTable.data} || '{"status":"inProgress"}'::jsonb`,
+        })
+        .where(eq(ordersTable.id, id));
 
-    logger.info({ id, clientId: user.id }, "Client confirmed technician arrival — order in_progress");
-
-    broadcastOrderStatusToClient(user.id, { id, status: "inProgress" });
-
-    void (async () => {
-      try {
-        const [orderRow] = await db
-          .select({ orderNumber: ordersTable.orderNumber })
-          .from(ordersTable)
-          .where(eq(ordersTable.id, id))
-          .limit(1);
-        const [clientRow] = await db
-          .select({ expoPushToken: usersTable.expoPushToken })
-          .from(usersTable)
-          .where(eq(usersTable.id, user.id))
-          .limit(1);
-        if (clientRow?.expoPushToken) {
-          await sendOrderStatusPushNotification(clientRow.expoPushToken, id, orderRow?.orderNumber ?? id, "inProgress");
-        }
-      } catch (pushErr) {
-        logger.warn({ pushErr, orderId: id }, "Failed to send inProgress push notification (confirm-arrival)");
-      }
-    })();
+      logger.info({ id, clientId: user.id }, "Client confirmed technician arrival — order in_progress");
+      broadcastOrderStatusToClient(user.id, { id, status: "inProgress" });
+    } else {
+      // Rule 38: Client says "No"
+      await db.update(ordersTable).set({
+        arrivalRejectionReason: rejectionReason || "Client reported technician not arrived",
+        updatedAt: now,
+      }).where(eq(ordersTable.id, id));
+      
+      logger.info({ id, clientId: user.id }, "Client rejected technician arrival");
+      // Note: Logic for 30 minute timeout starts from arrivalDetectedAt or this rejection
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -580,6 +654,7 @@ router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (
     res.status(500).json({ error: "Failed to confirm arrival" });
   }
 });
+
 
 router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;

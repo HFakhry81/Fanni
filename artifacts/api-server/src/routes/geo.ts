@@ -1,11 +1,94 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { logger } from "../lib/logger";
-import { eq } from "drizzle-orm";
-import { db, locationsTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
+import { db, locationsTable, usersTable, ordersTable, orderLocationEventsTable } from "@workspace/db";
 import { NOMINATIM_BASE, nominatimFetch, getCached, setCache, cachedNominatim } from "../lib/nominatim";
 import { queryString, queryInt, queryFloat } from "../lib/queryParams";
+import { authMiddleware } from "../middlewares/authMiddleware";
+import { requireAuth } from "../middlewares/requireAuth";
+import { getSetting, SETTING_KEYS } from "../lib/settings";
 
 const router: IRouter = Router();
+
+// POST /geo/update — Technician updates their current location and triggers geofencing checks
+router.post("/geo/update", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  const { latitude, longitude, accuracy, source, capturedAt } = req.body as {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    source?: string;
+    capturedAt?: string;
+  };
+
+  if (latitude === undefined || longitude === undefined) {
+    res.status(400).json({ error: "Latitude and Longitude are required" });
+    return;
+  }
+
+  const userId = req.user!.id;
+  const now = new Date();
+  const capturedDate = capturedAt ? new Date(capturedAt) : now;
+
+  try {
+    // 1. Update User table (Current Location)
+    await db.update(usersTable).set({
+      location: sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`,
+      locationAccuracy: accuracy ? String(accuracy) : null,
+      locationSource: source || "gps",
+      locationCapturedAt: capturedDate,
+      updatedAt: now,
+    }).where(eq(usersTable.id, userId));
+
+    // 2. Check for Geofencing if there's an active order that hasn't arrived yet
+    if (req.user!.role === "technician") {
+      const [activeOrder] = await db
+        .select()
+        .from(ordersTable)
+        .where(and(
+          eq(ordersTable.technicianId, userId),
+          eq(ordersTable.status, "acknowledged")
+        ))
+        .limit(1);
+
+      if (activeOrder && !activeOrder.arrivalDetectedAt) {
+        const geofenceRadius = await getSetting(SETTING_KEYS.ARRIVAL_GEOFENCE_RADIUS, 200);
+        
+        // PostGIS check if tech is within radius of order location
+        // Note: Using raw SQL for the distance check to ensure accuracy with geography points
+        const [{ is_within }] = await db.execute<{ is_within: boolean }>(sql`
+          SELECT ST_DWithin(
+            (SELECT location FROM users WHERE id = ${userId}),
+            (SELECT location FROM orders WHERE id = ${activeOrder.id}),
+            ${geofenceRadius}
+          ) as is_within
+        `);
+
+        if (is_within) {
+          await db.update(ordersTable).set({
+            arrivalDetectedAt: now,
+            updatedAt: now,
+          }).where(eq(ordersTable.id, activeOrder.id));
+
+          await db.insert(orderLocationEventsTable).values({
+            orderId: activeOrder.id,
+            eventType: "ARRIVAL_DETECTED",
+            location: sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`,
+            accuracy: accuracy ? String(accuracy) : null,
+            createdAt: now,
+          });
+
+          logger.info({ orderId: activeOrder.id, techId: userId }, "Arrival detected via Geofencing");
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, userId }, "Failed to update location or check geofencing");
+    res.status(500).json({ error: "Failed to update location" });
+  }
+});
+
 
 // ─── True serialized 1-req/sec queue ──────────────────────────────────────────
 // All Nominatim requests go through the shared nominatim.ts module's queue so

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { customType, index, jsonb, pgEnum, pgTable, serial, smallint, timestamp, varchar } from "drizzle-orm/pg-core";
+import { bigserial, customType, index, jsonb, numeric, pgEnum, pgTable, serial, smallint, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 
 const geography = customType<{ data: string }>({
@@ -11,10 +11,13 @@ const geography = customType<{ data: string }>({
 export const orderStatusEnum = pgEnum("order_status", [
   "pending",
   "acknowledged",
+  "en_route",
+  "arrived",
   "in_progress",
   "completed",
   "cancelled",
 ]);
+
 
 export const ordersTable = pgTable(
   "orders",
@@ -29,11 +32,15 @@ export const ordersTable = pgTable(
     governorate: varchar("governorate", { length: 100 }),
     area: varchar("area", { length: 100 }),
     location: geography("location"),
-    street: varchar("street", { length: 200 }),
+        street: varchar("street", { length: 200 }),
     buildingNo: varchar("building_no", { length: 50 }),
     floorNo: varchar("floor_no", { length: 50 }),
     aptNo: varchar("apt_no", { length: 50 }),
+    additionalDetails: text("additional_details"),
+    locationAccuracy: numeric("location_accuracy", { precision: 10, scale: 2 }),
+    locationSource: varchar("location_source", { length: 50 }),
     data: jsonb("data").notNull(),
+
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     clientRating: smallint("client_rating"),
     techRating: smallint("tech_rating"),
@@ -42,8 +49,13 @@ export const ordersTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),
     acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+        cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    arrivedAt: timestamp("arrived_at", { withTimezone: true }),
+    arrivalDetectedAt: timestamp("arrival_detected_at", { withTimezone: true }),
+    arrivalConfirmedAt: timestamp("arrival_confirmed_at", { withTimezone: true }),
+    arrivalRejectionReason: text("arrival_rejection_reason"),
   },
+
   (table) => [
     index("IDX_orders_client").on(table.clientId),
     index("IDX_orders_tech").on(table.technicianId),
@@ -52,5 +64,20 @@ export const ordersTable = pgTable(
   ],
 );
 
+export const orderLocationEventsTable = pgTable(
+  "order_location_events",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    orderId: varchar("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }),
+    eventType: varchar("event_type", { length: 50 }).notNull(), // e.g., 'ARRIVAL_DETECTED', 'CUSTOMER_CONFIRMED'
+    location: geography("location"),
+    accuracy: numeric("accuracy", { precision: 10, scale: 2 }),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_order_loc_events_order_id").on(table.orderId)],
+);
+
 export type InsertOrder = typeof ordersTable.$inferInsert;
+
 export type Order = typeof ordersTable.$inferSelect;
