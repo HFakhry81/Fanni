@@ -3,3 +3,4 @@
 - [Admin interface redesign](admin-redesign.md) — 7-tab layout (profile initial), users.tsx hub with 4 sections; permissions.tsx repurposed as "مسئولو النظام".
 - [Fanni Points system](fanni-points-system.md) — prepaid points wallet for techs; unlock pending orders for 15 pts; 6 DB tables + migration 007; wallet tab in tech layout.
 - [Payment request flow](payment-request-flow.md) — manual bank transfer flow: client submits proof → admin confirms → points credited; migration 008; payments + accounting tabs in admin layout.
+- [Order matching consistency](order-matching.md) — API and WebSocket routing must share tolerant category aliases and canonical location slugs.

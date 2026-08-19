@@ -37,6 +37,37 @@ function hasRoutingConstraints(meta: TechnicianMeta): boolean {
   );
 }
 
+function routingKey(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+}
+
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  electricity: ["electricity", "electrician", "electric", "electrical", "كهرباء", "كهربائي"],
+  plumbing: ["plumbing", "plumber", "سباكة", "سباك"],
+  ac: ["ac", "airconditioning", "hvac", "تكييف", "مكيفات"],
+  carpentry: ["carpentry", "carpenter", "نجارة", "نجار"],
+  appliances: ["appliances", "appliance", "electronics", "أجهزة"],
+  painting: ["painting", "painter", "دهانات", "دهان"],
+  pest: ["pest", "pestcontrol", "حشرات", "مكافحة"],
+  flooring: ["flooring", "floor", "tiles", "أرضيات", "بلاط"],
+};
+
+function canonicalCategory(value: unknown): string {
+  const key = routingKey(value);
+  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if (aliases.some((alias) => routingKey(alias) === key)) return canonical;
+  }
+  return key;
+}
+
+function categoryMatches(orderCategory: unknown, categories: string[] | undefined): boolean {
+  const orderKey = canonicalCategory(orderCategory);
+  return !!orderKey && !!categories?.some((category) => canonicalCategory(category) === orderKey);
+}
+
 function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta): boolean {
   if (!meta.registered) {
     return false;
@@ -47,8 +78,8 @@ function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta):
   }
 
   if (meta.categories && meta.categories.length > 0) {
-    const orderCategory = (order.category as string | undefined)?.toLowerCase();
-    if (!orderCategory || !meta.categories.includes(orderCategory)) {
+    const orderCategory = order.category ?? (order.data as Record<string, unknown> | undefined)?.category;
+    if (!categoryMatches(orderCategory, meta.categories)) {
       return false;
     }
   }
@@ -462,7 +493,8 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
             if (distM > radiusM) continue;
 
             if (meta.categories && meta.categories.length > 0) {
-              if (!orderCategory || !meta.categories.includes(orderCategory)) {
+              const orderData = (o["data"] as Record<string, unknown> | undefined);
+              if (!categoryMatches(orderCategory ?? orderData?.category, meta.categories)) {
                 skipped++;
                 continue;
               }
@@ -496,7 +528,8 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
               continue;
             }
             if (meta.categories && meta.categories.length > 0) {
-              if (!orderCategory || !meta.categories.includes(orderCategory)) {
+              const orderData = (o["data"] as Record<string, unknown> | undefined);
+              if (!categoryMatches(orderCategory ?? orderData?.category, meta.categories)) {
                 skipped++;
                 continue;
               }

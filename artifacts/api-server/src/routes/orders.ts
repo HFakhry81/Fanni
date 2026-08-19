@@ -1210,9 +1210,25 @@ router.patch("/orders/:id", authMiddleware, requireAuth, async (req: Request<{ i
   const user = req.user!;
   const id = req.params.id;
 
-  if (user.role !== "admin") {
-    res.status(403).json({ error: "Only admins can update order location fields" });
+  if (user.role !== "admin" && user.role !== "client") {
+    res.status(403).json({ error: "Only the order owner or an admin can update order location fields" });
     return;
+  }
+
+  if (user.role === "client") {
+    const [ownedOrder] = await db
+      .select({ clientId: ordersTable.clientId, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .limit(1);
+    if (!ownedOrder || ownedOrder.clientId !== user.id) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    if (ownedOrder.status !== "pending") {
+      res.status(409).json({ error: "Only pending orders can change location" });
+      return;
+    }
   }
 
   const { governorate, area } = req.body as { governorate?: string; area?: string };
@@ -1299,7 +1315,37 @@ router.patch("/orders/:id", authMiddleware, requireAuth, async (req: Request<{ i
       return;
     }
 
-    logger.info({ id, governorate: patch.governorate, area: patch.area }, "Order location fields updated by admin");
+    // A pending order's routing fields changed. Remove the stale in-memory
+    // broadcast entry and re-announce the current order so connected
+    // technicians receive the new match immediately. The GET endpoint remains
+    // the source of truth for the complete/masked order payload.
+    const [currentOrder] = await db
+      .select({
+        id: ordersTable.id,
+        category: ordersTable.category,
+        governorate: ordersTable.governorate,
+        area: ordersTable.area,
+        status: ordersTable.status,
+        data: ordersTable.data,
+      })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .limit(1);
+    if (currentOrder?.status === "pending") {
+      removeOrderFromPending(id);
+      void broadcastNewOrder({
+        id: currentOrder.id,
+        category: currentOrder.category,
+        governorate: currentOrder.governorate,
+        area: currentOrder.area,
+        data: currentOrder.data,
+      });
+    }
+
+    logger.info(
+      { id, governorate: patch.governorate, area: patch.area, changedBy: user.id },
+      "Pending order location fields updated and rematched",
+    );
     res.json({ success: true });
   } catch (err) {
     logger.error({ err, id }, "Failed to update order location fields");

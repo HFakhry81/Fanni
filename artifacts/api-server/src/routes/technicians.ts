@@ -13,6 +13,38 @@ const MAX_PAGE_SIZE = 100;
 
 const router: IRouter = Router();
 
+function routingKey(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+}
+
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  electricity: ["electricity", "electrician", "electric", "electrical", "كهرباء", "كهربائي"],
+  plumbing: ["plumbing", "plumber", "سباكة", "سباك"],
+  ac: ["ac", "airconditioning", "hvac", "تكييف", "مكيفات"],
+  carpentry: ["carpentry", "carpenter", "نجارة", "نجار"],
+  appliances: ["appliances", "appliance", "electronics", "أجهزة"],
+  painting: ["painting", "painter", "دهانات", "دهان"],
+  pest: ["pest", "pestcontrol", "حشرات", "مكافحة"],
+  flooring: ["flooring", "floor", "tiles", "أرضيات", "بلاط"],
+};
+
+function canonicalCategory(value: unknown): string {
+  const key = routingKey(value);
+  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if (aliases.some((alias) => routingKey(alias) === key)) return canonical;
+  }
+  return key;
+}
+
+function categoryMatches(orderCategory: unknown, technicianCategories: string[]): boolean {
+  const orderKey = canonicalCategory(orderCategory);
+  if (!orderKey) return false;
+  return technicianCategories.some((category) => canonicalCategory(category) === orderKey);
+}
+
 router.patch(
   "/technicians/:id/availability",
   authMiddleware,
@@ -345,9 +377,10 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     const techLon = techRow.techLon;
 
     const matchPromises = pendingRows.map(async (row) => {
+      const data = row.data as Record<string, unknown>;
       if (techCategories.length > 0) {
-        const orderCategory = (row.category ?? "").toLowerCase();
-        if (!techCategories.map((c) => c.toLowerCase()).includes(orderCategory)) return null;
+        const orderCategory = row.category ?? data.category;
+        if (!categoryMatches(orderCategory, techCategories)) return null;
       }
       if (techGov) {
         const govMatch = await locationsMatch(row.governorate, techGov, "governorate");
@@ -357,7 +390,6 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
         const areaMatch = await locationsMatch(row.area, techArea, "area");
         if (!areaMatch) return null;
       }
-      const data = row.data as Record<string, unknown>;
       const orderLat = typeof data.latitude === "number" ? data.latitude : null;
       const orderLon = typeof data.longitude === "number" ? data.longitude : null;
 

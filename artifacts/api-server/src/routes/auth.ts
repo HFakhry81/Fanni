@@ -30,6 +30,7 @@ import {
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
+import { normalizeToSlug } from "../lib/locationNormalizer";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 
@@ -1114,8 +1115,14 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (mobileVal !== undefined) updates.mobile = mobileVal;
   if (profession !== undefined) updates.profession = profession ? String(profession).trim() || null : null;
   if (specialty !== undefined) updates.specialty = specialty ?? null;
-  if (governorate !== undefined) updates.governorate = governorate ?? null;
-  if (area !== undefined) updates.area = area ?? null;
+  // Store technician/client routing locations in the same canonical slug format
+  // used by orders, so changing a profile immediately affects matching.
+  const [normalizedUserGovernorate, normalizedUserArea] = await Promise.all([
+    governorate !== undefined && governorate ? normalizeToSlug(governorate, "governorate") : Promise.resolve(governorate === null ? null : undefined),
+    area !== undefined && area ? normalizeToSlug(area, "area") : Promise.resolve(area === null ? null : undefined),
+  ]);
+  if (governorate !== undefined) updates.governorate = normalizedUserGovernorate ?? null;
+  if (area !== undefined) updates.area = normalizedUserArea ?? null;
   if (district !== undefined) updates.district = district ?? null;
   if (address !== undefined) updates.address = address ? String(address).trim() || null : null;
   if (street !== undefined) updates.street = street ? String(street).trim() || null : null;
