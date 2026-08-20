@@ -8,6 +8,8 @@ import {
   Platform,
   ActivityIndicator,
   TextInput,
+  Modal,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -58,6 +60,26 @@ interface AccountingData {
   byMethod: MethodRow[];
 }
 
+interface OperationalExpense {
+  id: string;
+  category: string;
+  provider: string;
+  amountEgp: string | number;
+  invoiceUrl?: string | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+const EXPENSE_CATEGORIES = [
+  { key: "hosting", ar: "استضافة", en: "Hosting" },
+  { key: "sms_otp", ar: "رسائل OTP", en: "SMS / OTP" },
+  { key: "maps_api", ar: "خرائط API", en: "Maps API" },
+  { key: "marketing", ar: "تسويق", en: "Marketing" },
+  { key: "payment_gateway", ar: "بوابة الدفع", en: "Payment Gateway" },
+  { key: "salaries", ar: "رواتب", en: "Salaries" },
+  { key: "other", ar: "أخرى", en: "Other" },
+] as const;
+
 const METHOD_LABELS: Record<string, { ar: string; en: string }> = {
   bank_transfer: { ar: "تحويل بنكي", en: "Bank Transfer" },
   instapay: { ar: "إنستا باي", en: "InstaPay" },
@@ -97,6 +119,14 @@ export default function AdminAccountingScreen() {
   const [appliedFrom, setAppliedFrom] = useState(monthAgoStr());
   const [appliedTo, setAppliedTo] = useState(todayStr());
   const [showFilter, setShowFilter] = useState(false);
+  const [expenses, setExpenses] = useState<OperationalExpense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expenseModal, setExpenseModal] = useState(false);
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const [expenseCategory, setExpenseCategory] = useState("hosting");
+  const [expenseProvider, setExpenseProvider] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseNotes, setExpenseNotes] = useState("");
 
   const authHeaders = useCallback(
     () => ({
@@ -124,7 +154,56 @@ export default function AdminAccountingScreen() {
     }
   }, [authHeaders, isRTL]);
 
-  useFocusEffect(useCallback(() => { fetchData(appliedFrom, appliedTo); }, [fetchData, appliedFrom, appliedTo]));
+  const fetchExpenses = useCallback(async () => {
+    setExpensesLoading(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/admin/operational-expenses`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json() as { expenses?: OperationalExpense[] };
+      setExpenses(json.expenses ?? []);
+    } catch {
+      // The accounting report remains usable if the optional expense ledger is unavailable.
+    } finally {
+      setExpensesLoading(false);
+    }
+  }, [authHeaders]);
+
+  useFocusEffect(useCallback(() => {
+    fetchData(appliedFrom, appliedTo);
+    fetchExpenses();
+  }, [fetchData, fetchExpenses, appliedFrom, appliedTo]));
+
+  const saveExpense = async () => {
+    const amount = Number(expenseAmount.replace(",", "."));
+    if (!expenseProvider.trim() || !Number.isFinite(amount) || amount < 0) {
+      Alert.alert(isRTL ? "بيانات غير مكتملة" : "Missing data", isRTL ? "أدخل اسم المورد والمبلغ بشكل صحيح." : "Enter a provider and a valid amount.");
+      return;
+    }
+    setExpenseSaving(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/admin/operational-expenses`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          category: expenseCategory,
+          provider: expenseProvider.trim(),
+          amountEgp: amount,
+          notes: expenseNotes.trim() || undefined,
+        }),
+      });
+      const json = await res.json().catch(() => ({})) as { expense?: OperationalExpense; error?: string };
+      if (!res.ok || !json.expense) throw new Error(json.error ?? "Failed to save expense");
+      setExpenses((current) => [json.expense!, ...current]);
+      setExpenseProvider("");
+      setExpenseAmount("");
+      setExpenseNotes("");
+      setExpenseModal(false);
+    } catch (err) {
+      Alert.alert(isRTL ? "تعذر الحفظ" : "Save failed", err instanceof Error ? err.message : (isRTL ? "حاول مرة أخرى." : "Please try again."));
+    } finally {
+      setExpenseSaving(false);
+    }
+  };
 
   const summary = data?.summary;
   const tx = data?.txSummary;
@@ -427,8 +506,114 @@ export default function AdminAccountingScreen() {
               </View>
             </>
           )}
+
+          {/* ── Operational expenses ── */}
+          <View style={[styles.expenseHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left", flex: 1 }]}>
+              {isRTL ? "مصروفات التشغيل" : "Operational Expenses"}
+            </Text>
+            <TouchableOpacity
+              style={[styles.addExpenseBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setExpenseModal(true)}
+            >
+              <VectorIcon name="plus" size={14} color="#FFF" />
+              <Text style={styles.addExpenseText}>{isRTL ? "إضافة" : "Add"}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.flowTable, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {expensesLoading ? (
+              <View style={styles.expenseEmpty}><ActivityIndicator color={colors.primary} /></View>
+            ) : expenses.length === 0 ? (
+              <View style={styles.expenseEmpty}>
+                <VectorIcon name="briefcase" size={24} color={colors.mutedForeground} />
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>
+                  {isRTL ? "لا توجد مصروفات مسجلة" : "No expenses recorded"}
+                </Text>
+              </View>
+            ) : (
+              expenses.slice(0, 30).map((expense, index) => {
+                const category = EXPENSE_CATEGORIES.find((item) => item.key === expense.category);
+                return (
+                  <View key={expense.id} style={[styles.expenseRow, {
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    borderTopWidth: index > 0 ? StyleSheet.hairlineWidth : 0,
+                    borderTopColor: colors.border,
+                  }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.flowLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>{expense.provider}</Text>
+                      <Text style={[styles.expenseMeta, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                        {isRTL ? category?.ar ?? expense.category : category?.en ?? expense.category} · {new Date(expense.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-GB")}
+                      </Text>
+                    </View>
+                    <Text style={[styles.flowValue, { color: "#EF4444" }]}>
+                      {fmtEgp(expense.amountEgp)} {isRTL ? "ج.م" : "EGP"}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
         </ScrollView>
       )}
+
+      <Modal visible={expenseModal} transparent animationType="slide" onRequestClose={() => setExpenseModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalTitleRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <Text style={[styles.modalTitle, { color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }]}>
+                {isRTL ? "إضافة مصروف تشغيلي" : "Add Operational Expense"}
+              </Text>
+              <TouchableOpacity onPress={() => setExpenseModal(false)}>
+                <VectorIcon name="x" size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.inputLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>{isRTL ? "التصنيف" : "Category"}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, flexDirection: isRTL ? "row-reverse" : "row" }}>
+              {EXPENSE_CATEGORIES.map((category) => (
+                <TouchableOpacity
+                  key={category.key}
+                  onPress={() => setExpenseCategory(category.key)}
+                  style={[styles.categoryChip, {
+                    borderColor: expenseCategory === category.key ? colors.primary : colors.border,
+                    backgroundColor: expenseCategory === category.key ? colors.primary + "18" : colors.background,
+                  }]}
+                >
+                  <Text style={{ color: expenseCategory === category.key ? colors.primary : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                    {isRTL ? category.ar : category.en}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Text style={[styles.inputLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>{isRTL ? "المورد" : "Provider"}</Text>
+            <TextInput
+              value={expenseProvider} onChangeText={setExpenseProvider}
+              placeholder={isRTL ? "مثال: AWS أو شركة الرسائل" : "e.g. AWS or SMS provider"}
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.modalInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, textAlign: isRTL ? "right" : "left" }]}
+            />
+            <Text style={[styles.inputLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>{isRTL ? "المبلغ بالجنيه" : "Amount (EGP)"}</Text>
+            <TextInput
+              value={expenseAmount} onChangeText={setExpenseAmount} keyboardType="decimal-pad"
+              placeholder="0.00" placeholderTextColor={colors.mutedForeground}
+              style={[styles.modalInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, textAlign: isRTL ? "right" : "left" }]}
+            />
+            <Text style={[styles.inputLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>{isRTL ? "ملاحظات (اختياري)" : "Notes (optional)"}</Text>
+            <TextInput
+              value={expenseNotes} onChangeText={setExpenseNotes} multiline
+              placeholder={isRTL ? "تفاصيل المصروف أو رقم الفاتورة" : "Expense details or invoice reference"}
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.modalInput, styles.notesInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, textAlign: isRTL ? "right" : "left" }]}
+            />
+            <TouchableOpacity
+              disabled={expenseSaving}
+              onPress={saveExpense}
+              style={[styles.saveExpenseBtn, { backgroundColor: colors.primary, opacity: expenseSaving ? 0.6 : 1 }]}
+            >
+              {expenseSaving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveExpenseText}>{isRTL ? "حفظ المصروف" : "Save Expense"}</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -474,4 +659,20 @@ const styles = StyleSheet.create({
   flowRow: { paddingHorizontal: 14, paddingVertical: 10, alignItems: "center" },
   flowLabel: { fontFamily: "Inter_400Regular", fontSize: 13 },
   flowValue: { fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" },
+  expenseHeader: { alignItems: "center", marginTop: 4, marginBottom: 10 },
+  addExpenseBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8 },
+  addExpenseText: { color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  expenseRow: { paddingHorizontal: 14, paddingVertical: 11, alignItems: "center", gap: 10 },
+  expenseMeta: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 3 },
+  expenseEmpty: { minHeight: 90, alignItems: "center", justifyContent: "center", gap: 6 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
+  modalCard: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18, paddingBottom: 28 },
+  modalTitleRow: { alignItems: "center", marginBottom: 16 },
+  modalTitle: { fontFamily: "Inter_700Bold", fontSize: 17 },
+  inputLabel: { fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 10, marginBottom: 5 },
+  categoryChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  modalInput: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 9, fontFamily: "Inter_400Regular", fontSize: 13 },
+  notesInput: { minHeight: 64, textAlignVertical: "top" },
+  saveExpenseBtn: { minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, marginTop: 18 },
+  saveExpenseText: { color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 },
 });
