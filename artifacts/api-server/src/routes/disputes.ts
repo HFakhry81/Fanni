@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { db, disputesTable, leadUnlocksTable, walletsTable, walletTransactionsTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -97,40 +97,51 @@ router.patch("/admin/disputes/:id", authMiddleware, requireAuth, async (req: Req
     return;
   }
   try {
-    const [dispute] = await db.select().from(disputesTable).where(eq(disputesTable.id, id!));
-    if (!dispute) { res.status(404).json({ error: "Dispute not found" }); return; }
-    if (dispute.status === "approved" || dispute.status === "rejected") {
-      res.status(409).json({ error: "Dispute already resolved" }); return;
-    }
-    if (action === "approve") {
-      const [unlock] = await db.select().from(leadUnlocksTable).where(eq(leadUnlocksTable.id, dispute.leadUnlockId));
-      if (unlock && !dispute.pointsRefunded) {
-        const wallet = await getOrCreateWallet(dispute.technicianId);
-        const newBalance = wallet.pointsBalance + unlock.pointsDeducted;
-        await db.update(walletsTable).set({ pointsBalance: newBalance, updatedAt: new Date() }).where(eq(walletsTable.id, wallet.id));
-        await db.insert(walletTransactionsTable).values({
+    const result = await db.transaction(async (tx) => {
+      const disputeRows = await tx.execute(sql`SELECT * FROM disputes WHERE id = ${id} FOR UPDATE`);
+      const dispute = disputeRows.rows[0] as typeof disputesTable.$inferSelect | undefined;
+      if (!dispute) return { kind: "not_found" as const };
+      if (dispute.status === "approved" || dispute.status === "rejected") {
+        return { kind: "resolved" as const };
+      }
+
+      if (action === "approve" && !dispute.pointsRefunded) {
+        const unlockRows = await tx.execute(sql`SELECT * FROM lead_unlocks WHERE id = ${dispute.leadUnlockId} FOR UPDATE`);
+        const unlock = unlockRows.rows[0] as typeof leadUnlocksTable.$inferSelect | undefined;
+        if (!unlock) throw new Error("LEAD_UNLOCK_NOT_FOUND");
+
+        const walletRows = await tx.execute(sql`SELECT * FROM wallets WHERE user_id = ${dispute.technicianId} FOR UPDATE`);
+        const wallet = walletRows.rows[0] as typeof walletsTable.$inferSelect | undefined;
+        if (!wallet) throw new Error("WALLET_NOT_FOUND");
+
+        await tx.update(walletsTable)
+          .set({ pointsBalance: wallet.pointsBalance + unlock.pointsDeducted, updatedAt: new Date() })
+          .where(eq(walletsTable.id, wallet.id));
+        await tx.insert(walletTransactionsTable).values({
           walletId: wallet.id,
           pointsAmount: unlock.pointsDeducted,
           type: "dispute_refund",
           description: `Dispute refund for order ${dispute.orderId}`,
           orderId: dispute.orderId,
+          paymentStatus: "completed",
         });
       }
-      await db.update(disputesTable).set({
-        status: "approved",
-        pointsRefunded: true,
-        adminNotes: adminNotes ?? null,
-        resolvedAt: new Date(),
-      }).where(eq(disputesTable.id, id!));
-    } else {
-      await db.update(disputesTable).set({
-        status: "rejected",
-        adminNotes: adminNotes ?? null,
-        resolvedAt: new Date(),
-      }).where(eq(disputesTable.id, id!));
-    }
-    const [updated] = await db.select().from(disputesTable).where(eq(disputesTable.id, id!));
-    res.json({ dispute: updated });
+
+      const [updated] = await tx.update(disputesTable)
+        .set({
+          status: action === "approve" ? "approved" : "rejected",
+          pointsRefunded: action === "approve",
+          adminNotes: adminNotes?.trim() || null,
+          resolvedAt: new Date(),
+        })
+        .where(eq(disputesTable.id, id!))
+        .returning();
+      return { kind: "updated" as const, dispute: updated };
+    });
+
+    if (result.kind === "not_found") { res.status(404).json({ error: "Dispute not found" }); return; }
+    if (result.kind === "resolved") { res.status(409).json({ error: "Dispute already resolved" }); return; }
+    res.json({ dispute: result.dispute });
   } catch (err) {
     logger.error({ err }, "Failed to resolve dispute");
     res.status(500).json({ error: "Failed to resolve dispute" });

@@ -232,47 +232,54 @@ router.post("/invoices", authMiddleware, requireAuth, async (req, res) => {
   const total = subtotal + taxAmount;
 
   try {
-    let orderNumber: string | null = null;
-    let resolvedClientId = clientId ?? null;
+    const { inserted, orderNumber } = await db.transaction(async (tx) => {
+      let resolvedOrderNumber: string | null = null;
+      let resolvedClientId = clientId ?? null;
 
-    if (orderId) {
-      const orderRows = await db
-        .select()
-        .from(ordersTable)
-        .where(eq(ordersTable.id, orderId))
-        .limit(1);
+      if (orderId) {
+        const orderRows = await tx
+          .select()
+          .from(ordersTable)
+          .where(eq(ordersTable.id, orderId))
+          .limit(1);
 
-      if (orderRows.length) {
-        const ord = orderRows[0]!;
-        orderNumber = ord.orderNumber ?? formatOrderNumber(ord.orderSerial);
-        resolvedClientId = resolvedClientId ?? ord.clientId;
+        if (orderRows.length) {
+          const ord = orderRows[0]!;
+          resolvedOrderNumber = ord.orderNumber ?? formatOrderNumber(ord.orderSerial);
+          resolvedClientId = resolvedClientId ?? ord.clientId;
+        }
+      }
 
-        await db
+      const [invoice] = await tx
+        .insert(invoicesTable)
+        .values({
+          orderId: orderId ?? null,
+          orderNumber: resolvedOrderNumber,
+          clientId: resolvedClientId,
+          technicianId: user.role === "technician" ? user.id : null,
+          category: category ?? null,
+          invoiceType: user.role === "technician" ? "technician" : "admin",
+          subtotal: String(subtotal.toFixed(2)),
+          taxRate: String(taxRate.toFixed(2)),
+          taxAmount: String(taxAmount.toFixed(2)),
+          total: String(total.toFixed(2)),
+          currency: "EGP",
+          status: "issued",
+          noteAr: noteAr ?? null,
+          noteEn: noteEn ?? null,
+          issuedAt: new Date(),
+        })
+        .returning();
+
+      if (orderId && invoice) {
+        await tx
           .update(ordersTable)
           .set({ status: "completed", completedAt: new Date(), updatedAt: new Date() })
           .where(eq(ordersTable.id, orderId));
       }
-    }
 
-    const [inserted] = await db
-      .insert(invoicesTable)
-      .values({
-        orderId: orderId ?? null,
-        orderNumber: orderNumber ?? null,
-        clientId: resolvedClientId,
-        technicianId: user.role === "technician" ? user.id : null,
-        category: category ?? null,
-        subtotal: String(subtotal.toFixed(2)),
-        taxRate: String(taxRate.toFixed(2)),
-        taxAmount: String(taxAmount.toFixed(2)),
-        total: String(total.toFixed(2)),
-        currency: "EGP",
-        status: "issued",
-        noteAr: noteAr ?? null,
-        noteEn: noteEn ?? null,
-        issuedAt: new Date(),
-      })
-      .returning();
+      return { inserted: invoice!, orderNumber: resolvedOrderNumber };
+    });
 
     logger.info({ invoiceSerial: inserted!.invoiceSerial, orderId }, "Invoice created");
 
