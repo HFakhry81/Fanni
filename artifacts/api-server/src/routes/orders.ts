@@ -9,6 +9,7 @@ import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../li
 import { queryString } from "../lib/queryParams";
 import { sendOrderStatusPushNotification, sendExpoPushNotification } from "../lib/pushNotifications";
 import { sendInvoiceEmails } from "../lib/email";
+import { sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
 import { resolveLeadCost } from "../lib/leadPricing";
 import { contactFromOrderData, InsufficientPointsError, maskSensitiveOrderFields, unlockLeadAtomically } from "../lib/leadUnlock";
 import { dropTechnicianAndRematch, markTechnicianAvailable, markTechnicianBusy } from "../lib/orderLifecycle";
@@ -111,7 +112,8 @@ router.get("/orders/pending", authMiddleware, requireAuth, async (req, res) => {
 });
 
 router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
-  const userId = req.user!.id;
+  const user = req.user!;
+  const userId = user.id;
 
   try {
     const rows = await db
@@ -203,6 +205,7 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   };
 
   try {
+    const safeOrder = sanitizeOrderForBroadcast(order as Record<string, unknown>);
     const [inserted] = await db
       .insert(ordersTable)
       .values({
@@ -218,7 +221,7 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
         buildingNo: (order.buildingNo as string | undefined)?.trim() || null,
         floorNo: (order.floorNo as string | undefined)?.trim() || null,
         aptNo: (order.aptNo as string | undefined)?.trim() || null,
-        data: order,
+        data: safeOrder,
       })
       .onConflictDoNothing()
       .returning({ orderSerial: ordersTable.orderSerial, id: ordersTable.id });
@@ -248,12 +251,12 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
         }
       }
 
-      const fullOrder = { ...order, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial };
+      const fullOrder = { ...safeOrder, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial };
       void broadcastNewOrder(fullOrder);
       logger.info({ orderId: order.id, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial }, "Order saved to database");
       res.status(201).json({ success: true, orderId: order.id, orderNumber: dbOrderNumber });
     } else {
-      void broadcastNewOrder(order);
+      void broadcastNewOrder(sanitizeOrderForBroadcast(order as Record<string, unknown>));
       res.status(201).json({ success: true, orderId: order.id });
     }
   } catch (err) {

@@ -668,6 +668,21 @@ export default function NewOrderScreen() {
         placeholder={isRTL ? "اشرح المشكلة بالتفصيل..." : "Describe the problem in detail..."}
         required
       />
+      <Text
+        style={{
+          color: colors.mutedForeground,
+          fontFamily: "Inter_400Regular",
+          fontSize: 12,
+          lineHeight: 18,
+          marginTop: -8,
+          marginBottom: 12,
+          textAlign: isRTL ? "right" : "left",
+        }}
+      >
+        {isRTL
+          ? "لأمانك، لا تكتب رقم الهاتف أو روابط التواصل هنا. استخدم حقل الهاتف المخصص."
+          : "For your safety, do not enter phone numbers or contact links here. Use the dedicated phone field."}
+      </Text>
       <FanniInput
         label={t("order.deviceType")}
         value={deviceType} onChangeText={setDeviceType}

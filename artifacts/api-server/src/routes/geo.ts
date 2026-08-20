@@ -55,7 +55,7 @@ router.post("/geo/update", authMiddleware, requireAuth, async (req: Request, res
         
         // PostGIS check if tech is within radius of order location
         // Note: Using raw SQL for the distance check to ensure accuracy with geography points
-        const [{ is_within }] = await db.execute<{ is_within: boolean }>(sql`
+        const geoResult = await db.execute<{ is_within: boolean }>(sql`
           SELECT ST_DWithin(
             (SELECT location FROM users WHERE id = ${userId}),
             (SELECT location FROM orders WHERE id = ${activeOrder.id}),
@@ -63,7 +63,7 @@ router.post("/geo/update", authMiddleware, requireAuth, async (req: Request, res
           ) as is_within
         `);
 
-        if (is_within) {
+        if (geoResult.rows[0]?.is_within) {
           await db.update(ordersTable).set({
             arrivalDetectedAt: now,
             updatedAt: now,
