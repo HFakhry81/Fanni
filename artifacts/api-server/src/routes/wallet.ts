@@ -53,7 +53,7 @@ router.get("/wallet/unlock-cost", authMiddleware, async (req, res) => {
   try {
     const categorySlug = typeof req.query.category === "string" ? req.query.category : null;
     const specialtySlug = typeof req.query.specialty === "string" ? req.query.specialty : null;
-    let cost = 15;
+    let cost = 20;
     if (specialtySlug) {
       const [row] = await db.select().from(unlockCostsTable).where(eq(unlockCostsTable.specialtySlug, specialtySlug));
       if (row) { cost = row.pointsCost; res.json({ cost }); return; }
@@ -63,7 +63,7 @@ router.get("/wallet/unlock-cost", authMiddleware, async (req, res) => {
       if (row) { cost = row.pointsCost; res.json({ cost }); return; }
     }
     const [def] = await db.select().from(unlockCostsTable).where(and(sql`specialty_slug IS NULL`, sql`category_slug IS NULL`));
-    cost = def?.pointsCost ?? 15;
+    cost = def?.pointsCost ?? 20;
     res.json({ cost });
   } catch (err) {
     logger.error({ err }, "Failed to fetch unlock cost");

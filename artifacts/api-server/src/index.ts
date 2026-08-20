@@ -176,9 +176,9 @@ async function seedPointsDemo(): Promise<void> {
       await pool.query(`
         INSERT INTO point_packages (name_en, name_ar, points_amount, price_egp, original_price_egp, sort_order)
         VALUES
-          ('Basic Package',  'الحزمة الأساسية',  100, 100.00, NULL,   1),
-          ('Bronze Package', 'الحزمة البرونزية', 250, 235.00, 250.00, 2),
-          ('Gold Package',   'الحزمة الذهبية',   500, 450.00, 500.00, 3)
+          ('Basic Package',  'الحزمة الأساسية',  50,  50.00, NULL,   1),
+          ('Standard Package', 'الحزمة المتوسطة', 100, 100.00, NULL, 2),
+          ('Premium Package', 'الحزمة الكبيرة',  200, 200.00, NULL, 3)
         ON CONFLICT DO NOTHING
       `);
       logger.info("DB seed: default point packages seeded");
@@ -190,10 +190,10 @@ async function seedPointsDemo(): Promise<void> {
     if (costCheck.rows.length === 0) {
       await pool.query(`
         INSERT INTO unlock_costs (specialty_slug, category_slug, points_cost, label)
-        VALUES (NULL, NULL, 15, 'Default unlock cost')
+        VALUES (NULL, NULL, 20, 'Default unlock cost')
         ON CONFLICT DO NOTHING
       `);
-      logger.info("DB seed: default unlock cost (15 pts) seeded");
+      logger.info("DB seed: default unlock cost (20 pts) seeded");
     }
     // Ensure default payment account config exists
     const configCheck = await pool.query(`SELECT id FROM payment_account_config LIMIT 1`);

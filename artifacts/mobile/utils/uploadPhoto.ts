@@ -1,3 +1,5 @@
+import { getApiBase } from "./api";
+
 export interface UploadResult {
   url: string;
 }
@@ -7,9 +9,8 @@ export async function uploadPhotoToServer(
   sessionToken: string,
   mimeType: string = "image/jpeg",
 ): Promise<UploadResult> {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  if (!domain) throw new Error("EXPO_PUBLIC_DOMAIN not configured");
-  const apiBase = `http://${domain}`;
+  const apiBase = getApiBase();
+  if (!apiBase) throw new Error("API base URL is not configured");
 
   const formData = new FormData();
   const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";

@@ -28,6 +28,7 @@ import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useLocationLabels } from "@/hooks/useLocationLabels";
+import { getApiBase } from "@/utils/api";
 
 export default function OrderDetailsScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -119,10 +120,34 @@ export default function OrderDetailsScreen() {
   const handleSubmitRating = async () => {
     if (clientRating === 0) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    await updateOrder(order.id, { clientRating, clientComment });
-    setLoading(false);
-    router.back();
+    try {
+      const apiBase = getApiBase();
+      if (!apiBase || !sessionToken) {
+        Alert.alert(isRTL ? "يجب تسجيل الدخول" : "Sign in required");
+        return;
+      }
+      const res = await fetch(`${apiBase}/api/orders/${order.id}/rate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ rating: clientRating, comment: clientComment.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? (isRTL ? "فشل إرسال التقييم" : "Failed to submit rating"));
+      }
+      await updateOrder(order.id, { clientRating, clientComment });
+      router.back();
+    } catch (err) {
+      Alert.alert(
+        isRTL ? "خطأ" : "Error",
+        err instanceof Error ? err.message : (isRTL ? "تعذر إرسال التقييم" : "Could not submit rating"),
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleShareInvoice = async () => {

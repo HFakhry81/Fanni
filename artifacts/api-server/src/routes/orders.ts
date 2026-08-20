@@ -1361,7 +1361,7 @@ router.patch("/orders/:id", authMiddleware, requireAuth, async (req: Request<{ i
 router.post("/orders/:id/rate", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
   const id = req.params.id;
-  const { rating } = req.body as { rating?: number };
+  const { rating, comment } = req.body as { rating?: number; comment?: string };
 
   if (typeof rating !== "number" || !Number.isInteger(rating) || rating < 1 || rating > 5) {
     res.status(400).json({ error: "Rating must be an integer between 1 and 5" });
@@ -1401,7 +1401,14 @@ router.post("/orders/:id/rate", authMiddleware, requireAuth, async (req: Request
         return;
       }
       await db.transaction(async (tx) => {
-        await tx.update(ordersTable).set({ clientRating: rating }).where(eq(ordersTable.id, id));
+        await tx.update(ordersTable).set({
+          clientRating: rating,
+          updatedAt: new Date(),
+          data: sql`${ordersTable.data} || ${JSON.stringify({
+            clientRating: rating,
+            ...(typeof comment === "string" ? { clientComment: comment.trim().slice(0, 1000) } : {}),
+          })}::jsonb`,
+        }).where(eq(ordersTable.id, id));
         if (order.technicianId) {
           await tx.execute(sql`
             UPDATE users
