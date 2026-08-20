@@ -11,7 +11,7 @@ import { sendOrderStatusPushNotification, sendExpoPushNotification } from "../li
 import { sendInvoiceEmails } from "../lib/email";
 import { sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
 import { resolveLeadCost } from "../lib/leadPricing";
-import { contactFromOrderData, InsufficientPointsError, maskSensitiveOrderFields, unlockLeadAtomically } from "../lib/leadUnlock";
+import { contactFromOrderData, InsufficientPointsError, maskSensitiveOrderFields, refundEligibleUnlocksForCancelledOrder, unlockLeadAtomically } from "../lib/leadUnlock";
 import { dropTechnicianAndRematch, markTechnicianAvailable, markTechnicianBusy } from "../lib/orderLifecycle";
 
 const router: IRouter = Router();
@@ -1197,12 +1197,20 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Requ
 
     removeOrderFromPending(id);
     broadcastOrderCancelledToTechnicians(id);
+    let refundedUnlocks = 0;
+    if (user.role === "client") {
+      try {
+        refundedUnlocks = await refundEligibleUnlocksForCancelledOrder(id);
+      } catch (refundErr) {
+        logger.error({ refundErr, orderId: id }, "Order cancelled but automatic lead refund failed");
+      }
+    }
 
     if (updated.clientId) {
       broadcastOrderStatusToClient(updated.clientId, { id, status: "cancelled" });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, refundedUnlocks });
   } catch (err) {
     logger.error({ err, id }, "Failed to cancel order");
     res.status(500).json({ error: "Failed to cancel order" });

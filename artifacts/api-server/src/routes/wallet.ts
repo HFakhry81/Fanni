@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { db, walletsTable, walletTransactionsTable, pointPackagesTable, leadUnlocksTable, unlockCostsTable } from "@workspace/db";
+import { db, walletsTable, walletTransactionsTable, pointPackagesTable, leadUnlocksTable, unlockCostsTable, operationalExpensesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
@@ -228,6 +228,44 @@ router.patch("/admin/unlock-costs/:id", authMiddleware, requireAuth, async (req:
   } catch (err) {
     logger.error({ err }, "Failed to update unlock cost");
     res.status(500).json({ error: "Failed to update unlock cost" });
+  }
+});
+
+router.get("/admin/operational-expenses", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+  try {
+    const expenses = await db.select().from(operationalExpensesTable).orderBy(desc(operationalExpensesTable.createdAt));
+    res.json({ expenses });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch operational expenses");
+    res.status(500).json({ error: "Failed to fetch operational expenses" });
+  }
+});
+
+router.post("/admin/operational-expenses", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+  const { category, provider, amountEgp, invoiceUrl, notes } = req.body as {
+    category?: string; provider?: string; amountEgp?: number; invoiceUrl?: string; notes?: string;
+  };
+  const validCategories = ["hosting", "sms_otp", "maps_api", "marketing", "payment_gateway", "salaries", "other"] as const;
+  if (!category || !validCategories.includes(category as typeof validCategories[number]) || !provider?.trim() || typeof amountEgp !== "number" || amountEgp < 0) {
+    res.status(400).json({ error: "category, provider, and a non-negative amountEgp are required" });
+    return;
+  }
+  try {
+    const [expense] = await db.insert(operationalExpensesTable).values({
+      category: category as typeof validCategories[number],
+      provider: provider.trim().slice(0, 100),
+      amountEgp: amountEgp.toFixed(2),
+      invoiceUrl: invoiceUrl?.trim() || null,
+      notes: notes?.trim() || null,
+    }).returning();
+    res.status(201).json({ expense });
+  } catch (err) {
+    logger.error({ err }, "Failed to create operational expense");
+    res.status(500).json({ error: "Failed to create operational expense" });
   }
 });
 

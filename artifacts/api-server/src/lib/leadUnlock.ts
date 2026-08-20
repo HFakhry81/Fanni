@@ -140,3 +140,49 @@ export async function unlockLeadAtomically(opts: {
     };
   });
 }
+
+/**
+ * Refund a client-cancelled lead only when the technician has not used either
+ * contact action and the unlock happened within the policy window.
+ */
+export async function refundEligibleUnlocksForCancelledOrder(orderId: string): Promise<number> {
+  return db.transaction(async (tx) => {
+    const unlocks = await tx
+      .select()
+      .from(leadUnlocksTable)
+      .where(and(
+        eq(leadUnlocksTable.orderId, orderId),
+        eq(leadUnlocksTable.refundStatus, "none"),
+        eq(leadUnlocksTable.clickedCall, false),
+        eq(leadUnlocksTable.clickedWhatsapp, false),
+        sql`unlocked_at >= NOW() - INTERVAL '3 minutes'`,
+      ));
+
+    let refunded = 0;
+    for (const unlock of unlocks) {
+      const [wallet] = await tx.select().from(walletsTable).where(eq(walletsTable.userId, unlock.technicianId));
+      if (!wallet) continue;
+
+      const [marked] = await tx
+        .update(leadUnlocksTable)
+        .set({ refundStatus: "refunded" })
+        .where(and(eq(leadUnlocksTable.id, unlock.id), eq(leadUnlocksTable.refundStatus, "none")))
+        .returning({ id: leadUnlocksTable.id });
+      if (!marked) continue;
+
+      await tx.update(walletsTable)
+        .set({ pointsBalance: wallet.pointsBalance + unlock.pointsDeducted, updatedAt: new Date() })
+        .where(eq(walletsTable.id, wallet.id));
+      await tx.insert(walletTransactionsTable).values({
+        walletId: wallet.id,
+        pointsAmount: unlock.pointsDeducted,
+        type: "dispute_refund",
+        description: `Automatic refund: client cancelled before contact — order ${orderId}`,
+        orderId,
+        paymentStatus: "completed",
+      });
+      refunded++;
+    }
+    return refunded;
+  });
+}

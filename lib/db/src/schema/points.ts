@@ -117,3 +117,23 @@ export const unlockCostsTable = pgTable("unlock_costs", {
   label: varchar("label", { length: 200 }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const expenseCategoryEnum = pgEnum("expense_category", [
+  "hosting",
+  "sms_otp",
+  "maps_api",
+  "marketing",
+  "payment_gateway",
+  "salaries",
+  "other",
+]);
+
+export const operationalExpensesTable = pgTable("operational_expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: expenseCategoryEnum("category").notNull(),
+  provider: varchar("provider", { length: 100 }).notNull(),
+  amountEgp: numeric("amount_egp", { precision: 10, scale: 2 }).notNull(),
+  invoiceUrl: text("invoice_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
