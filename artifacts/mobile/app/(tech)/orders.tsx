@@ -68,6 +68,7 @@ export default function TechOrdersScreen() {
   const [transportFeeStr, setTransportFeeStr] = useState("");
   const [materialsTotalStr, setMaterialsTotalStr] = useState("0");
   const [ocrRunning, setOcrRunning] = useState(false);
+  const [ocrWarning, setOcrWarning] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
@@ -215,9 +216,17 @@ export default function TechOrdersScreen() {
     if (!asset) return;
     setReceiptUploading(true);
     setReceiptError(null);
+    setOcrWarning(null);
     try {
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
       const ocrData = await runOCR(url);
+      if (!ocrData) {
+        setOcrWarning(
+          isRTL
+            ? "تعذر استخراج البيانات تلقائياً. الصورة محفوظة ويمكنك إدخال إجمالي المواد يدوياً."
+            : "Automatic extraction was unavailable. The receipt is saved; enter the materials total manually.",
+        );
+      }
       const receipt: OcrReceiptData = ocrData ?? { supplier: null, date: null, lineItems: [], detectedTotal: 0, photoUrl: url };
       setReceiptPhotos((prev) => {
         const updated = [...prev, receipt];
@@ -767,15 +776,22 @@ export default function TechOrdersScreen() {
             <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 10, gap: 6 }]}>
               <VectorIcon name="file-text" size={16} color={colors.primary} />
               <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginBottom: 0, flex: 1 }]}>
-                {isRTL ? "فواتير المواد (مطلوب)" : "Material Receipts (Required)"}
+                {isRTL ? "إثبات المواد (الصورة مطلوبة)" : "Material Evidence (Photo Required)"}
               </Text>
               <View style={{ backgroundColor: colors.destructive + "20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
                 <Text style={{ color: colors.destructive, fontFamily: "Inter_700Bold", fontSize: 10 }}>{isRTL ? "إلزامي" : "Required"}</Text>
               </View>
             </View>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
-              {isRTL ? "ارفع صورة كل فاتورة مواد اشتريتها. سيتم استخراج البيانات تلقائياً." : "Upload a photo of each material receipt. Data will be extracted automatically."}
+              {isRTL
+                ? "ارفع صورة كل فاتورة مواد اشتريتها. استخراج البيانات تلقائي واختياري، ويمكنك إدخال الإجمالي يدوياً."
+                : "Upload each material receipt. Automatic extraction is optional; you can enter the total manually."}
             </Text>
+            {ocrWarning && (
+              <Text style={{ color: "#B45309", fontFamily: "Inter_500Medium", fontSize: 11, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
+                {ocrWarning}
+              </Text>
+            )}
 
             {receiptPhotos.length > 0 && (
               <>
