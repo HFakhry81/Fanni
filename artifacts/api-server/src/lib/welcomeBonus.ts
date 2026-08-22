@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, walletsTable, walletTransactionsTable } from "@workspace/db";
+import { postWelcomeBonus } from "./generalLedger";
 
 export const WELCOME_BONUS_POINTS = 60;
 
@@ -41,6 +42,7 @@ export async function grantWelcomeBonusIfNeeded(userId: string): Promise<{ grant
         updatedAt: new Date(),
       })
       .where(eq(walletsTable.id, wallet.id));
+    await postWelcomeBonus(`${wallet.id}:${already}-${add}`, add, tx);
   });
   return { granted: add };
 }

@@ -20,6 +20,7 @@ import { createNotification } from "./notifications";
 import { startGatewayCheckout } from "../lib/paymentGateway";
 import { creditPurchased } from "../lib/walletBuckets";
 import { logAdminAudit } from "../lib/adminAudit";
+import { postCashIn, resolveProviderFeeEgp } from "../lib/generalLedger";
 
 const router: IRouter = Router();
 
@@ -240,50 +241,54 @@ router.patch(
         return;
       }
 
-      // Credit wallet
       const wallet = await getOrCreateWallet(existing.userId);
+      const feeEgp = await resolveProviderFeeEgp(Number(existing.amountEgp));
       const credited = creditPurchased({
         pointsBalance: wallet.pointsBalance,
         promotionalBalance: wallet.promotionalBalance ?? 0,
         purchasedBalance: wallet.purchasedBalance ?? 0,
       }, existing.pointsRequested);
-      await db
-        .update(walletsTable)
-        .set({
-          pointsBalance: credited.pointsBalance,
-          promotionalBalance: credited.promotionalBalance,
-          purchasedBalance: credited.purchasedBalance,
-          updatedAt: new Date(),
-        })
-        .where(eq(walletsTable.id, wallet.id));
 
-      const [tx] = await db
-        .insert(walletTransactionsTable)
-        .values({
-          walletId: wallet.id,
-          pointsAmount: existing.pointsRequested,
-          type: "package_purchase",
-          cashAmountPaid: existing.amountEgp,
-          paymentStatus: "completed",
-          description: `تحويل مؤكد — Confirmed transfer (ref: ${existing.referenceNumber ?? "—"})`,
-        })
-        .returning();
+      const { updated } = await db.transaction(async (tx) => {
+        await tx
+          .update(walletsTable)
+          .set({
+            pointsBalance: credited.pointsBalance,
+            promotionalBalance: credited.promotionalBalance,
+            purchasedBalance: credited.purchasedBalance,
+            updatedAt: new Date(),
+          })
+          .where(eq(walletsTable.id, wallet.id));
 
-      // Mark request as confirmed
-      const [updated] = await db
-        .update(paymentRequestsTable)
-        .set({
-          status: "confirmed",
-          adminId: user.id,
-          adminNotes: adminNotes ?? null,
-          confirmedAt: new Date(),
-          walletTxId: tx!.id,
-          updatedAt: new Date(),
-        })
-        .where(eq(paymentRequestsTable.id, id))
-        .returning();
+        const [walletTx] = await tx
+          .insert(walletTransactionsTable)
+          .values({
+            walletId: wallet.id,
+            pointsAmount: existing.pointsRequested,
+            type: "package_purchase",
+            cashAmountPaid: existing.amountEgp,
+            paymentStatus: "completed",
+            description: `تحويل مؤكد — Confirmed transfer (ref: ${existing.referenceNumber ?? "—"})`,
+          })
+          .returning();
 
-      // Notify the technician
+        const [confirmed] = await tx
+          .update(paymentRequestsTable)
+          .set({
+            status: "confirmed",
+            adminId: user.id,
+            adminNotes: adminNotes ?? null,
+            confirmedAt: new Date(),
+            walletTxId: walletTx!.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(paymentRequestsTable.id, id))
+          .returning();
+
+        await postCashIn(id, Number(existing.amountEgp), `Package purchase ${existing.pointsRequested} pts`, tx, feeEgp);
+        return { updated: confirmed };
+      });
+
       await createNotification({
         userId: existing.userId,
         type: "payment_confirmed",

@@ -37,6 +37,39 @@ interface LedgerEntry {
   createdAt: string;
 }
 
+interface GlAccount {
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  type: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+interface GlJournalLine {
+  accountCode: string;
+  debit: string | number;
+  credit: string | number;
+}
+
+interface GlJournal {
+  id: string;
+  sourceType: string;
+  sourceId: string;
+  description: string | null;
+  createdAt: string;
+  lines: GlJournalLine[];
+}
+
+const JOURNAL_SOURCE_AR: Record<string, string> = {
+  payment_confirm: "تأكيد شحن",
+  welcome_bonus: "مكافأة ترحيبية",
+  lead_unlock: "فتح بيانات",
+  point_refund: "استرداد نقاط",
+  operating_expense: "مصروف تشغيلي",
+};
+
 const fmt = (n: number | null) =>
   n == null
     ? "—"
@@ -72,6 +105,10 @@ export default function AdminLedgerScreen() {
   const [appliedFrom, setAppliedFrom] = useState(defaultFrom);
   const [appliedTo, setAppliedTo] = useState(defaultTo);
   const [showFilter, setShowFilter] = useState(false);
+  const [trial, setTrial] = useState<{ accounts: GlAccount[]; netIncome: number } | null>(null);
+  const [journals, setJournals] = useState<GlJournal[]>([]);
+  const [glLoading, setGlLoading] = useState(false);
+  const [glError, setGlError] = useState<string | null>(null);
 
   const authHeaders = useCallback(
     () => ({
@@ -109,9 +146,41 @@ export default function AdminLedgerScreen() {
     [authHeaders, isRTL],
   );
 
+  const fetchGl = useCallback(async () => {
+    setGlLoading(true);
+    setGlError(null);
+    try {
+      const [trialRes, journalRes] = await Promise.all([
+        fetch(`${getApiBase()}/api/admin/gl/trial-balance`, { headers: authHeaders() }),
+        fetch(`${getApiBase()}/api/admin/gl/journals?limit=30`, { headers: authHeaders() }),
+      ]);
+      if (trialRes.status === 403 || journalRes.status === 403) {
+        setNoAccess(true);
+        return;
+      }
+      if (!trialRes.ok && !journalRes.ok) {
+        setGlError(isRTL ? "تعذّر تحميل دفتر الأستاذ" : "Failed to load general ledger");
+        return;
+      }
+      if (trialRes.ok) {
+        const data = (await trialRes.json()) as { accounts?: GlAccount[]; netIncome?: number };
+        setTrial({ accounts: data.accounts ?? [], netIncome: data.netIncome ?? 0 });
+      }
+      if (journalRes.ok) {
+        const data = (await journalRes.json()) as { journals?: GlJournal[] };
+        setJournals(data.journals ?? []);
+      }
+    } catch {
+      setGlError(isRTL ? "تعذّر تحميل دفتر الأستاذ" : "Failed to load general ledger");
+    } finally {
+      setGlLoading(false);
+    }
+  }, [authHeaders, isRTL]);
+
   useEffect(() => {
     fetchLedger(appliedFrom, appliedTo);
-  }, [fetchLedger, appliedFrom, appliedTo]);
+    fetchGl();
+  }, [fetchLedger, fetchGl, appliedFrom, appliedTo]);
 
   const totalServiceFees = entries.reduce((s, e) => s + (e.serviceFeeAmount ?? 0), 0);
   const totalVat = entries.reduce((s, e) => s + (e.vatAmount ?? 0), 0);
@@ -182,9 +251,104 @@ export default function AdminLedgerScreen() {
     }
   };
 
+  const glSection = (
+    <View style={[styles.glBlock, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <Text style={[styles.glTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+        {isRTL ? "القيد المزدوج" : "Double-entry ledger"}
+      </Text>
+      <Text style={[styles.glHint, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+        {isRTL
+          ? "النقد المحصّل التزام مؤجل (2100) حتى تُستهلك النقاط المشتراة. المكافأة الترحيبية تكلفة ترويج لا إيراد."
+          : "Cash in is deferred on 2100 until purchased points are consumed. Welcome bonus is promo cost, not revenue."}
+      </Text>
+      {glLoading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />
+      ) : glError ? (
+        <TouchableOpacity onPress={fetchGl}>
+          <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+            {glError} · {isRTL ? "إعادة المحاولة" : "Retry"}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <ScrollView style={styles.glScroll} nestedScrollEnabled>
+          <View style={[styles.glNetRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+              {isRTL ? "صافي الدخل (قيود)" : "GL net income"}
+            </Text>
+            <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+              {fmt(trial?.netIncome ?? 0)} {isRTL ? "ج.م" : "EGP"}
+            </Text>
+          </View>
+          <View style={[styles.glAccountRow, { borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Text style={{ color: colors.mutedForeground, flex: 1.4, fontFamily: "Inter_600SemiBold", fontSize: 10, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL ? "الحساب" : "Account"}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 10, textAlign: "center" }}>
+              {isRTL ? "مدين" : "Debit"}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 10, textAlign: "center" }}>
+              {isRTL ? "دائن" : "Credit"}
+            </Text>
+          </View>
+          {(trial?.accounts ?? []).map((account) => (
+            <View
+              key={account.code}
+              style={[styles.glAccountRow, { borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+            >
+              <Text style={{ color: colors.foreground, flex: 1.4, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                {account.code} {isRTL ? account.nameAr : account.nameEn}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
+                {fmt(account.debit)}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
+                {fmt(account.credit)}
+              </Text>
+            </View>
+          ))}
+          <Text style={[styles.glSubhead, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+            {isRTL ? "القيود الأخيرة" : "Recent journals"}
+          </Text>
+          {journals.length === 0 ? (
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL ? "لا توجد قيود بعد — ستظهر بعد تأكيد شحن أو فتح طلب." : "No journals yet — they appear after cash-in or lead unlock."}
+            </Text>
+          ) : (
+            journals.map((journal) => (
+              <View key={journal.id} style={[styles.glJournalCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                  {isRTL ? (JOURNAL_SOURCE_AR[journal.sourceType] ?? journal.sourceType) : journal.sourceType}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+                  {journal.description ?? journal.sourceId} · {new Date(journal.createdAt).toLocaleString(isRTL ? "ar-EG" : "en-GB")}
+                </Text>
+                {(journal.lines ?? []).map((line, idx) => (
+                  <View key={`${journal.id}-${idx}`} style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 4 }}>
+                    <Text style={{ color: colors.foreground, flex: 1, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                      {line.accountCode}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                      {fmt(Number(line.debit))} / {fmt(Number(line.credit))}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title={isRTL ? "دفتر الأستاذ" : "Commission Ledger"} showHome showLogout />
+      <AppHeader title={isRTL ? "دفتر الأستاذ" : "General Ledger"} showHome showLogout />
+
+      {glSection}
+
+      <Text style={[styles.invoiceSectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+        {isRTL ? "فواتير العمولة (تصدير)" : "Commission invoices (export)"}
+      </Text>
 
       {/* Filter bar */}
       <View style={[styles.filterBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -443,6 +607,27 @@ export default function AdminLedgerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  glBlock: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    maxHeight: 360,
+  },
+  glTitle: { fontFamily: "Inter_700Bold", fontSize: 15, marginBottom: 4 },
+  glHint: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginBottom: 8 },
+  glScroll: { maxHeight: 260 },
+  glNetRow: { justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  glAccountRow: { paddingVertical: 5, borderBottomWidth: StyleSheet.hairlineWidth },
+  glSubhead: { fontFamily: "Inter_700Bold", fontSize: 13, marginTop: 12, marginBottom: 6 },
+  glJournalCard: { borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 8 },
+  invoiceSectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   filterBar: {
     flexDirection: "row",
     alignItems: "center",

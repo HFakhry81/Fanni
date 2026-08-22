@@ -156,11 +156,11 @@ export default function AdminDashboardScreen() {
           {([ 
             { icon: "users",       label: t("admin.users"),       color: colors.secondary, route: "/(admin)/users" },
             { icon: "list",        label: t("admin.orders"),      color: colors.primary,   route: "/(admin)/orders" },
-            { icon: "bar-chart-2", label: t("admin.stats"),       color: "#7C5CBF",        route: "/(admin)/stats" },
-            { icon: "grid",        label: isRTL ? "الفئات" : "Categories", color: "#7C5CBF",   route: "/(admin)/categories" },
-            { icon: "shield",      label: t("admin.permissions"), color: "#22A36B",        route: "/(admin)/permissions" },
+            { icon: "credit-card", label: isRTL ? "المدفوعات" : "Payments", color: "#22A36B", route: "/(admin)/payments" },
+            { icon: "alert-circle", label: isRTL ? "النزاعات" : "Disputes", color: "#C8880A", route: "/(admin)/disputes" },
+            { icon: "book-open",   label: isRTL ? "الأستاذ" : "Ledger", color: "#7C5CBF", route: "/(admin)/ledger" },
             { icon: "dollar-sign", label: isRTL ? "تسعير Lead" : "Lead Pricing", color: "#C8880A", route: "/(admin)/lead-pricing" },
-            { icon: "user-plus",   label: isRTL ? "إضافة مسئول" : "Add Admin", color: colors.primary, route: "/(admin)/add-admin" },
+            { icon: "shield",      label: isRTL ? "التدقيق" : "Audit", color: "#22A36B", route: "/(admin)/audit-logs" },
           ] satisfies { icon: IconName; label: string; color: string; route: string }[]).map((item) => (
             <TouchableOpacity
               key={item.label}

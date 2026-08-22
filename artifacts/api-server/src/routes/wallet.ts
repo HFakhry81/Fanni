@@ -8,6 +8,7 @@ import { logger } from "../lib/logger";
 import { resolveLeadCost } from "../lib/leadPricing";
 import { listAdminAuditLogs, logAdminAudit } from "../lib/adminAudit";
 import { creditPurchased, debitPromoFirst } from "../lib/walletBuckets";
+import { getTrialBalance, listJournals, postOperatingExpense } from "../lib/generalLedger";
 
 const router: IRouter = Router();
 
@@ -390,13 +391,17 @@ router.post("/admin/operational-expenses", authMiddleware, requireAuth, requireA
     return;
   }
   try {
-    const [expense] = await db.insert(operationalExpensesTable).values({
-      category: category as typeof validCategories[number],
-      provider: provider.trim().slice(0, 100),
-      amountEgp: amountEgp.toFixed(2),
-      invoiceUrl: invoiceUrl?.trim() || null,
-      notes: notes?.trim() || null,
-    }).returning();
+    const expense = await db.transaction(async (tx) => {
+      const [row] = await tx.insert(operationalExpensesTable).values({
+        category: category as typeof validCategories[number],
+        provider: provider.trim().slice(0, 100),
+        amountEgp: amountEgp.toFixed(2),
+        invoiceUrl: invoiceUrl?.trim() || null,
+        notes: notes?.trim() || null,
+      }).returning();
+      await postOperatingExpense(row!.id, amountEgp, `${category} / ${provider}`, tx);
+      return row;
+    });
     await logAdminAudit(req, {
       action: "expense_create",
       targetType: "operational_expense",
@@ -409,6 +414,27 @@ router.post("/admin/operational-expenses", authMiddleware, requireAuth, requireA
   } catch (err) {
     logger.error({ err }, "Failed to create operational expense");
     res.status(500).json({ error: "Failed to create operational expense" });
+  }
+});
+
+router.get("/admin/gl/trial-balance", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (_req, res) => {
+  try {
+    const trial = await getTrialBalance();
+    res.json(trial);
+  } catch (err) {
+    logger.error({ err }, "Failed to load trial balance");
+    res.status(500).json({ error: "Failed to load trial balance" });
+  }
+});
+
+router.get("/admin/gl/journals", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (req, res) => {
+  try {
+    const raw = typeof req.query.limit === "string" ? Number(req.query.limit) : 50;
+    const { journals } = await listJournals(raw);
+    res.json({ journals });
+  } catch (err) {
+    logger.error({ err }, "Failed to list GL journals");
+    res.status(500).json({ error: "Failed to list journals" });
   }
 });
 

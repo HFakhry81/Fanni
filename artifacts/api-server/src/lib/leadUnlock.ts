@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, leadUnlocksTable, ordersTable, walletsTable, walletTransactionsTable } from "@workspace/db";
 import { resolveLeadCost } from "./leadPricing";
 import { debitPromoFirst, refundToBuckets } from "./walletBuckets";
+import { postLeadUnlock, postPointRefund } from "./generalLedger";
 
 export type OrderContact = {
   clientName: unknown;
@@ -176,6 +177,7 @@ export async function unlockLeadAtomically(opts: {
       orderId: opts.orderId,
       paymentStatus: "completed",
     });
+    await postLeadUnlock(unlock!.id, split.promotionalUsed, split.purchasedUsed, tx);
 
     const assigned = await assignOrder();
     return {
@@ -242,6 +244,7 @@ export async function refundEligibleUnlocksForCancelledOrder(orderId: string): P
         orderId,
         paymentStatus: "completed",
       });
+      await postPointRefund(unlock.id, promoUsed, purchasedUsed, tx);
       refunded++;
     }
     return refunded;

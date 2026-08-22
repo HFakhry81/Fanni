@@ -128,6 +128,7 @@ export default function AdminAccountingScreen() {
   const [expenseProvider, setExpenseProvider] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
   const [expenseNotes, setExpenseNotes] = useState("");
+  const [trial, setTrial] = useState<{ accounts: Array<{ code: string; nameAr: string; nameEn: string; debit: number; credit: number; balance: number }>; netIncome: number } | null>(null);
 
   const authHeaders = useCallback(
     () => ({
@@ -155,6 +156,17 @@ export default function AdminAccountingScreen() {
     }
   }, [authHeaders, isRTL]);
 
+  const fetchTrial = useCallback(async () => {
+    try {
+      const res = await fetch(`${getApiBase()}/api/admin/gl/trial-balance`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const json = await res.json() as typeof trial;
+      setTrial(json);
+    } catch {
+      // Optional until migration 020 is applied.
+    }
+  }, [authHeaders]);
+
   const fetchExpenses = useCallback(async () => {
     setExpensesLoading(true);
     try {
@@ -172,7 +184,8 @@ export default function AdminAccountingScreen() {
   useFocusEffect(useCallback(() => {
     fetchData(appliedFrom, appliedTo);
     fetchExpenses();
-  }, [fetchData, fetchExpenses, appliedFrom, appliedTo]));
+    fetchTrial();
+  }, [fetchData, fetchExpenses, fetchTrial, appliedFrom, appliedTo]));
 
   const saveExpense = async () => {
     const amount = Number(expenseAmount.replace(",", "."));
@@ -199,6 +212,7 @@ export default function AdminAccountingScreen() {
       setExpenseAmount("");
       setExpenseNotes("");
       setExpenseModal(false);
+      await fetchTrial();
     } catch (err) {
       Alert.alert(isRTL ? "تعذر الحفظ" : "Save failed", err instanceof Error ? err.message : (isRTL ? "حاول مرة أخرى." : "Please try again."));
     } finally {
@@ -513,6 +527,27 @@ export default function AdminAccountingScreen() {
                   </View>
                 ))}
               </View>
+            </>
+          )}
+
+          {trial && (
+            <>
+              <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+                {isRTL ? "ميزان المراجعة" : "Trial Balance"}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL ? `صافي الدخل (قيود النقاط): ${fmtEgp(trial.netIncome)}` : `Points GL net income: ${fmtEgp(trial.netIncome)}`}
+              </Text>
+              {trial.accounts.map((account) => (
+                <View key={account.code} style={[styles.flowRow, { borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Text style={{ color: colors.foreground, flex: 1, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                    {account.code} {isRTL ? account.nameAr : account.nameEn}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                    {fmtEgp(account.debit)} / {fmtEgp(account.credit)}
+                  </Text>
+                </View>
+              ))}
             </>
           )}
 

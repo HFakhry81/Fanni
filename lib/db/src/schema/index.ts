@@ -5,4 +5,5 @@ export * from "./locations";
 export * from "./points";
 export * from "./payments";
 export * from "./voice";
+export * from "./ledger";
 // notificationsTable is exported from payments.ts

@@ -5,10 +5,10 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
-import { getOrCreateWallet } from "./wallet";
 import { refundToBuckets } from "../lib/walletBuckets";
 import { logAdminAudit } from "../lib/adminAudit";
 import { autoDisputeDailyCap, isAutoEligibleReason } from "../lib/autoDispute";
+import { postPointRefund } from "../lib/generalLedger";
 
 const router: IRouter = Router();
 
@@ -76,27 +76,38 @@ router.post("/disputes", authMiddleware, requireAuth, async (req, res) => {
         const purchasedUsed = Number(unlock.purchasedPointsUsed ?? 0);
         const deducted = Number(unlock.pointsDeducted ?? 0);
         const recorded = promoUsed + purchasedUsed;
-        const restored = refundToBuckets({
-          pointsBalance: Number(walletRow.pointsBalance ?? walletRow.points_balance ?? 0),
-          promotionalBalance: Number(walletRow.promotionalBalance ?? walletRow.promotional_balance ?? 0),
-          purchasedBalance: Number(walletRow.purchasedBalance ?? walletRow.purchased_balance ?? 0),
-        }, recorded > 0 ? promoUsed : 0, recorded > 0 ? purchasedUsed : deducted);
-        await tx.update(walletsTable)
-          .set({
-            pointsBalance: restored.pointsBalance,
-            promotionalBalance: restored.promotionalBalance,
-            purchasedBalance: restored.purchasedBalance,
-            updatedAt: new Date(),
-          })
-          .where(eq(walletsTable.id, wallet.id));
-        await tx.insert(walletTransactionsTable).values({
-          walletId: wallet.id,
-          pointsAmount: unlock.pointsDeducted,
-          type: "dispute_refund",
-          description: `Auto dispute refund for order ${unlock.orderId}`,
-          orderId: unlock.orderId,
-          paymentStatus: "completed",
-        });
+        if (unlock.refundStatus !== "refunded") {
+          const restored = refundToBuckets({
+            pointsBalance: Number(walletRow.pointsBalance ?? walletRow.points_balance ?? 0),
+            promotionalBalance: Number(walletRow.promotionalBalance ?? walletRow.promotional_balance ?? 0),
+            purchasedBalance: Number(walletRow.purchasedBalance ?? walletRow.purchased_balance ?? 0),
+          }, recorded > 0 ? promoUsed : 0, recorded > 0 ? purchasedUsed : deducted);
+          await tx.update(walletsTable)
+            .set({
+              pointsBalance: restored.pointsBalance,
+              promotionalBalance: restored.promotionalBalance,
+              purchasedBalance: restored.purchasedBalance,
+              updatedAt: new Date(),
+            })
+            .where(eq(walletsTable.id, wallet.id));
+          await tx.insert(walletTransactionsTable).values({
+            walletId: wallet.id,
+            pointsAmount: unlock.pointsDeducted,
+            type: "dispute_refund",
+            description: `Auto dispute refund for order ${unlock.orderId}`,
+            orderId: unlock.orderId,
+            paymentStatus: "completed",
+          });
+          await tx.update(leadUnlocksTable)
+            .set({ refundStatus: "refunded" })
+            .where(eq(leadUnlocksTable.id, leadUnlockId));
+          await postPointRefund(
+            String(created!.id),
+            recorded > 0 ? promoUsed : 0,
+            recorded > 0 ? purchasedUsed : deducted,
+            tx,
+          );
+        }
         return created;
       });
       res.status(201).json({ dispute, autoResolved: true });
@@ -173,58 +184,61 @@ router.patch("/admin/disputes/:id", authMiddleware, requireAuth, requireAdmin, r
   try {
     const result = await db.transaction(async (tx) => {
       const disputeRows = await tx.execute(sql`SELECT * FROM disputes WHERE id = ${id} FOR UPDATE`);
-      const dispute = disputeRows.rows[0] as typeof disputesTable.$inferSelect | undefined;
-      if (!dispute) return { kind: "not_found" as const };
-      if (dispute.status === "approved" || dispute.status === "rejected") {
+      const disputeRaw = disputeRows.rows[0] as Record<string, unknown> | undefined;
+      if (!disputeRaw) return { kind: "not_found" as const };
+      const disputeStatus = String(disputeRaw.status ?? "");
+      const pointsRefunded = Boolean(disputeRaw.points_refunded ?? disputeRaw.pointsRefunded);
+      const leadUnlockId = String(disputeRaw.lead_unlock_id ?? disputeRaw.leadUnlockId ?? "");
+      const technicianId = String(disputeRaw.technician_id ?? disputeRaw.technicianId ?? "");
+      const orderId = String(disputeRaw.order_id ?? disputeRaw.orderId ?? "");
+      if (disputeStatus === "approved" || disputeStatus === "rejected") {
         return { kind: "resolved" as const };
       }
 
-      if (action === "approve" && !dispute.pointsRefunded) {
-        const unlockRows = await tx.execute(sql`SELECT * FROM lead_unlocks WHERE id = ${dispute.leadUnlockId} FOR UPDATE`);
-        const unlock = unlockRows.rows[0] as typeof leadUnlocksTable.$inferSelect | undefined;
-        if (!unlock) throw new Error("LEAD_UNLOCK_NOT_FOUND");
+      if (action === "approve" && !pointsRefunded) {
+        const unlockRows = await tx.execute(sql`SELECT * FROM lead_unlocks WHERE id = ${leadUnlockId} FOR UPDATE`);
+        const unlockRow = unlockRows.rows[0] as Record<string, unknown> | undefined;
+        if (!unlockRow) throw new Error("LEAD_UNLOCK_NOT_FOUND");
 
-        const walletRows = await tx.execute(sql`SELECT * FROM wallets WHERE user_id = ${dispute.technicianId} FOR UPDATE`);
-        const wallet = walletRows.rows[0] as typeof walletsTable.$inferSelect | undefined;
-        if (!wallet) throw new Error("WALLET_NOT_FOUND");
+        const walletRows = await tx.execute(sql`SELECT * FROM wallets WHERE user_id = ${technicianId} FOR UPDATE`);
+        const walletRow = walletRows.rows[0] as Record<string, unknown> | undefined;
+        if (!walletRow) throw new Error("WALLET_NOT_FOUND");
 
-        const unlockRow = unlock as typeof unlock & {
-          promotional_points_used?: number;
-          purchased_points_used?: number;
-          points_deducted?: number;
-        };
-        const walletRow = wallet as typeof wallet & {
-          points_balance?: number;
-          promotional_balance?: number;
-          purchased_balance?: number;
-        };
-        const promoUsedRaw = Number(unlockRow.promotionalPointsUsed ?? unlockRow.promotional_points_used ?? 0);
-        const purchasedUsedRaw = Number(unlockRow.purchasedPointsUsed ?? unlockRow.purchased_points_used ?? 0);
-        const deducted = Number(unlockRow.pointsDeducted ?? unlockRow.points_deducted ?? 0);
+        const alreadyRefunded = String(unlockRow.refund_status ?? unlockRow.refundStatus ?? "") === "refunded";
+        const promoUsedRaw = Number(unlockRow.promotional_points_used ?? unlockRow.promotionalPointsUsed ?? 0);
+        const purchasedUsedRaw = Number(unlockRow.purchased_points_used ?? unlockRow.purchasedPointsUsed ?? 0);
+        const deducted = Number(unlockRow.points_deducted ?? unlockRow.pointsDeducted ?? 0);
         const recorded = promoUsedRaw + purchasedUsedRaw;
         const promoUsed = recorded > 0 ? promoUsedRaw : 0;
         const purchasedUsed = recorded > 0 ? purchasedUsedRaw : deducted;
-        const restored = refundToBuckets({
-          pointsBalance: Number(walletRow.pointsBalance ?? walletRow.points_balance ?? 0),
-          promotionalBalance: Number(walletRow.promotionalBalance ?? walletRow.promotional_balance ?? 0),
-          purchasedBalance: Number(walletRow.purchasedBalance ?? walletRow.purchased_balance ?? 0),
-        }, promoUsed, purchasedUsed);
-        await tx.update(walletsTable)
-          .set({
-            pointsBalance: restored.pointsBalance,
-            promotionalBalance: restored.promotionalBalance,
-            purchasedBalance: restored.purchasedBalance,
-            updatedAt: new Date(),
-          })
-          .where(eq(walletsTable.id, wallet.id));
-        await tx.insert(walletTransactionsTable).values({
-          walletId: wallet.id,
-          pointsAmount: unlock.pointsDeducted,
-          type: "dispute_refund",
-          description: `Dispute refund for order ${dispute.orderId}`,
-          orderId: dispute.orderId,
-          paymentStatus: "completed",
-        });
+        const walletId = String(walletRow.id ?? "");
+        if (!alreadyRefunded && walletId) {
+          const restored = refundToBuckets({
+            pointsBalance: Number(walletRow.points_balance ?? walletRow.pointsBalance ?? 0),
+            promotionalBalance: Number(walletRow.promotional_balance ?? walletRow.promotionalBalance ?? 0),
+            purchasedBalance: Number(walletRow.purchased_balance ?? walletRow.purchasedBalance ?? 0),
+          }, promoUsed, purchasedUsed);
+          await tx.update(walletsTable)
+            .set({
+              pointsBalance: restored.pointsBalance,
+              promotionalBalance: restored.promotionalBalance,
+              purchasedBalance: restored.purchasedBalance,
+              updatedAt: new Date(),
+            })
+            .where(eq(walletsTable.id, walletId));
+          await tx.insert(walletTransactionsTable).values({
+            walletId,
+            pointsAmount: deducted,
+            type: "dispute_refund",
+            description: `Dispute refund for order ${orderId}`,
+            orderId,
+            paymentStatus: "completed",
+          });
+          await tx.update(leadUnlocksTable)
+            .set({ refundStatus: "refunded" })
+            .where(eq(leadUnlocksTable.id, leadUnlockId));
+          await postPointRefund(String(id), promoUsed, purchasedUsed, tx);
+        }
       }
 
       const [updated] = await tx.update(disputesTable)

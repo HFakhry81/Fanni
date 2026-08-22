@@ -20,45 +20,33 @@ import VectorIcon from "@/components/VectorIcon";
 function NativeAdminTabs() {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="users">
-        <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
-        <Label>Users</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="categories">
+      <NativeTabs.Trigger name="dashboard">
         <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
-        <Label>Categories</Label>
+        <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="orders">
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
-        <Label>Orders</Label>
+        <Label>Ops</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ledger">
-        <Icon sf={{ default: "book.closed", selected: "book.closed.fill" }} />
-        <Label>Ledger</Label>
+      <NativeTabs.Trigger name="users">
+        <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
+        <Label>People</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="disputes">
-        <Icon sf={{ default: "exclamationmark.bubble", selected: "exclamationmark.bubble.fill" }} />
-        <Label>Disputes</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="payments">
-        <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
-        <Label>Payments</Label>
+      <NativeTabs.Trigger name="categories">
+        <Icon sf={{ default: "tag", selected: "tag.fill" }} />
+        <Label>Catalog</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="accounting">
         <Icon sf={{ default: "chart.bar.doc.horizontal", selected: "chart.bar.doc.horizontal.fill" }} />
-        <Label>Accounting</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="permissions">
-        <Icon sf={{ default: "shield", selected: "shield.fill" }} />
-        <Label>Admins</Label>
+        <Label>Finance</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="stats">
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
-        <Label>Stats</Label>
+        <Label>Analytics</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="permissions">
+        <Icon sf={{ default: "shield", selected: "shield.fill" }} />
+        <Label>Admin</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -102,28 +90,11 @@ function ClassicAdminTabs() {
   };
 
   return (
-    <Tabs initialRouteName="profile" screenOptions={tabScreenOptions}>
-      {/* ── Visible tabs ── */}
+    <Tabs initialRouteName="dashboard" screenOptions={tabScreenOptions}>
       <Tabs.Screen
-        name="profile"
+        name="dashboard"
         options={{
-          title: isRTL ? "الملف الشخصي" : "Profile",
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <VectorIcon name="user" size={20} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="users"
-        options={{
-          title: isRTL ? "المستخدمون" : "Users",
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <VectorIcon name="users" size={20} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="categories"
-        options={{
-          title: isRTL ? "الفئات" : "Categories",
+          title: isRTL ? "لوحة" : "Home",
           tabBarIcon: ({ color }) =>
             isIOS ? null : <VectorIcon name="grid" size={20} color={color} />,
         }}
@@ -131,65 +102,59 @@ function ClassicAdminTabs() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: isRTL ? "الطلبات" : "Orders",
+          title: isRTL ? "عمليات" : "Ops",
           tabBarIcon: ({ color }) =>
             isIOS ? null : <VectorIcon name="list" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="ledger"
+        name="users"
         options={{
-          title: isRTL ? "الأستاذ" : "Ledger",
+          title: isRTL ? "أطراف" : "People",
           tabBarIcon: ({ color }) =>
-            isIOS ? null : <VectorIcon name="book-open" size={20} color={color} />,
+            isIOS ? null : <VectorIcon name="users" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="disputes"
+        name="categories"
         options={{
-          title: isRTL ? "النزاعات" : "Disputes",
+          title: isRTL ? "كتالوج" : "Catalog",
           tabBarIcon: ({ color }) =>
-            isIOS ? null : <VectorIcon name="alert-circle" size={20} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="payments"
-        options={{
-          title: isRTL ? "المدفوعات" : "Payments",
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <VectorIcon name="credit-card" size={20} color={color} />,
+            isIOS ? null : <VectorIcon name="tag" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="accounting"
         options={{
-          title: isRTL ? "الحسابات" : "Accounting",
+          title: isRTL ? "مالية" : "Finance",
           tabBarIcon: ({ color }) =>
-            isIOS ? null : <VectorIcon name="bar-chart" size={20} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="permissions"
-        options={{
-          title: isRTL ? "المسئولون" : "Admins",
-          tabBarIcon: ({ color }) =>
-            isIOS ? null : <VectorIcon name="shield" size={20} color={color} />,
+            isIOS ? null : <VectorIcon name="dollar-sign" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: isRTL ? "الإحصائيات" : "Stats",
+          title: isRTL ? "تحليلات" : "Analytics",
           tabBarIcon: ({ color }) =>
             isIOS ? null : <VectorIcon name="bar-chart-2" size={20} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="permissions"
+        options={{
+          title: isRTL ? "إدارة" : "Admin",
+          tabBarIcon: ({ color }) =>
+            isIOS ? null : <VectorIcon name="shield" size={20} color={color} />,
+        }}
+      />
 
-      {/* ── Hidden screens (navigable but not in tab bar) ── */}
-      <Tabs.Screen name="dashboard"        options={{ href: null }} />
-      <Tabs.Screen name="pending"          options={{ href: null }} />
-      <Tabs.Screen name="login-logs"       options={{ href: null }} />
-      <Tabs.Screen name="map-dashboard"    options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="ledger" options={{ href: null }} />
+      <Tabs.Screen name="disputes" options={{ href: null }} />
+      <Tabs.Screen name="payments" options={{ href: null }} />
+      <Tabs.Screen name="pending" options={{ href: null }} />
+      <Tabs.Screen name="login-logs" options={{ href: null }} />
+      <Tabs.Screen name="map-dashboard" options={{ href: null }} />
       <Tabs.Screen name="missed-locations" options={{ href: null }} />
       <Tabs.Screen name="lead-pricing" options={{ href: null }} />
       <Tabs.Screen name="audit-logs" options={{ href: null }} />
