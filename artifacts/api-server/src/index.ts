@@ -177,9 +177,11 @@ async function seedPointsDemo(): Promise<void> {
       await pool.query(`
         INSERT INTO point_packages (name_en, name_ar, points_amount, price_egp, original_price_egp, sort_order)
         VALUES
-          ('Basic Package',  'الحزمة الأساسية',  50,  50.00, NULL,   1),
-          ('Standard Package', 'الحزمة المتوسطة', 100, 100.00, NULL, 2),
-          ('Premium Package', 'الحزمة الكبيرة',  200, 200.00, NULL, 3)
+          ('Starter 100', 'باقة 100 جنيه', 120, 100.00, NULL, 1),
+          ('Plus 200',    'باقة 200 جنيه', 240, 200.00, NULL, 2),
+          ('Pro 300',     'باقة 300 جنيه', 360, 300.00, NULL, 3),
+          ('Max 400',     'باقة 400 جنيه', 480, 400.00, NULL, 4),
+          ('Elite 500',   'باقة 500 جنيه', 600, 500.00, NULL, 5)
         ON CONFLICT DO NOTHING
       `);
       logger.info("DB seed: default point packages seeded");
@@ -235,11 +237,11 @@ async function seedPointsDemo(): Promise<void> {
       );
       if (alreadySeeded.rows.length === 0) {
         await pool.query(
-          `INSERT INTO wallet_transactions (wallet_id, points_amount, type, description) VALUES ($1, 50, 'welcome_bonus', 'مكافأة ترحيبية — Welcome bonus')`,
+          `INSERT INTO wallet_transactions (wallet_id, points_amount, type, description) VALUES ($1, 60, 'welcome_bonus', 'مكافأة ترحيبية — Welcome bonus')`,
           [walletId]
         );
         await pool.query(
-          `UPDATE wallets SET points_balance = points_balance + 50, updated_at = NOW() WHERE id = $1`, [walletId]
+          `UPDATE wallets SET points_balance = points_balance + 60, promotional_balance = promotional_balance + 60, updated_at = NOW() WHERE id = $1`, [walletId]
         );
         logger.info({ techId: tech.id }, "DB seed: welcome bonus added to technician wallet");
       }

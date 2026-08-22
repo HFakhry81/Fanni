@@ -393,6 +393,7 @@ export default function WalletScreen() {
           const price = parseFloat(pkg.priceEgp);
           const origPrice = pkg.originalPriceEgp ? parseFloat(pkg.originalPriceEgp) : null;
           const discount = origPrice ? Math.round((1 - price / origPrice) * 100) : null;
+          const bonusPts = Math.round(pkg.pointsAmount - price);
           return (
             <TouchableOpacity
               key={pkg.id}
@@ -409,6 +410,11 @@ export default function WalletScreen() {
                   <Text style={[styles.pkgName, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
                     {name}
                   </Text>
+                  {bonusPts > 0 && (
+                    <Text style={[styles.pkgOrigPrice, { color: colors.primary }]}>
+                      {isRTL ? `تشمل +${bonusPts} نقطة مكافأة` : `Includes +${bonusPts} bonus pts`}
+                    </Text>
+                  )}
                   {origPrice && (
                     <Text style={[styles.pkgOrigPrice, { color: colors.mutedForeground }]}>
                       {origPrice.toFixed(0)} {isRTL ? "ج.م" : "EGP"}

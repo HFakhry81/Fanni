@@ -3,8 +3,10 @@ import { eq, desc, sql } from "drizzle-orm";
 import { db, walletsTable, walletTransactionsTable, pointPackagesTable, leadUnlocksTable, unlockCostsTable, operationalExpensesTable, leadPricingRulesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
 import { resolveLeadCost } from "../lib/leadPricing";
+import { creditPurchased, debitPromoFirst } from "../lib/walletBuckets";
 
 const router: IRouter = Router();
 
@@ -63,9 +65,7 @@ router.get("/wallet/unlock-cost", authMiddleware, async (req, res) => {
 });
 
 // Admin: get all wallets with balances (for points liability)
-router.get("/admin/wallet-stats", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/wallet-stats", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (_req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT w.id, w.user_id, w.points_balance, u.first_name, u.last_name, u.mobile
@@ -82,9 +82,8 @@ router.get("/admin/wallet-stats", authMiddleware, requireAuth, async (req, res) 
 });
 
 // Admin: manual adjustment
-router.post("/admin/wallet/adjust", authMiddleware, requireAuth, async (req, res) => {
+router.post("/admin/wallet/adjust", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_wallet"), async (req, res) => {
   const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
   const { technicianId, pointsAmount, description } = req.body as { technicianId?: string; pointsAmount?: number; description?: string };
   if (!technicianId || typeof pointsAmount !== "number") {
     res.status(400).json({ error: "technicianId and pointsAmount required" });
@@ -92,16 +91,28 @@ router.post("/admin/wallet/adjust", authMiddleware, requireAuth, async (req, res
   }
   try {
     const wallet = await getOrCreateWallet(technicianId);
-    const newBalance = wallet.pointsBalance + pointsAmount;
-    if (newBalance < 0) { res.status(400).json({ error: "Balance would go negative" }); return; }
-    await db.update(walletsTable).set({ pointsBalance: newBalance, updatedAt: new Date() }).where(eq(walletsTable.id, wallet.id));
+    const buckets = {
+      pointsBalance: wallet.pointsBalance,
+      promotionalBalance: wallet.promotionalBalance ?? 0,
+      purchasedBalance: wallet.purchasedBalance ?? 0,
+    };
+    const next = pointsAmount >= 0
+      ? creditPurchased(buckets, pointsAmount)
+      : debitPromoFirst(buckets, -pointsAmount);
+    if (next.pointsBalance < 0) { res.status(400).json({ error: "Balance would go negative" }); return; }
+    await db.update(walletsTable).set({
+      pointsBalance: next.pointsBalance,
+      promotionalBalance: next.promotionalBalance,
+      purchasedBalance: next.purchasedBalance,
+      updatedAt: new Date(),
+    }).where(eq(walletsTable.id, wallet.id));
     await db.insert(walletTransactionsTable).values({
       walletId: wallet.id,
       pointsAmount,
       type: "admin_adjustment",
       description: description ?? `Admin adjustment by ${user.id}`,
     });
-    res.json({ success: true, newBalance });
+    res.json({ success: true, newBalance: next.pointsBalance });
   } catch (err) {
     logger.error({ err }, "Failed to adjust wallet");
     res.status(500).json({ error: "Failed to adjust wallet" });
@@ -109,9 +120,7 @@ router.post("/admin/wallet/adjust", authMiddleware, requireAuth, async (req, res
 });
 
 // Admin: manage point packages
-router.get("/admin/point-packages", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/point-packages", authMiddleware, requireAuth, requireAdmin, async (_req, res) => {
   try {
     const packages = await db.select().from(pointPackagesTable).orderBy(pointPackagesTable.sortOrder);
     res.json({ packages });
@@ -121,9 +130,7 @@ router.get("/admin/point-packages", authMiddleware, requireAuth, async (req, res
   }
 });
 
-router.post("/admin/point-packages", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.post("/admin/point-packages", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_wallet"), async (req, res) => {
   const { nameEn, nameAr, pointsAmount, priceEgp, originalPriceEgp } = req.body as { nameEn?: string; nameAr?: string; pointsAmount?: number; priceEgp?: number; originalPriceEgp?: number };
   if (!nameEn || !nameAr || !pointsAmount || !priceEgp) {
     res.status(400).json({ error: "nameEn, nameAr, pointsAmount, priceEgp required" });
@@ -143,9 +150,7 @@ router.post("/admin/point-packages", authMiddleware, requireAuth, async (req, re
   }
 });
 
-router.patch("/admin/point-packages/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.patch("/admin/point-packages/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_wallet"), async (req: Request<{ id: string }>, res) => {
   const id = req.params.id;
   const { nameEn, nameAr, pointsAmount, priceEgp, originalPriceEgp, isActive, sortOrder } = req.body as Record<string, unknown>;
   const updates: Record<string, unknown> = {};
@@ -166,9 +171,7 @@ router.patch("/admin/point-packages/:id", authMiddleware, requireAuth, async (re
   }
 });
 
-router.delete("/admin/point-packages/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.delete("/admin/point-packages/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_wallet"), async (req: Request<{ id: string }>, res) => {
   try {
     await db.update(pointPackagesTable).set({ isActive: false }).where(eq(pointPackagesTable.id, req.params.id));
     res.json({ success: true });
@@ -179,9 +182,7 @@ router.delete("/admin/point-packages/:id", authMiddleware, requireAuth, async (r
 });
 
 // Admin: unlock costs management
-router.get("/admin/unlock-costs", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/unlock-costs", authMiddleware, requireAuth, requireAdmin, async (_req, res) => {
   try {
     const costs = await db.select().from(unlockCostsTable);
     res.json({ costs });
@@ -191,9 +192,7 @@ router.get("/admin/unlock-costs", authMiddleware, requireAuth, async (req, res) 
   }
 });
 
-router.post("/admin/unlock-costs", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.post("/admin/unlock-costs", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_pricing"), async (req, res) => {
   const { specialtySlug, categorySlug, pointsCost, label } = req.body as { specialtySlug?: string; categorySlug?: string; pointsCost?: number; label?: string };
   if (typeof pointsCost !== "number") { res.status(400).json({ error: "pointsCost required" }); return; }
   try {
@@ -205,9 +204,7 @@ router.post("/admin/unlock-costs", authMiddleware, requireAuth, async (req, res)
   }
 });
 
-router.get("/admin/lead-pricing-rules", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/lead-pricing-rules", authMiddleware, requireAuth, requireAdmin, async (_req, res) => {
   try {
     const rules = await db.select().from(leadPricingRulesTable).orderBy(desc(leadPricingRulesTable.priority), desc(leadPricingRulesTable.createdAt));
     res.json({ rules, defaultCost: 20 });
@@ -217,9 +214,7 @@ router.get("/admin/lead-pricing-rules", authMiddleware, requireAuth, async (req,
   }
 });
 
-router.post("/admin/lead-pricing-rules", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.post("/admin/lead-pricing-rules", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_pricing"), async (req, res) => {
   const body = req.body as {
     serviceCategory?: string | null;
     serviceSpecialization?: string | null;
@@ -258,9 +253,7 @@ router.post("/admin/lead-pricing-rules", authMiddleware, requireAuth, async (req
   }
 });
 
-router.patch("/admin/lead-pricing-rules/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.patch("/admin/lead-pricing-rules/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_pricing"), async (req: Request<{ id: string }>, res) => {
   const body = req.body as {
     serviceCategory?: string | null;
     serviceSpecialization?: string | null;
@@ -292,9 +285,7 @@ router.patch("/admin/lead-pricing-rules/:id", authMiddleware, requireAuth, async
   }
 });
 
-router.patch("/admin/unlock-costs/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.patch("/admin/unlock-costs/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_pricing"), async (req: Request<{ id: string }>, res) => {
   const { pointsCost, label } = req.body as { pointsCost?: number; label?: string };
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (typeof pointsCost === "number") updates.pointsCost = pointsCost;
@@ -309,9 +300,7 @@ router.patch("/admin/unlock-costs/:id", authMiddleware, requireAuth, async (req:
   }
 });
 
-router.get("/admin/operational-expenses", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/operational-expenses", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (_req, res) => {
   try {
     const expenses = await db.select().from(operationalExpensesTable).orderBy(desc(operationalExpensesTable.createdAt));
     res.json({ expenses });
@@ -321,9 +310,7 @@ router.get("/admin/operational-expenses", authMiddleware, requireAuth, async (re
   }
 });
 
-router.post("/admin/operational-expenses", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.post("/admin/operational-expenses", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_expenses"), async (req, res) => {
   const { category, provider, amountEgp, invoiceUrl, notes } = req.body as {
     category?: string; provider?: string; amountEgp?: number; invoiceUrl?: string; notes?: string;
   };

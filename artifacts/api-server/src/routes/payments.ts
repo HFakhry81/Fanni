@@ -13,9 +13,12 @@ import {
 } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireAdmin, requireSuperAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
 import { getOrCreateWallet } from "./wallet";
 import { createNotification } from "./notifications";
+import { startGatewayCheckout } from "../lib/paymentGateway";
+import { creditPurchased } from "../lib/walletBuckets";
 
 const router: IRouter = Router();
 
@@ -63,18 +66,32 @@ router.post("/payments/request", authMiddleware, requireAuth, async (req, res) =
     res.status(400).json({ error: "amountEgp and pointsRequested are required" });
     return;
   }
+  let chargedAmount = amountEgp;
+  let chargedPoints = pointsRequested;
   const method = (["bank_transfer", "instapay", "e_wallet"].includes(paymentMethod ?? "")
     ? paymentMethod
     : "bank_transfer") as "bank_transfer" | "instapay" | "e_wallet";
 
   try {
+    if (packageId) {
+      const [pkg] = await db
+        .select()
+        .from(pointPackagesTable)
+        .where(and(eq(pointPackagesTable.id, packageId), eq(pointPackagesTable.isActive, true)));
+      if (!pkg) {
+        res.status(400).json({ error: "Package not found or inactive" });
+        return;
+      }
+      chargedAmount = Number(pkg.priceEgp);
+      chargedPoints = pkg.pointsAmount;
+    }
     const [request] = await db
       .insert(paymentRequestsTable)
       .values({
         userId: user.id,
         packageId: packageId ?? null,
-        amountEgp: String(amountEgp),
-        pointsRequested,
+        amountEgp: String(chargedAmount),
+        pointsRequested: chargedPoints,
         paymentMethod: method,
         referenceNumber: referenceNumber ?? null,
         transferNote: transferNote ?? null,
@@ -95,9 +112,9 @@ router.post("/payments/request", authMiddleware, requireAuth, async (req, res) =
         type: "payment_request",
         titleAr: "طلب دفع جديد",
         titleEn: "New Payment Request",
-        bodyAr: `${techName} طلب إضافة ${pointsRequested} نقطة مقابل ${amountEgp} ج.م`,
-        bodyEn: `${techName} requested ${pointsRequested} pts for ${amountEgp} EGP`,
-        payload: { requestId: request?.id, techUserId: user.id, amountEgp, pointsRequested },
+        bodyAr: `${techName} طلب إضافة ${chargedPoints} نقطة مقابل ${chargedAmount} ج.م`,
+        bodyEn: `${techName} requested ${chargedPoints} pts for ${chargedAmount} EGP`,
+        payload: { requestId: request?.id, techUserId: user.id, amountEgp: chargedAmount, pointsRequested: chargedPoints },
       });
     } else {
       // Notify all active admins if no payment manager is set
@@ -113,14 +130,21 @@ router.post("/payments/request", authMiddleware, requireAuth, async (req, res) =
           type: "payment_request",
           titleAr: "طلب دفع جديد",
           titleEn: "New Payment Request",
-          bodyAr: `${techName} طلب إضافة ${pointsRequested} نقطة مقابل ${amountEgp} ج.م`,
-          bodyEn: `${techName} requested ${pointsRequested} pts for ${amountEgp} EGP`,
-          payload: { requestId: request?.id, techUserId: user.id, amountEgp, pointsRequested },
+          bodyAr: `${techName} طلب إضافة ${chargedPoints} نقطة مقابل ${chargedAmount} ج.م`,
+          bodyEn: `${techName} requested ${chargedPoints} pts for ${chargedAmount} EGP`,
+          payload: { requestId: request?.id, techUserId: user.id, amountEgp: chargedAmount, pointsRequested: chargedPoints },
         });
       }
     }
 
-    res.json({ request });
+    const checkout = await startGatewayCheckout({
+      technicianId: user.id,
+      packageId: packageId ?? "",
+      amountEgp: chargedAmount,
+      pointsRequested: chargedPoints,
+      intentId: request!.id,
+    });
+    res.json({ request, checkout });
   } catch (err) {
     logger.error({ err }, "Failed to create payment request");
     res.status(500).json({ error: "Failed to create payment request" });
@@ -149,9 +173,7 @@ router.get("/payments/my-requests", authMiddleware, requireAuth, async (req, res
 });
 
 // ── GET /api/admin/payments — admin lists all payment requests ─────────────────
-router.get("/admin/payments", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/payments", authMiddleware, requireAuth, requireAdmin, async (req, res) => {
 
   const { status, from, to } = req.query as Record<string, string>;
   try {
@@ -198,9 +220,10 @@ router.patch(
   "/admin/payments/:id/confirm",
   authMiddleware,
   requireAuth,
+  requireAdmin,
+  requirePermission("manage_payments"),
   async (req: Request<{ id: string }>, res) => {
     const user = req.user!;
-    if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
     const id = req.params.id;
     const { adminNotes } = req.body as { adminNotes?: string };
 
@@ -218,10 +241,19 @@ router.patch(
 
       // Credit wallet
       const wallet = await getOrCreateWallet(existing.userId);
-      const newBalance = wallet.pointsBalance + existing.pointsRequested;
+      const credited = creditPurchased({
+        pointsBalance: wallet.pointsBalance,
+        promotionalBalance: wallet.promotionalBalance ?? 0,
+        purchasedBalance: wallet.purchasedBalance ?? 0,
+      }, existing.pointsRequested);
       await db
         .update(walletsTable)
-        .set({ pointsBalance: newBalance, updatedAt: new Date() })
+        .set({
+          pointsBalance: credited.pointsBalance,
+          promotionalBalance: credited.promotionalBalance,
+          purchasedBalance: credited.purchasedBalance,
+          updatedAt: new Date(),
+        })
         .where(eq(walletsTable.id, wallet.id));
 
       const [tx] = await db
@@ -274,9 +306,10 @@ router.patch(
   "/admin/payments/:id/reject",
   authMiddleware,
   requireAuth,
+  requireAdmin,
+  requirePermission("manage_payments"),
   async (req: Request<{ id: string }>, res) => {
     const user = req.user!;
-    if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
     const id = req.params.id;
     const { adminNotes } = req.body as { adminNotes?: string };
 
@@ -326,9 +359,7 @@ router.patch(
 );
 
 // ── GET /api/admin/accounting/points — points revenue report ──────────────────
-router.get("/admin/accounting/points", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/accounting/points", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (req, res) => {
 
   const { from, to } = req.query as Record<string, string>;
   const fromDate = from ?? new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
@@ -400,9 +431,7 @@ router.get("/admin/accounting/points", authMiddleware, requireAuth, async (req, 
 });
 
 // ── GET /api/admin/payment-config ─────────────────────────────────────────────
-router.get("/admin/payment-config", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/payment-config", authMiddleware, requireAuth, requireAdmin, async (_req, res) => {
   try {
     const [config] = await db.select().from(paymentAccountConfigTable).limit(1);
     res.json({ config: config ?? null });
@@ -413,9 +442,7 @@ router.get("/admin/payment-config", authMiddleware, requireAuth, async (req, res
 });
 
 // ── PUT /api/admin/payment-config ─────────────────────────────────────────────
-router.put("/admin/payment-config", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.put("/admin/payment-config", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_payments"), async (req, res) => {
   const { bankName, accountName, accountNumber, iban, instapayId, ewalletNumber, notes, paymentManagerId } =
     req.body as Record<string, string | undefined>;
   try {
@@ -449,9 +476,7 @@ router.put("/admin/payment-config", authMiddleware, requireAuth, async (req, res
 });
 
 // ── GET /api/admin/admins-list — list admin users (for payment manager picker) ─
-router.get("/admin/admins-list", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/admins-list", authMiddleware, requireAuth, requireAdmin, requireSuperAdmin, async (_req, res) => {
   try {
     const admins = await db
       .select({

@@ -44,6 +44,8 @@ export const walletsTable = pgTable("wallets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull().unique(),
   pointsBalance: integer("points_balance").default(0).notNull(),
+  promotionalBalance: integer("promotional_balance").default(0).notNull(),
+  purchasedBalance: integer("purchased_balance").default(0).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -68,6 +70,8 @@ export const leadUnlocksTable = pgTable("lead_unlocks", {
   technicianId: varchar("technician_id").references(() => usersTable.id, { onDelete: "restrict" }).notNull(),
   orderId: varchar("order_id").references(() => ordersTable.id, { onDelete: "restrict" }).notNull(),
   pointsDeducted: integer("points_deducted").notNull(),
+  promotionalPointsUsed: integer("promotional_points_used").notNull().default(0),
+  purchasedPointsUsed: integer("purchased_points_used").notNull().default(0),
   balanceBefore: integer("balance_before").notNull().default(0),
   balanceAfter: integer("balance_after").notNull().default(0),
   clickedCall: boolean("clicked_call").default(false).notNull(),

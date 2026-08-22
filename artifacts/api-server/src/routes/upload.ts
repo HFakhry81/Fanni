@@ -1,12 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
-import { randomUUID } from "crypto";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
-import { objectStorageClient } from "../lib/objectStorage";
+import { checkRateLimit, clientIp } from "../lib/rateLimit";
+import { readPrivateImage, storePrivateImage } from "../lib/fileStorage";
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
+const MAX_SIZE_BYTES = 8 * 1024 * 1024;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -22,19 +22,38 @@ const upload = multer({
 
 const router = Router();
 
-function getBucketName(): string {
-  const dir = process.env["PRIVATE_OBJECT_DIR"] ?? "";
-  if (!dir) throw new Error("PRIVATE_OBJECT_DIR not set");
-  const parts = dir.replace(/^\//, "").split("/");
-  const name = parts[0];
-  if (!name) throw new Error("Could not determine bucket name from PRIVATE_OBJECT_DIR");
-  return name;
-}
+router.get("/uploads/file", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+  const key = typeof req.query.key === "string" ? req.query.key : "";
+  if (!key.startsWith("uploads/")) {
+    res.status(400).json({ error: "Invalid file key" });
+    return;
+  }
+  try {
+    const file = await readPrivateImage(key);
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.send(file.buffer);
+  } catch (err) {
+    req.log.warn({ err }, "Private file read failed");
+    res.status(404).json({ error: "File not found" });
+  }
+});
 
 router.post(
   "/upload",
   authMiddleware,
   requireAuth,
+  async (req: Request, res: Response, next) => {
+    const ip = clientIp(req);
+    const allowed =
+      (await checkRateLimit(`upload:ip:${ip}`, 30, 60 * 60 * 1000)) &&
+      (await checkRateLimit(`upload:user:${req.user!.id}`, 20, 60 * 60 * 1000));
+    if (!allowed) {
+      res.status(429).json({ error: "Too many uploads. Please wait." });
+      return;
+    }
+    next();
+  },
   (req: Request, res: Response, next) => {
     upload.single("file")(req, res, (err) => {
       if (err instanceof multer.MulterError) {
@@ -59,26 +78,18 @@ router.post(
     }
 
     try {
-      const bucketName = getBucketName();
-      const ext = req.file.mimetype === "image/png" ? "png" : req.file.mimetype === "image/webp" ? "webp" : "jpg";
-      const objectName = `uploads/${randomUUID()}.${ext}`;
-
-      const bucket = objectStorageClient.bucket(bucketName);
-      const file = bucket.file(objectName);
-
-      await file.save(req.file.buffer, {
-        contentType: req.file.mimetype,
-        metadata: {
-          uploadedBy: req.user!.id,
-        },
+      const stored = await storePrivateImage({
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+        uploadedBy: req.user!.id,
       });
-
-      await file.makePublic();
-
-      const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
-      res.status(201).json({ url: publicUrl });
+      res.status(201).json({
+        url: stored.url,
+        storage: stored.storage,
+        objectName: stored.objectName,
+      });
     } catch (err) {
-      req.log.error({ err }, "Failed to upload file to object storage");
+      req.log.error({ err }, "Failed to store private upload");
       res.status(500).json({ error: "Upload failed. Please try again." });
     }
   },

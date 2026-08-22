@@ -770,6 +770,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       bio: bio?.trim() || null,
       yearsOfExperience: yearsOfExperience ?? null,
       isApproved: role === "client",
+      termsAcceptedAt: new Date(),
+      termsVersion: "2026-08-22",
       location: (latitude != null && longitude != null)
         ? sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`
         : null,

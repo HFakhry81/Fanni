@@ -3,8 +3,10 @@ import { eq, desc, sql } from "drizzle-orm";
 import { db, disputesTable, leadUnlocksTable, walletsTable, walletTransactionsTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
 import { getOrCreateWallet } from "./wallet";
+import { refundToBuckets } from "../lib/walletBuckets";
 
 const router: IRouter = Router();
 
@@ -61,9 +63,7 @@ router.get("/disputes", authMiddleware, requireAuth, async (req, res) => {
 });
 
 // Admin: list all disputes
-router.get("/admin/disputes", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.get("/admin/disputes", authMiddleware, requireAuth, requireAdmin, async (_req, res) => {
   try {
     const rows = await db.execute<{
       id: string; lead_unlock_id: string; technician_id: string; order_id: string;
@@ -87,9 +87,7 @@ router.get("/admin/disputes", authMiddleware, requireAuth, async (req, res) => {
 });
 
 // Admin: resolve a dispute (approve = refund points / reject)
-router.patch("/admin/disputes/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
-  const user = req.user!;
-  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+router.patch("/admin/disputes/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_disputes"), async (req: Request<{ id: string }>, res) => {
   const id = req.params.id;
   const { action, adminNotes } = req.body as { action?: "approve" | "reject"; adminNotes?: string };
   if (action !== "approve" && action !== "reject") {
@@ -114,8 +112,34 @@ router.patch("/admin/disputes/:id", authMiddleware, requireAuth, async (req: Req
         const wallet = walletRows.rows[0] as typeof walletsTable.$inferSelect | undefined;
         if (!wallet) throw new Error("WALLET_NOT_FOUND");
 
+        const unlockRow = unlock as typeof unlock & {
+          promotional_points_used?: number;
+          purchased_points_used?: number;
+          points_deducted?: number;
+        };
+        const walletRow = wallet as typeof wallet & {
+          points_balance?: number;
+          promotional_balance?: number;
+          purchased_balance?: number;
+        };
+        const promoUsedRaw = Number(unlockRow.promotionalPointsUsed ?? unlockRow.promotional_points_used ?? 0);
+        const purchasedUsedRaw = Number(unlockRow.purchasedPointsUsed ?? unlockRow.purchased_points_used ?? 0);
+        const deducted = Number(unlockRow.pointsDeducted ?? unlockRow.points_deducted ?? 0);
+        const recorded = promoUsedRaw + purchasedUsedRaw;
+        const promoUsed = recorded > 0 ? promoUsedRaw : 0;
+        const purchasedUsed = recorded > 0 ? purchasedUsedRaw : deducted;
+        const restored = refundToBuckets({
+          pointsBalance: Number(walletRow.pointsBalance ?? walletRow.points_balance ?? 0),
+          promotionalBalance: Number(walletRow.promotionalBalance ?? walletRow.promotional_balance ?? 0),
+          purchasedBalance: Number(walletRow.purchasedBalance ?? walletRow.purchased_balance ?? 0),
+        }, promoUsed, purchasedUsed);
         await tx.update(walletsTable)
-          .set({ pointsBalance: wallet.pointsBalance + unlock.pointsDeducted, updatedAt: new Date() })
+          .set({
+            pointsBalance: restored.pointsBalance,
+            promotionalBalance: restored.promotionalBalance,
+            purchasedBalance: restored.purchasedBalance,
+            updatedAt: new Date(),
+          })
           .where(eq(walletsTable.id, wallet.id));
         await tx.insert(walletTransactionsTable).values({
           walletId: wallet.id,

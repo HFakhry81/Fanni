@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
 import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable, adminAuditLogsTable } from "@workspace/db";
 import { invalidateLocationCache } from "../lib/locationNormalizer";
@@ -6,24 +6,11 @@ import { invalidateLocationCache } from "../lib/locationNormalizer";
 import { eq, desc, sql, and, or, ilike, gte, lte, asc, ne } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireAdmin, requireSuperAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { verifyOtpToken } from "../lib/otp";
 import { queryInt, queryString } from "../lib/queryParams";
 import { backfillTechnicianLocations } from "../lib/backfillLocations";
-
-interface AdminRecord {
-  id: string;
-  isActive: boolean;
-  isSuperAdmin: boolean | null;
-  permissions: string[] | null;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      __adminRecord?: AdminRecord;
-    }
-  }
-}
+import { grantWelcomeBonusIfNeeded } from "../lib/welcomeBonus";
 
 const router: IRouter = Router();
 
@@ -35,44 +22,6 @@ function hashPassword(password: string, salt: string): string {
 
 function generateSalt(): string {
   return crypto.randomBytes(16).toString("hex");
-}
-
-async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
-  if (!req.user || req.user.role !== "admin" || req.sessionSource !== "admin") {
-    res.status(403).json({ error: "Admin access required" });
-    return;
-  }
-  // Live check: verify admin still exists and is active in the admins table
-  const [adminRecord] = await db
-    .select({ id: adminsTable.id, isActive: adminsTable.isActive, isSuperAdmin: adminsTable.isSuperAdmin, permissions: adminsTable.permissions })
-    .from(adminsTable)
-    .where(eq(adminsTable.id, req.user.id));
-  if (!adminRecord || !adminRecord.isActive) {
-    res.status(403).json({ error: "Admin account not found or suspended" });
-    return;
-  }
-  // Attach to request for downstream use
-  req.__adminRecord = adminRecord;
-  next();
-}
-
-function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!req.__adminRecord?.isSuperAdmin) {
-    res.status(403).json({ error: "Super-admin access required" });
-    return;
-  }
-  next();
-}
-
-function requirePermission(perm: string) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const rec = req.__adminRecord;
-    if (rec?.isSuperAdmin || (rec?.permissions && rec.permissions.includes(perm))) {
-      next();
-    } else {
-      res.status(403).json({ error: `Permission '${perm}' required` });
-    }
-  };
 }
 
 router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
@@ -1251,6 +1200,8 @@ router.patch(
         ipAddress: ip,
       });
     });
+
+    await grantWelcomeBonusIfNeeded(id);
 
     req.log.info({ adminId: req.user?.id, techId: id }, "Technician approved");
         res.json({ success: true, approved: true });

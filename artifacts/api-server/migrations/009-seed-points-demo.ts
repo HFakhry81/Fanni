@@ -45,9 +45,11 @@ if (pkgRows.length === 0) {
   await client.query(`
     INSERT INTO point_packages (name_en, name_ar, points_amount, price_egp, original_price_egp, sort_order)
     VALUES
-      ('Basic Package',  'الحزمة الأساسية',  50,  50.00, NULL,   1),
-      ('Standard Package', 'الحزمة المتوسطة', 100, 100.00, NULL, 2),
-      ('Premium Package', 'الحزمة الكبيرة',  200, 200.00, NULL, 3)
+      ('Starter 100', 'باقة 100 جنيه', 120, 100.00, NULL, 1),
+      ('Plus 200',    'باقة 200 جنيه', 240, 200.00, NULL, 2),
+      ('Pro 300',     'باقة 300 جنيه', 360, 300.00, NULL, 3),
+      ('Max 400',     'باقة 400 جنيه', 480, 400.00, NULL, 4),
+      ('Elite 500',   'باقة 500 جنيه', 600, 500.00, NULL, 5)
     ON CONFLICT DO NOTHING
   `);
   console.log("✓  Seeded 3 default point packages");
@@ -111,22 +113,22 @@ if (techRows.length === 0) {
       continue;
     }
 
-    // Seed: welcome bonus 50 pts
+    // Seed: welcome bonus 60 pts
     await client.query(`
       INSERT INTO wallet_transactions (wallet_id, points_amount, type, description)
-      VALUES ($1, 50, 'welcome_bonus', 'مكافأة ترحيبية — Welcome bonus')
+      VALUES ($1, 60, 'welcome_bonus', 'مكافأة ترحيبية — Welcome bonus')
     `, [walletId]);
 
-    // Seed: demo package purchase 100 pts
+    // Seed: demo package purchase 120 pts for 100 EGP
     await client.query(`
       INSERT INTO wallet_transactions (wallet_id, points_amount, type, cash_amount_paid, description)
-      VALUES ($1, 100, 'package_purchase', 100.00, 'الحزمة الأساسية — Basic Package')
+      VALUES ($1, 120, 'package_purchase', 100.00, 'باقة 100 جنيه')
     `, [walletId]);
 
-    // Update balance to 150 pts (50 bonus + 100 purchase)
-    const newBalance = currentBalance + 150;
+    // Update balance (60 bonus + 120 purchase)
+    const newBalance = currentBalance + 180;
     await client.query(
-      `UPDATE wallets SET points_balance = $1, updated_at = NOW() WHERE id = $2`,
+      `UPDATE wallets SET points_balance = $1, promotional_balance = promotional_balance + 60, purchased_balance = purchased_balance + 120, updated_at = NOW() WHERE id = $2`,
       [newBalance, walletId]
     );
 

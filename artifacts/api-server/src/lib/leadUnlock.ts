@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, leadUnlocksTable, ordersTable, walletsTable, walletTransactionsTable } from "@workspace/db";
 import { resolveLeadCost } from "./leadPricing";
+import { debitPromoFirst, refundToBuckets } from "./walletBuckets";
 
 export type OrderContact = {
   clientName: unknown;
@@ -145,15 +146,26 @@ export async function unlockLeadAtomically(opts: {
       throw new InsufficientPointsError(balance, costPoints);
     }
 
-    const newBalance = balance - costPoints;
-    await tx.update(walletsTable).set({ pointsBalance: newBalance, updatedAt: new Date() }).where(eq(walletsTable.id, wallet.id));
+    const split = debitPromoFirst({
+      pointsBalance: balance,
+      promotionalBalance: freshWallet?.promotionalBalance ?? 0,
+      purchasedBalance: freshWallet?.purchasedBalance ?? 0,
+    }, costPoints);
+    await tx.update(walletsTable).set({
+      pointsBalance: split.pointsBalance,
+      promotionalBalance: split.promotionalBalance,
+      purchasedBalance: split.purchasedBalance,
+      updatedAt: new Date(),
+    }).where(eq(walletsTable.id, wallet.id));
 
     const [unlock] = await tx.insert(leadUnlocksTable).values({
       technicianId: opts.technicianId,
       orderId: opts.orderId,
       pointsDeducted: costPoints,
+      promotionalPointsUsed: split.promotionalUsed,
+      purchasedPointsUsed: split.purchasedUsed,
       balanceBefore: balance,
-      balanceAfter: newBalance,
+      balanceAfter: split.pointsBalance,
     }).returning();
 
     await tx.insert(walletTransactionsTable).values({
@@ -169,7 +181,7 @@ export async function unlockLeadAtomically(opts: {
     return {
       alreadyUnlocked: false,
       unlock: unlock!,
-      newBalance,
+      newBalance: split.pointsBalance,
       costPoints,
       contact,
       assigned,
@@ -206,8 +218,21 @@ export async function refundEligibleUnlocksForCancelledOrder(orderId: string): P
         .returning({ id: leadUnlocksTable.id });
       if (!marked) continue;
 
+      const recorded = (unlock.promotionalPointsUsed ?? 0) + (unlock.purchasedPointsUsed ?? 0);
+      const promoUsed = recorded > 0 ? (unlock.promotionalPointsUsed ?? 0) : 0;
+      const purchasedUsed = recorded > 0 ? (unlock.purchasedPointsUsed ?? 0) : unlock.pointsDeducted;
+      const restored = refundToBuckets({
+        pointsBalance: wallet.pointsBalance,
+        promotionalBalance: wallet.promotionalBalance ?? 0,
+        purchasedBalance: wallet.purchasedBalance ?? 0,
+      }, promoUsed, purchasedUsed);
       await tx.update(walletsTable)
-        .set({ pointsBalance: wallet.pointsBalance + unlock.pointsDeducted, updatedAt: new Date() })
+        .set({
+          pointsBalance: restored.pointsBalance,
+          promotionalBalance: restored.promotionalBalance,
+          purchasedBalance: restored.purchasedBalance,
+          updatedAt: new Date(),
+        })
         .where(eq(walletsTable.id, wallet.id));
       await tx.insert(walletTransactionsTable).values({
         walletId: wallet.id,

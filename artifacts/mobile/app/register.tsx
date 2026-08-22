@@ -311,7 +311,9 @@ export default function RegisterScreen() {
     experience?: string;
     serviceStart?: string;
     serviceEnd?: string;
+    terms?: string;
   }>({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
@@ -401,6 +403,11 @@ export default function RegisterScreen() {
         newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
       } else if (addrVal.latitude == null) {
         newErrors.area = isRTL ? "يرجى تثبيت الموقع على الخريطة" : "Please pin your location on the map";
+      }
+      if (!acceptedTerms) {
+        newErrors.terms = isRTL
+          ? "يجب الموافقة على شروط استخدام النقاط قبل إنشاء الحساب"
+          : "You must accept the points terms of use before creating an account";
       }
     }
 
@@ -499,6 +506,7 @@ export default function RegisterScreen() {
             serviceEnd: regType === "technician" ? serviceEnd.trim() : undefined,
             bio: regType === "technician" && bio.trim() ? bio.trim() : undefined,
             yearsOfExperience: regType === "technician" && experience.trim() ? Number(experience.trim()) : undefined,
+            acceptedTerms: true,
           }),
         });
         const data = await res.json() as { token?: string; user?: { id: string }; error?: string };
@@ -1059,6 +1067,40 @@ export default function RegisterScreen() {
   );
   };
 
+  const renderTermsAcceptance = () => (
+    <View style={{ marginTop: 18 }}>
+      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
+        {isRTL ? "شروط استخدام النقاط" : "Points terms of use"}
+      </Text>
+      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 20, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
+        {isRTL
+          ? "النقاط أرصدة استخدام داخل فني وليست نقودًا. لا سحب ولا تحويل. كشف بيانات العميل يخصم التعريفة (افتراضي 20 نقطة) بعد «موافق وكمل»، وغير قابل للاسترداد إلا بنزاع/إلغاء مبكر وفق السياسة. الاتصال بعد الكشف عبر المنصة. الشحن: 120 نقطة لكل 100 جنيه."
+          : "Points are in-app usage credits, not cash. No withdrawal or transfer. Revealing client data deducts the tariff (default 20) after confirmation and is non-refundable except dispute/early cancel. Contact is via the platform. Top-up: 120 points per 100 EGP."}
+      </Text>
+      <TouchableOpacity
+        onPress={() => { setAcceptedTerms((v) => !v); setErrors((e) => ({ ...e, terms: undefined })); }}
+        style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", gap: 10 }}
+      >
+        <View style={{
+          width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, marginTop: 1,
+          borderColor: acceptedTerms ? colors.primary : colors.border,
+          backgroundColor: acceptedTerms ? colors.primary : "transparent",
+          alignItems: "center", justifyContent: "center",
+        }}>
+          {acceptedTerms && <VectorIcon name="check" size={12} color="#FFF" />}
+        </View>
+        <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+          {isRTL ? "أوافق على شروط استخدام النقاط وأفهم أنها غير قابلة للسحب النقدي" : "I accept the points terms and understand they cannot be withdrawn as cash"}
+        </Text>
+      </TouchableOpacity>
+      {!!errors.terms && (
+        <Text style={{ color: "#EF4444", fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left" }}>
+          {errors.terms}
+        </Text>
+      )}
+    </View>
+  );
+
   // ── Step 3 Client: Home address ───────────────────────────────────────────
   const renderStep3Client = () => (
     <View>
@@ -1088,6 +1130,7 @@ export default function RegisterScreen() {
         onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, area: undefined })); }}
         error={errors.area}
       />
+      {renderTermsAcceptance()}
     </View>
   );
 
@@ -1173,6 +1216,7 @@ export default function RegisterScreen() {
         onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, area: undefined })); }}
         error={errors.area}
       />
+      {renderTermsAcceptance()}
     </View>
   );
 

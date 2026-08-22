@@ -74,6 +74,8 @@ export const usersTable = pgTable("users", {
   //location: geography("location"),
   passwordHash: varchar("password_hash"),
   expoPushToken: varchar("expo_push_token"),
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  termsVersion: varchar("terms_version", { length: 32 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

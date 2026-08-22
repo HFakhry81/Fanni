@@ -99,6 +99,8 @@ export const registerSchema = zod.object({
     bio: zod.string().max(500, "Bio must be at most 500 characters").optional(),
   yearsOfExperience: zod.number().int().min(0).max(50).optional(),
   paymentPreference: zod.string().optional(),
+  acceptedTerms: zod
+    .literal(true, { errorMap: () => ({ message: "Terms of use must be accepted" }) }),
   workingHours: zod.record(zod.string(), zod.object({
     start: zod.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
     end: zod.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
