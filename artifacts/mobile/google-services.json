@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "688346577055",
+    "project_id": "fanni-otp",
+    "storage_bucket": "fanni-otp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:688346577055:android:7350a8283163cd81da0aaa",
+        "android_client_info": {
+          "package_name": "com.fanni.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDsVaipkxMSC9VTPpnV4dSlAg_qvDPuiR8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

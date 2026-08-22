@@ -26,7 +26,9 @@
         ]
       }
     },
-    "android": {
+ "android": {
+      "package": "com.fanni.app",
+      "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",
