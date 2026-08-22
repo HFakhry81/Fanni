@@ -172,6 +172,8 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 
 | التاريخ | الهاش | الرسالة | أبرز الملفات |
 |---|---|---|---|
+| 22 أغسطس 2026 | `17fc9ec` | Remove purchase-invoice OCR and add Twilio masked calling. | .env.example, OCR_INVOICE_REVIEW.md, PROJECT_DEVELOPMENT_REVIEW.md, artifacts/api-server/build.mjs +26 |
+| 22 أغسطس 2026 | `e4343a1` | Record the review-log commit in the project dictionary. | PROJECT_DEVELOPMENT_REVIEW.md |
 | 22 أغسطس 2026 | `5fc03e6` | Add a living project review and auto-log every commit into it. | .cursor/hooks.json, .cursor/hooks/after-git-commit.mjs, PROJECT_DEVELOPMENT_REVIEW.md, package.json +6 |
 | 22 أغسطس 2026 | `82a8474` | Assign leads atomically on accept and record incomplete service with optional refund requests. | artifacts/api-server/src/lib/leadUnlock.ts, artifacts/api-server/src/lib/orderLifecycle.ts, artifacts/api-server/src/routes/orders.ts, lib/db/migrations/011_lead_pricing_unlock_ledger.sql +1 |
 | 21 أغسطس 2026 | `0455095` | last22082026 | PROJECT_DEVELOPMENT_REVIEW.md, package.json, scripts/package.json, scripts/src/update-project-review.mjs |
