@@ -4,8 +4,11 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "echo pnpm",
+    "prepare": "node ./scripts/src/install-git-hooks.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "review:update": "pnpm --filter @workspace/scripts run review:update",
+    "review:log": "node ./scripts/src/log-commit-to-review.mjs --head",
+    "review:seed": "node ./scripts/src/log-commit-to-review.mjs --seed 40",
     "typecheck:libs": "pnpm --filter @workspace/db build && tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

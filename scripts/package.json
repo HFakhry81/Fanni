@@ -6,6 +6,8 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "review:update": "node ./src/update-project-review.mjs",
+    "review:log": "node ./src/log-commit-to-review.mjs --head",
+    "review:seed": "node ./src/log-commit-to-review.mjs --seed 40",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -1,67 +1,109 @@
-# Fanni — مراجعة مراحل التطوير ومطابقة تحليل نظام المحفظة
+# Fanni — مراجعة تطور المشروع (مرجع مستمر)
 
 آخر مراجعة: 22 أغسطس 2026
 
-هذا الملف هو سجل مراجعة مرحلي للمقارنة بين التحليل المرفق والتنفيذ الحالي، ويُستخدم قبل استكمال العمل على أي منصة.
+منصة طلبات صيانة منزلية في مصر: عميل ينشئ طلبًا، النظام يطابق فنيًا، الفني يدفع نقاطًا لكشف بيانات العميل، ثم تتبع جغرافي وتأكيد وصول ونتيجة خدمة وفوترة ثلاثية.
 
-## طريقة التسجيل المستمر
+هذا الملف هو **القاموس المرجعي للتطور**: ملخص الحالة + بوابات القبول + سجل المراحل + قاموس كل Commit. لا يُعاد كتابة السجلات السابقة؛ تُضاف صفوف جديدة فقط.
 
-يتم تسجيل كل تحديث مختصرًا في قسم **سجل التحديثات** أدناه. لإضافة إدخال جديد تلقائيًا وتحديث تاريخ المراجعة، استخدم:
+## التسجيل التلقائي بعد كل Commit
+
+بعد كل `git commit` يُضاف صف في **قاموس الـ Commits** (الهاش، الرسالة، أبرز الملفات) دون حذف الصفوف القديمة.
+
+| الآلية | متى تعمل |
+|---|---|
+| Git hook `post-commit` | بعد أي commit من الطرفية أو Git أو Cursor |
+| Git hook `prepare-commit-msg` | يُدخل تحديث القاموس السابق داخل الـ commit التالي |
+| Cursor hook `afterShellExecution` | احتياطي إذا نفّذ الوكيل `git commit` |
+| تثبيت الخطافات | تلقائي عبر `pnpm prepare` عند `pnpm install` |
+
+أوامر يدوية:
 
 ```bash
-pnpm review:update -- "ما تم إنجازه" "ما هو المتبقي"
+pnpm review:log                          # سجّل HEAD الحالي إن لم يكن مسجَّلًا
+pnpm review:seed                         # املأ القاموس من آخر 40 commit
+pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المراحل (ليس قاموس الهاش)
 ```
 
-الأمر يضيف التاريخ والملخص والمتبقي دون إعادة كتابة السجل السابق. يجب تشغيله بعد كل مرحلة أو دفعة تغييرات مكتملة، ثم تحديث بوابة المرحلة المناسبة بعلامة `[x]` أو `[ ]`.
+لتجاوز التسجيل: `SKIP_REVIEW_LOG=1`. الخطافات تُنسخ إلى `.git/hooks` دون تعديل git config.
 
-## الحالة الحالية حسب المنصة
+---
 
-| المنصة / الطبقة | الحالة | ما تم التحقق منه |
+## صورة المشروع
+
+| الطبقة | المسار | الدور |
 |---|---|---|
-| API Server | مكتمل جزئيًا | تسجيل المحافظ، شراء النقاط، مكافأة الترحيب، فتح الطلب، التسعير المرن، التتبع، النزاعات، التقييم، رفع الصور |
-| تطبيق الهاتف | مكتمل جزئيًا | شاشة محفظة الفني، الباقات، فتح الطلب، الاتصال وواتساب، تقديم النزاع، تقييم العميل، صور بطاقة الفني وصور المشكلة |
-| قاعدة البيانات | مكتمل جزئيًا | جداول المحافظ، الحركات، الباقات، قواعد الأسعار، فتح الطلبات، النزاعات، المصروفات التشغيلية |
-| الإدارة | مكتمل جزئيًا | إدارة الباقات، تكلفة الفتح، النزاعات والاستردادات، المحاسبة، إدارة المستخدمين |
-| التخزين والتشغيل | يحتاج قرارًا | سياسة تخزين VPS ومدة الاحتفاظ بالصور لم تُعتمد بعد |
+| API | `artifacts/api-server` | Express: طلبات، محفظة، جغرافيا، فواتير، إدارة |
+| تطبيق | `artifacts/mobile` | Expo: عميل / فني / أدمن |
+| قاعدة البيانات | `lib/db` | Drizzle + PostgreSQL/PostGIS + migrations |
+| عقود API | `lib/api-zod`, `lib/api-spec`, `lib/api-client-react` | توليد الأنواع والعميل |
 
-## المطابقة مع الملف المرفق
+اقتصاد المنتج: الفني يشتري نقاطًا ويفتح Lead (بيانات العميل). القيمة الافتراضية **20 نقطة** من قاعدة البيانات. الخصم على السيرفر داخل معاملة واحدة مع دفتر محفظة وسجل Lead.
 
-### مكتمل
+---
 
-- النقاط داخل المنصة بدل الدفع المؤجل.
-- تكلفة افتراضية 20 نقطة مع دعم التسعير حسب التصنيف والتخصص.
-- باقات 50/100/200 نقطة.
-- سجل خصم النقاط وإضافة الاسترداد.
-- منع ظهور بيانات العميل قبل فتح الطلب.
-- تسجيل نقرات الاتصال وواتساب.
-- تقديم النزاعات واعتماد/رفض الاسترداد من الإدارة.
-- تقييم العميل بعد إكمال الطلب.
-- رفع صور الفني والعميل.
-- إضافة سجل المصروفات التشغيلية API وDatabase.
-- تنظيف أرقام الهاتف والبريد وروابط واتساب/تيليجرام من وصف الطلب قبل تخزينه وبثه.
-- استرداد تلقائي عند إلغاء العميل خلال 3 دقائق من فتح الطلب، إذا لم يستخدم الفني الاتصال أو واتساب.
+## الحالة حسب المنصة
 
-### يحتاج استكمالًا
+| المنصة | الحالة | ما هو موجود |
+|---|---|---|
+| API Server | مكتمل جزئيًا | محفظة، فتح Lead ذري، `POST /orders/:id/accept`، رفض الطلب، `fail-service`، نزاعات، تقييم مع تعليق، فواتير ثلاثية، تنظيف وسائل الاتصال |
+| تطبيق الهاتف | مكتمل جزئيًا | محفظة، قائمة الطلبات المتاحة، فتح/قبول، تتبع، إكمال بفاتورة، نزاعات أدمن |
+| قاعدة البيانات | مكتمل جزئيًا | محافظ، حركات، باقات، `unlock_costs`، `lead_pricing_rules`، `lead_unlocks` (رصيد قبل/بعد + refund_status)، `order_declines`، مصروفات تشغيلية |
+| الإدارة | مكتمل جزئيًا | باقات، تكلفة الفتح، نزاعات، محاسبة، مستخدمون — بلا شاشة Lead Pricing بعد |
+| التخزين | يحتاج قرارًا | سياسة VPS/Object Storage ومدة الاحتفاظ بالصور |
 
-1. إضافة شاشة الإدارة للمصروفات التشغيلية وربطها بتقرير صافي الربح.
-2. إضافة شاشة سياسة الاستخدام التي توضّح أن النقاط رصيد خدمات مغلق وغير قابل للتحويل أو السحب النقدي.
-3. إضافة قواعد آلية لحالات الرقم الخاطئ وعدم استجابة العميل مع حد الاسترداد اليومي.
-4. اعتماد الاتصال المقنّع أو مزود الاتصال قبل إدخاله في الإنتاج.
-5. اعتماد تخزين الصور على VPS أو Object Storage، مع الصلاحيات ومدة الاحتفاظ والنسخ الاحتياطي.
-6. تمت مراجعة دورة OCR والفواتير وتوثيقها في `OCR_INVOICE_REVIEW.md`. لا تُحذف تلقائيًا لأنها مرتبطة حاليًا بإغلاق الطلب وسجلات المحاسبة.
+---
 
-## بوابة قبول كل مرحلة
+## دورة الطلبات (المواصفة النهائية) مقابل التنفيذ
+
+المصدر: نظام الطلبات النسخة النهائية — قبول → تأكيد خصم → التزام → GPS → تأكيد وصول → نتيجة خدمة.
+
+| المرحلة | المطلوب | التنفيذ |
+|---|---|---|
+| 1 أمان الخصم | إخفاء البيانات، خصم ذري، دفتر، افتراضي 20 | **تم في API**: `unlockLeadAtomically`، إخفاء `GET /orders/pending`، رصيد قبل/بعد. التطبيق ما زال يستخدم احتياطي `15` في `available-orders.tsx` إن لم يأتِ `unlockCost` |
+| 2 قبول = تأكيد نقاط | شاشة مصرية، «موافق وكمل» يخصم ويُسند، «لا مش دلوقتي» بلا خصم | **تم في API**: `POST /accept` يخصم ويُسند في نفس المعاملة؛ `acknowledge` يرفض بدون Lead؛ `POST /decline`. **واجهة الفني لم تُدمَج بعد** (ما زالت unlock ثم acknowledge) |
+| 3 تسعير Lead | قواعد خدمة+يوم+وقت من Super Admin | **محرك** `leadPricing.ts` + جدول + migration `015`. **لا CRUD أدمن ولا شاشة**. `technicians.ts` ما زال يسقط إلى 15 |
+| 4 وصول 30 دقيقة | جيوفنس `en_route`، نعم/لا العميل، مؤقت ثم إسقاط الفني | `confirm-arrival` يضبط BUSY عند نعم ويبدأ مهلة عند لا؛ عامل `startArrivalTimeoutWorker` **غير مستدعى** في `index.ts`. `geo.ts` ما زال يفحص `acknowledged` فقط |
+| 5 نتيجة الخدمة | نعم → إكمال+تقييم؛ لا → أسباب إلزامية | **API**: `PATCH /fail-service` + إتاحة الفني بعد الإكمال + تقييم مع تعليق. **واجهة الفني** لم تُضف سؤال «خلصت الصيانة؟» |
+| 6 استرداد استثنائي | لا استرداد تلقائي بعد الكشف إلا سياسة/أدمن | نزاعات أدمن ذرية؛ طلب استرداد عند `client_not_present` / `client_refused`؛ استرداد إلغاء عميل خلال 3 دقائق بلا تواصل (سياسة قائمة) |
+
+---
+
+## مكتمل في المنتج (محفظة وطلبات)
+
+- نقاط داخل المنصة؛ باقات 50/100/200؛ تكلفة افتراضية 20 في `unlock_costs`.
+- خصم Lead على السيرفر مع دفتر وسبب Customer Data Access.
+- إخفاء بيانات العميل قبل الدفع (مسارات الفني في API).
+- تتبع اتصال/واتساب؛ نزاع واحد لكل فتح؛ استرداد أدمن غير قابل للتكرار.
+- تقييم بعد الإكمال؛ صور مشكلة/فني؛ فواتير ثلاثية ذرية؛ OCR مساعد وليس مصدر فاتورة.
+- تنظيف هاتف/بريد/واتساب/تيليجرام من وصف الطلب قبل البث.
+- قبول Lead وإسناده ذريًا؛ تسجيل خدمة غير مكتملة مع أسباب؛ إسقاط فني/إعادة مطابقة جاهز في الكود.
+
+## يحتاج استكمالًا (أولوية)
+
+1. واجهة الفني: حوار «قبل ما نكمّل / موافق وكمل / لا مش دلوقتي» واستدعاء `/accept` و`/decline`، ورسالة 402 مع شحن الرصيد.
+2. استبدال الثابت 15 في `technicians.ts` و`available-orders.tsx` بمحرك التسعير (افتراضي 20).
+3. CRUD + شاشة Super Admin لـ Lead Pricing.
+4. جيوفنس على `en_route`/`arrived` + تشغيل عامل مهلة 30 دقيقة + أزرار نعم/لا للعميل.
+5. سؤال نتيجة الخدمة في تطبيق الفني وربط التقييم بالـ API.
+6. شاشة مصروفات تشغيلية وتقرير صافي الربح.
+7. سياسة الاستخدام (النقاط غير قابلة للسحب)؛ اتصال مقنّع؛ تخزين صور معتمد.
+8. اختبارات تدفق عميل/فني/أدمن وtypecheck + migrate على بيئة التطوير.
+
+---
+
+## بوابة قبول — المحفظة والمحاسبة
 
 ### المرحلة 1 — الاقتصاد والمحفظة
 
 - [x] قيمة النقاط والباقات محددة.
 - [x] تكلفة فتح افتراضية محددة.
-- [x] التسعير حسب التخصص قابل للإدارة.
+- [x] التسعير حسب التخصص قابل للإدارة (جدول `unlock_costs`؛ قواعد الوقت غير مفعّلة في الواجهة).
 - [x] لا يوجد تحويل نقاط بين الفنيين أو سحب نقدي.
 
 ### المرحلة 2 — حماية بيانات العميل
 
-- [x] بيانات الاتصال مخفية قبل الفتح.
+- [x] بيانات الاتصال مخفية قبل الفتح (API).
 - [x] وصف الطلب يُنظف من وسائل الاتصال.
 - [x] نقرات الاتصال وواتساب مسجلة.
 - [ ] الاتصال المقنّع معتمد تشغيليًا.
@@ -71,7 +113,7 @@ pnpm review:update -- "ما تم إنجازه" "ما هو المتبقي"
 - [x] نزاع واحد لكل عملية فتح.
 - [x] الاسترداد الإداري ذري وغير قابل للتكرار.
 - [x] الاسترداد التلقائي للإلغاء المبكر دون تواصل.
-- [ ] قواعد الرقم الخاطئ وعدم الاستجابة الآلية.
+- [ ] قواعد الرقم الخاطئ وعدم الاستجابة الآلية + حد يومي.
 
 ### المرحلة 4 — التشغيل والمحاسبة
 
@@ -90,24 +132,86 @@ pnpm review:update -- "ما تم إنجازه" "ما هو المتبقي"
 
 ### المرحلة 6 — قرار OCR والفوترة
 
-- [x] إنشاء الفواتير الثلاث يتم داخل transaction واحدة عند إغلاق الطلب.
-- [x] OCR أداة استخراج بيانات وليس مصدر إنشاء الفاتورة.
+- [x] إنشاء الفواتير الثلاث داخل transaction عند إغلاق الطلب.
+- [x] OCR أداة استخراج وليس مصدر إنشاء الفاتورة.
 - [x] صور فواتير المواد وبيانات OCR محفوظة مع الفاتورة.
-- [x] تم منع الحذف المباشر وتوثيق خطة الفصل الآمن.
-- [x] مسار التطبيق يسمح بإدخال إجمالي المواد يدويًا عند تعذر OCR مع إبقاء صورة الإثبات.
-- [ ] اختبار الإكمال فعليًا بإدخال إجمالي المواد يدويًا دون OCR.
+- [x] تم منع الحذف المباشر وتوثيق الخطة في `OCR_INVOICE_REVIEW.md`.
+- [x] إدخال إجمالي المواد يدويًا عند تعذر OCR مع صورة الإثبات.
+- [ ] اختبار إكمال فعلي بدون OCR.
+
+## بوابة قبول — دورة الطلبات (المواصفة)
+
+- [x] خصم Lead ذري + دفتر + إخفاء بيانات في API.
+- [x] قبول يربط الخصم بالإسناد على السيرفر.
+- [ ] واجهة تأكيد النقاط باللهجة المصرية.
+- [ ] قواعد تسعير وقت/يوم من الأدمن مربوطة بالقائمة.
+- [ ] جيوفنس + مؤقت 30 دقيقة مفعّلان في التشغيل.
+- [ ] نتيجة الخدمة (نعم/لا + أسباب) في التطبيق.
+- [x] استرداد استثنائي عبر النزاع/أدمن دون خصم من التطبيق.
+
+---
 
 ## سجل التحديثات المختصر
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 22 أغسطس 2026 | المتابعة الآلية | اختبار أمر تحديث السجل وتحديث تاريخ المراجعة تلقائيًا | استخدام الأمر بعد كل مرحلة مكتملة |
-| 22 أغسطس 2026 | OCR والفواتير | جعل فشل OCR غير مانع للإكمال، مع حفظ صورة الفاتورة والسماح بإدخال إجمالي المواد يدويًا، وتوثيق الدورة | تنفيذ اختبار طلب فعلي والتحقق من الفواتير الثلاث عبر المنصات |
-| 20 أغسطس 2026 | المحفظة والمحاسبة | تثبيت قيم الباقات وتكلفة الفتح، إضافة المصروفات التشغيلية، وتوثيق النزاعات والاستردادات | تقرير صافي الربح، اختبار المصروفات، واعتماد التخزين وسياسة الاحتفاظ بالصور |
+| 22 أغسطس 2026 | مرجع التطور | تقرير شامل في هذا الملف + تسجيل تلقائي لكل Commit في قاموس الهاش | إكمال واجهة دورة الطلبات والتسعير الجغرافي |
+| 22 أغسطس 2026 | دورة الطلبات API | قبول Lead ذري، fail-service، مهلة وصول في الكود، migration 015 | شاشات الفني/الأدمن/الجيوفنس الحي |
+| 22 أغسطس 2026 | المتابعة الآلية | أمر تحديث سجل المراحل | استخدامه بعد كل مرحلة مكتملة |
+| 22 أغسطس 2026 | OCR والفواتير | فشل OCR غير مانع مع إدخال يدوي | اختبار طلب فعلي والفواتير الثلاث |
+| 20 أغسطس 2026 | المحفظة والمحاسبة | باقات وتكلفة فتح ومصروفات ونزاعات | تقرير صافي الربح وتخزين الصور |
 
 ## ضوابط قبل النشر
 
-- لا تُعدّل إعدادات الإنتاج أو تنشر قبل إغلاق بوابات القبول أعلاه.
+- لا تُعدّل إعدادات الإنتاج أو تُنشر قبل إغلاق بوابات القبول أعلاه.
 - أي تغيير في قيم seed يجب أن يصاحبه migration idempotent.
-- لا يتم حذف OCR أو فواتير المواد قبل مراجعة أثر الحذف على إغلاق الطلب والمحاسبة.
-- مفاتيح التخزين والاتصال يجب أن تُحفظ في Secrets ولا تُكتب داخل الكود أو هذا الملف.
+- لا يُحذف OCR أو فواتير المواد قبل مراجعة أثر الحذف على إغلاق الطلب والمحاسبة.
+- مفاتيح التخزين والاتصال في Secrets فقط، ليست في الكود ولا في هذا الملف.
+- هذا الملف يُحدَّث بالإضافة فقط (لا حذف لصفوف القاموس أو سجل المراحل).
+
+## قاموس الـ Commits
+
+سجل تلقائي بعد كل `git commit`. لا يُعاد كتابة الصفوف السابقة؛ يُضاف صف جديد لكل هاش فريد.
+
+| التاريخ | الهاش | الرسالة | أبرز الملفات |
+|---|---|---|---|
+| 22 أغسطس 2026 | `82a8474` | Assign leads atomically on accept and record incomplete service with optional refund requests. | artifacts/api-server/src/lib/leadUnlock.ts, artifacts/api-server/src/lib/orderLifecycle.ts, artifacts/api-server/src/routes/orders.ts, lib/db/migrations/011_lead_pricing_unlock_ledger.sql +1 |
+| 21 أغسطس 2026 | `0455095` | last22082026 | PROJECT_DEVELOPMENT_REVIEW.md, package.json, scripts/package.json, scripts/src/update-project-review.mjs |
+| 20 أغسطس 2026 | `e6e167b` | Update replit configuration | .replit |
+| 21 أغسطس 2026 | `30168bd` | Update project reviews and order functionality in mobile app | OCR_INVOICE_REVIEW.md, PROJECT_DEVELOPMENT_REVIEW.md, artifacts/mobile/app/(tech)/orders.tsx |
+| 20 أغسطس 2026 | `b3faea1` | OCR order | OCR_INVOICE_REVIEW.md, PROJECT_DEVELOPMENT_REVIEW.md |
+| 20 أغسطس 2026 | `14feb3e` | Implement accounting tab features | artifacts/mobile/app/(admin)/(tabs)/accounting.tsx |
+| 20 أغسطس 2026 | `d3856f0` | Implement lead unlock functionality and add operational expenses migration | PROJECT_DEVELOPMENT_REVIEW.md, artifacts/api-server/src/lib/leadUnlock.ts, artifacts/api-server/src/routes/orders.ts, artifacts/api-server/src/routes/wallet.ts +2 |
+| 20 أغسطس 2026 | `e5d2beb` | Add technical wallet system analysis document | "attached_assets/\330\252\330\255\331\204\331\212\331\204_\331\206\330\270\330\247\331\205_\331\205\330\255\331\201\330\270\330\251_\330\247\331\204\331\201\331\206\331\212_1787188145476.docx" |
+| 20 أغسطس 2026 | `56dbec7` | Update memory configuration and add points default file | .agents/memory/MEMORY.md, .agents/memory/points-default-updates.md |
+| 20 أغسطس 2026 | `971c497` | Credit system | artifacts/mobile/components/VectorIcon.tsx, artifacts/mobile/context/AppContext.tsx |
+| 20 أغسطس 2026 | `158c176` | Update point system defaults and integrate order processing logic | artifacts/api-server/migrations/009-seed-points-demo.ts, artifacts/api-server/src/index.ts, artifacts/api-server/src/routes/orders.ts, artifacts/api-server/src/routes/wallet.ts +3 |
+| 10 أغسطس 2026 | `94fe389` | Add new asset file | attached_assets/Untitled_1786402361472.txt |
+| 10 أغسطس 2026 | `364786b` | Remove unnecessary configuration from replit file | .replit |
+| 20 أغسطس 2026 | `034ae57` | Order Gvernance phase1 | .agents/memory/MEMORY.md, .agents/memory/migration-drift.md, artifacts/api-server/src/lib/contactSanitizer.ts, artifacts/api-server/src/routes/geo.ts +4 |
+| 20 أغسطس 2026 | `ad7c183` | Update invoice and dispute API routes and add documentation | artifacts/api-server/src/routes/disputes.ts, artifacts/api-server/src/routes/invoices.ts, "attached_assets/\331\206\330\270\330\247\331\205_\330\247\331\204\331\201\331\210\330\247\330\252\331\212\330\261_\331\210\330\24 |
+| 19 أغسطس 2026 | `09aabc3` | Refactor order processing logic and update agent memory documentation | .agents/memory/MEMORY.md, .agents/memory/order-matching.md, artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/routes/auth.ts +2 |
+| 19 أغسطس 2026 | `6da7847` | Add final orders system documentation | "attached_assets/\331\206\330\270\330\247\331\205_\330\247\331\204\330\267\331\204\330\250\330\247\330\252_\330\247\331\204\331\206\330\263\330\256\330\251_\330\247\331\204\331\207\330\247\330\246\331\212\330\251_1787174 |
+| 20 أغسطس 2026 | `f0f81d7` | Regestration Goverance | .npmrc, artifacts/api-server/src/lib/leadPricing.ts, artifacts/api-server/src/lib/leadUnlock.ts, artifacts/api-server/src/lib/orderLifecycle.ts +12 |
+| 09 أغسطس 2026 | `70c92da` | Project Context md file | PROJECT_CONTEXT.md |
+| 09 أغسطس 2026 | `394b61b` | 0 | artifacts/mobile/tsconfig.json |
+| 08 أغسطس 2026 | `7c783a3` | ignore deprecation | artifacts/mobile/tsconfig.json |
+| 26 يوليو 2026 | `e620b5a` | انها ربط Sentry بال Backend | artifacts/api-server/src/sentry.ts |
+| 26 يوليو 2026 | `5065c49` | ربط backend ب sentry | artifacts/api-server/build.mjs, artifacts/api-server/package.json, artifacts/api-server/src/app.ts, artifacts/api-server/src/sentry.ts +1 |
+| 24 يوليو 2026 | `3a1df85` | انهاء ربط Senty لل FrontEnd | artifacts/mobile/app/(admin)/_layout.tsx, artifacts/mobile/app/_layout.tsx |
+| 24 يوليو 2026 | `37d2e66` | Sentry Plugin Install Manual | artifacts/mobile/app.json, artifacts/mobile/package.json, artifacts/mobile/sentry-wizard-installation-error-1784843142257.log, pnpm-lock.yaml +1 |
+| 24 يوليو 2026 | `45bce5f` | set all payment updates | artifacts/mobile/sentry-wizard-installation-error-1784842873168.log, lib/db/drizzle/0003_thankful_black_widow.sql, lib/db/drizzle/meta/0003_snapshot.json, lib/db/drizzle/meta/_journal.json |
+| 23 يوليو 2026 | `d919a60` | last_one | artifacts/mobile/package.json, lib/db/drizzle/0002_dashing_the_fallen.sql, lib/db/drizzle/meta/0002_snapshot.json, lib/db/drizzle/meta/_journal.json +2 |
+| 23 يوليو 2026 | `0f20462` | Implement payment processing and admin profile functionality | artifacts/api-server/src/index.ts, artifacts/api-server/src/routes/index.ts, artifacts/api-server/src/routes/notifications.ts, artifacts/api-server/src/routes/payments.ts +9 |
+| 22 يوليو 2026 | `59b86c1` | الدفع والتأكيد والنقاط | attached_assets/Pasted-Call-Stack-myRequests-slice-map-argument-0-artifacts-mo_1784759990883.txt |
+| 22 يوليو 2026 | `e7a6b86` | Add API server implementation and enhance mobile wallet UI with transaction history | .agents/memory/MEMORY.md, .agents/memory/payment-request-flow.md, .replit, artifacts/api-server/src/index.ts +10 |
+| 02 يوليو 2026 | `0704432` | Add a dispute resolution system and automated demo data seeding | artifacts/api-server/migrations/009-seed-points-demo.ts, artifacts/api-server/src/index.ts, artifacts/mobile/app/(admin)/(tabs)/_layout.tsx, artifacts/mobile/app/(admin)/(tabs)/disputes.tsx |
+| 01 يوليو 2026 | `eb9d4df` | Add a points system for technicians to unlock leads | .agents/memory/MEMORY.md, .agents/memory/fanni-points-system.md, artifacts/api-server/src/routes/disputes.ts, artifacts/api-server/src/routes/index.ts +11 |
+| 01 يوليو 2026 | `b266052` | Enable offline mode to prevent mobile app startup failures | artifacts/mobile/scripts/dev-start.js |
+| 01 يوليو 2026 | `8cb61e9` | Saved progress at the end of the loop | .replit |
+| 30 يونيو 2026 | `b58eea8` | Update admin interface with a new tab structure and user management hub | .agents/memory/MEMORY.md, .agents/memory/admin-redesign.md, artifacts/mobile/app/(admin)/(tabs)/_layout.tsx, artifacts/mobile/app/(admin)/(tabs)/permissions.tsx +3 |
+| 23 يونيو 2026 | `64fa4cd` | database backup | backup.sql, backup_new.sql |
+| 23 يونيو 2026 | `aaf6e50` | Good runing | artifacts/api-server/package.json |
+| 23 يونيو 2026 | `f7727a4` | مش متاكد | artifacts/mobile/constants/egyptLocations.ts, lib/db/drizzle.config.ts, lib/db/drizzle/0001_minor_scourge.sql, lib/db/drizzle/meta/0001_snapshot.json +6 |
+| 22 يونيو 2026 | `5239e30` | feat: tech approval flow, email/mobile edit for all users | .agents/memory/MEMORY.md, .agents/memory/admin-mobile-otp.md, .agents/memory/tech-approval-gate.md, artifacts/api-server/src/routes/auth.ts +9 |
+| 21 يونيو 2026 | `d70d4f5` | fix: resolve technician registration failure on Replit and local dev | .env.example, artifacts/mobile/.env.example, artifacts/mobile/scripts/dev-start.js, attached_assets/Screenshot_2026-06-22-01-00-27-82_f73b71075b1de7323614b647fe39_1782079402172.jpg +1 |

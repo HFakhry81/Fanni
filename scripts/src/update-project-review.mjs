@@ -1,6 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const reviewPath = new URL("../../PROJECT_DEVELOPMENT_REVIEW.md", import.meta.url);
+const reviewPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../PROJECT_DEVELOPMENT_REVIEW.md");
 const args = process.argv.slice(2).filter((argument, index) => !(index === 0 && argument === "--"));
 const [summary, remaining = "لا يوجد"] = args;
 

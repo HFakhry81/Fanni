@@ -1,0 +1,8 @@
+#!/bin/sh
+# Install via: node scripts/src/install-git-hooks.mjs
+# Copies to .git/hooks/post-commit
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+if [ -f "$ROOT/scripts/src/log-commit-to-review.mjs" ]; then
+  node "$ROOT/scripts/src/log-commit-to-review.mjs" --head || true
+fi
+exit 0

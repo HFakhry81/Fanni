@@ -1,0 +1,8 @@
+#!/bin/sh
+# Stages the auto-updated review log from the previous post-commit into this commit.
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+REVIEW="$ROOT/PROJECT_DEVELOPMENT_REVIEW.md"
+if [ -f "$REVIEW" ]; then
+  git add -- "$REVIEW" 2>/dev/null || true
+fi
+exit 0

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterShellExecution": [
+      {
+        "command": "node .cursor/hooks/after-git-commit.mjs",
+        "matcher": "git\\s+commit"
+      }
+    ]
+  }
+}
