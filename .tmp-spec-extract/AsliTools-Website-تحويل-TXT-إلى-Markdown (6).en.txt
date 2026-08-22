@@ -1,0 +1,407 @@
+Module: ����� ���� �����
+Technician Points Wallet Module
+����� ����� �� ���� �������� ���� ���� ���� ����� ���� ���� ������� ������ ������ ��� ������ ������ ��� ���� ��� Lead� �� ���� ��� ����/������ ���� ��� ���� ��� ������.
+1. ����� ����� �����
+Technician
+    ?
+Wallet Created
+    ?
+Balance
+* Wallet ID
+* Technician ID
+* Current Balance
+* Wallet Status
+* Created At
+2. ������ ���������
+?? 60 ���� ������
+* ����� ��� ����� ���
+* �� ����� ��� ����� ������
+* �� ����� ��� ����� ����� ������
+* �� ����� ��� ����� ������ �����
+* �� ����� ��� ��� ������ ����� ������ ���� ������ ��� ��� ������ ������ ��� ������ ������� ������
+Type:
+WELCOME_BONUS
+Points:
+Technician:
+XXXX
+Reason:
+New Technician Welcome Bonus
+Created At:
+Status:
+COMPLETED
+3. ����� ��� ������ �������� ���������
+Promotional Points
+60 ���� �������
+Purchased Points
+Promotional Points: 60
+Purchased Points: 240
+Total Balance: 300
+4. ��� ��� Lead ���������
+20 ����
+�� ��� �� ���� ����� ���� ������� ��� Lead:
+Lead Cost = 20 Points
+Default Lead Cost = 20
+����� �� Super Admin ����� ��� ������ ��� ����� �������.
+5. ����� ��� Lead ��� ������ ������
+Super Admin ������ ����� ����� ���:
+����� Lead
+20
+20
+30
+25
+40
+20 ����
+6. ������ ����� �������
+Specific Service + Specific Time
+          ?
+Specialty + Time
+          ?
+Specialty Default
+          ?
+System Default = 20
+����� ������ Super Admin ������ �� ������� ��� �� ���� �����.
+7. ���� ������� ��������
+300 ����
+* ��� �����
+* ��� ���
+* ��� ���
+* ��� ������ ��������
+8. ���� ��� ������
+100 ����
+120 ����
+250 ����
+300 ����
+500 ����
+600 ����
+750 ����
+900 ����
+1,000 ����
+1,200 ����
+�������� ���� ����� ��� 20% Bonus ��� �����.
+9. ����� ���� �������
+������ �� ���� �� Cards �����:
+???????????????????????
+?     ���� �������     ?
+?                     ?
+?      100 ����       ?
+?                     ?
+?      120 ����       ?
+?                     ?
+?     [ ������ ]       ?
+???????????????????????
+250 ����
+300 ����
+500 ����
+600 ����
+750 ����
+900 ����
+1,000 ����
+1,200 ����
+10. ����� ��� ����� ��� �����
+���� ���� ����� ������ ���� �� ����� ��� Audit �Failure Recovery.
+500 ����
+Payment
+Recharge Intent
+Technician:
+123
+Selected Package:
+500 EGP
+Expected Points:
+600
+Status:
+INITIATED
+Created At:
+11. ����� ����� Recharge Intent�
+* ����� �� ��� ��� ������
+* ������� ����
+* ������ ������
+* Payment Gateway �� ���� Response
+* Webhook ����
+* ��� ��� �� ��� API
+12. ����� ����� �����
+INITIATED
+    ?
+PAYMENT_PENDING
+    ?
+PAYMENT_SUCCESS
+    ?
+POINTS_CREDITED
+    ?
+COMPLETED
+PAYMENT_PENDING
+       ?
+PAYMENT_FAILED
+PAYMENT_PENDING
+       ?
+CANCELLED
+13. ��� ����� ������ ��� ����� �����
+Select 500 EGP
+      ?
+Recharge Intent
+      ?
+Payment
+      ?
+Payment Confirmed
+      ?
++600 Points
+14. ��� ����� ������ �����
+Payment Webhook
+Unique Payment Transaction ID
+Idempotency
+15. ��� ������� � Wallet Ledger
+Balance = 500
++60   Welcome Bonus
++600  Recharge
+-20   Lead Access
+-30   Lead Access
++20   Refund
+16. ����� ������� �������
+WELCOME_BONUS
+PURCHASE
+PURCHASE_BONUS
+LEAD_CHARGE
+REFUND
+PROMOTIONAL_CREDIT
+ADMIN_CREDIT
+ADMIN_DEBIT
+ADJUSTMENT
+17. ���� ���� ����
+Welcome Bonus
+60
+500 ����
+600 ����
+660 ����
+�� ��� Lead ������:
+20 ����
+640
+�� ��� Lead ��� ������:
+30 ����
+610
+18. ���� ���� ��� ���� Lead�
+OFFERED
+   ?
+ACCEPT
+   ?
+Show Confirmation
+   ?
+DECLINE
+   ?
+REJECTED
+   ?
+MATCHING
+19. ��� ���� ��� �����
+1. ����� �� ������
+2. ���� ����� ��� Lead
+3. ���� �����
+4. ���� ��������
+5. ���� ������ ������
+Balance:
+640
+Lead Cost:
+20
+New Balance:
+620
+* �����
+* ������
+* ����� �����
+* ���� �������
+* ��� ������
+* �����
+* WhatsApp
+20. ��� ��� ������ ��� ����
+15
+���� Lead:
+20
+* ���
+* ��� ������
+* ���� ����� ��� Lead
+21. Refund
+������ ���� �� ����� ����� Lead:
+* ��� �� ������
+* Lead ��� ����
+* ������ �� ��� ������� ��� ����� �����
+* ����� ����� �� ������
+* ���� ����� ��� ����
+���� Refund:
+LEAD_CHARGE
+-20
+        ?
+REFUND
+22. ������� ������ �������� �����
+Promotional = 60
+Purchased = 500
+Lead = 20
+Promotional = 40
+Purchased = 500
+23. ��� ��� 60 ���� ���������
+WELCOME_BONUS
+24. �� ����� ������ ��� 60 ���ɿ
+60 ���� ������ ���� ������ ������.
+25. �� ���� ��� ����
+* �� ����� �����
+* �� ������ ���� ���
+* �� ����� �����
+* �� ����� ��� ����������
+* �� ����� ��� ���� ����
+26. Super Admin � ����� �������
+�� ���� Super Admin:
+Wallet ? Recharge Packages
+* ���� ������
+* ������ ��������
+* Bonus
+* ������
+* ����� ���� ������
+100 EGP ? 120 Points
+250 EGP ? 300 Points
+500 EGP ? 600 Points
+750 EGP ? 900 Points
+1,000 EGP ? 1,200 Points
+27. Super Admin � ����� ����� ��� Lead
+Wallet ? Lead Pricing
+������� Super Admin �����:
+* ������
+* ������
+* �����
+* ��� �������
+* ��� �������
+* ����� ��� Lead
+* ������
+* ��������
+20 ����
+28. ��� ����� �������
+�� ��� Super Admin �������� ���:
+25
+�� �� ��� Lead ���� �� ���� ��� ������ 20 ����:
+20
+���� Lead ������ ���:
+25
+Applied Lead Cost
+���� ����� ��� Lead �����.
+29. Super Admin � ����� �������
+������ Super Admin ����:
+Wallet Overview
+* ������ ����� �������
+* ������ ������ �������
+* ������ ������ ���������
+* ������ ��� Refunds
+* ������ ��� Bonus
+* ������ ��������
+Technician Wallet
+* ������
+* ����� �����
+* ����� ��������
+* Leads ���������
+* Refunds
+* ��������� ��������
+30. ������� �������
+�� ����� ��������� ���� �� Super Admin:
+Add Points
+Deduct Points
+Admin Adjustment
+Amount
+Reason
+Admin ID
+Date
+Reference
+���� ������ �� Ledger.
+31. ������� ��� ������� ������
+������� �� ����� �� Order Status.
+��� ��� Order ������ �����:
+Lead Transaction
+ORDER #123
+     ?
+     ?
+LEAD ACCESS
+     ?
+     ?
+WALLET
+     ?
+     ?
+-20 POINTS
+Order ? Lead Transaction ? Wallet Ledger
+32. ������� �� �������
+? ������� ��� �� ���� Atomic �� ��� ��� Recovery ����.
+? �����.
+? ����� �������� Idempotency.
+�� ��� ������ ����� ���� Webhook.
+? �����.
+�� Refund �����.
+? �����.
+����� ��� Lead ���� ��� ��� ����.
+? �����.
+33. Recharge Intent � ����� �������
+Technician
+     ?
+Select Package
+     ?
+Recharge Intent
+     ?
+     ??? Package = 500 EGP
+     ??? Points = 600
+     ??? Technician ID
+     ??? Created At
+     ??? Status
+              ?
+        PAYMENT_PENDING
+              ?
+       PAYMENT SUCCESS
+              ?
+       CREDIT 600 POINTS
+              ?
+          COMPLETED
+34. ������� �������� ��������
+100 ����
+120 ����
+250 ����
+300 ����
+500 ����
+600 ����
+750 ����
+900 ����
+1,000 ����
+1,200 ����
+35. ����� �������� ���� ������� �� ��������
+����� ��� ����� ���� ������ Business Rules �������:
+Welcome Bonus
+60 ����
+����� Welcome Bonus
+Default Lead Cost
+20 ����
+100 ���� ���
+120 ����
+250 ���� ���
+300 ����
+500 ���� ���
+600 ����
+750 ���� ���
+900 ����
+1,000 ���� ���
+1,200 ����
+Refund ������ ��� ��� ��������
+Refund ��������
+����� ����� Lead
+Super Admin
+Wallet Ledger
+Audit Trail
+Idempotency
+36. ������� ������� ��������
+��� ��� ��������ʡ ���� Technician Wallet Module �� ���� ������ ������ Business/Functional Specification �������� ���������.
+                 FANNI
+                   ?
+        ???????????????????????
+        ?                     ?
+     ORDER                  WALLET
+        ?                     ?
+        ?                     ?
+      LEAD              RECHARGE PACKAGE
+        ?                     ?
+        ?                     ?
+   LEAD COST              PAYMENT
+        ?                     ?
+        ???????????????????????
+                   ?
+              LEDGER
+                   ?
+                   ?
+            AUDIT / REPORTS
+����� ����� Module "����� ���� �����" ������� ���� ������ϡ ������ �� �������� Module by Module ��� �������� ������� �� ��� ����� ��� �������� ��� ��� ���� ����� ������ ������� ������ ���� ������ ���� �� ����� ������ ������.

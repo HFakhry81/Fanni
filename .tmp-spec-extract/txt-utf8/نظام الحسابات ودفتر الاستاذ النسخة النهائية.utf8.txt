@@ -1,0 +1,1396 @@
+Module 07 — نظام الحسابات ودفتر الأستاذ
+Accounting & General Ledger Module
+Final Proposed Architecture
+ملاحظة مهمة: نسب وعمولات OPay وخدمات SMS/Email لا ينبغي Hardcode لها أي أرقام من عندنا؛ يتم إدخالها من خلال Super Admin طبقًا للعقد والفاتورة الفعلية لكل مزود. أما قواعد النقاط والباقات التي اعتمدناها بالفعل فهي ثابتة في مواصفات المشروع.
+
+1. الهدف من نظام الحسابات
+النظام يجب أن يستطيع في أي لحظة الإجابة بدقة عن:
+* كم دخل إلى الشركة؟
+* من أين جاء الدخل؟
+* كم تم تحصيله فعليًا؟
+* كم هو مستحق؟
+* كم تم دفعه إلى مزودي الخدمات؟
+* كم تكلفة SMS؟
+* كم تكلفة Email Verification؟
+* كم تكلفة OPay؟
+* كم تم منحه مجانًا؟
+* كم نقطة تم بيعها؟
+* كم نقطة تم استهلاكها؟
+* كم نقطة مجانية تم استخدامها؟
+* كم تم ردّه أو تعويضه؟
+* كم إيرادات الشركة؟
+* كم مصروفاتها؟
+* كم صافي الربح أو الخسارة؟
+* ما رصيد كل حساب؟
+* وما مصدر كل حركة؟
+
+2. القاعدة المحاسبية الأساسية
+سيعمل النظام وفق:
+Double-Entry Accounting
+أي أن كل حركة مالية لها على الأقل:
+Debit
+و
+Credit
+وبالتالي:
+مجموع المدين = مجموع الدائن دائمًا.
+مثال:
+فني اشترى باقة بـ 100 جنيه ودفع عن طريق OPay.
+النظام لا يسجل فقط:
+"تم دفع 100 جنيه"
+بل ينشئ قيدًا محاسبيًا.
+Debit
+OPay / Payment Clearing       100
+
+Credit
+Deferred Revenue / Point Liability     100
+ثم عند استهلاك النقاط يتم الاعتراف بالإيراد حسب السياسة المحاسبية المعتمدة.
+
+3. أهم قرار: دفتر الأستاذ ليس هو محفظة الفني
+يجب الفصل بين:
+Technician Wallet
+نظام تشغيلي لإدارة:
+* النقاط.
+* الشحن.
+* الخصم.
+* الرصيد المتاح.
+وبين:
+General Ledger
+النظام المحاسبي الرسمي الذي يسجل:
+* الإيرادات.
+* المصروفات.
+* الأصول.
+* الالتزامات.
+* التسويات.
+* الأرباح والخسائر.
+بمعنى:
+Technician Wallet
+        ?
+Business Event
+        ?
+Accounting Engine
+        ?
+General Ledger
+
+4. نظام النقاط المعتمد
+لدينا حاليًا:
+Welcome Bonus
+60 نقطة
+مرة واحدة فقط للفني الجديد.
+السعر الافتراضي لفتح Lead
+20 نقطة
+باقات الشحن
+الباقةقيمة الشحنالنقاط100 جنيه100120 نقطة250 جنيه250300 نقطة500 جنيه500600 نقطة750 جنيه750900 نقطة1000 جنيه10001200 نقطةأي:
+كل 100 جنيه = 120 نقطة.
+
+5. نقطة مهمة جدًا: النقاط ليست أموالًا
+يجب ألا نتعامل مع:
+120 نقطة = 120 جنيه.
+هذا خطأ محاسبي.
+النقاط هي:
+Prepaid Service Credits
+تمنح الفني حق استخدام خدمات معينة داخل المنصة.
+مثلاً:
+120 Points
+=
+حق استخدام خدمة فتح Leads وفق الأسعار المحددة
+وليست:
+120 Points
+=
+120 EGP Cash
+
+6. ماذا يحدث عند الشحن؟
+لو دفع الفني:
+100 جنيه
+وحصل على:
+120 نقطة
+لا يعني ذلك أن الشركة حققت بالضرورة 100 جنيه "إيرادًا مكتسبًا" في نفس اللحظة من منظور المحاسبة على أساس الاستحقاق.
+الأفضل تصميميًا:
+Cash Received
+       ?
+Deferred Revenue / Contract Liability
+       ?
+Points Consumed
+       ?
+Revenue Recognition
+وهذا يجعل التقارير أكثر دقة.
+التطبيق يستطيع عرض "إجمالي الشحنات" و"الإيراد المحصل" فورًا، بينما دفتر الأستاذ يميز بين التحصيل والإيراد المكتسب.
+
+7. لماذا هذا الفصل مهم؟
+لأن لدينا حالات مثل:
+فني شحن 1000 جنيه
+لكن لم يستخدم النقاط بعد.
+إذا اعتبرنا الـ1000 جنيه كلها إيرادًا مكتسبًا فورًا، فقد نبالغ في الإيرادات.
+بينما النظام يعرف:
+Cash Received = 1000
+Points Granted = 1200
+Points Consumed = 0
+فتظل القيمة غير المكتسبة ضمن الالتزامات/الرصيد المؤجل حسب السياسة المحاسبية المعتمدة.
+
+8. Welcome Bonus
+عند تسجيل فني جديد:
+60 Points
+مرة واحدة فقط.
+لا يوجد Cash Received.
+لذلك يجب تسجيلها كـ:
+Promotional / Marketing Cost
+عند استهلاكها، أو وفق السياسة المحاسبية التي يعتمدها المحاسب.
+المهم:
+لا يتم اعتبار الـ60 نقطة إيرادًا.
+
+9. مثال عملي للـ Welcome Points
+فني جديد:
+Opening Wallet
+60 Free Points
+ثم استخدم:
+20 Points
+لفتح Lead.
+النظام يعرف:
+Free Points Granted = 60
+Free Points Consumed = 20
+Free Points Remaining = 40
+ويستطيع لاحقًا حساب تكلفة الحملات الترحيبية.
+
+10. دفتر حركات النقاط
+إضافة إلى الـGL، نحتاج:
+Point Ledger
+لكل فني.
+مثلاً:
+التاريخالعمليةDebitCreditالرصيد01/08Welcome Bonus-606002/08Lead #100120-4003/08Recharge-12016004/08Lead #100220-140هذا ليس General Ledger.
+إنه:
+Operational Sub-Ledger
+ويرتبط بالـGL.
+
+11. دفتر الفنيين الفرعي
+كل فني يجب أن يكون له:
+Technician Account
+مثلاً:
+TECH-000152
+وترتبط به:
+* عمليات الشحن.
+* النقاط المجانية.
+* النقاط المستخدمة.
+* النقاط المصححة يدويًا.
+* التعويضات.
+* الاستردادات إن وجدت.
+* الـLeads التي تم فتحها.
+
+12. شحن الرصيد عن طريق OPay
+عند اختيار الفني:
+باقة 500 جنيه
+يجب أولًا تسجيل:
+Recharge Intent
+أي:
+"الفني اختار هذه الباقة ويريد شحنها."
+وهذا يتوافق مع قرارنا السابق بأن يتم تسجيل نية الباقة مسبقًا تحسبًا لأي خطأ.
+
+13. حالة عملية الشحن
+يجب أن تكون لها حالات واضحة:
+INITIATED
+?
+PACKAGE_SELECTED
+?
+PAYMENT_PENDING
+?
+PAYMENT_PROCESSING
+?
+PAID
+أو:
+FAILED
+CANCELLED
+EXPIRED
+REFUNDED
+ولا تتم إضافة النقاط بمجرد اختيار الباقة.
+
+14. أهم قاعدة في الشحن
+اختيار الباقة ? دفع ناجح
+و:
+إشعار العميل بنجاح الدفع ? ثقة عمياء في الـFrontend
+النظام ينتظر تأكيدًا موثوقًا من مزود الدفع / Backend.
+
+15. قيد الدفع
+عند نجاح دفع 500 جنيه مثلًا:
+Debit
+Payment Gateway Clearing / OPay
+500
+
+Credit
+Deferred Revenue
+500
+مع تسجيل:
+* Technician ID.
+* Package ID.
+* Payment ID.
+* Gateway Transaction ID.
+* Gateway Fee.
+* Net Amount.
+* Timestamp.
+
+16. عمولة OPay
+يجب فصل:
+Gross Payment
+عن:
+Gateway Fee
+عن:
+Net Settlement.
+مثلاً لو:
+Gross = 500
+OPay Fee = X
+Net Settlement = 500 - X
+لا نسجل فقط:
+الشركة استلمت X.
+بل نعرف:
+Customer/Technician Payment = 500
+Payment Gateway Expense = X
+Actual Settlement = 500-X
+قيمة X يتم ضبطها من Super Admin طبقًا للعقد والفاتورة الفعلية، وليس رقمًا ثابتًا داخل النظام.
+
+17. حسابات OPay
+أقترح وجود حسابات منفصلة مثل:
+OPAY-PENDING
+OPAY-CLEARING
+BANK-SETTLEMENT
+OPAY-FEES
+لأن الأموال قد تكون:
+تمت العملية
+لكن لم تصل فعليًا إلى الحساب البنكي بعد.
+وهذا يسمى:
+Clearing / Settlement
+وهو مهم جدًا في ضبط الحسابات.
+
+18. التسوية اليومية مع OPay
+يجب أن يستطيع Super Admin أو المحاسب عمل:
+OPay Reconciliation
+مقارنة:
+Our Transactions
+        VS
+OPay Transactions
+        VS
+Bank Settlement
+والبحث عن:
+* Missing Transaction.
+* Duplicate.
+* Wrong Amount.
+* Failed Payment.
+* Refunded Payment.
+* Fee Difference.
+* Settlement Difference.
+
+19. التحقق من الهاتف
+إذا استخدمنا مزود SMS/OTP:
+كل رسالة تحقق تمثل:
+Operational Expense
+مثلاً:
+PHONE_VERIFICATION
+يتم تسجيل:
+* Provider.
+* Country.
+* Message Type.
+* Number of SMS.
+* Unit Cost.
+* Total Cost.
+* Date.
+
+20. حساب تكلفة SMS
+إذا أرسل النظام:
+1000 رسالة
+وتكلفة الرسالة:
+X
+فالتكلفة:
+1000 × X
+ولا يجب أن تكون X Hardcoded.
+بل:
+Provider Pricing
+يديره Super Admin.
+
+21. التحقق من البريد الإلكتروني
+نفس المبدأ.
+إذا كانت خدمة Email Verification مدفوعة:
+Email Verification Expense
+ويتم تسجيل:
+* Provider.
+* Service.
+* Number of Requests.
+* Unit Cost.
+* Total Cost.
+أما لو كان المزود مجانيًا:
+Cost = 0
+ولا يتم اختراع تكلفة.
+
+22. لماذا يجب تسجيل تكلفة Verification؟
+لأننا نريد لاحقًا معرفة:
+كم يكلفنا اكتساب مستخدم جديد؟
+مثلاً:
+SMS Cost
++
+Email Cost
++
+Welcome Bonus Cost
++
+Marketing Cost
+ثم:
+Customer Acquisition Cost
+أو:
+Technician Acquisition Cost
+وهذه مؤشرات مهمة جدًا.
+
+23. دليل الحسابات Chart of Accounts
+يجب إنشاء:
+Chart of Accounts
+منظم وقابل للتوسع.
+مثال:
+1000 Assets
+2000 Liabilities
+3000 Equity
+4000 Revenue
+5000 Cost of Revenue
+6000 Operating Expenses
+7000 Other Income
+8000 Other Expenses
+9000 Control / Statistical Accounts
+
+24. الأصول Assets
+مثلاً:
+1100 Cash
+1110 Bank Accounts
+1120 OPay Clearing
+1130 Payment Gateway Clearing
+1200 Accounts Receivable
+1300 Prepaid Expenses
+1400 Other Current Assets
+
+25. الالتزامات Liabilities
+مثلاً:
+2100 Accounts Payable
+2200 Deferred Revenue
+2300 Customer Credits
+2400 Technician Point Liability
+2500 Refund Payable
+2600 Tax Payable
+2700 Other Payables
+وهنا يجب أن يحدد المحاسب النهائي ما إذا كان "التزام النقاط" هو الحساب الأنسب وفق طبيعة الخدمة والعقد والمعالجة الضريبية.
+
+26. حقوق الملكية Equity
+3100 Paid-in Capital
+3200 Retained Earnings
+3300 Current Period Profit/Loss
+
+27. الإيرادات Revenue
+4100 Lead Access Revenue
+4200 Platform Service Revenue
+4300 Subscription Revenue
+4400 Other Platform Revenue
+وفي نموذجنا الحالي، الإيراد الأساسي المتوقع من نظام النقاط سيكون مرتبطًا باستخدام خدمات الـLead.
+
+28. تكلفة تقديم الخدمة Cost of Revenue
+وهذه مهمة جدًا.
+مثلاً:
+5100 SMS / OTP Cost
+5200 Email Verification Cost
+5300 Payment Gateway Fees
+5400 Other Transaction Processing Costs
+5500 Promotional Cost of Consumed Free Points
+
+29. المصروفات التشغيلية
+مثلاً:
+6100 Salaries
+6200 Hosting
+6300 Cloud Services
+6400 Software Subscriptions
+6500 Marketing
+6600 Customer Support
+6700 Administrative Expenses
+6800 Legal / Accounting
+6900 Other Operating Expenses
+
+30. الإيراد الحقيقي للنشاط
+يجب أن نستطيع حساب:
+Gross Revenue
+-
+Cost of Revenue
+=
+Gross Profit
+ثم:
+Gross Profit
+-
+Operating Expenses
+=
+Operating Profit
+ثم:
+Operating Profit
+± Other Income/Expenses
+=
+Net Profit
+
+31. معادلة الربحية الرئيسية
+\(\text{Net Profit}=\text{Revenue}-\text{Cost of Revenue}-\text{Operating Expenses}+\text{Other Income}-\text{Other Expenses}\)
+لكن داخل النظام يجب ألا يكون الربح مجرد عملية حسابية على أرقام الشاشة.
+بل ناتجًا عن:
+Posted Journal Entries
+
+32. مثال دورة مالية كاملة
+نفترض:
+فني اشترى:
+500 جنيه
+وحصل على:
+600 نقطة
+ثم استخدم:
+20 نقطة
+لفتح Lead.
+
+المرحلة الأولى
+دفع:
+500 جنيه.
+Cash / OPay Clearing       +500
+Deferred Revenue           +500
+
+المرحلة الثانية
+تم استخدام 20 نقطة.
+هنا يتم تحويل الجزء المقابل من الالتزام إلى إيراد، وفق سياسة الاعتراف المعتمدة.
+Deferred Revenue
+        ?
+Lead Access Revenue
+وهكذا يصبح لدينا:
+Cash
+500 جنيه.
+Revenue Recognized
+الجزء المستحق فقط.
+Remaining Deferred Revenue
+الجزء المرتبط بالنقاط غير المستخدمة.
+
+33. لماذا هذه الطريقة أفضل؟
+لأن الإدارة تستطيع معرفة الفرق بين:
+Cash Flow
+كم حصلنا نقدًا؟
+Revenue
+كم حققنا فعليًا؟
+Deferred Revenue
+كم حصلنا ولم نعترف به كإيراد بعد؟
+وهذه ثلاثة أرقام مختلفة.
+
+34. قائمة الأرباح والخسائر P&L
+يجب أن يعرض Super Admin:
+Revenue
+* Lead Revenue.
+* Subscription Revenue.
+* Other Revenue.
+Cost of Revenue
+* OPay Fees.
+* SMS.
+* Email Verification.
+* Other Direct Costs.
+* Promotional Cost.
+Gross Profit
+ثم:
+Operating Expenses
+* Salaries.
+* Hosting.
+* Marketing.
+* Support.
+* Software.
+* Administration.
+ثم:
+Net Profit / Loss
+
+35. مثال مبسط
+لو خلال شهر:
+Revenue = 100,000
+OPay Fees = 3,000
+SMS = 2,000
+Email = 500
+Other Direct Costs = 1,500
+إذن:
+Cost of Revenue = 7,000
+
+Gross Profit = 93,000
+ثم:
+Operating Expenses = 50,000
+فيكون:
+Operating Profit = 43,000
+الأرقام هنا مثال توضيحي فقط وليست أسعارًا معتمدة.
+
+36. Cash Flow
+لا يكفي P&L.
+نحتاج أيضًا:
+Cash Flow Statement
+ويعرض:
+Cash Inflows
+* OPay Collections.
+* Bank Receipts.
+* Other Receipts.
+Cash Outflows
+* Gateway Fees.
+* Provider Payments.
+* Salaries.
+* Hosting.
+* Refunds.
+* Other Expenses.
+لأن:
+Profit ? Cash.
+
+37. الميزانية Balance Sheet
+يجب أن يستطيع النظام إنتاج:
+Balance Sheet
+في أي تاريخ.
+Assets
+* Cash.
+* Bank.
+* OPay Clearing.
+* Receivables.
+* Prepayments.
+Liabilities
+* Deferred Revenue.
+* Payables.
+* Refunds.
+* Taxes.
+Equity
+* Capital.
+* Retained Earnings.
+* Current Profit/Loss.
+والقاعدة:
+Assets = Liabilities + Equity
+
+38. Accounts Receivable
+إذا أصبح هناك أي خدمة يقدمها التطبيق بدون تحصيل فوري:
+يجب أن يكون هناك:
+Accounts Receivable
+أما في النموذج الحالي الذي يعتمد على الدفع المسبق للنقاط، فسيكون استخدامه أقل.
+لكن وجوده في Chart of Accounts مهم للتوسع.
+
+39. Refunds
+يجب ألا يكون Refund مجرد:
+تعديل رصيد الفني يدويًا.
+بل عملية مالية لها دورة كاملة:
+Refund Request
+?
+Review
+?
+Approval
+?
+Refund
+?
+Accounting Entry
+?
+Wallet Adjustment
+
+40. Refund بسبب النزاع
+مثلاً:
+الفني دفع نقاط لفتح Lead.
+حدثت مشكلة مثبتة.
+قررت الإدارة إعادة:
+20 نقطة
+إلى الفني.
+يجب تسجيل:
+Refund / Compensation Event
+مع:
+* Order ID.
+* Technician ID.
+* Reason.
+* Approved By.
+* Amount.
+* Points.
+* Accounting Impact.
+
+41. لا يسمح بالتعديل اليدوي الصامت
+هذه قاعدة مهمة جدًا.
+لا يجب أن يستطيع Super Admin:
+تغيير الرصيد من 100 إلى 150.
+بدون تسجيل سبب.
+بل:
+Manual Adjustment
+?
+Reason Required
+?
+Admin Identity
+?
+Timestamp
+?
+Before
+?
+Adjustment
+?
+After
+
+42. Journal Entry
+كل قيد يجب أن يحتوي:
+Journal Entry ID
+Date
+Reference
+Description
+Source Module
+Source Transaction ID
+Created By
+Approved By
+Status
+ثم:
+Journal Lines
+Account
+Debit
+Credit
+Cost Center
+Technician
+Order
+Payment
+بحسب نوع الحركة.
+
+43. القيود يجب أن تكون مرتبطة بمصدرها
+مثلاً:
+JE-2026-000152
+Source:
+Wallet Recharge #PAY-88321
+أو:
+JE-2026-000153
+Source:
+Lead #ORD-7712
+أو:
+JE-2026-000154
+Source:
+SMS Provider Invoice
+وبذلك يستطيع المحاسب الوصول من القيد إلى العملية الأصلية.
+
+44. Source Module
+يجب أن نعرف من أين جاء القيد:
+AUTH
+WALLET
+ORDER
+PAYMENT
+REFUND
+SMS
+EMAIL
+ADMIN
+EXPENSE
+SYSTEM
+
+45. Cost Centers
+أوصي بإضافة:
+Cost Center
+حتى يمكن تحليل الربحية.
+مثلاً:
+CC-TECH-ACQUISITION
+CC-CUSTOMER-ACQUISITION
+CC-PAYMENT
+CC-OPERATIONS
+CC-TECHNOLOGY
+CC-SUPPORT
+CC-MARKETING
+وبذلك نعرف:
+أين تذهب أموال الشركة؟
+
+46. تحليل ربحية الفني
+النظام يستطيع لاحقًا حساب:
+Technician Revenue
+-
+Technician Acquisition Cost
+-
+Verification Cost
+-
+Welcome Bonus Cost
+-
+Payment Cost
+-
+Support Cost
+=
+Technician Contribution
+وهذا يعطي الإدارة معرفة:
+أي نوع من الفنيين أكثر ربحية؟
+
+47. تحليل ربحية التخصص
+بما أن سعر الـLead أصبح قابلًا للتحديد حسب:
+* التخصص.
+* وقت العمل.
+فيمكن للنظام حساب:
+Specialty Revenue
+-
+Specialty Related Costs
+=
+Specialty Contribution
+مثلاً:
+Electrician
+Plumber
+AC Technician
+Carpenter
+...
+
+48. تحليل ربحية أوقات العمل
+لدينا قاعدة أن قيمة النقاط قد تختلف حسب:
+التخصص + مواعيد العمل.
+لذلك يجب أن نعرف:
+Peak Hours Revenue
+Off-Peak Revenue
+وهذا يسمح للإدارة بمعرفة:
+متى تكون المنصة أكثر ربحية؟
+
+49. Dashboard للـ Super Admin
+أقترح Dashboard مالية رئيسية تحتوي:
+Today
+* Collections.
+* Revenue.
+* Expenses.
+* Net Result.
+* New Technicians.
+* Recharge Volume.
+* Points Consumed.
+This Month
+* Gross Revenue.
+* Cost of Revenue.
+* Gross Profit.
+* Operating Expenses.
+* Net Profit.
+* Cash Flow.
+Wallet
+* Points Sold.
+* Points Consumed.
+* Free Points Used.
+* Outstanding Deferred Revenue.
+Payments
+* Successful.
+* Failed.
+* Pending.
+* Refunded.
+* Gateway Fees.
+
+50. التقارير الأساسية
+يجب أن يستطيع Super Admin استخراج:
+1. General Ledger
+2. Trial Balance
+3. Journal Entries
+4. Chart of Accounts
+5. Profit & Loss
+6. Balance Sheet
+7. Cash Flow
+8. Accounts Receivable
+9. Accounts Payable
+10. OPay Reconciliation
+11. Wallet Transactions
+12. Point Consumption
+13. Free Points Report
+14. SMS Cost Report
+15. Email Verification Cost Report
+16. Refund Report
+17. Adjustment Report
+18. Tax Report
+19. Revenue by Specialty
+20. Revenue by Time Period
+
+51. Trial Balance
+هذه من أهم التقارير.
+يجب أن يستطيع Super Admin استخراج:
+AccountDebitCreditBalanceCashXXXOPay ClearingXXXDeferred RevenueXXXLead RevenueXXXOPay FeesXXXSMS ExpenseXXXويجب أن يتحقق النظام:
+Total Debits = Total Credits
+
+52. Accounting Periods
+يجب أن يوجد:
+Accounting Period
+مثلاً:
+August 2026
+وعند إغلاق الشهر:
+CLOSE PERIOD
+لا يسمح النظام بتعديل القيود القديمة مباشرة.
+
+53. تصحيح القيود
+إذا حدث خطأ:
+لا نحذف القيد.
+بل:
+Original Entry
+      ?
+Reversal Entry
+      ?
+Correct Entry
+وهذه قاعدة محاسبية وتدقيقية مهمة جدًا.
+
+54. Audit Trail
+كل عملية مالية تسجل:
+* من قام بها.
+* متى.
+* ماذا حدث.
+* قبل.
+* بعد.
+* المصدر.
+* IP / Session عند الحاجة الأمنية.
+* سبب التعديل.
+ولا يسمح بمحو السجل.
+
+55. صلاحيات Super Admin
+أوافق على أن تكون المنظومة تحت صلاحيات Super Admin، لكن مع فصل:
+Operational Control
+عن:
+Accounting Approval
+الأفضل أن يحتوي النظام على Roles مستقبلًا مثل:
+SUPER ADMIN
+FINANCE ADMIN
+ACCOUNTANT
+AUDITOR
+حتى لو كان Super Admin هو صاحب الصلاحية العليا حاليًا.
+
+56. ما يستطيع Super Admin ضبطه
+Chart of Accounts
+إضافة / تعديل / تعطيل.
+Revenue Rules
+قواعد الاعتراف بالإيراد وفق إعدادات النظام والسياسة المحاسبية.
+Payment Providers
+* OPay.
+* أي Gateway مستقبلي.
+Provider Fees
+* Fixed.
+* Percentage.
+* Minimum Fee.
+* Tax on Fee إن وجد وفق العقد.
+Verification Providers
+* SMS.
+* Email.
+Point Packages
+* السعر.
+* النقاط.
+Lead Pricing
+* التخصص.
+* الوقت.
+* السعر.
+Refund Rules
+Adjustment Rules
+Accounting Periods
+Tax Configuration
+Cost Centers
+
+57. عدم Hardcode للعمولات
+هذه قاعدة نعتمدها رسميًا.
+لا:
+OPay Fee = 2%
+داخل الكود.
+بل:
+Payment Provider
+    ?
+Fee Configuration
+    ?
+Effective From
+    ?
+Effective To
+حتى لو تغيرت العمولة مستقبلًا، لا تتأثر العمليات القديمة.
+
+58. تاريخ الأسعار والعمولات
+يجب أن يكون لدينا:
+Effective Dating
+مثلاً:
+OPay Fee
+01/01/2026 ? 2%
+01/07/2026 ? 2.2%
+العمليات القديمة تستخدم:
+القيمة التي كانت سارية وقت العملية.
+ولا يعاد حساب التاريخ الماضي بالسعر الجديد.
+
+59. نفس المبدأ لخدمات SMS
+مثلاً:
+Provider A
+01/01 ? X
+01/06 ? Y
+النظام يستخدم السعر الصحيح حسب تاريخ العملية.
+
+60. Tax/VAT
+هذه نقطة يجب أن تكون Configurable وليست Hardcoded.
+النظام يجب أن يكون قادرًا على تسجيل:
+* Taxable.
+* Non-taxable.
+* Tax rate.
+* Tax amount.
+* Tax-inclusive.
+* Tax-exclusive.
+لكن التصنيف الضريبي النهائي لكل خدمة وعمولة في مصر يجب أن يعتمده المحاسب/المستشار الضريبي للشركة، ولا ينبغي أن نضع افتراضًا قانونيًا داخل الكود.
+
+61. Reconciliation Engine
+أعتبره من أهم أجزاء الموديول.
+النظام يجب أن يقارن:
+Application Transactions
+        ?
+Payment Gateway
+        ?
+Bank
+        ?
+General Ledger
+ويكشف:
+Matched
+كل شيء صحيح.
+Missing
+عملية موجودة في طرف وغير موجودة في الآخر.
+Amount Mismatch
+القيمة مختلفة.
+Duplicate
+عملية مكررة.
+Fee Mismatch
+العمولة مختلفة.
+Settlement Difference
+المبلغ المسدد مختلف.
+
+62. منع تكرار الدفع
+مثلاً OPay أرسل Callback مرتين.
+النظام لا يجب أن يضيف النقاط مرتين.
+يجب استخدام:
+Idempotency
+بحيث:
+Gateway Transaction ID
+لا يمكن معالجته كعملية ناجحة أكثر من مرة.
+وهذا مهم جدًا.
+
+63. دورة الدفع المثالية
+Technician
+    ?
+Select Package
+    ?
+Recharge Intent
+    ?
+Payment Request
+    ?
+OPay
+    ?
+Payment Result
+    ?
+Backend Verification
+    ?
+Reconciliation / Idempotency
+    ?
+Wallet Credit
+    ?
+Accounting Entry
+    ?
+Receipt
+
+64. الترتيب مهم جدًا
+لا يجب أن يكون:
+Payment Success
+?
+Frontend adds points
+بل:
+Payment Confirmed Server-Side
+?
+Transaction Validated
+?
+Wallet Transaction
+?
+Accounting Entry
+?
+User Notification
+
+65. Receipt
+بعد نجاح الشحن، النظام يستطيع إصدار:
+Recharge Receipt
+تحتوي:
+* Transaction ID.
+* Technician.
+* Package.
+* Amount.
+* Points.
+* Payment Provider.
+* Gateway Transaction ID.
+* Date.
+* Fees عند الحاجة.
+* Status.
+
+66. تقرير "الفلوس المحصلة"
+Super Admin يستطيع اختيار:
+From
+To
+Payment Provider
+Status
+Technician
+Package
+ثم يرى:
+* Gross Collections.
+* Fees.
+* Net Settlement.
+* Successful.
+* Failed.
+* Refunded.
+
+67. تقرير "الإيراد"
+مختلف عن التحصيل.
+يعرض:
+Recognized Revenue
+Deferred Revenue
+Revenue by Period
+Revenue by Specialty
+Revenue by Lead
+وهذا الفصل مهم جدًا للإدارة والمحاسبة.
+
+68. تقرير "تكلفة الخدمة"
+يعرض:
+OPay Fees
+SMS
+Email
+Free Points
+Other Direct Costs
+وبالتالي:
+Gross Margin
+يمكن حسابه.
+
+69. تقرير الربحية
+مثلاً:
+Revenue
+      ?
+- Payment Fees
+- SMS
+- Email
+- Promotions
+      ?
+Gross Profit
+      ?
+- Salaries
+- Hosting
+- Marketing
+- Support
+      ?
+Net Profit
+
+70. مؤشرات الإدارة KPI
+أقترح أن يتضمن النظام:
+Revenue
+Gross Profit
+Net Profit
+Gross Margin %
+Net Margin %
+Average Revenue per Technician
+Average Recharge
+Point Consumption Rate
+Free Point Utilization
+Payment Success Rate
+Payment Failure Rate
+Gateway Cost %
+SMS Cost per Verified User
+Technician Acquisition Cost
+Customer Acquisition Cost
+
+71. الوحدة الاقتصادية للـLead
+هذه ستكون من أهم المؤشرات في فني.
+مثلاً:
+Lead Price
+-
+Payment Processing Allocation
+-
+Promotion Cost
+-
+Support Allocation
+=
+Lead Contribution
+وهذا يسمح لنا بتحديد:
+هل قيمة 20 نقطة مربحة فعلًا؟
+
+72. ربط السعر بالتخصص
+بما أننا اعتمدنا:
+Lead Cost = 20 Points Default
+لكن Super Admin يستطيع تخصيص السعر:
+Electrician = 20
+Plumber = 25
+AC = 30
+...
+فكل استخدام يجب أن يسجل:
+Specialty
+Pricing Rule ID
+Point Cost
+Effective Date
+حتى لا تتغير المعاملة التاريخية إذا تغير السعر لاحقًا.
+
+73. ربط السعر بالوقت
+إذا كان لدينا:
+Normal Hours
+Peak Hours
+Weekend
+Holiday
+يمكن أن تختلف قيمة الـLead.
+لكن يجب تسجيل:
+Pricing Rule Snapshot
+داخل العملية.
+
+74. مثال
+لو قيمة Lead:
+20 نقطة
+ثم غير Super Admin السعر إلى:
+25 نقطة
+غدًا.
+الطلبات القديمة التي استهلكت 20 نقطة:
+تبقى 20.
+لا يعاد حسابها.
+
+75. النظام يجب أن يحتفظ بالتاريخ المالي
+أي عملية مالية لا تعتمد على:
+Current Configuration
+بل على:
+Configuration Effective at Transaction Time
+وهذه قاعدة مهمة جدًا.
+
+76. Architecture النهائي
+                    ACCOUNTING CORE
+                          ?
+        ??????????????????????????????????????
+        ?                 ?                  ?
+        ?                 ?                  ?
+   Wallet Ledger      Payment Ledger     Expense Ledger
+        ?                 ?                  ?
+        ??????????????????????????????????????
+                          ?
+                  ACCOUNTING ENGINE
+                          ?
+                          ?
+                   JOURNAL ENTRIES
+                          ?
+                          ?
+                   GENERAL LEDGER
+                          ?
+        ??????????????????????????????????????
+        ?                 ?                  ?
+      P&L            Balance Sheet       Cash Flow
+        ?                 ?                  ?
+        ??????????????????????????????????????
+                          ?
+                  FINANCIAL REPORTS
+                          ?
+                          ?
+                     SUPER ADMIN
+
+77. العلاقة مع باقي Modules
+Registration
+      ?
+Verification Cost
+      ?
+Accounting
+
+Wallet
+      ?
+Recharge
+      ?
+Accounting
+
+Order
+      ?
+Lead Consumption
+      ?
+Revenue
+      ?
+Accounting
+
+Payment Gateway
+      ?
+Collection + Fee
+      ?
+Accounting
+
+Refund
+      ?
+Wallet + Accounting
+
+Expenses
+      ?
+Accounting
+
+All Modules
+      ?
+Audit Trail
+
+78. قاعدة مهمة: كل Business Event مالي يولد Accounting Event
+مثلاً:
+Recharge
+? Accounting Event
+Lead Opened
+? Accounting Event
+Refund
+? Accounting Event
+Gateway Fee
+? Accounting Event
+SMS Usage
+? Accounting Event
+Manual Adjustment
+? Accounting Event
+لكن ليس معنى ذلك أن كل Event يجب أن يولد قيدًا فورًا في كل حالة؛ بعض الأحداث تحتاج تجميعًا أو Invoice/Settlement حسب طبيعة المزود والسياسة المحاسبية.
+
+79. الحالات التي يجب منعها
+يجب ألا يستطيع النظام:
+* إضافة نقاط بدون Transaction.
+* حذف Transaction ناجحة.
+* حذف Journal Entry Posted.
+* تعديل مبلغ Posted مباشرة.
+* تعديل تاريخ عملية مغلقة.
+* إضافة نقاط مرتين لنفس Gateway Transaction.
+* تعديل عمولة قديمة وإعادة تطبيقها على معاملات سابقة.
+* إخفاء Adjustment.
+* حذف Audit Trail.
+
+80. حالات التصحيح
+بدلاً من:
+DELETE
+يستخدم:
+REVERSAL
+ثم:
+CORRECTED ENTRY
+وبذلك يبقى التاريخ كاملًا.
+
+81. إغلاق الشهر
+في نهاية الشهر:
+Review
+ ?
+Reconciliation
+ ?
+Adjustments
+ ?
+Approval
+ ?
+Close Period
+وبعد:
+CLOSE
+لا يسمح بتعديل القيود إلا من خلال:
+Controlled Adjustment / Reopening Workflow
+
+82. Super Admin Dashboard النهائي
+أقترح أن تكون الشاشة الرئيسية:
+Financial Overview
+???????????????????????????????????????
+? Revenue                             ?
+? EGP XXX,XXX                         ?
+???????????????????????????????????????
+? Expenses                            ?
+? EGP XX,XXX                          ?
+???????????????????????????????????????
+? Gross Profit                        ?
+? EGP XX,XXX                          ?
+???????????????????????????????????????
+? Net Profit                          ?
+? EGP XX,XXX                          ?
+???????????????????????????????????????
+ثم:
+* Cash Position.
+* OPay Pending.
+* OPay Settled.
+* Deferred Revenue.
+* Points Sold.
+* Points Consumed.
+* Refunds.
+* Gateway Fees.
+* SMS Cost.
+* Email Cost.
+
+83. التقارير الشهرية
+بضغطة واحدة:
+Monthly Financial Package
+يخرج:
+1. P&L.
+2. Balance Sheet.
+3. Cash Flow.
+4. Trial Balance.
+5. General Ledger.
+6. OPay Reconciliation.
+7. Wallet Report.
+8. Revenue Report.
+9. Expense Report.
+10. Refund Report.
+11. Tax Data.
+12. Audit Report.
+
+84. Export
+يجب دعم:
+* Excel.
+* CSV.
+* PDF.
+مع إمكانية تحديد:
+* الفترة.
+* الحساب.
+* الفني.
+* التخصص.
+* العملية.
+* مزود الدفع.
+
+85. قاعدة العملة
+يجب تعريف:
+Base Currency = EGP
+في الإصدار الحالي.
+لكن تصميم قاعدة البيانات يفضل أن يدعم مستقبلاً:
+Currency
+Exchange Rate
+إذا توسعت UpNexa خارج مصر.
+
+86. ما أراه أقوى تحسين في هذا التصميم
+أهم شيء أريد تثبيته:
+لا نبني نظام الحسابات حول الشاشات؛ نبنيه حول الأحداث المالية.
+أي أن:
+Payment
+Wallet
+Order
+Refund
+Provider Cost
+Expense
+كلها تولد أحداثًا مالية منظمة.
+ومنها يبنى:
+General Ledger ? Reports ? Profit/Loss
+وهذا يجعل النظام قابلًا للتدقيق والتوسع.
+
+87. مستوى صلاحيات Super Admin
+Super Admin يمتلك التحكم الكامل في:
+* Chart of Accounts.
+* Providers.
+* Gateway Fees.
+* SMS/Email Costs.
+* Packages.
+* Point Pricing.
+* Refund Rules.
+* Accounting Periods.
+* Cost Centers.
+* Reports.
+* Reconciliation.
+* Adjustments.
+* Audit.
+لكن لا أنصح أن تكون صلاحية "تعديل قيد منشور" مباشرة؛ بل يتم ذلك من خلال Reversal/Adjustment workflow حتى لا نفقد سلامة دفتر الأستاذ.
+
+88. معيار نجاح الموديول
+يعتبر Accounting & General Ledger Module ناجحًا عندما يستطيع النظام:
+تسجيل كل حدث مالي من مصدره، إنشاء القيود المزدوجة المناسبة، الحفاظ على دفتر أستاذ متوازن، فصل التحصيل عن الإيراد، فصل محفظة النقاط عن الحسابات المالية، احتساب تكاليف OPay وSMS وEmail، إدارة الاستردادات والتسويات، إجراء المصالحات مع بوابات الدفع، إصدار P&L وBalance Sheet وCash Flow وTrial Balance، والحفاظ على Audit Trail كامل، مع جعل جميع قواعد التشغيل والأسعار والعمولات تحت سيطرة Super Admin دون التأثير على المعاملات التاريخية.
+
+89. أهم نقاط الفحص التي سنطلبها من AI لاحقًا
+عندما نقدم المشروع للفحص الفني، لا نطلب منه فقط:
+"هل يوجد Accounting Module؟"
+بل نطلب منه التحقق من:
+Accounting Architecture
+* Double Entry.
+* Chart of Accounts.
+* Journal Engine.
+* General Ledger.
+Wallet
+* Point Ledger.
+* Recharge.
+* Bonus.
+* Consumption.
+* Adjustments.
+Payments
+* OPay Integration.
+* Webhook Verification.
+* Idempotency.
+* Settlement.
+* Fees.
+* Reconciliation.
+Revenue
+* Deferred Revenue.
+* Revenue Recognition.
+* Refunds.
+Expenses
+* SMS.
+* Email.
+* Gateway.
+* Hosting.
+* Marketing.
+Reporting
+* P&L.
+* Balance Sheet.
+* Cash Flow.
+* Trial Balance.
+* GL.
+Security
+* Authorization.
+* Audit Trail.
+* Period Closing.
+* Reversal.
+Data Integrity
+* No duplicate transactions.
+* No orphan journal entries.
+* Debit = Credit.
+* Historical pricing preservation.
+
+90. القرار النهائي المقترح
+أقترح اعتماد هذا الموديول كـ:
+Module 07 — Accounting & General Ledger
+بحالة:
+APPROVED BASELINE
+مع تثبيت القرارات التالية:
+البندالقرارAccounting ModelDouble EntryBase CurrencyEGPWalletOperational Sub-LedgerPointsPrepaid Service CreditsWelcome Bonus60 Points / OnceDefault Lead Cost20 PointsPackages100 / 250 / 500 / 750 / 1000 EGPPoints Ratio120 Points / 100 EGPPayment ProviderOPay قابل للإضافة والتعديلGateway FeesConfigurable – No HardcodingSMS CostsConfigurableEmail CostsConfigurableRevenueيفصل عن Cash CollectionDeferred RevenueمعتمدP&LمعتمدBalance SheetمعتمدCash FlowمعتمدTrial BalanceمعتمدGeneral LedgerمعتمدReconciliationمعتمدRefund WorkflowمعتمدReversal Instead of DeleteمعتمدPeriod ClosingمعتمدAudit TrailإلزاميCost CentersمعتمدةHistorical PricingمحفوظSuper Admin ControlكاملTax RulesConfigurable + Accountant Approvalوبهذا يصبح لدينا الآن موديول حسابات حقيقي وليس مجرد Wallet Accounting. والأهم أنه متوافق مع الموديولات التي اعتمدناها قبل ذلك: الـLead، نقاط الفني، OPay، التحقق، النزاعات، والتتبع، بحيث نستطيع في النهاية ربط كل جنيه وكل نقطة وكل عملية في فني بمصدرها الأصلي.
+

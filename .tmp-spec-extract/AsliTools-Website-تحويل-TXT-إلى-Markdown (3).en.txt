@@ -1,0 +1,612 @@
+Module 06 � ���� ������� ������� ��������
+Address & Geolocation Management Module
+Final Approved Specification
+���� ��������: APPROVED BASELINE
+���� ������� ������� ����� ������� ������ ������ڡ ��� ������ ����� ���� ������� ������ ��� �� ���� �� ����� ����� ����� �� Gap �� Deviation.
+1. ����� �� ��������
+* ������ �������.
+* ������ �������.
+* ����� �������.
+* ������� ��������� �������.
+* ������ ����� ����� ����� �����.
+* ���� ��������.
+* �������� ��������� ��� ����� ������.
+* ���� ����� ����� ����� ������.
+* ������ ���� ����� ��������.
+* ��� ���� ����� ������.
+* ����� �������� ��������� ������� �������� ��������.
+�������� �� ����� ���� Map Feature� ����� ��� ����� �� Business Logic ����� ������ ���.
+2. ������� ��������
+Address
+* ��������.
+* ������� / ����.
+* ������.
+* ��� ������.
+* �����.
+* �����.
+* �������� ��������.
+Geolocation
+* Latitude.
+* Longitude.
+* Accuracy.
+* Timestamp.
+* Source.
+3. ������ �����
+Address
+?
+??? Governorate
+??? District / Area
+??? Street
+??? Building Number
+??? Floor
+??? Apartment
+??? Additional Details
+?
+??? Geographic Location
+    ??? Latitude
+    ??? Longitude
+    ??? Accuracy
+    ??? Timestamp
+    ??? Source
+4. ���� �������� ������
+��� �� ������ ������� Address Component ������ �� ���� ����� ������.
+�� Context �� �������� �����.
+5. ������ �������
+* ����� �����.
+* ���� ����.
+* �����.
+* ��� ������.
+6. �������� ��������
+Governorate
+    ?
+District
+    ?
+Area / Neighborhood
+7. ����� ������ ��������
+1. ������� ������ ������
+Use Current Location
+2. �����
+3. ����� ����
+���� �������� ������ ��� Marker ��� ������ ������.
+8. �������
+* Map.
+* Marker.
+* Current Location.
+* Search.
+* ������� ����� Marker.
+* Confirm Location.
+���� ��� ����� ������ ��� GPS ���� ��� ������ ������ �� �� ���� ������ �� ������ ����.
+9. Reverse Geocoding
+Coordinates
+      ?
+Reverse Geocoding
+      ?
+Governorate / Area / Street
+�������� ��������� �� Reverse Geocoding ����� ������� ������.
+��� ����� ��� Geocoder ���� ������� ������.
+10. ������ �� ������
+11. ����������
+Latitude
+Longitude
+���� �� ������� ������ PostgreSQL/PostGIS� ��� ������� ����� �������� ������� ��� �������� ��� ���� �� ����� ������ ���.
+12. Accuracy
+Latitude
+Longitude
+Accuracy
+Latitude: ...
+Longitude: ...
+Accuracy: 12m
+13. Timestamp
+Captured At
+* ������.
+* ������.
+* ��������.
+* ������� �� �������.
+14. Source
+GPS
+NETWORK
+MANUAL
+MAP_PICKER
+* �� ������� ��������.
+* ������ ��������.
+* �� ������ ������ ��� �������.
+15. ����� ������
+* �����.
+* �����.
+* ���.
+* ���� ���.
+* ����� ����.
+16. ����� �����
+17. Order Location Snapshot
+��� ����� ����ȡ ��� ��� Snapshot �� ����� ����� ������.
+Order
+?
+??? Address Snapshot
+?
+??? Location Snapshot
+18. ������ Snapshot
+* Governorate.
+* District / Area.
+* Street.
+* Building.
+* Floor.
+* Apartment.
+* Additional Details.
+* Latitude.
+* Longitude.
+19. ���� �����
+1. Profile Address
+2. Last Work Location
+3. Current Location
+4. Active Service Location
+���� �� ������� ����� ������� ��� Matching Engine.
+20. Active Service Location
+AVAILABLE
+21. ����� ������ ��� Available
+AVAILABLE
+Valid Active Service Location
+OFFLINE
+   ?
+Select Active Location
+   ?
+Validate
+   ?
+AVAILABLE
+22. Matching Engine
+Order
+ ?
+Specialty Match
+ ?
+Availability
+ ?
+Schedule
+ ?
+Geographic Eligibility
+ ?
+Distance
+ ?
+Lead Delivery
+23. ������ ��������
+Technician Active Location
+Order Location
+�� ���� Server ����� �������.
+24. Server-Side Geographic Decision
+�� ���� �������� ��� Mobile Client ���� �� ����� ���� ������ �� ����� �����.
+25. ������ �������� ������
+5 KM
+Configurable Setting
+����� Hardcoded.
+26. ����� ���� �����
+5 KM
+ ?
+10 KM
+ ?
+15 KM
+ ?
+* Maximum Radius.
+* ��� �������.
+* �����.
+* ���� �����.
+27. Matching Score � ������� ���������
+* ������.
+* ������.
+* ������.
+* �������.
+Matching Score
+Specialty
+Availability
+Distance
+Rating
+Response Rate
+Current Load
+Travel Time
+28. Distance vs Travel Time
+Geographical Distance
+Estimated Travel Time
+29. �������� ��� ��� ������ ������
+��� �� ���� ����� ���� ��� ��� Lead:
+* ������� ������.
+* ������ ������.
+* ������ ������� �������.
+���� ��� ����� ������� ������� ��� ����� ��� Lead.
+Points Deducted
+      ?
+Customer Data Revealed
+30. ������ �������� �����
+ACCEPTED
+   ?
+EN ROUTE
+   ?
+GPS Tracking
+31. �� ���� Tracking ����
+�� ���� GPS Tracking ���� �����.
+No Active Order
+? Tracking OFF
+Accepted / En Route
+? Tracking ON
+Arrival Confirmed
+? Tracking Reduced / STOP
+Service Completed
+? Tracking OFF
+* ��������.
+* ������.
+* ��������.
+* ������� ��������.
+32. ���� ����� ��� ������
+* ���� �����.
+* ����� ��� �������.
+* ����� ��� ���� ������.
+* ���� ������.
+* Latitude.
+* Longitude.
+* Accuracy.
+33. Geofencing
+Technician Location
+        ?
+Order Location
+        ?
+Geofence
+ARRIVAL_DETECTED
+34. Geofence Radius
+Arrival Geofence Radius
+Configurable
+35. ��� False Arrival
+�� ���� �� ���� ����� GPS ����� ���� ��� Geofence.
+��� GPS �� ���� ��:
+* Drift.
+* Jump.
+* Poor Accuracy.
+Inside Geofence
+Acceptable Accuracy
+Stable Position
+Required Duration / Consecutive Readings
+ARRIVAL_DETECTED
+36. ����� ������ ������
+37. ��� ������ "���"
+ARRIVAL_DETECTED
+      ?
+CUSTOMER_CONFIRMED
+      ?
+ORDER = IN_PROGRESS
+      ?
+TECHNICIAN = BUSY
+38. ��� ������ "��"
+30 Minute Timer
+39. ������ ��� 30 �����
+CUSTOMER_SAYS_NO
+       ?
+30 MINUTES
+       ?
+TIMEOUT
+       ?
+REMOVE TECHNICIAN
+       ?
+RETURN ORDER TO MATCHING
+40. ��� ������� ���������
+LOCATION_SELECTED
+LOCATION_UPDATED
+TRACKING_STARTED
+TRACKING_STOPPED
+GEOFENCE_ENTERED
+ARRIVAL_DETECTED
+CUSTOMER_CONFIRMED
+CUSTOMER_REJECTED
+ARRIVAL_TIMEOUT
+* Timestamp.
+* Actor.
+* Order ID.
+* Technician ID.
+* Location ��� ������.
+* Source.
+41. ������� �������� �� ��������
+������ �������� ���� ����� �� Evidence System.
+Technician was within geofence
+        ?
+Arrival detected
+        ?
+Customer said NO
+        ?
+30 minutes elapsed
+        ?
+Technician removed
+42. ���� �������� ��������
+User Addresses
+        ?
+        ??? Customer Addresses
+        ??? Technician Profile Address
+Orders
+        ?
+        ??? Order Location Snapshot
+Technician Locations
+        ?
+        ??? Historical Locations
+Technician Active Location
+        ?
+        ??? Current Matching Location
+Order Tracking Events
+        ?
+        ??? Tracking / Geofence / Arrival Events
+43. ��� ����� �� ��� ���� Users
+users
+??? latitude
+??? longitude
+??? address
+??? last_latitude
+??? last_longitude
+??? work_latitude
+??? ...
+44. PostGIS
+PostgreSQL + PostGIS
+* Geographic Point.
+* Distance.
+* Radius Search.
+* Nearby Technicians.
+* Geographic Filtering.
+������������ ��������� ��� �� ��� ��� ����� ����� �������� / Backend.
+45. ������� ������
+* Permission Granted.
+* Permission Denied.
+* Location Disabled.
+* Approximate Location.
+* Precise Location.
+* Background Location ��� ������.
+��� ���� ������� ������� Location ���� �� ������� ������.
+46. Background Location
+EN_ROUTE
+���� ������ ������� Background Location ��� ������ ������ �������� ���� �������.
+47. ������� �� ��� ��������
+* Last Known Location.
+* Timestamp.
+* Retry.
+* Queue �������� ��� �������.
+* Server-side freshness check.
+����� �� ���� Location ������.
+48. Location Freshness
+Last Location
+Captured 2 minutes ago
+Captured 45 minutes ago
+Location Freshness
+����� �������� �� ��� Matching Engine.
+49. ���� ������
+Accuracy > Allowed Threshold
+Low Confidence
+50. Validation
+* Latitude ����.
+* Longitude ����.
+* ������ ��� ������ �������� �������.
+* Accuracy ������ ��� ������.
+* Timestamp �����.
+* ���� Location ��� ������� ���� ������.
+51. ����� �� �������
+Client says:
+I am here.
+* ������.
+* �����.
+* ���� �����.
+* ���� �����.
+* ������ ��� session.
+* ����� �������.
+��� ����� ��� Frontend ���� ������.
+52. ���� ������
+Create Order
+    ?
+Use Profile Address
+Choose Another Address
+    ?
+Map
+    ?
+Select Location
+    ?
+Reverse Geocode
+    ?
+Review
+    ?
+Confirm
+    ?
+Create Order
+53. ���� �����
+Open App
+    ?
+Set Available
+    ?
+Choose Active Location
+    ?
+Validate
+    ?
+AVAILABLE
+    ?
+Receive Leads
+54. ���� ������
+Lead Accepted
+      ?
+Customer Data Revealed
+      ?
+EN_ROUTE
+      ?
+Tracking Started
+      ?
+Geofence Monitoring
+      ?
+Arrival Detected
+      ?
+Customer Confirmation
+55. ���� ������ ��������
+ARRIVAL_DETECTED
+       ?
+       ?
+       ?????????????????
+       ?               ?
+      YES              NO
+       ?               ?
+       ?               ?
+ IN_PROGRESS       30 MIN TIMER
+                       ?
+                       ?
+                    TIMEOUT
+                       ?
+                       ?
+                   RE-MATCHING
+56. ������� �� Modules ������
+Registration Module
+Profile Module
+Order Module
+Matching Module
+Wallet Module
+��� ��� ������ ������ ����� ���� ��� Lead ���� ������.
+Tracking Module
+Notification Module
+Rating & Dispute Module
+Super Admin Module
+* Radius.
+* Geofence.
+* ����� ������.
+* �������� ���������.
+* ��������.
+57. ������� Super Admin
+��� �� ������ Super Admin ������ �� ��������� ���� �� ����� Hardcode ���.
+Initial Matching Radius
+Maximum Matching Radius
+Radius Expansion Rules
+Arrival Geofence Radius
+Location Accuracy Threshold
+Location Freshness Threshold
+Tracking Interval
+* �� ��� ��������.
+* ������ �������.
+* ������ �������.
+* �������.
+* ��� ������� ��� ������.
+58. ����� �� ���� Hardcode ���
+5 KM
+10 KM
+15 KM
+Geofence Radius
+Tracking Interval
+Accuracy Threshold
+Freshness Threshold
+Maximum Radius
+Configurable System Settings
+59. ������� ������
+Spatial Queries / Spatial Indexing
+60. ������� ��� Audit
+�� ������ ���� ����� ���� Matching�
+��� ���� ������� Debug ���.
+Business Audit Data.
+61. ��������� ������� ���������
+* Protected.
+* Access Controlled.
+* ������� ������ ��� ������.
+* ��� ����� ���������� ��� ������ ���.
+* ��� ���� ����� ��� ������� ������� ���.
+* ��� ������ ������ ������� ���� ���.
+62. ��������� ������ �������� �����
+��� ����� ������� ��� AI Technical Reviewer� ��� �� ���� �������:
+Database
+* PostGIS.
+* Geography Point.
+* Spatial Indexes.
+* Foreign Keys.
+* Constraints.
+* Snapshot Design.
+Backend
+* Distance Queries.
+* Radius Search.
+* Geofence.
+* Location Validation.
+* Race Conditions.
+* Idempotency.
+* Authorization.
+Mobile
+* Location Permissions.
+* Current Location.
+* Background Location.
+* GPS Accuracy.
+* Battery Usage.
+* Offline Handling.
+* Location Update Frequency.
+Matching
+* Specialty.
+* Availability.
+* Active Location.
+* Radius.
+* Expansion.
+* Maximum Radius.
+Tracking
+* Start/Stop.
+* Freshness.
+* Last Known Location.
+* Arrival Detection.
+* Geofence Stability.
+63. ���������� ��� ��������
+��� �� ����� ��� AI Reviewer ��� �����:
+Scenario 1
+Scenario 2
+GPS ��� ����.
+Scenario 3
+Scenario 4
+Scenario 5
+Scenario 6
+GPS ���� ����� ����� ���� ��� Geofence.
+Scenario 7
+Scenario 8
+����� ���� ����� ����� ���� Lead.
+Scenario 9
+Scenario 10
+�� ����� Arrival Event �����.
+Scenario 11
+����� ������ ��� ��� Geofence.
+Scenario 12
+Scenario 13
+������ ���� "���" ����� ���� Timer.
+Scenario 14
+Scenario 15
+64. ����� ������ ������� ��������
+����� ������ �������� ����������� ���� ����� ����� ����� ���� ����� ���ɡ ����� ���� ����� ����� ������ ������� PostGIS �� �������� ��������ɡ ����� ������ ��� ����� �����ɡ ������ ���� ����� ����� �����ɡ ����� ���� ����� ������ ������� �� ������ ������� ���� ��� GPS� ������� ��� ��� ������ ���� ������� ��� ������ ������ ����������.
+65. ��� Baseline ������� �������
+Address Component
+Address / Location
+Current Location
+Manual Map Pin
+Search
+Reverse Geocoding
+Order Location
+Snapshot
+Technician Profile Location
+Last Work Location
+Active Service Location
+Matching Radius
+5 KM Default
+Radius
+Configurable
+Radius Expansion
+Configurable
+Maximum Radius
+Distance Calculation
+Server-Side
+PostGIS
+Accuracy
+Timestamp
+Location Source
+Tracking
+Background Tracking
+Geofencing
+Geofence Radius
+Configurable
+GPS Stability Check
+Arrival Detection
+Automatic
+Customer Confirmation
+Yes / No
+No Confirmation
+30 Minutes
+Re-Matching
+��� Timeout
+Location Privacy
+Spatial Indexing
+Audit Trail
+Hardcoded Geographic Rules
+�� ������ Module: Address & Geolocation Management ������ �������� �����.
+������ �� ��� ������ ����� ���� ��� Business Rules ���� Functional Requirements ���� Technical Requirements ��������.
+������ �� ����� ����� �������: �� ����� �� ������� ������ ����� ��� ��������. ��� ����� ������� ��� AI Reviewer� ������� ��� ������ ����� + Database + APIs + Mobile behavior ���� ��� Baseline� ������:
+Implemented / Partially Implemented / Missing / Incorrect / Security Risk / Performance Risk / Recommended Fix
+����� ���� �������� Module-by-Module ������ ������ ����ɡ ���� ���� ��� ��� Features.

@@ -1,0 +1,1074 @@
+Module 07 � ���� �������� ����� �������
+Accounting & General Ledger Module
+Final Proposed Architecture
+������ ����: ��� ������� OPay ������ SMS/Email �� ����� Hardcode ��� �� ����� �� ����Ǻ ��� ������� �� ���� Super Admin ����� ����� ��������� ������� ��� ����. ��� ����� ������ �������� ���� ��������� ������ ��� ����� �� ������� �������.
+1. ����� �� ���� ��������
+* �� ��� ��� �����ɿ
+* �� ��� ��� �����
+* �� �� ������ �����ǿ
+* �� �� ����޿
+* �� �� ���� ��� ����� ������ʿ
+* �� ����� SMS�
+* �� ����� Email Verification�
+* �� ����� OPay�
+* �� �� ���� �����ǿ
+* �� ���� �� ����ǿ
+* �� ���� �� ��������ǿ
+* �� ���� ������ �� ��������ǿ
+* �� �� ���� �� ������
+* �� ������� �����ɿ
+* �� ��������ǿ
+* �� ���� ����� �� ������ɿ
+* �� ���� �� ���ȿ
+* ��� ���� �� ���ɿ
+2. ������� ��������� ��������
+Double-Entry Accounting
+Debit
+Credit
+��� ����� ���� �� 100 ���� ���� �� ���� OPay.
+Debit
+OPay / Payment Clearing       100
+Credit
+Deferred Revenue / Point Liability     100
+3. ��� ����: ���� ������� ��� �� ����� �����
+Technician Wallet
+* ������.
+* �����.
+* �����.
+* ������ ������.
+General Ledger
+* ���������.
+* ���������.
+* ������.
+* ����������.
+* ��������.
+* ������� ��������.
+Technician Wallet
+        ?
+Business Event
+        ?
+Accounting Engine
+        ?
+General Ledger
+4. ���� ������ �������
+Welcome Bonus
+60 ����
+����� ��������� ���� Lead
+20 ����
+100 ����
+100
+120 ����
+250 ����
+250
+300 ����
+500 ����
+500
+600 ����
+750 ����
+750
+900 ����
+1000 ����
+1000
+1200 ����
+5. ���� ���� ����: ������ ���� �������
+120 ���� = 120 ����.
+Prepaid Service Credits
+120 Points
+�� ������� ���� ��� Leads ��� ������� �������
+120 Points
+120 EGP Cash
+6. ���� ���� ��� �����
+100 ����
+120 ����
+Cash Received
+       ?
+Deferred Revenue / Contract Liability
+       ?
+Points Consumed
+       ?
+Revenue Recognition
+7. ����� ��� ����� ���
+Cash Received = 1000
+Points Granted = 1200
+Points Consumed = 0
+8. Welcome Bonus
+60 Points
+�� ���� Cash Received.
+Promotional / Marketing Cost
+9. ���� ���� ��� Welcome Points
+Opening Wallet
+60 Free Points
+20 Points
+���� Lead.
+Free Points Granted = 60
+Free Points Consumed = 20
+Free Points Remaining = 40
+10. ���� ����� ������
+Point Ledger
+Debit
+Credit
+01/08
+Welcome Bonus
+-
+60
+60
+02/08
+Lead #1001
+20
+-
+40
+03/08
+Recharge
+-
+120
+160
+04/08
+Lead #1002
+20
+-
+140
+��� ��� General Ledger.
+Operational Sub-Ledger
+11. ���� ������� ������
+Technician Account
+TECH-000152
+* ������ �����.
+* ������ ��������.
+* ������ ���������.
+* ������ ������� ������.
+* ���������.
+* ����������� �� ����.
+* ���Leads ���� �� �����.
+12. ��� ������ �� ���� OPay
+Recharge Intent
+13. ���� ����� �����
+INITIATED
+?
+PACKAGE_SELECTED
+?
+PAYMENT_PENDING
+?
+PAYMENT_PROCESSING
+?
+PAID
+FAILED
+CANCELLED
+EXPIRED
+REFUNDED
+14. ��� ����� �� �����
+����� ������ ����� ����� ? ��� ����� �� ���Frontend
+������ ����� ������� ������� �� ���� ����� / Backend.
+15. ��� �����
+Debit
+Payment Gateway Clearing / OPay
+500
+Credit
+Deferred Revenue
+500
+* Technician ID.
+* Package ID.
+* Payment ID.
+* Gateway Transaction ID.
+* Gateway Fee.
+* Net Amount.
+* Timestamp.
+16. ����� OPay
+Gross Payment
+Gateway Fee
+Net Settlement.
+Gross = 500
+OPay Fee = X
+Net Settlement = 500 - X
+Customer/Technician Payment = 500
+Payment Gateway Expense = X
+Actual Settlement = 500-X
+���� X ��� ����� �� Super Admin ����� ����� ��������� ������ɡ ���� ����� ������ ���� ������.
+17. ������ OPay
+OPAY-PENDING
+OPAY-CLEARING
+BANK-SETTLEMENT
+OPAY-FEES
+Clearing / Settlement
+18. ������� ������� �� OPay
+��� �� ������ Super Admin �� ������� ���:
+OPay Reconciliation
+Our Transactions
+OPay Transactions
+Bank Settlement
+* Missing Transaction.
+* Duplicate.
+* Wrong Amount.
+* Failed Payment.
+* Refunded Payment.
+* Fee Difference.
+* Settlement Difference.
+19. ������ �� ������
+��� �������� ���� SMS/OTP:
+Operational Expense
+PHONE_VERIFICATION
+* Provider.
+* Country.
+* Message Type.
+* Number of SMS.
+* Unit Cost.
+* Total Cost.
+* Date.
+20. ���� ����� SMS
+1000 �����
+1000 � X
+��� ��� �� ���� X Hardcoded.
+Provider Pricing
+����� Super Admin.
+21. ������ �� ������ ����������
+��� ���� ���� Email Verification ������:
+Email Verification Expense
+* Provider.
+* Service.
+* Number of Requests.
+* Unit Cost.
+* Total Cost.
+Cost = 0
+22. ����� ��� ����� ����� Verification�
+SMS Cost
+Email Cost
+Welcome Bonus Cost
+Marketing Cost
+Customer Acquisition Cost
+Technician Acquisition Cost
+23. ���� �������� Chart of Accounts
+Chart of Accounts
+1000 Assets
+2000 Liabilities
+3000 Equity
+4000 Revenue
+5000 Cost of Revenue
+6000 Operating Expenses
+7000 Other Income
+8000 Other Expenses
+9000 Control / Statistical Accounts
+24. ������ Assets
+1100 Cash
+1110 Bank Accounts
+1120 OPay Clearing
+1130 Payment Gateway Clearing
+1200 Accounts Receivable
+1300 Prepaid Expenses
+1400 Other Current Assets
+25. ���������� Liabilities
+2100 Accounts Payable
+2200 Deferred Revenue
+2300 Customer Credits
+2400 Technician Point Liability
+2500 Refund Payable
+2600 Tax Payable
+2700 Other Payables
+26. ���� ������� Equity
+3100 Paid-in Capital
+3200 Retained Earnings
+3300 Current Period Profit/Loss
+27. ��������� Revenue
+4100 Lead Access Revenue
+4200 Platform Service Revenue
+4300 Subscription Revenue
+4400 Other Platform Revenue
+��� ������� ������� ������� ������� ������� �� ���� ������ ����� ������� �������� ����� ���Lead.
+28. ����� ����� ������ Cost of Revenue
+5100 SMS / OTP Cost
+5200 Email Verification Cost
+5300 Payment Gateway Fees
+5400 Other Transaction Processing Costs
+5500 Promotional Cost of Consumed Free Points
+29. ��������� ���������
+6100 Salaries
+6200 Hosting
+6300 Cloud Services
+6400 Software Subscriptions
+6500 Marketing
+6600 Customer Support
+6700 Administrative Expenses
+6800 Legal / Accounting
+6900 Other Operating Expenses
+30. ������� ������� ������
+Gross Revenue
+-
+Cost of Revenue
+Gross Profit
+Gross Profit
+-
+Operating Expenses
+Operating Profit
+Operating Profit
+� Other Income/Expenses
+Net Profit
+31. ������ ������� ��������
+\(\text{Net Profit}=\text{Revenue}-\text{Cost of Revenue}-\text{Operating Expenses}+\text{Other Income}-\text{Other Expenses}\)
+Posted Journal Entries
+32. ���� ���� ����� �����
+500 ����
+600 ����
+20 ����
+���� Lead.
+500 ����.
+Cash / OPay Clearing       +500
+Deferred Revenue           +500
+Deferred Revenue
+        ?
+Lead Access Revenue
+Cash
+500 ����.
+Revenue Recognized
+Remaining Deferred Revenue
+33. ����� ��� ������� ����
+Cash Flow
+Revenue
+Deferred Revenue
+34. ����� ������� �������� P&L
+��� �� ���� Super Admin:
+Revenue
+* Lead Revenue.
+* Subscription Revenue.
+* Other Revenue.
+Cost of Revenue
+* OPay Fees.
+* SMS.
+* Email Verification.
+* Other Direct Costs.
+* Promotional Cost.
+Gross Profit
+Operating Expenses
+* Salaries.
+* Hosting.
+* Marketing.
+* Support.
+* Software.
+* Administration.
+Net Profit / Loss
+35. ���� ����
+Revenue = 100,000
+OPay Fees = 3,000
+SMS = 2,000
+Email = 500
+Other Direct Costs = 1,500
+Cost of Revenue = 7,000
+Gross Profit = 93,000
+Operating Expenses = 50,000
+Operating Profit = 43,000
+36. Cash Flow
+Cash Flow Statement
+Cash Inflows
+* OPay Collections.
+* Bank Receipts.
+* Other Receipts.
+Cash Outflows
+* Gateway Fees.
+* Provider Payments.
+* Salaries.
+* Hosting.
+* Refunds.
+* Other Expenses.
+Profit ? Cash.
+37. ��������� Balance Sheet
+Balance Sheet
+Assets
+* Cash.
+* Bank.
+* OPay Clearing.
+* Receivables.
+* Prepayments.
+Liabilities
+* Deferred Revenue.
+* Payables.
+* Refunds.
+* Taxes.
+Equity
+* Capital.
+* Retained Earnings.
+* Current Profit/Loss.
+Assets = Liabilities + Equity
+38. Accounts Receivable
+Accounts Receivable
+��� ����� �� Chart of Accounts ��� ������.
+39. Refunds
+��� ��� ���� Refund ����:
+Refund Request
+?
+Review
+?
+Approval
+?
+Refund
+?
+Accounting Entry
+?
+Wallet Adjustment
+40. Refund ���� ������
+����� ��� ���� ���� Lead.
+20 ����
+Refund / Compensation Event
+* Order ID.
+* Technician ID.
+* Reason.
+* Approved By.
+* Amount.
+* Points.
+* Accounting Impact.
+41. �� ���� �������� ������ ������
+�� ��� �� ������ Super Admin:
+Manual Adjustment
+?
+Reason Required
+?
+Admin Identity
+?
+Timestamp
+?
+Before
+?
+Adjustment
+?
+After
+42. Journal Entry
+Journal Entry ID
+Date
+Reference
+Description
+Source Module
+Source Transaction ID
+Created By
+Approved By
+Status
+Journal Lines
+Account
+Debit
+Credit
+Cost Center
+Technician
+Order
+Payment
+43. ������ ��� �� ���� ������ �������
+Source:
+Wallet Recharge #PAY-88321
+Source:
+Lead #ORD-7712
+Source:
+SMS Provider Invoice
+44. Source Module
+AUTH
+WALLET
+ORDER
+PAYMENT
+REFUND
+SMS
+EMAIL
+ADMIN
+EXPENSE
+SYSTEM
+45. Cost Centers
+Cost Center
+CC-TECH-ACQUISITION
+CC-CUSTOMER-ACQUISITION
+CC-PAYMENT
+CC-OPERATIONS
+CC-TECHNOLOGY
+CC-SUPPORT
+CC-MARKETING
+46. ����� ����� �����
+Technician Revenue
+-
+Technician Acquisition Cost
+-
+Verification Cost
+-
+Welcome Bonus Cost
+-
+Payment Cost
+-
+Support Cost
+Technician Contribution
+47. ����� ����� ������
+��� �� ��� ���Lead ���� ������ ������� ���:
+* ������.
+* ��� �����.
+Specialty Revenue
+-
+Specialty Related Costs
+Specialty Contribution
+Electrician
+Plumber
+AC Technician
+Carpenter
+48. ����� ����� ����� �����
+Peak Hours Revenue
+Off-Peak Revenue
+49. Dashboard ��� Super Admin
+����� Dashboard ����� ������ �����:
+Today
+* Collections.
+* Revenue.
+* Expenses.
+* Net Result.
+* New Technicians.
+* Recharge Volume.
+* Points Consumed.
+This Month
+* Gross Revenue.
+* Cost of Revenue.
+* Gross Profit.
+* Operating Expenses.
+* Net Profit.
+* Cash Flow.
+Wallet
+* Points Sold.
+* Points Consumed.
+* Free Points Used.
+* Outstanding Deferred Revenue.
+Payments
+* Successful.
+* Failed.
+* Pending.
+* Refunded.
+* Gateway Fees.
+50. �������� ��������
+��� �� ������ Super Admin �������:
+1. General Ledger
+2. Trial Balance
+3. Journal Entries
+4. Chart of Accounts
+5. Profit & Loss
+6. Balance Sheet
+7. Cash Flow
+8. Accounts Receivable
+9. Accounts Payable
+10. OPay Reconciliation
+11. Wallet Transactions
+12. Point Consumption
+13. Free Points Report
+14. SMS Cost Report
+15. Email Verification Cost Report
+16. Refund Report
+17. Adjustment Report
+18. Tax Report
+19. Revenue by Specialty
+20. Revenue by Time Period
+51. Trial Balance
+��� �� ������ Super Admin �������:
+Account
+Debit
+Credit
+Balance
+Cash
+OPay Clearing
+Deferred Revenue
+Lead Revenue
+OPay Fees
+SMS Expense
+Total Debits = Total Credits
+52. Accounting Periods
+Accounting Period
+August 2026
+CLOSE PERIOD
+53. ����� ������
+Original Entry
+      ?
+Reversal Entry
+      ?
+Correct Entry
+54. Audit Trail
+* �� ��� ���.
+* ���.
+* ���� ���.
+* ���.
+* ���.
+* ������.
+* IP / Session ��� ������ �������.
+* ��� �������.
+55. ������� Super Admin
+����� ��� �� ���� �������� ��� ������� Super Admin� ��� �� ���:
+Operational Control
+Accounting Approval
+������ �� ����� ������ ��� Roles �������� ���:
+SUPER ADMIN
+FINANCE ADMIN
+ACCOUNTANT
+AUDITOR
+��� �� ��� Super Admin �� ���� �������� ������ ������.
+56. �� ������ Super Admin ����
+Chart of Accounts
+Revenue Rules
+Payment Providers
+* OPay.
+* �� Gateway �������.
+Provider Fees
+* Fixed.
+* Percentage.
+* Minimum Fee.
+* Tax on Fee �� ��� ��� �����.
+Verification Providers
+* SMS.
+* Email.
+Point Packages
+* �����.
+* ������.
+Lead Pricing
+* ������.
+* �����.
+* �����.
+Refund Rules
+Adjustment Rules
+Accounting Periods
+Tax Configuration
+Cost Centers
+57. ��� Hardcode ��������
+OPay Fee = 2%
+Payment Provider
+    ?
+Fee Configuration
+    ?
+Effective From
+    ?
+Effective To
+58. ����� ������� ���������
+Effective Dating
+OPay Fee
+01/01/2026 ? 2%
+01/07/2026 ? 2.2%
+59. ��� ������ ������ SMS
+Provider A
+01/01 ? X
+01/06 ? Y
+60. Tax/VAT
+��� ���� ��� �� ���� Configurable ����� Hardcoded.
+* Taxable.
+* Non-taxable.
+* Tax rate.
+* Tax amount.
+* Tax-inclusive.
+* Tax-exclusive.
+61. Reconciliation Engine
+Application Transactions
+        ?
+Payment Gateway
+        ?
+Bank
+        ?
+General Ledger
+Matched
+Missing
+Amount Mismatch
+Duplicate
+Fee Mismatch
+Settlement Difference
+62. ��� ����� �����
+����� OPay ���� Callback �����.
+Idempotency
+Gateway Transaction ID
+63. ���� ����� ��������
+Technician
+    ?
+Select Package
+    ?
+Recharge Intent
+    ?
+Payment Request
+    ?
+OPay
+    ?
+Payment Result
+    ?
+Backend Verification
+    ?
+Reconciliation / Idempotency
+    ?
+Wallet Credit
+    ?
+Accounting Entry
+    ?
+Receipt
+64. ������� ��� ����
+Payment Success
+?
+Frontend adds points
+Payment Confirmed Server-Side
+?
+Transaction Validated
+?
+Wallet Transaction
+?
+Accounting Entry
+?
+User Notification
+65. Receipt
+Recharge Receipt
+* Transaction ID.
+* Technician.
+* Package.
+* Amount.
+* Points.
+* Payment Provider.
+* Gateway Transaction ID.
+* Date.
+* Fees ��� ������.
+* Status.
+66. ����� "������ �������"
+Super Admin ������ ������:
+From
+Payment Provider
+Status
+Technician
+Package
+* Gross Collections.
+* Fees.
+* Net Settlement.
+* Successful.
+* Failed.
+* Refunded.
+67. ����� "�������"
+Recognized Revenue
+Deferred Revenue
+Revenue by Period
+Revenue by Specialty
+Revenue by Lead
+68. ����� "����� ������"
+OPay Fees
+SMS
+Email
+Free Points
+Other Direct Costs
+Gross Margin
+69. ����� �������
+Revenue
+      ?
+- Payment Fees
+- SMS
+- Email
+- Promotions
+      ?
+Gross Profit
+      ?
+- Salaries
+- Hosting
+- Marketing
+- Support
+      ?
+Net Profit
+70. ������ ������� KPI
+Revenue
+Gross Profit
+Net Profit
+Gross Margin %
+Net Margin %
+Average Revenue per Technician
+Average Recharge
+Point Consumption Rate
+Free Point Utilization
+Payment Success Rate
+Payment Failure Rate
+Gateway Cost %
+SMS Cost per Verified User
+Technician Acquisition Cost
+Customer Acquisition Cost
+71. ������ ���������� ���Lead
+Lead Price
+-
+Payment Processing Allocation
+-
+Promotion Cost
+-
+Support Allocation
+Lead Contribution
+72. ��� ����� �������
+Lead Cost = 20 Points Default
+��� Super Admin ������ ����� �����:
+Electrician = 20
+Plumber = 25
+Specialty
+Pricing Rule ID
+Point Cost
+Effective Date
+73. ��� ����� ������
+Normal Hours
+Peak Hours
+Weekend
+Holiday
+���� �� ����� ���� ���Lead.
+Pricing Rule Snapshot
+74. ����
+�� ���� Lead:
+20 ����
+�� ��� Super Admin ����� ���:
+25 ����
+75. ������ ��� �� ����� �������� ������
+Current Configuration
+Configuration Effective at Transaction Time
+76. Architecture �������
+                    ACCOUNTING CORE
+                          ?
+        ??????????????????????????????????????
+        ?                 ?                  ?
+        ?                 ?                  ?
+   Wallet Ledger      Payment Ledger     Expense Ledger
+        ?                 ?                  ?
+        ??????????????????????????????????????
+                          ?
+                  ACCOUNTING ENGINE
+                          ?
+                          ?
+                   JOURNAL ENTRIES
+                          ?
+                          ?
+                   GENERAL LEDGER
+                          ?
+        ??????????????????????????????????????
+        ?                 ?                  ?
+      P&L            Balance Sheet       Cash Flow
+        ?                 ?                  ?
+        ??????????????????????????????????????
+                          ?
+                  FINANCIAL REPORTS
+                          ?
+                          ?
+                     SUPER ADMIN
+77. ������� �� ���� Modules
+Registration
+      ?
+Verification Cost
+      ?
+Accounting
+Wallet
+      ?
+Recharge
+      ?
+Accounting
+Order
+      ?
+Lead Consumption
+      ?
+Revenue
+      ?
+Accounting
+Payment Gateway
+      ?
+Collection + Fee
+      ?
+Accounting
+Refund
+      ?
+Wallet + Accounting
+Expenses
+      ?
+Accounting
+All Modules
+      ?
+Audit Trail
+78. ����� ����: �� Business Event ���� ���� Accounting Event
+Recharge
+? Accounting Event
+Lead Opened
+? Accounting Event
+Refund
+? Accounting Event
+Gateway Fee
+? Accounting Event
+SMS Usage
+? Accounting Event
+Manual Adjustment
+? Accounting Event
+��� ��� ���� ��� �� �� Event ��� �� ���� ����� ����� �� �� ���ɺ ��� ������� ����� ������� �� Invoice/Settlement ��� ����� ������ �������� ���������.
+79. ������� ���� ��� �����
+* ����� ���� ���� Transaction.
+* ��� Transaction �����.
+* ��� Journal Entry Posted.
+* ����� ���� Posted ������.
+* ����� ����� ����� �����.
+* ����� ���� ����� ���� Gateway Transaction.
+* ����� ����� ����� ������ ������� ��� ������� �����.
+* ����� Adjustment.
+* ��� Audit Trail.
+80. ����� �������
+DELETE
+REVERSAL
+CORRECTED ENTRY
+81. ����� �����
+Review
+ ?
+Reconciliation
+ ?
+Adjustments
+ ?
+Approval
+ ?
+Close Period
+CLOSE
+Controlled Adjustment / Reopening Workflow
+82. Super Admin Dashboard �������
+Financial Overview
+???????????????????????????????????????
+? Revenue                             ?
+? EGP XXX,XXX                         ?
+???????????????????????????????????????
+? Expenses                            ?
+? EGP XX,XXX                          ?
+???????????????????????????????????????
+? Gross Profit                        ?
+? EGP XX,XXX                          ?
+???????????????????????????????????????
+? Net Profit                          ?
+? EGP XX,XXX                          ?
+???????????????????????????????????????
+* Cash Position.
+* OPay Pending.
+* OPay Settled.
+* Deferred Revenue.
+* Points Sold.
+* Points Consumed.
+* Refunds.
+* Gateway Fees.
+* SMS Cost.
+* Email Cost.
+83. �������� �������
+Monthly Financial Package
+1. P&L.
+2. Balance Sheet.
+3. Cash Flow.
+4. Trial Balance.
+5. General Ledger.
+6. OPay Reconciliation.
+7. Wallet Report.
+8. Revenue Report.
+9. Expense Report.
+10. Refund Report.
+11. Tax Data.
+12. Audit Report.
+84. Export
+* Excel.
+* CSV.
+* PDF.
+* ������.
+* ������.
+* �����.
+* ������.
+* �������.
+* ���� �����.
+85. ����� ������
+Base Currency = EGP
+Currency
+Exchange Rate
+��� ����� UpNexa ���� ���.
+86. �� ���� ���� ����� �� ��� �������
+Payment
+Wallet
+Order
+Refund
+Provider Cost
+Expense
+General Ledger ? Reports ? Profit/Loss
+87. ����� ������� Super Admin
+Super Admin ����� ������ ������ ��:
+* Chart of Accounts.
+* Providers.
+* Gateway Fees.
+* SMS/Email Costs.
+* Packages.
+* Point Pricing.
+* Refund Rules.
+* Accounting Periods.
+* Cost Centers.
+* Reports.
+* Reconciliation.
+* Adjustments.
+* Audit.
+��� �� ���� �� ���� ������ "����� ��� �����" �����ɺ �� ��� ��� �� ���� Reversal/Adjustment workflow ��� �� ���� ����� ���� �������.
+88. ����� ���� ��������
+����� Accounting & General Ledger Module ������ ����� ������ ������:
+����� �� ��� ���� �� ����� ����� ������ �������� �������ɡ ������ ��� ���� ����� ������ ��� ������� �� ������ϡ ��� ����� ������ �� �������� ������ɡ ������ ������ OPay �SMS �Email� ����� ����������� ��������ʡ ����� ��������� �� ������ ����ڡ ����� P&L �Balance Sheet �Cash Flow �Trial Balance� ������� ��� Audit Trail ���� �� ��� ���� ����� ������� �������� ��������� ��� ����� Super Admin ��� ������� ��� ��������� ���������.
+89. ��� ���� ����� ���� ������� �� AI ������
+"�� ���� Accounting Module�"
+Accounting Architecture
+* Double Entry.
+* Chart of Accounts.
+* Journal Engine.
+* General Ledger.
+Wallet
+* Point Ledger.
+* Recharge.
+* Bonus.
+* Consumption.
+* Adjustments.
+Payments
+* OPay Integration.
+* Webhook Verification.
+* Idempotency.
+* Settlement.
+* Fees.
+* Reconciliation.
+Revenue
+* Deferred Revenue.
+* Revenue Recognition.
+* Refunds.
+Expenses
+* SMS.
+* Email.
+* Gateway.
+* Hosting.
+* Marketing.
+Reporting
+* P&L.
+* Balance Sheet.
+* Cash Flow.
+* Trial Balance.
+* GL.
+Security
+* Authorization.
+* Audit Trail.
+* Period Closing.
+* Reversal.
+Data Integrity
+* No duplicate transactions.
+* No orphan journal entries.
+* Debit = Credit.
+* Historical pricing preservation.
+90. ������ ������� �������
+Module 07 � Accounting & General Ledger
+APPROVED BASELINE
+Accounting Model
+Double Entry
+Base Currency
+EGP
+Wallet
+Operational Sub-Ledger
+Points
+Prepaid Service Credits
+Welcome Bonus
+60 Points / Once
+Default Lead Cost
+20 Points
+Packages
+100 / 250 / 500 / 750 / 1000 EGP
+Points Ratio
+120 Points / 100 EGP
+Payment Provider
+OPay ���� ������� ��������
+Gateway Fees
+Configurable � No Hardcoding
+SMS Costs
+Configurable
+Email Costs
+Configurable
+Revenue
+���� �� Cash Collection
+Deferred Revenue
+Balance Sheet
+Cash Flow
+Trial Balance
+General Ledger
+Reconciliation
+Refund Workflow
+Reversal Instead of Delete
+Period Closing
+Audit Trail
+Cost Centers
+Historical Pricing
+Super Admin Control
+Tax Rules
+Configurable + Accountant Approval
+����� ���� ����� ���� ������ ������ ����� ���� ���� Wallet Accounting. ������ ��� ������ �� ���������� ���� ��������� ��� ���: ���Lead� ���� ������ OPay� �����ޡ �������ʡ ������ڡ ���� ������ �� ������� ��� �� ���� ��� ���� ��� ����� �� ��� ������� ������.

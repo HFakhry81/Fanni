@@ -1,0 +1,244 @@
+������ �� Module �� ���� ����� ������:
+1. ������� �������� � ���� ��� �� ���� ��������
+2. ����� ������� � ��� ���� ������� �� ������� ������ɿ
+3. ������ ���������� � �� ������ ��� ���ǿ ����
+4. ���� ��������� ����� ����� ������ � �� ������� ����ǡ ��� ����� ������� ��� ������޿
+1. ������� � Registration Module
+* ������ Client
+* ����� Technician
+* ����� ������ Admin
+������ �� ������� ��� ���� ����� Username/Password� �� �� ����� Onboarding + Verification + Authorization.
+�����: ����� ������ Client Registration
+* �����
+* ��� ������
+* ������ ������� ��������
+* ������ ������ ��������
+Pending Verification
+����� ��� �� ����� Customer Profile ���� ��� Authentication Account.
+Authentication
+User Profile
+User ? Authentication
+User ? Client Profile
+Payment Preference
+* Payment Method
+* Payment Transaction
+* Payment Authorization
+* Payment Completed
+Home Location / ������ �������
+* ����� �� �������
+* ����� ����� ������
+* ���� ������
+* ���� �������
+* ���� �������� �� ����
+* ������� ���� �����
+* ETA
+* �������
+���� �� ����� ��� ������ PostGIS Geography Point / SRID 4326� ���� �������� ��� �� ���� ����� ������� �� ����� ������ ���� ���� Latitude/Longitude ����.
+������� 5 � ������ �� ��� ������ OTP
+Mobile ? API ? OTP Service ? SMS Provider
+�� ��� OTP ��� ���� ������.
+* ��� OTP
+* ��� ������ �������
+* ��� ���������
+* ��� ����� ������� �����
+* ������ OTP ���� ��� ������
+* ��� ���� Abuse
+��� ���� OTP:
+Phone Verified = TRUE
+PENDING_VERIFICATION
+?
+PHONE_VERIFIED
+?
+ACTIVE
+* ����� ������
+* ����� ��� ����
+* ����� ������
+* ����� ������
+* ������ �����
+* ������� �� �����
+* ������ ���� �����
+* ����� ������
+* ����� ���� ������
+������: ����� ����� Technician Registration
+�� ����� �� ���� ����� Active ����� ���� OTP.
+Identity Verification
+Professional Verification
+����� Technician Onboarding.
+* �����
+* ��� ������
+* ������ �������
+* �������� ������� ��������
+���� ����� User/Technician Profile �����.
+ID / License Information
+��� �������� ���� ���� Profile Data.
+�� �� Verification Data.
+NOT_SUBMITTED
+SUBMITTED
+UNDER_REVIEW
+APPROVED
+REJECTED
+* ������
+* ������
+* ����� ������
+* ��������
+* �������� ���� ������
+* ������ ������
+* ����� ��������
+* �����
+* �����
+Service Matching
+Working Hours
+* �����: 09:00 ? 18:00
+* �����: 09:00 ? 18:00
+Working Hours
+Availability
+* ���� ��� ����
+* ��� ���� ������
+* Offline
+* �� ������ ��� ����
+Service Area
+���� ������ ������ ���� Geography �� ������.
+���� Distance � Service Area ����� �������.
+������� 7 � ������ �� ������ OTP
+Mobile ? API ? OTP Service ? SMS Provider
+Phone Verification
+Technician Verification
+��� ����� ����� �������� �OTP:
+Technician ? Pending Review
+* �������� �������
+* ������
+* ������� �� ���
+* ������
+* ������
+* ��������
+* ����� ������
+* ��������� ��������
+APPROVE
+REJECT
+NEEDS_CORRECTION
+Technician Status = ACTIVE
+ACTIVE �� ���� �������� ONLINE �� AVAILABLE.
+Account Status
+ACTIVE
+Verification Status
+APPROVED
+Availability Status
+OFFLINE
+ONLINE
+������: ����� ����� ������ Admin
+Sign Up ? I'm Admin
+������� 1 � ����� ���� Admin
+* System Owner
+* Super Admin
+* Deployment/Provisioning
+* �� ���� ������ ����
+���� �� ���� Public Registration.
+* �����
+* ������ ����������/��� ������ ��� �������
+* ������ Authentication
+* Role
+* Permissions
+������� 3 � Authentication ���
+����� �������� Admin� ��� �� ���� ���� ������ ���� �� ������ ������.
+Authentication
+���� ���� Login.
+* MFA
+* OTP
+* Password Policy
+* Session Management
+* Device/session control
+������� 4 � Role & Permissions
+role = admin
+��� Admin �� ���� ���� ������� ������ �� Super Admin.
+RBAC � Role Based Access Control
+Super Admin
+Admin
+Operations
+Finance
+Support
+Verification Officer
+�� Role ���� Permissions �����.
+�� ����� ���� ��� Admin ��� �� ���� ����� ������� ��:
+Audit Log
+Admin X
+Approved Technician Y
+Date/Time
+Action
+Previous Status
+New Status
+* ������ �������
+* ��������� �������
+* ����� ��������
+* ����� ����������
+* ����� ��������
+* Refunds
+* Disputes
+������ ����� ��� Onboarding �������:
+Start Registration
+        ?
+Personal Data
+        ?
+Payment Preference
+        ?
+Home Location
+        ?
+OTP Verification
+        ?
+Account Created
+        ?
+ACTIVE
+        ?
+Can Request Service
+Start Registration
+        ?
+Personal Data
+        ?
+ID / License
+        ?
+Profession / Experience
+        ?
+Specializations
+        ?
+Working Hours
+        ?
+Service Area
+        ?
+OTP Verification
+        ?
+SUBMITTED
+        ?
+Admin Review
+        ?
+APPROVED
+        ?
+ACTIVE
+        ?
+Can Become ONLINE
+        ?
+Can Receive Orders
+Secure Provisioning
+        ?
+Admin Account
+        ?
+Authentication
+        ?
+MFA / Security
+        ?
+Role
+        ?
+Permissions
+        ?
+ACTIVE
+        ?
+Access Admin Panel
+        ?
+Audit Logging
+1. �� ���� ����� ������ ���� ��� �����ݿ
+2. �� ���� ����� OTP �� ����� ��������
+3. �� ������ ��� ��� ����� ������� ��ȿ
+4. �� ������ ������ ���� ������ �������� Admin�
+5. �� ����� ������ ���� Verification ���� Availability �����ɿ
+6. �� �� ������ ��� ������� �� ���� ����� �����
+7. �� ���� ���� �� ����/���/��� ������ ������
+���� ������ ����� ������ ����� �� Final Audit Checklist ��� Module.
+������ ����: ��� �� ������ ������� ���� ������ ������ �� ��������� ������� ����� �� ��� ��� ����. ���� ������ ����� ������� ������ɡ ������ ��� ������ �� ��� UI ���� API ���� Database ���� permissions� ����� ������ �� �� Implemented / Partially Implemented / Missing / ����� ����� �����.
