@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and, inArray, not } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
-import { db, ordersTable, invoicesTable, pool, usersTable, leadUnlocksTable, walletTransactionsTable, orderDeclinesTable } from "@workspace/db";
+import { db, ordersTable, invoicesTable, pool, usersTable, leadUnlocksTable, walletTransactionsTable, orderDeclinesTable, disputesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../lib/locationNormalizer";
@@ -439,22 +439,25 @@ router.post("/orders/:id/accept", authMiddleware, requireAuth, async (req: Reque
       orderId: id,
       category: order.category,
       specialty: (data.subCategory as string | undefined) ?? order.specialtyId,
+      assign: {
+        technicianName,
+        technicianMobile,
+        technicianAvatar,
+        technicianRating,
+      },
     });
-    const assigned = await assignPendingOrderToTechnician({
-      orderId: id,
-      technicianId: user.id,
-      technicianName,
-      technicianMobile,
-      technicianAvatar,
-      technicianRating,
-    });
-    if (!assigned) {
+    if (!result.assigned) {
       res.status(409).json({ error: "Order already accepted by another technician" });
       return;
     }
+    const [assigned] = await db
+      .select({ clientId: ordersTable.clientId })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .limit(1);
     removeOrderFromPending(id);
     logger.info({ id, technicianId: user.id }, "Lead accepted after point confirmation");
-    if (assigned.clientId) {
+    if (assigned?.clientId) {
       notifyClientAccepted(id, assigned.clientId, {
         technicianId: user.id,
         technicianName,
@@ -519,6 +522,17 @@ router.patch("/orders/:id/acknowledge", authMiddleware, requireAuth, async (req:
   if (technicianRating !== undefined) dataPatch.technicianRating = technicianRating;
 
   try {
+    if (user.role === "technician") {
+      const [unlock] = await db.select({ id: leadUnlocksTable.id })
+        .from(leadUnlocksTable)
+        .where(and(eq(leadUnlocksTable.technicianId, user.id), eq(leadUnlocksTable.orderId, id)))
+        .limit(1);
+      if (!unlock) {
+        res.status(409).json({ error: "Confirm points deduction before accepting this order" });
+        return;
+      }
+    }
+
     let updated: { clientId: string | null } | undefined;
 
     await db.transaction(async (tx) => {
@@ -640,15 +654,16 @@ router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (
 
       logger.info({ id, clientId: user.id }, "Client confirmed technician arrival — order in_progress");
       broadcastOrderStatusToClient(user.id, { id, status: "inProgress" });
+      const [assigned] = await db.select({ technicianId: ordersTable.technicianId }).from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
+      if (assigned?.technicianId) {
+        await markTechnicianBusy(assigned.technicianId);
+      }
     } else {
-      // Rule 38: Client says "No"
       await db.update(ordersTable).set({
         arrivalRejectionReason: rejectionReason || "Client reported technician not arrived",
         updatedAt: now,
       }).where(eq(ordersTable.id, id));
-      
-      logger.info({ id, clientId: user.id }, "Client rejected technician arrival");
-      // Note: Logic for 30 minute timeout starts from arrivalDetectedAt or this rejection
+      logger.info({ id, clientId: user.id }, "Client rejected technician arrival — 30 minute timeout started");
     }
 
     res.json({ success: true });
@@ -709,6 +724,88 @@ router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req: Reque
   } catch (err) {
     logger.error({ err, id }, "Failed to start order");
     res.status(500).json({ error: "Failed to start order" });
+  }
+});
+
+router.patch("/orders/:id/fail-service", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  const id = req.params.id;
+  const ALLOWED = [
+    "client_not_present",
+    "client_refused",
+    "different_problem",
+    "parts_unavailable",
+    "extra_time",
+    "cannot_repair",
+    "other",
+  ] as const;
+  const { reason, details } = req.body as { reason?: string; details?: string };
+  if (!reason || !ALLOWED.includes(reason as typeof ALLOWED[number])) {
+    res.status(400).json({ error: "A valid incomplete reason is required" });
+    return;
+  }
+  if (user.role !== "technician" && user.role !== "admin") {
+    res.status(403).json({ error: "Only technicians can report a failed service" });
+    return;
+  }
+
+  try {
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
+    if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+    if (user.role === "technician" && order.technicianId !== user.id) {
+      res.status(403).json({ error: "You are not assigned to this order" }); return;
+    }
+    if (order.status !== "in_progress") {
+      res.status(409).json({ error: "Service result can only be recorded while the job is in progress" }); return;
+    }
+
+    const dataPatch = {
+      status: "cancelled",
+      serviceResult: "failed",
+      incompleteReason: reason,
+      incompleteDetails: typeof details === "string" ? details.trim().slice(0, 2000) : "",
+    };
+
+    await db.update(ordersTable).set({
+      status: "cancelled",
+      cancelledAt: new Date(),
+      updatedAt: new Date(),
+      data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
+    }).where(eq(ordersTable.id, id));
+
+    if (order.technicianId) {
+      await markTechnicianAvailable(order.technicianId);
+    }
+    if (order.clientId) {
+      broadcastOrderStatusToClient(order.clientId, { id, status: "cancelled", serviceResult: "failed", incompleteReason: reason });
+    }
+
+    const refundEligible = reason === "client_not_present" || reason === "client_refused";
+    if (refundEligible && order.technicianId) {
+      const [unlock] = await db.select().from(leadUnlocksTable).where(and(
+        eq(leadUnlocksTable.technicianId, order.technicianId),
+        eq(leadUnlocksTable.orderId, id),
+        eq(leadUnlocksTable.refundStatus, "none"),
+      )).limit(1);
+      if (unlock) {
+        await db.update(leadUnlocksTable).set({ refundStatus: "requested" }).where(eq(leadUnlocksTable.id, unlock.id));
+        const [existingDispute] = await db.select({ id: disputesTable.id }).from(disputesTable).where(eq(disputesTable.leadUnlockId, unlock.id)).limit(1);
+        if (!existingDispute) {
+          await db.insert(disputesTable).values({
+            leadUnlockId: unlock.id,
+            technicianId: order.technicianId,
+            orderId: id,
+            reason: `Service incomplete: ${reason}${details ? ` — ${details}` : ""}`,
+          });
+        }
+      }
+    }
+
+    logger.info({ id, reason }, "Service recorded as incomplete");
+    res.json({ success: true, refundRequested: refundEligible });
+  } catch (err) {
+    logger.error({ err, id }, "Failed to record incomplete service");
+    res.status(500).json({ error: "Failed to record incomplete service" });
   }
 });
 
@@ -896,6 +993,9 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
     });
 
     logger.info({ orderId: id, technicianId: user.id }, "Order completed and three-party invoices created atomically");
+    if (finalTechnicianId) {
+      await markTechnicianAvailable(finalTechnicianId);
+    }
 
     if (finalClientId) {
       broadcastOrderStatusToClient(finalClientId, {

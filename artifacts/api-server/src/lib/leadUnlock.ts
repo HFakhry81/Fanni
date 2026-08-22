@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db, leadUnlocksTable, walletsTable, walletTransactionsTable } from "@workspace/db";
+import { db, leadUnlocksTable, ordersTable, walletsTable, walletTransactionsTable } from "@workspace/db";
 import { resolveLeadCost } from "./leadPricing";
 
 export type OrderContact = {
@@ -59,12 +59,19 @@ export async function unlockLeadAtomically(opts: {
   orderId: string;
   category?: string | null;
   specialty?: string | null;
+  assign?: {
+    technicianName?: string;
+    technicianMobile?: string;
+    technicianAvatar?: string;
+    technicianRating?: number;
+  };
 }): Promise<{
   alreadyUnlocked: boolean;
   unlock: typeof leadUnlocksTable.$inferSelect;
   newBalance: number;
   costPoints: number;
   contact: OrderContact;
+  assigned: boolean;
 }> {
   const costPoints = await resolveLeadCost({
     category: opts.category,
@@ -87,14 +94,41 @@ export async function unlockLeadAtomically(opts: {
     const data = (orderRow.data ?? {}) as Record<string, unknown>;
     const contact = contactFromOrderData(data);
 
+    const assignOrder = async () => {
+      if (!opts.assign) return false;
+      const dataPatch: Record<string, unknown> = {
+        status: "en_route",
+        technicianId: opts.technicianId,
+      };
+      if (opts.assign.technicianName !== undefined) dataPatch.technicianName = opts.assign.technicianName;
+      if (opts.assign.technicianMobile !== undefined) dataPatch.technicianMobile = opts.assign.technicianMobile;
+      if (opts.assign.technicianAvatar !== undefined) dataPatch.technicianAvatar = opts.assign.technicianAvatar;
+      if (opts.assign.technicianRating !== undefined) dataPatch.technicianRating = opts.assign.technicianRating;
+      const rows = await tx
+        .update(ordersTable)
+        .set({
+          status: "en_route",
+          technicianId: opts.technicianId,
+          acknowledgedAt: new Date(),
+          updatedAt: new Date(),
+          data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
+        })
+        .where(and(eq(ordersTable.id, opts.orderId), eq(ordersTable.status, "pending")))
+        .returning({ id: ordersTable.id });
+      if (rows.length === 0) throw new Error("ORDER_UNAVAILABLE");
+      return true;
+    };
+
     if (existing) {
       const [wallet] = await tx.select().from(walletsTable).where(eq(walletsTable.userId, opts.technicianId));
+      const assigned = await assignOrder();
       return {
         alreadyUnlocked: true,
         unlock: existing,
         newBalance: wallet?.pointsBalance ?? 0,
         costPoints: existing.pointsDeducted,
         contact,
+        assigned,
       };
     }
 
@@ -131,12 +165,14 @@ export async function unlockLeadAtomically(opts: {
       paymentStatus: "completed",
     });
 
+    const assigned = await assignOrder();
     return {
       alreadyUnlocked: false,
       unlock: unlock!,
       newBalance,
       costPoints,
       contact,
+      assigned,
     };
   });
 }

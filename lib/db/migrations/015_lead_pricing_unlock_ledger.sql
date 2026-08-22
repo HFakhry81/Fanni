@@ -1,4 +1,4 @@
--- Migration 011: Lead pricing rules, unlock ledger fields, order declines
+-- Migration 015: Lead pricing rules, unlock ledger fields, order declines
 
 DO $$ BEGIN
   CREATE TYPE lead_refund_status AS ENUM ('none', 'requested', 'refunded', 'rejected');

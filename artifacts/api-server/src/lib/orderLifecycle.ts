@@ -1,7 +1,7 @@
-import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db, ordersTable, orderDeclinesTable, usersTable, availabilityAuditLogsTable } from "@workspace/db";
 import { logger } from "./logger";
-import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending } from "./orderBroadcaster";
+import { broadcastNewOrder, broadcastOrderStatusToClient } from "./orderBroadcaster";
 import { getSetting, SETTING_KEYS } from "./settings";
 
 async function setTechnicianAvailable(technicianId: string, isAvailable: boolean, changedById: string) {
