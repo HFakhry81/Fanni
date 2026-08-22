@@ -1,12 +1,12 @@
 ---
-name: Resume checkpoint 22 Aug 2026
-description: Where to continue module-by-module governance after e06bf79.
+name: Resume checkpoint 23 Aug 2026
+description: Continue remaining items after auto-dispute, KYC status, audit screen.
 ---
 
-Resume from `PROJECT_DEVELOPMENT_REVIEW.md` section **يحتاج استكمالًا**. Spec: `SPEC_BASELINE.md`. Terms: `TERMS_OF_USE.md`.
+Last local work: KYC `pending_review` on ID upload, auto dispute refund (no call click + daily cap), admin audit-logs screen, migration `019_dispute_auto_kyc.sql`.
 
-HEAD on origin/main: `e06bf79`. First command: `pnpm --filter @workspace/db run migrate`.
+Still waiting on secrets/live: Twilio env, OPay API, production VPS, live e2e on device.
 
-Remaining (11): migrate 017/018 → KYC/VPS (P0) → wrong-number dispute cap → live e2e → double-entry GL + expenses UI → Twilio env → admin IA → audit screen → OPay when API arrives → production VPS storage → geo Accuracy/Source.
+Next: `pnpm --filter @workspace/db run migrate` then double-entry GL / admin IA / live e2e.
 
-Do not wait for OPay or VPS passwords except those two items. Do not edit the orders plan file.
+Do not edit the orders plan file.

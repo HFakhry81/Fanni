@@ -764,14 +764,20 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
       serviceStart: serviceStart?.trim() || null,
       serviceEnd: serviceEnd?.trim() || null,
+      nationalId: nationalId?.trim() || null,
       nationalIdFrontUrl: nationalIdFrontUrl?.trim() || null,
       nationalIdBackUrl: nationalIdBackUrl?.trim() || null,
       licenseCardUrl: licenseCardUrl?.trim() || null,
       bio: bio?.trim() || null,
       yearsOfExperience: yearsOfExperience ?? null,
       isApproved: role === "client",
+      approvalStatus: role === "technician"
+        ? ((nationalIdFrontUrl || nationalIdBackUrl) ? "pending_review" : "not_submitted")
+        : "approved",
       termsAcceptedAt: new Date(),
       termsVersion: "2026-08-22",
+      locationSource: (latitude != null && longitude != null) ? "map_picker" : null,
+      locationCapturedAt: (latitude != null && longitude != null) ? new Date() : null,
       location: (latitude != null && longitude != null)
         ? sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`
         : null,
@@ -1140,6 +1146,13 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (nationalIdFrontUrl !== undefined) updates.nationalIdFrontUrl = nationalIdFrontUrl ?? null;
   if (nationalIdBackUrl !== undefined) updates.nationalIdBackUrl = nationalIdBackUrl ?? null;
   if (licenseCardUrl !== undefined) updates.licenseCardUrl = licenseCardUrl ?? null;
+  if (
+    user.role === "technician" &&
+    !user.isApproved &&
+    (nationalIdFrontUrl || nationalIdBackUrl || licenseCardUrl)
+  ) {
+    updates.approvalStatus = "pending_review";
+  }
 
   const hasExplicitCoords = latitude !== undefined || longitude !== undefined;
 
@@ -1150,6 +1163,8 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     const lon = typeof longitude === "number" ? longitude : null;
     if (lat !== null && lon !== null && isFinite(lat) && isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
       (updates as Record<string, unknown>).location = sql`ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography`;
+      updates.locationSource = "map_picker";
+      updates.locationCapturedAt = new Date();
     } else {
       (updates as Record<string, unknown>).location = null;
     }

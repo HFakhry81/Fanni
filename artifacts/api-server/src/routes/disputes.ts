@@ -8,6 +8,7 @@ import { logger } from "../lib/logger";
 import { getOrCreateWallet } from "./wallet";
 import { refundToBuckets } from "../lib/walletBuckets";
 import { logAdminAudit } from "../lib/adminAudit";
+import { autoDisputeDailyCap, isAutoEligibleReason } from "../lib/autoDispute";
 
 const router: IRouter = Router();
 
@@ -34,13 +35,87 @@ router.post("/disputes", authMiddleware, requireAuth, async (req, res) => {
       res.status(409).json({ error: "A dispute already exists for this unlock", dispute: existing });
       return;
     }
+    const reasonText = reason.trim();
+    const contacted = unlock.clickedCall || unlock.clickedWhatsapp;
+    const eligible = isAutoEligibleReason(reasonText) && !contacted;
+    const cap = autoDisputeDailyCap();
+    const countRows = await db.execute<{ count: string }>(sql`
+      SELECT COUNT(*)::text AS count
+      FROM disputes
+      WHERE technician_id = ${user.id}
+        AND auto_resolved = true
+        AND created_at >= date_trunc('day', NOW())
+    `);
+    const usedToday = Number(countRows.rows[0]?.count ?? 0);
+    const underCap = usedToday < cap;
+
+    if (eligible && underCap) {
+      const dispute = await db.transaction(async (tx) => {
+        const [created] = await tx.insert(disputesTable).values({
+          leadUnlockId,
+          technicianId: user.id,
+          orderId: unlock.orderId,
+          reason: reasonText,
+          status: "approved",
+          pointsRefunded: true,
+          autoResolved: true,
+          resolutionSource: "auto",
+          adminNotes: "Auto-refund: no call/WhatsApp click; reason matches policy.",
+          resolvedAt: new Date(),
+        }).returning();
+
+        const walletRows = await tx.execute(sql`SELECT * FROM wallets WHERE user_id = ${user.id} FOR UPDATE`);
+        const wallet = walletRows.rows[0] as typeof walletsTable.$inferSelect | undefined;
+        if (!wallet) throw new Error("WALLET_NOT_FOUND");
+        const walletRow = wallet as typeof wallet & {
+          points_balance?: number;
+          promotional_balance?: number;
+          purchased_balance?: number;
+        };
+        const promoUsed = Number(unlock.promotionalPointsUsed ?? 0);
+        const purchasedUsed = Number(unlock.purchasedPointsUsed ?? 0);
+        const deducted = Number(unlock.pointsDeducted ?? 0);
+        const recorded = promoUsed + purchasedUsed;
+        const restored = refundToBuckets({
+          pointsBalance: Number(walletRow.pointsBalance ?? walletRow.points_balance ?? 0),
+          promotionalBalance: Number(walletRow.promotionalBalance ?? walletRow.promotional_balance ?? 0),
+          purchasedBalance: Number(walletRow.purchasedBalance ?? walletRow.purchased_balance ?? 0),
+        }, recorded > 0 ? promoUsed : 0, recorded > 0 ? purchasedUsed : deducted);
+        await tx.update(walletsTable)
+          .set({
+            pointsBalance: restored.pointsBalance,
+            promotionalBalance: restored.promotionalBalance,
+            purchasedBalance: restored.purchasedBalance,
+            updatedAt: new Date(),
+          })
+          .where(eq(walletsTable.id, wallet.id));
+        await tx.insert(walletTransactionsTable).values({
+          walletId: wallet.id,
+          pointsAmount: unlock.pointsDeducted,
+          type: "dispute_refund",
+          description: `Auto dispute refund for order ${unlock.orderId}`,
+          orderId: unlock.orderId,
+          paymentStatus: "completed",
+        });
+        return created;
+      });
+      res.status(201).json({ dispute, autoResolved: true });
+      return;
+    }
+
     const [dispute] = await db.insert(disputesTable).values({
       leadUnlockId,
       technicianId: user.id,
       orderId: unlock.orderId,
-      reason: reason.trim(),
+      reason: reasonText,
+      resolutionSource: eligible && !underCap ? "cap_exceeded" : "manual",
     }).returning();
-    res.status(201).json({ dispute });
+    res.status(201).json({
+      dispute,
+      autoResolved: false,
+      queuedForAdmin: true,
+      dailyCapReached: eligible && !underCap,
+    });
   } catch (err) {
     logger.error({ err }, "Failed to create dispute");
     res.status(500).json({ error: "Failed to create dispute" });

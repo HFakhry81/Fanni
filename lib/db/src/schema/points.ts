@@ -97,6 +97,8 @@ export const disputesTable = pgTable("disputes", {
   status: disputeStatusEnum("status").default("submitted").notNull(),
   adminNotes: text("admin_notes"),
   pointsRefunded: boolean("points_refunded").default(false).notNull(),
+  autoResolved: boolean("auto_resolved").default(false).notNull(),
+  resolutionSource: varchar("resolution_source", { length: 32 }),
   resolvedAt: timestamp("resolved_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

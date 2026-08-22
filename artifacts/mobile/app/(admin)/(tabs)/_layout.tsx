@@ -192,6 +192,7 @@ function ClassicAdminTabs() {
       <Tabs.Screen name="map-dashboard"    options={{ href: null }} />
       <Tabs.Screen name="missed-locations" options={{ href: null }} />
       <Tabs.Screen name="lead-pricing" options={{ href: null }} />
+      <Tabs.Screen name="audit-logs" options={{ href: null }} />
     </Tabs>
   );
 }

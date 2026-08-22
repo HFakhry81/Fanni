@@ -11,7 +11,7 @@ import {
   Modal,
   Alert,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -109,6 +109,7 @@ export default function AdminAccountingScreen() {
   const { isRTL } = useApp();
   const { sessionToken } = useAuth();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const [data, setData] = useState<AccountingData | null>(null);
@@ -211,6 +212,14 @@ export default function AdminAccountingScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={isRTL ? "تقارير الحسابات" : "Accounting Reports"} showHome showLogout />
+      <TouchableOpacity
+        onPress={() => router.push("/(admin)/(tabs)/audit-logs")}
+        style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+      >
+        <Text style={{ color: colors.primary, textAlign: isRTL ? "right" : "left", fontFamily: "Inter_500Medium" }}>
+          {isRTL ? "سجل التدقيق المالي" : "Financial audit log"}
+        </Text>
+      </TouchableOpacity>
 
       {/* Filter bar */}
       <View style={[styles.filterBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
