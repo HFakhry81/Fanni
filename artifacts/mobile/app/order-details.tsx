@@ -29,6 +29,7 @@ import AppHeader from "@/components/AppHeader";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useLocationLabels } from "@/hooks/useLocationLabels";
 import { getApiBase } from "@/utils/api";
+import { startMaskedCall } from "@/utils/maskedCall";
 
 export default function OrderDetailsScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -413,20 +414,25 @@ export default function OrderDetailsScreen() {
                   </View>
                 )}
                 {order.technicianMobile && (
-                  <TouchableOpacity
-                    onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
-                    activeOpacity={0.7}
-                    style={[styles.phoneRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}
-                  >
-                    <VectorIcon name="phone" size={13} color={colors.primary} />
-                    <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13, marginLeft: isRTL ? 0 : 4, marginRight: isRTL ? 4 : 0 }}>
-                      {order.technicianMobile}
-                    </Text>
-                  </TouchableOpacity>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
+                    {order.technicianMobile}
+                  </Text>
                 )}
               </View>
             </View>
-            {order.technicianMobile && !isTechnician && !isAdmin && (
+            {order.technicianMobile && !isTechnician && !isAdmin && ["accepted", "inProgress"].includes(order.status) && (
+              <TouchableOpacity
+                style={[styles.trackBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
+                onPress={() => { void startMaskedCall({ orderId: order.id, sessionToken, isRTL }); }}
+                activeOpacity={0.85}
+              >
+                <VectorIcon name="phone" size={16} color="#FFF" />
+                <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                  {isRTL ? "اتصال مقنّع" : "Masked call"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {isAdmin && order.technicianMobile && (
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
                 <TouchableOpacity
                   style={[styles.trackBtn, { flex: 1, backgroundColor: colors.primary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
@@ -436,30 +442,6 @@ export default function OrderDetailsScreen() {
                   <VectorIcon name="phone" size={16} color="#FFF" />
                   <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                     {t("order.callTech")}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.trackBtn, { flex: 1, backgroundColor: colors.secondary, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
-                  onPress={() => Linking.openURL(`sms:${order.technicianMobile}`)}
-                  activeOpacity={0.85}
-                >
-                  <VectorIcon name="message-circle" size={16} color="#FFF" />
-                  <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-                    {t("order.smsTech")}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.trackBtn, { flex: 1, backgroundColor: "#25D366", borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
-                  onPress={() => {
-                    const digits = (order.technicianMobile ?? "").replace(/\D/g, "");
-                    Linking.openURL(`https://wa.me/${digits}`).catch(() => {});
-                  }}
-                  activeOpacity={0.85}
-                  accessibilityLabel={t("order.whatsappTech")}
-                >
-                  <VectorIcon name="message-square" size={16} color="#FFF" />
-                  <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-                    {t("order.whatsappTech")}
                   </Text>
                 </TouchableOpacity>
               </View>

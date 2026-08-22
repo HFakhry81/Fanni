@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Linking, Image, RefreshControl, Animated, Alert } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Image, RefreshControl, Animated, Alert } from "react-native";
 import { shareLegacyInvoicePdf } from "@/utils/invoicePdf";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useRouter } from "expo-router";
@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
+import { startMaskedCall } from "@/utils/maskedCall";
 
 
 export default function ClientOrdersScreen() {
@@ -260,25 +261,15 @@ export default function ClientOrdersScreen() {
                 <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 3 }}>{item.technicianRating}</Text>
               </View>
             )}
-            {item.technicianMobile && ["pending", "accepted", "inProgress"].includes(item.status) && (
-              <>
-                <TouchableOpacity
-                  style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: 8, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}
-                  onPress={(e) => { e.stopPropagation(); Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {}); }}
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <VectorIcon name="phone" size={14} color="#FFF" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.smsBtn, { backgroundColor: colors.secondary, borderRadius: 8, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }]}
-                  onPress={(e) => { e.stopPropagation(); Linking.openURL(`sms:${item.technicianMobile}`).catch(() => {}); }}
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <VectorIcon name="message-circle" size={14} color="#FFF" />
-                </TouchableOpacity>
-              </>
+            {item.technicianMobile && ["accepted", "inProgress"].includes(item.status) && (
+              <TouchableOpacity
+                style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: 8, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}
+                onPress={(e) => { e.stopPropagation(); void startMaskedCall({ orderId: item.id, sessionToken, isRTL }); }}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <VectorIcon name="phone" size={14} color="#FFF" />
+              </TouchableOpacity>
             )}
           </View>
         )}

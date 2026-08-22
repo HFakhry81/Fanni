@@ -38,6 +38,7 @@
     "pg": "^8.20.0",
     "pino": "^9",
     "pino-http": "^10",
+    "twilio": "^5.13.1",
     "ws": "^8.20.0"
   },
   "devDependencies": {

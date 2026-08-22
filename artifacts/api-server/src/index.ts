@@ -2,6 +2,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import app from "./app";
 import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
+import { startArrivalTimeoutWorker } from "./lib/orderLifecycle";
 import { logger } from "./lib/logger";
 import { db, adminsTable, serviceDomainsTable, usersTable, walletsTable, walletTransactionsTable, pool } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
@@ -257,6 +258,7 @@ seedDefaultCategories()
   .finally(() => {
     server.listen(port, () => {
       logger.info({ port }, "Server listening");
+      startArrivalTimeoutWorker();
       recoverPendingOrders().catch((err) => {
         logger.error({ err }, "Startup order recovery failed");
       });

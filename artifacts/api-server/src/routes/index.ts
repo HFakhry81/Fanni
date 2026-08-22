@@ -8,12 +8,12 @@ import invoicesRouter from "./invoices";
 import locationsRouter from "./locations";
 import geoRouter from "./geo";
 import uploadRouter from "./upload";
-import ocrRouter from "./ocr";
 import trafficRouter from "./traffic";
 import walletRouter from "./wallet";
 import disputesRouter from "./disputes";
 import paymentsRouter from "./payments";
 import notificationsRouter from "./notifications";
+import voiceRouter from "./voice";
 
 const router: IRouter = Router();
 
@@ -26,11 +26,11 @@ router.use(invoicesRouter);
 router.use(locationsRouter);
 router.use(geoRouter);
 router.use(uploadRouter);
-router.use(ocrRouter);
 router.use(trafficRouter);
 router.use(walletRouter);
 router.use(disputesRouter);
 router.use(paymentsRouter);
 router.use(notificationsRouter);
+router.use(voiceRouter);
 
 export default router;

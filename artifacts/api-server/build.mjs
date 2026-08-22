@@ -25,8 +25,9 @@ async function buildAll() {
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
     external: [
-      "express",     // 👈 استثناء Express ليعمل الـ Auto-instrumentation لـ Sentry
-      "@sentry/*",   // 👈 استثناء Sentry
+      "express",
+      "@sentry/*",
+      "twilio",
       "*.node",
       "sharp",
       "better-sqlite3",

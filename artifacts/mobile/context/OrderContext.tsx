@@ -57,6 +57,9 @@ export interface Order {
   clientRating?: number;
   clientComment?: string;
   createdAt: string;
+  arrivalDetected?: boolean;
+  arrivalDetectedAt?: string | null;
+  arrivalRejectionReason?: string | null;
 }
 
 export interface Invoice {

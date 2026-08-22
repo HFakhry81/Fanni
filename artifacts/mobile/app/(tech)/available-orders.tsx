@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
-  Linking,
   Alert,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
@@ -56,15 +55,6 @@ interface PendingOrder {
   unlockCost?: number;
 }
 
-interface UnlockContact {
-  clientName?: string | null;
-  clientMobile?: string | null;
-  street?: string | null;
-  building?: string | null;
-  floor?: string | null;
-  landmark?: string | null;
-}
-
 export default function AvailableOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
@@ -80,10 +70,6 @@ export default function AvailableOrdersScreen() {
   const [newOrdersToast, setNewOrdersToast] = useState<{ visible: boolean; added: number; key: number }>({ visible: false, added: 0, key: 0 });
   const [cancelledToast, setCancelledToast] = useState<{ visible: boolean; key: number }>({ visible: false, key: 0 });
   const [acceptError, setAcceptError] = useState<string | null>(null);
-  // Points unlock state: orderId → contact info
-  const [unlockedContacts, setUnlockedContacts] = useState<Record<string, UnlockContact>>({});
-  const [unlockingId, setUnlockingId] = useState<string | null>(null);
-  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const isFocusedRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -199,130 +185,89 @@ export default function AvailableOrdersScreen() {
   useEffect(() => subscribeNewOrder(onNewOrderCallback), [subscribeNewOrder, onNewOrderCallback]);
   useEffect(() => subscribeOrderCancelled(onOrderCancelledCallback), [subscribeOrderCancelled, onOrderCancelledCallback]);
 
-  const doUnlock = async (order: PendingOrder) => {
+  const doDecline = async (order: PendingOrder) => {
     const apiBase = getApiBase();
     if (!apiBase || !sessionToken) return;
-    setUnlockingId(order.id);
-    setUnlockError(null);
     try {
-      const res = await fetch(`${apiBase}/api/orders/${order.id}/unlock`, {
+      await fetch(`${apiBase}/api/orders/${order.id}/decline`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionToken}`,
         },
       });
-      const json = await res.json() as { contact?: UnlockContact; newBalance?: number; error?: string; alreadyUnlocked?: boolean };
-      if (res.ok && json.contact) {
-        setUnlockedContacts((prev) => ({ ...prev, [order.id]: json.contact! }));
-        setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, isUnlocked: true } : o));
-      } else if (res.status === 402) {
-        Alert.alert(
-          isRTL ? "رصيد غير كافٍ" : "Insufficient Points",
-          isRTL
-            ? "رصيدك غير كافٍ لفتح هذا الطلب. يرجى شراء نقاط إضافية من المحفظة."
-            : "Your points balance is insufficient. Please buy more points from your wallet.",
-          [{ text: isRTL ? "حسناً" : "OK" }],
-        );
-      } else {
-        setUnlockError(json.error ?? (isRTL ? "تعذّر فتح الطلب" : "Could not unlock order"));
-      }
     } catch {
-      setUnlockError(isRTL ? "خطأ في الاتصال" : "Connection error");
-    } finally {
-      setUnlockingId(null);
+      /* still hide locally so the tech is not pressured again */
     }
+    setOrders((prev) => {
+      const next = prev.filter((o) => o.id !== order.id);
+      prevOrderCountRef.current = next.length;
+      setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
+      return next;
+    });
   };
 
-  const handleUnlock = (order: PendingOrder) => {
-    // Show non-refundable warning before deducting
-    const cost = order.unlockCost ?? 15;
-    Alert.alert(
-      isRTL ? "⚠️ تأكيد خصم النقاط" : "⚠️ Confirm Point Deduction",
-      isRTL
-        ? `سيتم خصم ${cost} نقطة من رصيدك مقابل عرض بيانات التواصل مع العميل.\n\nتنبيه: النقاط المخصومة لا يمكن استردادها إلا وفق شروط الاستخدام.`
-        : `${cost} pts will be deducted from your balance to reveal this client's contact details.\n\n⚠️ Deducted points are non-refundable except under the Terms of Use.`,
-      [
-        { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
-        {
-          text: isRTL ? `خصم ${cost} نقطة والمتابعة` : `Deduct ${cost} pts & Continue`,
-          style: "destructive",
-          onPress: () => { void doUnlock(order); },
-        },
-      ],
-    );
-  };
-
-  const handleCallClient = async (orderId: string, mobile: string) => {
-    const apiBase = getApiBase();
-    if (apiBase && sessionToken) {
-      fetch(`${apiBase}/api/orders/${orderId}/unlock/track`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({ action: "call" }),
-      }).catch(() => {});
-    }
-    const tel = `tel:${mobile.replace(/\D/g, "")}`;
-    Linking.openURL(tel).catch(() => {});
-  };
-
-  const handleWhatsapp = async (orderId: string, mobile: string) => {
-    const apiBase = getApiBase();
-    if (apiBase && sessionToken) {
-      fetch(`${apiBase}/api/orders/${orderId}/unlock/track`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({ action: "whatsapp" }),
-      }).catch(() => {});
-    }
-    const phone = mobile.replace(/\D/g, "");
-    const wa = `https://wa.me/2${phone.startsWith("0") ? phone.slice(1) : phone}`;
-    Linking.openURL(wa).catch(() => {});
-  };
-
-  const handleAccept = async (order: PendingOrder) => {
+  const doAccept = async (order: PendingOrder) => {
     setAcceptingId(order.id);
     acceptingIdRef.current = order.id;
     cancelledWhileAcceptingRef.current = false;
     setAcceptError(null);
     try {
       const apiBase = getApiBase();
-      if (apiBase && sessionToken) {
-        const res = await fetch(`${apiBase}/api/orders/${order.id}/acknowledge`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionToken}`,
-          },
-          body: JSON.stringify({
-            technicianName: user?.name ?? "",
-            technicianMobile: user?.mobile ?? "",
-            technicianAvatar: user?.avatar,
-            technicianRating: 4.8,
-          }),
+      if (!apiBase || !sessionToken) return;
+      const res = await fetch(`${apiBase}/api/orders/${order.id}/accept`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          technicianName: user?.name ?? "",
+          technicianMobile: user?.mobile ?? "",
+          technicianAvatar: user?.avatar,
+          technicianRating: 4.8,
+        }),
+      });
+      const json = await res.json().catch(() => ({})) as {
+        error?: string;
+        message?: string;
+        required?: number;
+        balance?: number;
+      };
+      if (res.ok) {
+        await updateOrder(order.id, {
+          status: "accepted",
+          technicianId: user?.id ?? "",
+          technicianName: user?.name ?? "",
+          technicianMobile: user?.mobile ?? "",
+          technicianAvatar: user?.avatar,
+          technicianRating: 4.8,
         });
-        if (res.ok) {
-          await updateOrder(order.id, {
-            status: "accepted",
-            technicianId: user?.id ?? "",
-            technicianName: user?.name ?? "",
-            technicianMobile: user?.mobile ?? "",
-            technicianAvatar: user?.avatar,
-            technicianRating: 4.8,
-          });
-          setOrders((prev) => {
-            const next = prev.filter((o) => o.id !== order.id);
-            prevOrderCountRef.current = next.length;
-            setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
-            return next;
-          });
-          router.push("/(tech)/orders");
-        } else {
-          console.warn("[Fanni] Acknowledge failed:", res.status);
-          if (!cancelledWhileAcceptingRef.current) {
-            setAcceptError(isRTL ? "تعذّر قبول الطلب. يُرجى المحاولة مرة أخرى." : "Could not accept this order. Please try again.");
-          }
-        }
+        setOrders((prev) => {
+          const next = prev.filter((o) => o.id !== order.id);
+          prevOrderCountRef.current = next.length;
+          setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
+          return next;
+        });
+        router.push("/(tech)/orders");
+        return;
+      }
+      if (res.status === 402) {
+        Alert.alert(
+          isRTL ? "رصيدك الحالي مش كافي" : "Insufficient points",
+          json.message
+            ?? (isRTL
+              ? `محتاج ${json.required ?? order.unlockCost ?? 20} نقطة، ورصيدك الحالي ${json.balance ?? 0} نقاط.`
+              : `You need ${json.required ?? order.unlockCost ?? 20} points. Current balance: ${json.balance ?? 0}.`),
+          [
+            { text: isRTL ? "العودة" : "Back", style: "cancel" },
+            { text: isRTL ? "شحن الرصيد" : "Top up", onPress: () => router.push("/(tech)/wallet") },
+          ],
+        );
+        return;
+      }
+      if (!cancelledWhileAcceptingRef.current) {
+        setAcceptError(json.error ?? (isRTL ? "تعذّر قبول الطلب. يُرجى المحاولة مرة أخرى." : "Could not accept this order. Please try again."));
       }
     } catch (err) {
       console.warn("[Fanni] Accept error:", err);
@@ -335,25 +280,36 @@ export default function AvailableOrdersScreen() {
     }
   };
 
+  const handleAccept = (order: PendingOrder) => {
+    const cost = order.unlockCost ?? 20;
+    Alert.alert(
+      isRTL ? "قبل ما نكمّل" : "Before we continue",
+      isRTL
+        ? `عشان نعرض لك بيانات العميل وطرق التواصل معاه، هيتم خصم ${cost} نقطة من رصيدك.\nالنقاط دي غير قابلة للاسترداد بعد عرض بيانات العميل.\nلو موافق، اضغط «موافق وكمل».`
+        : `${cost} points will be deducted to reveal the client's contact details. Points are not refundable after the data is shown.`,
+      [
+        { text: isRTL ? "لا، مش دلوقتي" : "Not now", style: "cancel", onPress: () => { void doDecline(order); } },
+        { text: isRTL ? "موافق وكمل" : "Confirm", onPress: () => { void doAccept(order); } },
+      ],
+    );
+  };
+
   const renderItem = ({ item }: { item: PendingOrder }) => {
     const iconName: IconName = CATEGORY_ICONS[item.category] ?? "tool";
     const isAccepting = acceptingId === item.id;
-    const isUnlocking = unlockingId === item.id;
-    const contact = unlockedContacts[item.id];
-    const isUnlocked = item.isUnlocked === true || !!contact;
-    const unlockCost = item.unlockCost ?? 15;
+    const unlockCost = item.unlockCost ?? 20;
     return (
       <View
         style={[
           styles.card,
           {
             backgroundColor: colors.card,
-            borderColor: isUnlocked ? colors.primary + "60" : colors.border,
+            borderColor: colors.border,
             borderRadius: colors.radius,
           },
         ]}
       >
-        <View style={[styles.cardAccent, { backgroundColor: isUnlocked ? colors.primary : colors.mutedForeground + "60" }]} />
+        <View style={[styles.cardAccent, { backgroundColor: colors.primary }]} />
         <View style={styles.cardBody}>
           <View style={[styles.cardHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={[styles.categoryIcon, { backgroundColor: colors.primary + "18" }]}>
@@ -427,119 +383,39 @@ export default function AvailableOrdersScreen() {
             </View>
           ) : null}
 
-          {/* Lock / Unlock state */}
-          {!isUnlocked ? (
-            <>
-              <View
-                style={[
-                  styles.lockedBanner,
-                  {
-                    backgroundColor: colors.muted + "40",
-                    borderRadius: colors.radius - 4,
-                    flexDirection: isRTL ? "row-reverse" : "row",
-                  },
-                ]}
-              >
-                <VectorIcon name="lock" size={14} color={colors.mutedForeground} />
-                <Text
-                  style={{
-                    color: colors.mutedForeground,
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 11,
-                    marginLeft: isRTL ? 0 : 6,
-                    marginRight: isRTL ? 6 : 0,
-                    flex: 1,
-                    textAlign: isRTL ? "right" : "left",
-                  }}
-                >
-                  {t("wallet.lockedHint")}
-                </Text>
-              </View>
-              <FanniButton
-                title={
-                  isUnlocking
-                    ? t("wallet.unlocking")
-                    : `🔓 ${t("wallet.unlockFor")} ${unlockCost} ${t("wallet.points")}`
-                }
-                onPress={() => handleUnlock(item)}
-                loading={isUnlocking}
-                style={{ marginTop: 10 }}
-              />
-            </>
-          ) : (
-            <>
-              {/* Revealed contact details */}
-              {contact && (
-                <View
-                  style={[
-                    styles.contactBox,
-                    {
-                      backgroundColor: "#f0fdf4",
-                      borderRadius: colors.radius - 4,
-                      borderColor: "#86efac",
-                    },
-                  ]}
-                >
-                  <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 4 }]}>
-                    <VectorIcon name="unlock" size={13} color="#16a34a" />
-                    <Text
-                      style={{
-                        color: "#16a34a",
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 12,
-                        marginLeft: isRTL ? 0 : 5,
-                        marginRight: isRTL ? 5 : 0,
-                      }}
-                    >
-                      {t("wallet.contactRevealed")}
-                    </Text>
-                  </View>
-                  {contact.clientName ? (
-                    <Text style={{ color: "#166534", fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                      {contact.clientName}
-                    </Text>
-                  ) : null}
-                  {contact.clientMobile ? (
-                    <Text style={{ color: "#166534", fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                      {contact.clientMobile}
-                    </Text>
-                  ) : null}
-                  {contact.street ? (
-                    <Text style={{ color: "#166534", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: isRTL ? "right" : "left" }} numberOfLines={1}>
-                      {[contact.street, contact.building && `${isRTL ? "مبنى" : "Bldg"} ${contact.building}`, contact.floor && `${isRTL ? "دور" : "Fl"} ${contact.floor}`].filter(Boolean).join(", ")}
-                    </Text>
-                  ) : null}
-                  {contact.clientMobile ? (
-                    <View style={[styles.contactActions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                      <TouchableOpacity
-                        style={[styles.contactBtn, { backgroundColor: "#16a34a" }]}
-                        onPress={() => handleCallClient(item.id, contact.clientMobile!)}
-                      >
-                        <VectorIcon name="phone" size={14} color="#fff" />
-                        <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 4 }}>
-                          {t("wallet.callClient")}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.contactBtn, { backgroundColor: "#25D366" }]}
-                        onPress={() => handleWhatsapp(item.id, contact.clientMobile!)}
-                      >
-                        <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-                          {t("wallet.whatsapp")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : null}
-                </View>
-              )}
-              <FanniButton
-                title={isRTL ? "قبول الطلب" : "Accept Order"}
-                onPress={() => handleAccept(item)}
-                loading={isAccepting}
-                style={{ marginTop: 10 }}
-              />
-            </>
-          )}
+          <View
+            style={[
+              styles.lockedBanner,
+              {
+                backgroundColor: colors.muted + "40",
+                borderRadius: colors.radius - 4,
+                flexDirection: isRTL ? "row-reverse" : "row",
+              },
+            ]}
+          >
+            <VectorIcon name="lock" size={14} color={colors.mutedForeground} />
+            <Text
+              style={{
+                color: colors.mutedForeground,
+                fontFamily: "Inter_400Regular",
+                fontSize: 11,
+                marginLeft: isRTL ? 0 : 6,
+                marginRight: isRTL ? 6 : 0,
+                flex: 1,
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {isRTL
+                ? `بيانات العميل هتتفتح بعد التأكيد · ${unlockCost} نقطة`
+                : `Client details unlock after confirmation · ${unlockCost} pts`}
+            </Text>
+          </View>
+          <FanniButton
+            title={isRTL ? `قبول الطلب · ${unlockCost} نقطة` : `Accept order · ${unlockCost} pts`}
+            onPress={() => handleAccept(item)}
+            loading={isAccepting}
+            style={{ marginTop: 10 }}
+          />
         </View>
       </View>
     );

@@ -1,9 +1,10 @@
 import { Router, type IRouter, type Request } from "express";
-import { eq, desc, and, sql } from "drizzle-orm";
-import { db, walletsTable, walletTransactionsTable, pointPackagesTable, leadUnlocksTable, unlockCostsTable, operationalExpensesTable } from "@workspace/db";
+import { eq, desc, sql } from "drizzle-orm";
+import { db, walletsTable, walletTransactionsTable, pointPackagesTable, leadUnlocksTable, unlockCostsTable, operationalExpensesTable, leadPricingRulesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
+import { resolveLeadCost } from "../lib/leadPricing";
 
 const router: IRouter = Router();
 
@@ -53,17 +54,7 @@ router.get("/wallet/unlock-cost", authMiddleware, async (req, res) => {
   try {
     const categorySlug = typeof req.query.category === "string" ? req.query.category : null;
     const specialtySlug = typeof req.query.specialty === "string" ? req.query.specialty : null;
-    let cost = 20;
-    if (specialtySlug) {
-      const [row] = await db.select().from(unlockCostsTable).where(eq(unlockCostsTable.specialtySlug, specialtySlug));
-      if (row) { cost = row.pointsCost; res.json({ cost }); return; }
-    }
-    if (categorySlug) {
-      const [row] = await db.select().from(unlockCostsTable).where(eq(unlockCostsTable.categorySlug, categorySlug));
-      if (row) { cost = row.pointsCost; res.json({ cost }); return; }
-    }
-    const [def] = await db.select().from(unlockCostsTable).where(and(sql`specialty_slug IS NULL`, sql`category_slug IS NULL`));
-    cost = def?.pointsCost ?? 20;
+    const cost = await resolveLeadCost({ category: categorySlug, specialty: specialtySlug });
     res.json({ cost });
   } catch (err) {
     logger.error({ err }, "Failed to fetch unlock cost");
@@ -211,6 +202,93 @@ router.post("/admin/unlock-costs", authMiddleware, requireAuth, async (req, res)
   } catch (err) {
     logger.error({ err }, "Failed to create unlock cost");
     res.status(500).json({ error: "Failed to create unlock cost" });
+  }
+});
+
+router.get("/admin/lead-pricing-rules", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+  try {
+    const rules = await db.select().from(leadPricingRulesTable).orderBy(desc(leadPricingRulesTable.priority), desc(leadPricingRulesTable.createdAt));
+    res.json({ rules, defaultCost: 20 });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch lead pricing rules");
+    res.status(500).json({ error: "Failed to fetch lead pricing rules" });
+  }
+});
+
+router.post("/admin/lead-pricing-rules", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+  const body = req.body as {
+    serviceCategory?: string | null;
+    serviceSpecialization?: string | null;
+    dayOfWeek?: number | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    pointsCost?: number;
+    isActive?: boolean;
+    priority?: number;
+    description?: string | null;
+  };
+  if (typeof body.pointsCost !== "number" || !Number.isFinite(body.pointsCost) || body.pointsCost < 1) {
+    res.status(400).json({ error: "pointsCost must be a positive number" });
+    return;
+  }
+  if (body.dayOfWeek != null && (body.dayOfWeek < 0 || body.dayOfWeek > 6)) {
+    res.status(400).json({ error: "dayOfWeek must be 0-6 or null" });
+    return;
+  }
+  try {
+    const [rule] = await db.insert(leadPricingRulesTable).values({
+      serviceCategory: body.serviceCategory?.trim() || null,
+      serviceSpecialization: body.serviceSpecialization?.trim() || null,
+      dayOfWeek: body.dayOfWeek ?? null,
+      startTime: body.startTime?.trim() || null,
+      endTime: body.endTime?.trim() || null,
+      pointsCost: Math.round(body.pointsCost),
+      isActive: body.isActive !== false,
+      priority: typeof body.priority === "number" ? Math.round(body.priority) : 0,
+      description: body.description?.trim() || null,
+    }).returning();
+    res.status(201).json({ rule });
+  } catch (err) {
+    logger.error({ err }, "Failed to create lead pricing rule");
+    res.status(500).json({ error: "Failed to create lead pricing rule" });
+  }
+});
+
+router.patch("/admin/lead-pricing-rules/:id", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
+  const user = req.user!;
+  if (user.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+  const body = req.body as {
+    serviceCategory?: string | null;
+    serviceSpecialization?: string | null;
+    dayOfWeek?: number | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    pointsCost?: number;
+    isActive?: boolean;
+    priority?: number;
+    description?: string | null;
+  };
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (body.serviceCategory !== undefined) updates.serviceCategory = body.serviceCategory?.trim() || null;
+  if (body.serviceSpecialization !== undefined) updates.serviceSpecialization = body.serviceSpecialization?.trim() || null;
+  if (body.dayOfWeek !== undefined) updates.dayOfWeek = body.dayOfWeek;
+  if (body.startTime !== undefined) updates.startTime = body.startTime?.trim() || null;
+  if (body.endTime !== undefined) updates.endTime = body.endTime?.trim() || null;
+  if (typeof body.pointsCost === "number" && body.pointsCost >= 1) updates.pointsCost = Math.round(body.pointsCost);
+  if (typeof body.isActive === "boolean") updates.isActive = body.isActive;
+  if (typeof body.priority === "number") updates.priority = Math.round(body.priority);
+  if (body.description !== undefined) updates.description = body.description?.trim() || null;
+  try {
+    const [rule] = await db.update(leadPricingRulesTable).set(updates).where(eq(leadPricingRulesTable.id, req.params.id)).returning();
+    if (!rule) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ rule });
+  } catch (err) {
+    logger.error({ err }, "Failed to update lead pricing rule");
+    res.status(500).json({ error: "Failed to update lead pricing rule" });
   }
 });
 

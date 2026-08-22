@@ -159,6 +159,7 @@ export default function AdminDashboardScreen() {
             { icon: "bar-chart-2", label: t("admin.stats"),       color: "#7C5CBF",        route: "/(admin)/stats" },
             { icon: "grid",        label: isRTL ? "الفئات" : "Categories", color: "#7C5CBF",   route: "/(admin)/categories" },
             { icon: "shield",      label: t("admin.permissions"), color: "#22A36B",        route: "/(admin)/permissions" },
+            { icon: "dollar-sign", label: isRTL ? "تسعير Lead" : "Lead Pricing", color: "#C8880A", route: "/(admin)/lead-pricing" },
             { icon: "user-plus",   label: isRTL ? "إضافة مسئول" : "Add Admin", color: colors.primary, route: "/(admin)/add-admin" },
           ] satisfies { icon: IconName; label: string; color: string; route: string }[]).map((item) => (
             <TouchableOpacity

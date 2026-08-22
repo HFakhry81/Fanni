@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Linking, Alert, Image, ActivityIndicator, Modal, TextInput, LayoutAnimation, UIManager, Animated } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platform, Alert, Image, ActivityIndicator, Modal, TextInput, LayoutAnimation, UIManager, Animated } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -10,7 +10,7 @@ import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
-import { useOrders, Order, OcrReceiptData } from "@/context/OrderContext";
+import { useOrders, Order } from "@/context/OrderContext";
 import StatusBadge from "@/components/StatusBadge";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
@@ -20,6 +20,7 @@ import { router, useFocusEffect } from "expo-router";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { getApiBase } from "@/utils/api";
+import { startMaskedCall } from "@/utils/maskedCall";
 
 
 const SERVICE_FEE_RATE = 15;
@@ -61,17 +62,16 @@ export default function TechOrdersScreen() {
   const [solutionDesc, setSolutionDesc] = useState("");
   const [satisfaction, setSatisfaction] = useState<"satisfied" | "neutral" | "unsatisfied" | null>(null);
 
-  const [receiptPhotos, setReceiptPhotos] = useState<OcrReceiptData[]>([]);
-  const [receiptUploading, setReceiptUploading] = useState(false);
-  const [receiptError, setReceiptError] = useState<string | null>(null);
   const [labourFeeStr, setLabourFeeStr] = useState("");
   const [transportFeeStr, setTransportFeeStr] = useState("");
   const [materialsTotalStr, setMaterialsTotalStr] = useState("0");
-  const [ocrRunning, setOcrRunning] = useState(false);
-  const [ocrWarning, setOcrWarning] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
+  const [failOrderId, setFailOrderId] = useState<string | null>(null);
+  const [failReason, setFailReason] = useState<string | null>(null);
+  const [failDetails, setFailDetails] = useState("");
+  const [failSubmitting, setFailSubmitting] = useState(false);
   const [phaseUploading, setPhaseUploading] = useState<Record<string, boolean>>({});
   const [afterPhotos, setAfterPhotos] = useState<string[]>([]);
   const [afterPhotoUploading, setAfterPhotoUploading] = useState(false);
@@ -165,7 +165,71 @@ export default function TechOrdersScreen() {
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
   const historyOrders = orders.filter((o) => ["completed", "cancelled"].includes(o.status));
 
-  const labourFee = parseFloat(labourFeeStr) || 0;
+  const FAIL_REASONS: { id: string; ar: string; en: string }[] = [
+    { id: "client_not_present", ar: "العميل مش موجود", en: "Client not present" },
+    { id: "client_refused", ar: "العميل رفض الخدمة", en: "Client refused service" },
+    { id: "different_problem", ar: "المشكلة مختلفة", en: "Different problem" },
+    { id: "parts_unavailable", ar: "قطع الغيار غير متاحة", en: "Parts unavailable" },
+    { id: "extra_time", ar: "محتاج وقت إضافي", en: "Needs extra time" },
+    { id: "cannot_repair", ar: "مش قادر أصلحها", en: "Cannot repair" },
+    { id: "other", ar: "سبب آخر", en: "Other" },
+  ];
+
+  const submitFailService = async () => {
+    if (!failOrderId || !failReason) return;
+    const apiBase = getApiBase();
+    if (!apiBase || !sessionToken) {
+      Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "يجب تسجيل الدخول" : "Sign in required");
+      return;
+    }
+    setFailSubmitting(true);
+    try {
+      const res = await fetch(`${apiBase}/api/orders/${failOrderId}/fail-service`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ reason: failReason, details: failDetails.trim() || undefined }),
+      });
+      const json = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      await updateOrder(failOrderId, { status: "cancelled" });
+      setFailOrderId(null);
+      setFailReason(null);
+      setFailDetails("");
+    } catch (err) {
+      Alert.alert(isRTL ? "خطأ" : "Error", err instanceof Error ? err.message : (isRTL ? "تعذر تسجيل النتيجة" : "Could not record the result"));
+    } finally {
+      setFailSubmitting(false);
+    }
+  };
+
+  const askServiceResult = (item: Order) => {
+    if (item.status !== "inProgress") {
+      setSelectedOrderId(item.id);
+      setShowComplete(true);
+      return;
+    }
+    Alert.alert(
+      isRTL ? "خلصت الصيانة بنجاح؟" : "Was the service completed successfully?",
+      isRTL ? "لو الخدمة ما اكتملتش، اختار السبب." : "If the job was not completed, choose a reason.",
+      [
+        {
+          text: isRTL ? "لا" : "No",
+          onPress: () => {
+            setFailOrderId(item.id);
+            setFailReason(null);
+            setFailDetails("");
+          },
+        },
+        {
+          text: isRTL ? "نعم" : "Yes",
+          onPress: () => {
+            setSelectedOrderId(item.id);
+            setShowComplete(true);
+          },
+        },
+      ],
+    );
+  };
   const transportFee = parseFloat(transportFeeStr) || 0;
   const materialsTotal = parseFloat(materialsTotalStr) || 0;
   const preview = computePreview(labourFee, transportFee, materialsTotal);
@@ -176,72 +240,6 @@ export default function TechOrdersScreen() {
       return;
     }
     await shareLegacyInvoicePdf({ order, isRTL, t });
-  };
-
-  const runOCR = async (imageUrl: string): Promise<OcrReceiptData | null> => {
-    const apiBase = getApiBase();
-    if (!apiBase || !sessionToken) return null;
-    setOcrRunning(true);
-    try {
-      const res = await fetch(`${apiBase}/api/ocr/receipt`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({ imageUrl }),
-      });
-      if (!res.ok) return null;
-      const data = await res.json() as { supplier?: string | null; date?: string | null; lineItems?: Array<{ description: string; qty: number; unit?: string | null; unitPrice: number; totalPrice: number }>; detectedTotal?: number };
-      return {
-        supplier: data.supplier ?? null,
-        date: data.date ?? null,
-        lineItems: data.lineItems ?? [],
-        detectedTotal: data.detectedTotal ?? 0,
-        photoUrl: imageUrl,
-      };
-    } catch {
-      return null;
-    } finally {
-      setOcrRunning(false);
-    }
-  };
-
-  const pickReceiptPhoto = async () => {
-    if (!sessionToken) {
-      Alert.alert(
-        isRTL ? "غير مسجّل" : "Not Signed In",
-        isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos."
-      );
-      return;
-    }
-    const asset = await pickPhotoWithSourceChooser(isRTL);
-    if (!asset) return;
-    setReceiptUploading(true);
-    setReceiptError(null);
-    setOcrWarning(null);
-    try {
-      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, asset.mimeType);
-      const ocrData = await runOCR(url);
-      if (!ocrData) {
-        setOcrWarning(
-          isRTL
-            ? "تعذر استخراج البيانات تلقائياً. الصورة محفوظة ويمكنك إدخال إجمالي المواد يدوياً."
-            : "Automatic extraction was unavailable. The receipt is saved; enter the materials total manually.",
-        );
-      }
-      const receipt: OcrReceiptData = ocrData ?? { supplier: null, date: null, lineItems: [], detectedTotal: 0, photoUrl: url };
-      setReceiptPhotos((prev) => {
-        const updated = [...prev, receipt];
-        const newTotal = updated.reduce((sum, r) => sum + r.detectedTotal, 0);
-        setMaterialsTotalStr(newTotal > 0 ? newTotal.toFixed(2) : materialsTotalStr);
-        return updated;
-      });
-    } catch {
-      Alert.alert(
-        isRTL ? "فشل الرفع" : "Upload Failed",
-        isRTL ? "تعذّر رفع الصورة، يرجى المحاولة مرة أخرى." : "Could not upload photo, please try again."
-      );
-    } finally {
-      setReceiptUploading(false);
-    }
   };
 
   const pickPhasePhoto = async (orderId: string, phase: "before" | "during") => {
@@ -300,23 +298,11 @@ export default function TechOrdersScreen() {
   };
 
   const handleComplete = async (orderId: string) => {
-    if (receiptPhotos.length === 0) {
-      setReceiptError(isRTL ? "يجب رفع صورة فاتورة مواد واحدة على الأقل" : "At least one material receipt photo is required");
-      return;
-    }
     if (labourFee <= 0) {
       Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "يرجى إدخال أجر العمالة" : "Please enter the labour fee");
       return;
     }
     setLoading(true);
-
-    const materialPhotos = receiptPhotos.map((r) => r.photoUrl);
-    const ocrLineItems = receiptPhotos.map((r) => ({
-      supplier: r.supplier,
-      date: r.date,
-      items: r.lineItems.map((li) => ({ description: li.description, qty: li.qty, unit: li.unit, unitPrice: li.unitPrice, totalPrice: li.totalPrice })),
-      detectedTotal: r.detectedTotal,
-    }));
 
     const { serviceFeeAmount, vatAmount, techNetTotal, clientTotal } = preview;
     const adminTotal = serviceFeeAmount * 2 + vatAmount;
@@ -337,8 +323,6 @@ export default function TechOrdersScreen() {
             labourFee,
             transportFee: transportFee || undefined,
             materialsTotal,
-            materialPhotos,
-            ocrLineItems,
           }),
         });
         if (res.ok) {
@@ -392,8 +376,8 @@ export default function TechOrdersScreen() {
           techNetTotal: serverInvoices?.techNetTotal ?? techNetTotal,
           clientTotal: serverInvoices?.clientTotal ?? clientTotal,
           adminTotal: serverInvoices?.adminTotal ?? adminTotal,
-          receiptPhotos: materialPhotos,
-          ocrLineItems: receiptPhotos,
+          receiptPhotos: [],
+          ocrLineItems: [],
           generatedAt: new Date().toISOString(),
         },
       });
@@ -405,11 +389,9 @@ export default function TechOrdersScreen() {
     setSolutionDesc("");
     setSatisfaction(null);
     setAfterPhotos([]);
-    setReceiptPhotos([]);
     setLabourFeeStr("");
     setTransportFeeStr("");
     setMaterialsTotalStr("0");
-    setReceiptError(null);
   };
 
   const handleCancelComplete = () => {
@@ -418,11 +400,9 @@ export default function TechOrdersScreen() {
     setSolutionDesc("");
     setSatisfaction(null);
     setAfterPhotos([]);
-    setReceiptPhotos([]);
     setLabourFeeStr("");
     setTransportFeeStr("");
     setMaterialsTotalStr("0");
-    setReceiptError(null);
   };
 
   const renderCard = ({ item }: { item: Order }) => {
@@ -474,21 +454,14 @@ export default function TechOrdersScreen() {
               <View style={[styles.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <TouchableOpacity
                   style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
-                  onPress={() => Linking.openURL(`sms:${item.clientMobile}`)}
-                >
-                  <VectorIcon name="message-circle" size={14} color={colors.secondary} />
-                  <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.messageClient")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.messageBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4 }]}
-                  onPress={() => Linking.openURL(`tel:${item.clientMobile}`)}
+                  onPress={() => { void startMaskedCall({ orderId: item.id, sessionToken, isRTL }); }}
                 >
                   <VectorIcon name="phone" size={14} color={colors.secondary} />
-                  <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{t("order.callClient")}</Text>
+                  <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 6 }}>{isRTL ? "اتصال مقنّع" : "Masked call"}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.completeBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flex: 1 }]}
-                  onPress={() => { setSelectedOrderId(item.id); setShowComplete(true); }}
+                  onPress={() => askServiceResult(item)}
                 >
                   <VectorIcon name="check-circle" size={14} color={colors.primary} />
                   <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: 6 }}>{t("tech.complete")}</Text>
@@ -746,183 +719,22 @@ export default function TechOrdersScreen() {
 
   if (showComplete && selectedOrderId) {
     const completeOrder = orders.find((o) => o.id === selectedOrderId);
-    const clientMobile = completeOrder?.clientMobile ?? null;
 
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader title={t("tech.complete")} showBack onBack={handleCancelComplete} />
-        {clientMobile ? (
+        {completeOrder ? (
           <View style={[styles.contactStrip, { backgroundColor: colors.card, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <TouchableOpacity
               style={[styles.contactBtn, { borderColor: colors.border }]}
-              onPress={() => Linking.openURL(`tel:${clientMobile}`).catch(() => {})}
+              onPress={() => { void startMaskedCall({ orderId: selectedOrderId, sessionToken, isRTL }); }}
             >
               <VectorIcon name="phone" size={16} color={colors.primary} />
-              <Text style={[styles.contactBtnText, { color: colors.primary }]}>{isRTL ? "اتصل بالعميل" : "Call Client"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.contactBtn, { borderColor: colors.border }]}
-              onPress={() => Linking.openURL(`sms:${clientMobile}`).catch(() => {})}
-            >
-              <VectorIcon name="message-circle" size={16} color={colors.primary} />
-              <Text style={[styles.contactBtnText, { color: colors.primary }]}>{isRTL ? "راسل العميل" : "Message Client"}</Text>
+              <Text style={[styles.contactBtnText, { color: colors.primary }]}>{isRTL ? "اتصال مقنّع" : "Masked call"}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
         <ScrollView contentContainerStyle={[styles.completeContent, { paddingBottom: botPad + 24 }]} keyboardShouldPersistTaps="handled">
-
-          {/* MANDATORY: Receipt Photos */}
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: receiptError ? colors.destructive : colors.border }]}>
-            <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 10, gap: 6 }]}>
-              <VectorIcon name="file-text" size={16} color={colors.primary} />
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginBottom: 0, flex: 1 }]}>
-                {isRTL ? "إثبات المواد (الصورة مطلوبة)" : "Material Evidence (Photo Required)"}
-              </Text>
-              <View style={{ backgroundColor: colors.destructive + "20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                <Text style={{ color: colors.destructive, fontFamily: "Inter_700Bold", fontSize: 10 }}>{isRTL ? "إلزامي" : "Required"}</Text>
-              </View>
-            </View>
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
-              {isRTL
-                ? "ارفع صورة كل فاتورة مواد اشتريتها. استخراج البيانات تلقائي واختياري، ويمكنك إدخال الإجمالي يدوياً."
-                : "Upload each material receipt. Automatic extraction is optional; you can enter the total manually."}
-            </Text>
-            {ocrWarning && (
-              <Text style={{ color: "#B45309", fontFamily: "Inter_500Medium", fontSize: 11, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
-                {ocrWarning}
-              </Text>
-            )}
-
-            {receiptPhotos.length > 0 && (
-              <>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-                  {receiptPhotos.map((r, i) => (
-                    <View key={i} style={{ marginRight: 10, alignItems: "center" }}>
-                      <Image source={{ uri: r.photoUrl }} style={{ width: 72, height: 72, borderRadius: 8, borderWidth: 2, borderColor: colors.success }} />
-                      {r.detectedTotal > 0 && (
-                        <Text style={{ color: colors.success, fontFamily: "Inter_700Bold", fontSize: 11, marginTop: 4 }}>
-                          {r.detectedTotal.toFixed(0)} {t("common.egp")}
-                        </Text>
-                      )}
-                      {r.supplier && (
-                        <Text style={{ color: colors.mutedForeground, fontSize: 10, fontFamily: "Inter_400Regular", maxWidth: 72 }} numberOfLines={1}>
-                          {r.supplier}
-                        </Text>
-                      )}
-                      <TouchableOpacity
-                        onPress={() => {
-                          setReceiptPhotos((prev) => {
-                            const updated = prev.filter((_, j) => j !== i);
-                            const newTotal = updated.reduce((sum, r2) => sum + r2.detectedTotal, 0);
-                            if (newTotal > 0) setMaterialsTotalStr(newTotal.toFixed(2));
-                            return updated;
-                          });
-                        }}
-                        style={{ marginTop: 4 }}
-                      >
-                        <VectorIcon name="trash-2" size={13} color={colors.destructive} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-
-                {receiptPhotos.some((r) => r.lineItems.length > 0) && (
-                  <View style={{ marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden" }}>
-                    <View style={{ backgroundColor: colors.accent, padding: 8, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
-                      <VectorIcon name="list" size={13} color={colors.primary} />
-                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.primary }}>
-                        {isRTL ? "البنود المستخرجة من الفواتير" : "Extracted Receipt Line Items"}
-                      </Text>
-                    </View>
-                    {receiptPhotos.map((r, ri) =>
-                      r.lineItems.length > 0 ? (
-                        <View key={ri} style={{ paddingHorizontal: 10, paddingBottom: 6 }}>
-                          {r.supplier && (
-                            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.mutedForeground, marginTop: 6, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
-                              {isRTL ? `فاتورة ${ri + 1}: ${r.supplier}` : `Receipt ${ri + 1}: ${r.supplier}`}
-                            </Text>
-                          )}
-                          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2, marginBottom: 2 }}>
-                            <Text style={{ flex: 3, fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }}>
-                              {isRTL ? "البيان" : "Description"}
-                            </Text>
-                            <Text style={{ flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.mutedForeground, textAlign: "center" }}>
-                              {isRTL ? "الكمية" : "Qty"}
-                            </Text>
-                            <Text style={{ flex: 1.5, fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.mutedForeground, textAlign: isRTL ? "left" : "right" }}>
-                              {isRTL ? "السعر" : "Price"}
-                            </Text>
-                          </View>
-                          {r.lineItems.map((li, lii) => (
-                            <View key={lii} style={{ flexDirection: isRTL ? "row-reverse" : "row", paddingVertical: 2 }}>
-                              <Text style={{ flex: 3, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.foreground, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
-                                {li.description}
-                              </Text>
-                              <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.foreground, textAlign: "center" }}>
-                                {li.qty}{li.unit ? ` ${li.unit}` : ""}
-                              </Text>
-                              <Text style={{ flex: 1.5, fontFamily: "Inter_500Medium", fontSize: 11, color: colors.foreground, textAlign: isRTL ? "left" : "right" }}>
-                                {li.totalPrice.toFixed(0)}
-                              </Text>
-                            </View>
-                          ))}
-                          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderColor: colors.border }}>
-                            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.primary, textAlign: isRTL ? "right" : "left" }}>
-                              {isRTL ? "المجموع" : "Subtotal"}
-                            </Text>
-                            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: colors.primary }}>
-                              {r.detectedTotal.toFixed(0)} {t("common.egp")}
-                            </Text>
-                          </View>
-                        </View>
-                      ) : null
-                    )}
-                  </View>
-                )}
-              </>
-            )}
-
-            <TouchableOpacity
-              onPress={pickReceiptPhoto}
-              disabled={receiptUploading || ocrRunning}
-              style={{
-                flexDirection: isRTL ? "row-reverse" : "row",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 14,
-                borderWidth: 1.5,
-                borderStyle: "dashed",
-                borderColor: receiptError ? colors.destructive : (receiptPhotos.length > 0 ? colors.success : colors.primary),
-                borderRadius: 10,
-                backgroundColor: colors.accent,
-              }}
-            >
-              {receiptUploading || ocrRunning ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 13, marginLeft: 8 }}>
-                    {ocrRunning ? (isRTL ? "جارٍ استخراج البيانات..." : "Extracting data...") : (isRTL ? "جارٍ الرفع..." : "Uploading...")}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <VectorIcon name="camera" size={18} color={receiptPhotos.length > 0 ? colors.success : colors.primary} />
-                  <Text style={{ color: receiptPhotos.length > 0 ? colors.success : colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 8 }}>
-                    {receiptPhotos.length > 0
-                      ? (isRTL ? `أضف فاتورة أخرى (${receiptPhotos.length} مرفق)` : `Add Another Receipt (${receiptPhotos.length} uploaded)`)
-                      : (isRTL ? "ارفع صورة فاتورة المواد" : "Upload Receipt Photo")}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {receiptError && (
-              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginTop: 8, gap: 4 }}>
-                <VectorIcon name="alert-circle" size={13} color={colors.destructive} />
-                <Text style={{ color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{receiptError}</Text>
-              </View>
-            )}
-          </View>
 
           {/* Fees Section */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
@@ -945,9 +757,7 @@ export default function TechOrdersScreen() {
               onChangeText={setMaterialsTotalStr}
             />
             <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left", marginBottom: 12, marginTop: 2 }}>
-              {receiptPhotos.length > 0
-                ? (isRTL ? "مسبق التعبئة من الفواتير المرفوعة — يمكن تعديله" : "Pre-filled from uploaded receipts — you can edit")
-                : (isRTL ? "أو أدخل الإجمالي يدوياً" : "Or enter total manually")}
+              {isRTL ? "اختياري — اكتب صفر لو مفيش مواد" : "Optional — enter 0 if there were no materials"}
             </Text>
 
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 4 }}>
@@ -1154,6 +964,66 @@ export default function TechOrdersScreen() {
         }
         renderItem={renderCard}
       />
+      <Modal visible={!!failOrderId} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, paddingBottom: botPad + 16 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL ? "ليه الخدمة ما اكتملتش؟" : "Why was the service incomplete?"}
+            </Text>
+            {FAIL_REASONS.map((reason) => (
+              <TouchableOpacity
+                key={reason.id}
+                onPress={() => setFailReason(reason.id)}
+                style={{
+                  marginTop: 8,
+                  padding: 12,
+                  borderWidth: 1.5,
+                  borderRadius: colors.radius - 4,
+                  borderColor: failReason === reason.id ? colors.primary : colors.border,
+                  backgroundColor: failReason === reason.id ? colors.primary + "18" : "transparent",
+                }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", textAlign: isRTL ? "right" : "left" }}>
+                  {isRTL ? reason.ar : reason.en}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TextInput
+              value={failDetails}
+              onChangeText={setFailDetails}
+              placeholder={isRTL ? "تفاصيل إضافية (اختياري)" : "Extra details (optional)"}
+              placeholderTextColor={colors.mutedForeground}
+              style={{
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8,
+                padding: 10,
+                color: colors.foreground,
+                textAlign: isRTL ? "right" : "left",
+                fontFamily: "Inter_400Regular",
+              }}
+              multiline
+            />
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginTop: 14 }}>
+              <TouchableOpacity
+                onPress={() => { setFailOrderId(null); setFailReason(null); setFailDetails(""); }}
+                style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 16, justifyContent: "center" }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }}>{isRTL ? "إلغاء" : "Cancel"}</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <FanniButton
+                  title={isRTL ? "تأكيد" : "Confirm"}
+                  onPress={() => { void submitFailService(); }}
+                  loading={failSubmitting}
+                  disabled={!failReason}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

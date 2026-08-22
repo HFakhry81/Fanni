@@ -19,6 +19,8 @@ import { useColors, type AppColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
+import { getApiBase } from "@/utils/api";
+import { startMaskedCall } from "@/utils/maskedCall";
 import {
   RouteData,
   readPersistedRoute,
@@ -230,12 +232,12 @@ export default function OrderTrackingScreen() {
   const [arrived, setArrived] = useState(false);
   const [jobStarted, setJobStarted] = useState(order?.status === "inProgress");
   const [confirmingArrival, setConfirmingArrival] = useState(false);
+  const [arrivalRejected, setArrivalRejected] = useState(!!order?.arrivalRejectionReason);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleConfirmArrival = useCallback(async () => {
+  const handleArrivalAnswer = useCallback(async (confirmed: boolean) => {
     if (!orderId || confirmingArrival) return;
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    const apiBase = domain ? `http://${domain}` : "";
+    const apiBase = getApiBase();
     if (!apiBase || !sessionToken) {
       Alert.alert(t("common.error"), t("order.confirmArrivalError"));
       return;
@@ -245,10 +247,19 @@ export default function OrderTrackingScreen() {
       const res = await fetch(`${apiBase}/api/orders/${orderId}/confirm-arrival`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({
+          confirmed,
+          rejectionReason: confirmed ? undefined : "Client reported technician not at the door",
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await updateOrder(orderId, { status: "inProgress" });
-      setJobStarted(true);
+      if (confirmed) {
+        await updateOrder(orderId, { status: "inProgress", arrivalRejectionReason: null });
+        setJobStarted(true);
+      } else {
+        await updateOrder(orderId, { arrivalRejectionReason: "Client reported technician not at the door" });
+        setArrivalRejected(true);
+      }
     } catch {
       Alert.alert(t("common.error"), t("order.confirmArrivalError"));
     } finally {
@@ -274,6 +285,15 @@ export default function OrderTrackingScreen() {
       setJobStarted(true);
     }
   }, [order?.status, orderId]);
+
+  useEffect(() => {
+    if (order?.arrivalDetected || order?.arrivalDetectedAt) {
+      setArrived(true);
+    }
+    if (order?.arrivalRejectionReason) {
+      setArrivalRejected(true);
+    }
+  }, [order?.arrivalDetected, order?.arrivalDetectedAt, order?.arrivalRejectionReason]);
 
   useEffect(() => {
     if (!order) return;
@@ -570,21 +590,41 @@ export default function OrderTrackingScreen() {
         </View>
 
         {arrived && !jobStarted && (
-          <TouchableOpacity
-            style={[styles.confirmArrivalBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: confirmingArrival ? 0.7 : 1 }]}
-            onPress={handleConfirmArrival}
-            activeOpacity={0.8}
-            disabled={confirmingArrival}
-          >
-            {confirmingArrival ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <VectorIcon name="check-circle" size={18} color="#FFF" />
-            )}
-            <Text style={[styles.confirmArrivalText, { marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
-              {t("order.confirmArrival")}
+          <View style={{ marginTop: 12, gap: 10 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL ? "الفني قدامك دلوقتي، هل تواصل معاك؟" : "The technician is at your door. Did they contact you?"}
             </Text>
-          </TouchableOpacity>
+            {arrivalRejected ? (
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL
+                  ? "سجّلنا إن الفني مش قدامك. لو مفيش تأكيد خلال 30 دقيقة الطلب هيرجع للمطابقة."
+                  : "We recorded that the technician is not with you. If there is no confirmation within 30 minutes the order will be rematched."}
+              </Text>
+            ) : (
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
+                <TouchableOpacity
+                  style={[styles.confirmArrivalBtn, { flex: 1, backgroundColor: colors.primary, borderRadius: colors.radius, opacity: confirmingArrival ? 0.7 : 1, marginTop: 0 }]}
+                  onPress={() => { void handleArrivalAnswer(true); }}
+                  activeOpacity={0.8}
+                  disabled={confirmingArrival}
+                >
+                  {confirmingArrival ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.confirmArrivalText}>{isRTL ? "نعم" : "Yes"}</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmArrivalBtn, { flex: 1, backgroundColor: "#B45309", borderRadius: colors.radius, opacity: confirmingArrival ? 0.7 : 1, marginTop: 0 }]}
+                  onPress={() => { void handleArrivalAnswer(false); }}
+                  activeOpacity={0.8}
+                  disabled={confirmingArrival}
+                >
+                  <Text style={styles.confirmArrivalText}>{isRTL ? "لا" : "No"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
 
         {order.technicianName && (
@@ -623,22 +663,12 @@ export default function OrderTrackingScreen() {
           <View style={[styles.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-              onPress={() => Linking.openURL(`tel:${order.technicianMobile}`)}
+              onPress={() => { void startMaskedCall({ orderId: order.id, sessionToken, isRTL }); }}
               activeOpacity={0.8}
             >
               <VectorIcon name="phone" size={16} color="#FFF" />
               <Text style={[styles.callBtnText, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
-                {t("order.callTech")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.accent, borderRadius: colors.radius }]}
-              onPress={() => Linking.openURL(`sms:${order.technicianMobile}`)}
-              activeOpacity={0.8}
-            >
-              <VectorIcon name="message-circle" size={16} color={colors.primary} />
-              <Text style={[styles.callBtnText, { color: colors.primary, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>
-                {t("order.messageTech")}
+                {isRTL ? "اتصال مقنّع" : "Masked call"}
               </Text>
             </TouchableOpacity>
           </View>

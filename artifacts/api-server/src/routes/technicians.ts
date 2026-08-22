@@ -1,12 +1,14 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool, walletsTable, leadUnlocksTable, unlockCostsTable, walletTransactionsTable } from "@workspace/db";
+import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool, walletsTable, leadUnlocksTable, unlockCostsTable, walletTransactionsTable, orderDeclinesTable } from "@workspace/db";
 import { and, eq, ne, sql, SQL, inArray } from "drizzle-orm";
+import { maskPhoneDisplay } from "../lib/phone";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
 import { locationsMatch } from "../lib/locationNormalizer";
 import { queryFloat, queryInt, queryString } from "../lib/queryParams";
 import { broadcastAvailabilityChangedToTechnician } from "../lib/orderBroadcaster";
+import { DEFAULT_LEAD_COST, loadActiveLeadPricingRules, pickLeadCostFromRules } from "../lib/leadPricing";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -364,11 +366,18 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     const pageRaw = queryInt(req.query.page, 1);
     const page = pageRaw < 1 ? 1 : pageRaw;
 
-    const pendingRows = await db
+    const declinedRows = await db
+      .select({ orderId: orderDeclinesTable.orderId })
+      .from(orderDeclinesTable)
+      .where(eq(orderDeclinesTable.technicianId, user.id));
+    const declinedSet = new Set(declinedRows.map((row) => row.orderId));
+
+    const pendingRows = (await db
       .select()
       .from(ordersTable)
       .where(eq(ordersTable.status, "pending"))
-      .orderBy(ordersTable.createdAt);
+      .orderBy(ordersTable.createdAt))
+      .filter((row) => !declinedSet.has(row.id));
 
     const techCategories: string[] = (techRow.serviceCategories as string[] | null) ?? [];
     const techGov = techRow.governorate ?? null;
@@ -439,13 +448,13 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     const pageOrders = allMatched.slice(offset, offset + limit);
 
     // ── Points system: determine which orders this tech has already unlocked ──
-    const defaultUnlockCost = 15;
-    let defaultCost = defaultUnlockCost;
+    const pricingRules = await loadActiveLeadPricingRules();
+    let defaultCost = DEFAULT_LEAD_COST;
     try {
       const [defCost] = await db.select().from(unlockCostsTable)
         .where(and(sql`specialty_slug IS NULL`, sql`category_slug IS NULL`));
       if (defCost) defaultCost = defCost.pointsCost;
-    } catch { /* fall back to 15 */ }
+    } catch { /* fall back to DEFAULT_LEAD_COST */ }
 
     const orderIds = pageOrders.map((o) => o.id);
     const unlockedSet = new Set<string>();
@@ -460,12 +469,15 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
 
     const results = pageOrders.map((o) => {
       const isUnlocked = unlockedSet.has(o.id);
-      if (isUnlocked) return { ...o, isUnlocked: true, unlockCost: defaultCost };
-      // Mask sensitive contact + precise location data for locked orders
+      const unlockCost = pickLeadCostFromRules(pricingRules, {
+        category: typeof o.category === "string" ? o.category : null,
+        specialty: typeof o.subCategory === "string" ? o.subCategory : null,
+      }) ?? defaultCost;
+      if (isUnlocked) return { ...o, isUnlocked: true, unlockCost };
       return {
         ...o,
         isUnlocked: false,
-        unlockCost: defaultCost,
+        unlockCost,
         street: null,
         building: null,
         floor: null,
@@ -543,7 +555,7 @@ router.get("/technician/orders", authMiddleware, requireAuth, async (req, res) =
         longitude: data.longitude ?? null,
         clientId: row.clientId ?? data.clientId,
         clientName: data.clientName,
-        clientMobile: data.clientMobile,
+        clientMobile: maskPhoneDisplay(typeof data.clientMobile === "string" ? data.clientMobile : null),
         photos: data.photos ?? [],
         materials: data.materials ?? null,
         solutionDescription: data.solutionDescription ?? null,

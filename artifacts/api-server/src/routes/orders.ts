@@ -12,7 +12,7 @@ import { sendInvoiceEmails } from "../lib/email";
 import { sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
 import { resolveLeadCost } from "../lib/leadPricing";
 import { contactFromOrderData, InsufficientPointsError, maskSensitiveOrderFields, refundEligibleUnlocksForCancelledOrder, unlockLeadAtomically } from "../lib/leadUnlock";
-import { dropTechnicianAndRematch, markTechnicianAvailable, markTechnicianBusy } from "../lib/orderLifecycle";
+import { maskPhoneDisplay } from "../lib/phone";
 
 const router: IRouter = Router();
 
@@ -29,8 +29,10 @@ function toMobileStatus(dbStatus: DbStatus): MobileStatus {
   return dbStatus as MobileStatus;
 }
 
-function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?: boolean }) {
+function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?: boolean; revealPhones?: boolean }) {
   const data = row.data as Record<string, unknown>;
+  const clientMobileRaw = (data.clientMobile as string | null) ?? null;
+  const technicianMobileRaw = (data.technicianMobile as string | null) ?? null;
   const mapped = {
     id: row.id,
     orderNumber: row.orderNumber,
@@ -45,7 +47,7 @@ function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?:
     visitTime: data.visitTime,
     technicianId: row.technicianId ?? data.technicianId ?? null,
     technicianName: data.technicianName ?? null,
-    technicianMobile: data.technicianMobile ?? null,
+    technicianMobile: opts?.revealPhones ? technicianMobileRaw : maskPhoneDisplay(technicianMobileRaw),
     technicianAvatar: data.technicianAvatar ?? null,
     technicianRating: data.technicianRating ?? null,
     problemDescription: data.problemDescription,
@@ -59,7 +61,7 @@ function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?:
     longitude: data.longitude ?? null,
     clientId: row.clientId ?? data.clientId,
     clientName: data.clientName,
-    clientMobile: data.clientMobile,
+    clientMobile: opts?.revealPhones ? clientMobileRaw : maskPhoneDisplay(clientMobileRaw),
     photos: data.photos ?? [],
     materials: data.materials ?? null,
     solutionDescription: data.solutionDescription ?? null,
@@ -67,6 +69,8 @@ function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?:
     clientRating: data.clientRating ?? row.clientRating ?? null,
     clientComment: data.clientComment ?? null,
     arrivalDetectedAt: row.arrivalDetectedAt ?? null,
+    arrivalDetected: !!row.arrivalDetectedAt,
+    arrivalRejectionReason: row.arrivalRejectionReason ?? null,
     incompleteReason: data.incompleteReason ?? null,
     incompleteDetails: data.incompleteDetails ?? null,
   };
@@ -102,7 +106,10 @@ router.get("/orders/pending", authMiddleware, requireAuth, async (req, res) => {
       .where(and(...conditions))
       .orderBy(desc(ordersTable.createdAt));
 
-    const orders = rows.map((row) => mapOrderRow(row, { maskClient: user.role === "technician" }));
+    const orders = rows.map((row) => mapOrderRow(row, {
+      maskClient: user.role === "technician",
+      revealPhones: user.role === "admin",
+    }));
 
     res.json({ orders });
   } catch (err) {
@@ -122,7 +129,7 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
       .where(eq(ordersTable.clientId, userId))
       .orderBy(desc(ordersTable.createdAt));
 
-    const orders = rows.map((row) => mapOrderRow(row, { maskClient: user.role === "technician" }));
+    const orders = rows.map((row) => mapOrderRow(row));
 
     res.json({ orders });
   } catch (err) {
@@ -338,7 +345,7 @@ function notifyClientAccepted(orderId: string, clientId: string, technician: {
     status: "accepted",
     technicianId: technician.technicianId,
     ...(technician.technicianName !== undefined && { technicianName: technician.technicianName }),
-    ...(technician.technicianMobile !== undefined && { technicianMobile: technician.technicianMobile }),
+    ...(technician.technicianMobile !== undefined && { technicianMobile: maskPhoneDisplay(technician.technicianMobile) }),
     ...(technician.technicianAvatar !== undefined && { technicianAvatar: technician.technicianAvatar }),
     ...(technician.technicianRating !== undefined && { technicianRating: technician.technicianRating }),
   });
@@ -382,7 +389,10 @@ router.post("/orders/:id/unlock", authMiddleware, requireAuth, async (req: Reque
       specialty: (data.subCategory as string | undefined) ?? order.specialtyId,
     });
     logger.info({ techId: user.id, orderId, costPoints: result.costPoints, newBalance: result.newBalance }, "Order unlocked");
-    res.json(result);
+    res.json({
+      ...result,
+      contact: { ...result.contact, clientMobile: maskPhoneDisplay(result.contact.clientMobile as string | null) },
+    });
   } catch (err) {
     if (!leadErrorResponse(res, err, orderId, "Failed to unlock order")) {
       res.status(500).json({ error: "Failed to unlock order" });
@@ -466,7 +476,12 @@ router.post("/orders/:id/accept", authMiddleware, requireAuth, async (req: Reque
         technicianRating,
       });
     }
-    res.json({ success: true, assigned: true, ...result });
+    res.json({
+      success: true,
+      assigned: true,
+      ...result,
+      contact: { ...result.contact, clientMobile: maskPhoneDisplay(result.contact.clientMobile as string | null) },
+    });
   } catch (err) {
     if (!leadErrorResponse(res, err, id, "Failed to accept order with lead")) {
       res.status(500).json({ error: "Failed to accept order" });
@@ -664,6 +679,12 @@ router.patch("/orders/:id/confirm-arrival", authMiddleware, requireAuth, async (
         updatedAt: now,
       }).where(eq(ordersTable.id, id));
       logger.info({ id, clientId: user.id }, "Client rejected technician arrival — 30 minute timeout started");
+      broadcastOrderStatusToClient(user.id, {
+        id,
+        status: "accepted",
+        arrivalDetected: true,
+        arrivalRejectionReason: rejectionReason || "Client reported technician not arrived",
+      });
     }
 
     res.json({ success: true });
@@ -827,7 +848,6 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
     transportFee,
     materialsTotal,
     materialPhotos,
-    ocrLineItems,
   } = req.body as {
     solutionDescription?: string;
     clientSatisfaction?: string;
@@ -837,12 +857,6 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
     transportFee?: number;
     materialsTotal?: number;
     materialPhotos?: string[];
-    ocrLineItems?: Array<{
-      supplier?: string | null;
-      date?: string | null;
-      items?: Array<{ description: string; qty: number; unit?: string | null; unitPrice: number; totalPrice: number }>;
-      detectedTotal?: number;
-    }>;
   };
 
   const dataPatch: Record<string, unknown> = { status: "completed" };
@@ -853,10 +867,6 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
 
   if (labourFee === undefined || Number(labourFee) <= 0) {
     res.status(400).json({ error: "labourFee is required and must be greater than 0" });
-    return;
-  }
-  if (!materialPhotos || materialPhotos.length === 0) {
-    res.status(400).json({ error: "At least one material receipt photo is required (materialPhotos)" });
     return;
   }
 
@@ -913,8 +923,8 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
         })
         .where(eq(ordersTable.id, id));
 
-      const photosJson = materialPhotos;
-      const ocrJson = ocrLineItems ?? [];
+      const photosJson = Array.isArray(materialPhotos) ? materialPhotos : [];
+      const ocrJson: unknown[] = [];
 
       await tx.insert(invoicesTable).values([
         {

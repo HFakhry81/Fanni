@@ -1,12 +1,14 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { logger } from "../lib/logger";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { db, locationsTable, usersTable, ordersTable, orderLocationEventsTable } from "@workspace/db";
 import { NOMINATIM_BASE, nominatimFetch, getCached, setCache, cachedNominatim } from "../lib/nominatim";
 import { queryString, queryInt, queryFloat } from "../lib/queryParams";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { getSetting, SETTING_KEYS } from "../lib/settings";
+import { broadcastOrderStatusToClient } from "../lib/orderBroadcaster";
+import { sendExpoPushNotification } from "../lib/pushNotifications";
 
 const router: IRouter = Router();
 
@@ -46,7 +48,7 @@ router.post("/geo/update", authMiddleware, requireAuth, async (req: Request, res
         .from(ordersTable)
         .where(and(
           eq(ordersTable.technicianId, userId),
-          eq(ordersTable.status, "acknowledged")
+          inArray(ordersTable.status, ["en_route", "arrived", "acknowledged"]),
         ))
         .limit(1);
 
@@ -66,6 +68,7 @@ router.post("/geo/update", authMiddleware, requireAuth, async (req: Request, res
         if (geoResult.rows[0]?.is_within) {
           await db.update(ordersTable).set({
             arrivalDetectedAt: now,
+            status: "arrived",
             updatedAt: now,
           }).where(eq(ordersTable.id, activeOrder.id));
 
@@ -78,6 +81,35 @@ router.post("/geo/update", authMiddleware, requireAuth, async (req: Request, res
           });
 
           logger.info({ orderId: activeOrder.id, techId: userId }, "Arrival detected via Geofencing");
+
+          if (activeOrder.clientId) {
+            broadcastOrderStatusToClient(activeOrder.clientId, {
+              id: activeOrder.id,
+              status: "accepted",
+              arrivalDetected: true,
+              arrivalDetectedAt: now.toISOString(),
+            });
+            void (async () => {
+              try {
+                const [clientRow] = await db
+                  .select({ expoPushToken: usersTable.expoPushToken })
+                  .from(usersTable)
+                  .where(eq(usersTable.id, activeOrder.clientId!))
+                  .limit(1);
+                if (clientRow?.expoPushToken) {
+                  await sendExpoPushNotification([{
+                    to: clientRow.expoPushToken,
+                    title: "الفني وصل؟",
+                    body: "الفني قدامك دلوقتي، هل تواصل معاك؟",
+                    data: { orderId: activeOrder.id, screen: "order-tracking", arrivalDetected: true },
+                    sound: "default",
+                  }]);
+                }
+              } catch (pushErr) {
+                logger.warn({ pushErr, orderId: activeOrder.id }, "Failed to send arrival geofence push");
+              }
+            })();
+          }
         }
       }
     }
