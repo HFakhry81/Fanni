@@ -6,6 +6,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
 import { resolveLeadCost } from "../lib/leadPricing";
+import { listAdminAuditLogs, logAdminAudit } from "../lib/adminAudit";
 import { creditPurchased, debitPromoFirst } from "../lib/walletBuckets";
 
 const router: IRouter = Router();
@@ -112,6 +113,20 @@ router.post("/admin/wallet/adjust", authMiddleware, requireAuth, requireAdmin, r
       type: "admin_adjustment",
       description: description ?? `Admin adjustment by ${user.id}`,
     });
+    await logAdminAudit(req, {
+      action: "wallet_adjust",
+      targetType: "wallet",
+      targetId: wallet.id,
+      previousStatus: String(wallet.pointsBalance),
+      newStatus: String(next.pointsBalance),
+      reason: description ?? null,
+      metadata: {
+        technicianId,
+        pointsAmount,
+        before: buckets,
+        after: next,
+      },
+    });
     res.json({ success: true, newBalance: next.pointsBalance });
   } catch (err) {
     logger.error({ err }, "Failed to adjust wallet");
@@ -143,6 +158,13 @@ router.post("/admin/point-packages", authMiddleware, requireAuth, requireAdmin, 
       priceEgp: String(priceEgp),
       originalPriceEgp: originalPriceEgp ? String(originalPriceEgp) : null,
     }).returning();
+    await logAdminAudit(req, {
+      action: "package_create",
+      targetType: "point_package",
+      targetId: pkg!.id,
+      newStatus: "active",
+      metadata: { after: pkg },
+    });
     res.json({ package: pkg });
   } catch (err) {
     logger.error({ err }, "Failed to create package");
@@ -162,8 +184,17 @@ router.patch("/admin/point-packages/:id", authMiddleware, requireAuth, requireAd
   if (isActive !== undefined) updates.isActive = isActive;
   if (sortOrder !== undefined) updates.sortOrder = sortOrder;
   try {
+    const [before] = await db.select().from(pointPackagesTable).where(eq(pointPackagesTable.id, id!));
     const [pkg] = await db.update(pointPackagesTable).set(updates).where(eq(pointPackagesTable.id, id!)).returning();
     if (!pkg) { res.status(404).json({ error: "Package not found" }); return; }
+    await logAdminAudit(req, {
+      action: "package_update",
+      targetType: "point_package",
+      targetId: pkg.id,
+      previousStatus: before?.isActive ? "active" : "inactive",
+      newStatus: pkg.isActive ? "active" : "inactive",
+      metadata: { before, after: pkg },
+    });
     res.json({ package: pkg });
   } catch (err) {
     logger.error({ err }, "Failed to update package");
@@ -174,6 +205,13 @@ router.patch("/admin/point-packages/:id", authMiddleware, requireAuth, requireAd
 router.delete("/admin/point-packages/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_wallet"), async (req: Request<{ id: string }>, res) => {
   try {
     await db.update(pointPackagesTable).set({ isActive: false }).where(eq(pointPackagesTable.id, req.params.id));
+    await logAdminAudit(req, {
+      action: "package_deactivate",
+      targetType: "point_package",
+      targetId: req.params.id,
+      previousStatus: "active",
+      newStatus: "inactive",
+    });
     res.json({ success: true });
   } catch (err) {
     logger.error({ err }, "Failed to delete package");
@@ -197,6 +235,13 @@ router.post("/admin/unlock-costs", authMiddleware, requireAuth, requireAdmin, re
   if (typeof pointsCost !== "number") { res.status(400).json({ error: "pointsCost required" }); return; }
   try {
     const [row] = await db.insert(unlockCostsTable).values({ specialtySlug: specialtySlug ?? null, categorySlug: categorySlug ?? null, pointsCost, label: label ?? null }).returning();
+    await logAdminAudit(req, {
+      action: "unlock_cost_create",
+      targetType: "unlock_cost",
+      targetId: row!.id,
+      newStatus: String(pointsCost),
+      metadata: { after: row },
+    });
     res.json({ cost: row });
   } catch (err) {
     logger.error({ err }, "Failed to create unlock cost");
@@ -246,6 +291,13 @@ router.post("/admin/lead-pricing-rules", authMiddleware, requireAuth, requireAdm
       priority: typeof body.priority === "number" ? Math.round(body.priority) : 0,
       description: body.description?.trim() || null,
     }).returning();
+    await logAdminAudit(req, {
+      action: "lead_pricing_create",
+      targetType: "lead_pricing_rule",
+      targetId: rule!.id,
+      newStatus: String(rule!.pointsCost),
+      metadata: { after: rule },
+    });
     res.status(201).json({ rule });
   } catch (err) {
     logger.error({ err }, "Failed to create lead pricing rule");
@@ -276,8 +328,17 @@ router.patch("/admin/lead-pricing-rules/:id", authMiddleware, requireAuth, requi
   if (typeof body.priority === "number") updates.priority = Math.round(body.priority);
   if (body.description !== undefined) updates.description = body.description?.trim() || null;
   try {
+    const [before] = await db.select().from(leadPricingRulesTable).where(eq(leadPricingRulesTable.id, req.params.id));
     const [rule] = await db.update(leadPricingRulesTable).set(updates).where(eq(leadPricingRulesTable.id, req.params.id)).returning();
     if (!rule) { res.status(404).json({ error: "Not found" }); return; }
+    await logAdminAudit(req, {
+      action: "lead_pricing_update",
+      targetType: "lead_pricing_rule",
+      targetId: rule.id,
+      previousStatus: before ? String(before.pointsCost) : null,
+      newStatus: String(rule.pointsCost),
+      metadata: { before, after: rule },
+    });
     res.json({ rule });
   } catch (err) {
     logger.error({ err }, "Failed to update lead pricing rule");
@@ -291,8 +352,17 @@ router.patch("/admin/unlock-costs/:id", authMiddleware, requireAuth, requireAdmi
   if (typeof pointsCost === "number") updates.pointsCost = pointsCost;
   if (label !== undefined) updates.label = label;
   try {
+    const [before] = await db.select().from(unlockCostsTable).where(eq(unlockCostsTable.id, req.params.id));
     const [row] = await db.update(unlockCostsTable).set(updates).where(eq(unlockCostsTable.id, req.params.id)).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    await logAdminAudit(req, {
+      action: "unlock_cost_update",
+      targetType: "unlock_cost",
+      targetId: row.id,
+      previousStatus: before ? String(before.pointsCost) : null,
+      newStatus: String(row.pointsCost),
+      metadata: { before, after: row },
+    });
     res.json({ cost: row });
   } catch (err) {
     logger.error({ err }, "Failed to update unlock cost");
@@ -327,10 +397,30 @@ router.post("/admin/operational-expenses", authMiddleware, requireAuth, requireA
       invoiceUrl: invoiceUrl?.trim() || null,
       notes: notes?.trim() || null,
     }).returning();
+    await logAdminAudit(req, {
+      action: "expense_create",
+      targetType: "operational_expense",
+      targetId: expense!.id,
+      newStatus: String(amountEgp),
+      reason: notes ?? null,
+      metadata: { after: expense },
+    });
     res.status(201).json({ expense });
   } catch (err) {
     logger.error({ err }, "Failed to create operational expense");
     res.status(500).json({ error: "Failed to create operational expense" });
+  }
+});
+
+router.get("/admin/audit-logs", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (req, res) => {
+  try {
+    const targetType = typeof req.query.targetType === "string" ? req.query.targetType : undefined;
+    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : 100;
+    const logs = await listAdminAuditLogs({ targetType, limit });
+    res.json({ logs });
+  } catch (err) {
+    logger.error({ err }, "Failed to list admin audit logs");
+    res.status(500).json({ error: "Failed to list audit logs" });
   }
 });
 

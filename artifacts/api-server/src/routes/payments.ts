@@ -19,6 +19,7 @@ import { getOrCreateWallet } from "./wallet";
 import { createNotification } from "./notifications";
 import { startGatewayCheckout } from "../lib/paymentGateway";
 import { creditPurchased } from "../lib/walletBuckets";
+import { logAdminAudit } from "../lib/adminAudit";
 
 const router: IRouter = Router();
 
@@ -288,12 +289,28 @@ router.patch(
         type: "payment_confirmed",
         titleAr: "✅ تم تأكيد الدفع",
         titleEn: "✅ Payment Confirmed",
-        bodyAr: `تم إضافة ${existing.pointsRequested} نقطة إلى محفظتك. رصيدك الجديد: ${newBalance} نقطة.`,
-        bodyEn: `${existing.pointsRequested} pts have been credited. New balance: ${newBalance} pts.`,
-        payload: { requestId: id, pointsAdded: existing.pointsRequested, newBalance },
+        bodyAr: `تم إضافة ${existing.pointsRequested} نقطة إلى محفظتك. رصيدك الجديد: ${credited.pointsBalance} نقطة.`,
+        bodyEn: `${existing.pointsRequested} pts have been credited. New balance: ${credited.pointsBalance} pts.`,
+        payload: { requestId: id, pointsAdded: existing.pointsRequested, newBalance: credited.pointsBalance },
       });
 
-      res.json({ request: updated, newBalance });
+      await logAdminAudit(req, {
+        action: "payment_confirm",
+        targetType: "payment_request",
+        targetId: id,
+        previousStatus: "pending",
+        newStatus: "confirmed",
+        reason: adminNotes ?? null,
+        metadata: {
+          technicianId: existing.userId,
+          pointsRequested: existing.pointsRequested,
+          amountEgp: existing.amountEgp,
+          beforeBalance: wallet.pointsBalance,
+          afterBalance: credited.pointsBalance,
+        },
+      });
+
+      res.json({ request: updated, newBalance: credited.pointsBalance });
     } catch (err) {
       logger.error({ err }, "Failed to confirm payment");
       res.status(500).json({ error: "Failed to confirm payment" });
@@ -348,6 +365,20 @@ router.patch(
           ? `Your request for ${existing.pointsRequested} pts was rejected. Reason: ${adminNotes}`
           : `Your request for ${existing.pointsRequested} pts was rejected. Contact admin for details.`,
         payload: { requestId: id, pointsRequested: existing.pointsRequested, adminNotes },
+      });
+
+      await logAdminAudit(req, {
+        action: "payment_reject",
+        targetType: "payment_request",
+        targetId: id,
+        previousStatus: "pending",
+        newStatus: "rejected",
+        reason: adminNotes ?? null,
+        metadata: {
+          technicianId: existing.userId,
+          pointsRequested: existing.pointsRequested,
+          amountEgp: existing.amountEgp,
+        },
       });
 
       res.json({ request: updated });
@@ -464,9 +495,21 @@ router.put("/admin/payment-config", authMiddleware, requireAuth, requireAdmin, r
         .set(updates)
         .where(eq(paymentAccountConfigTable.id, existing.id))
         .returning();
+      await logAdminAudit(req, {
+        action: "payment_config_update",
+        targetType: "payment_config",
+        targetId: existing.id,
+        metadata: { before: existing, after: updated },
+      });
       res.json({ config: updated });
     } else {
       const [created] = await db.insert(paymentAccountConfigTable).values(updates).returning();
+      await logAdminAudit(req, {
+        action: "payment_config_create",
+        targetType: "payment_config",
+        targetId: created!.id,
+        metadata: { after: created },
+      });
       res.json({ config: created });
     }
   } catch (err) {

@@ -7,6 +7,7 @@ import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
 import { getOrCreateWallet } from "./wallet";
 import { refundToBuckets } from "../lib/walletBuckets";
+import { logAdminAudit } from "../lib/adminAudit";
 
 const router: IRouter = Router();
 
@@ -165,6 +166,15 @@ router.patch("/admin/disputes/:id", authMiddleware, requireAuth, requireAdmin, r
 
     if (result.kind === "not_found") { res.status(404).json({ error: "Dispute not found" }); return; }
     if (result.kind === "resolved") { res.status(409).json({ error: "Dispute already resolved" }); return; }
+    await logAdminAudit(req, {
+      action: action === "approve" ? "dispute_approve" : "dispute_reject",
+      targetType: "dispute",
+      targetId: id,
+      previousStatus: "pending",
+      newStatus: action === "approve" ? "approved" : "rejected",
+      reason: adminNotes ?? null,
+      metadata: { after: result.dispute },
+    });
     res.json({ dispute: result.dispute });
   } catch (err) {
     logger.error({ err }, "Failed to resolve dispute");
