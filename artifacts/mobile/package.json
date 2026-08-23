@@ -7,7 +7,9 @@
     "dev": "node scripts/dev-start.js",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -70,6 +72,9 @@
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "^14.0.8",
     "react-compiler-runtime": "^1.0.0",
-    "react-native-maps": "1.20.1"
+    "react-native-maps": "1.20.1",
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }
