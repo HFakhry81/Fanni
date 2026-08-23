@@ -96,3 +96,16 @@ if curl -sf "http://127.0.0.1:${PORT}/api/healthz" >/dev/null || curl -sf "http:
 else
   echo "[deploy] WARN: local healthz failed — pm2 logs $PM2_NAME"
 fi
+
+WEB_DIR="${FANNI_WEB_DIR:-/var/www/fanni-web}"
+if [ "${FANNI_SKIP_WEB:-}" != "1" ]; then
+  echo "[deploy] Expo web export → $WEB_DIR"
+  export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-${PUBLIC_API_URL:-https://api.upnexa-eg.com}}"
+  if "$PNPM" --filter @workspace/mobile exec expo export --platform web --output-dir dist-web; then
+    mkdir -p "$WEB_DIR"
+    rsync -a --delete "$ROOT/artifacts/mobile/dist-web/" "$WEB_DIR/"
+    echo "[deploy] web synced"
+  else
+    echo "[deploy] WARN: web export failed — API still deployed. Set FANNI_SKIP_WEB=1 to skip."
+  fi
+fi

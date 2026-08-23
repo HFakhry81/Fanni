@@ -1,4 +1,21 @@
-# رفع الباك اند + الفرونت عبر WinSCP (الترتيب مهم)
+# نشر الإنتاج عبر GitHub (المسار المعتمد)
+
+المستودع: `https://github.com/HFakhry81/Fanni`.
+
+1. على الـ VPS مرة واحدة: `sudo bash scripts/vps-bootstrap-from-github.sh` ثم أكمل `/var/www/fanni/.env` (انظر القيم أسفل) ثم `bash scripts/deploy-vps.sh`.
+2. في GitHub → Settings → Secrets → Actions أضف:
+   - `FANNI_VPS_HOST` = IP الأصل (ليس Cloudflare)
+   - `FANNI_VPS_USER` = مستخدم SSH
+   - `FANNI_VPS_SSH_KEY` = مفتاح خاص لمستخدم النشر (صلاحية محدودة)
+   - اختياري: `FANNI_VPS_PORT`
+3. الدفع إلى `main` أو Actions → **Deploy VPS** → Run workflow.
+4. Apache يبقى كما هو: `api.upnexa-eg.com` → `127.0.0.1:5000`، و`app.upnexa-eg.com` من `/var/www/fanni-web`.
+
+لا تضع كلمات سر SSH أو `.env` في Git.
+
+---
+
+# رفع الباك اند + الفرونت عبر WinSCP (احتياطي)
 
 المجلد `/var/www/storage/fanni` للصور فقط. **لا تضع فيه الكود.**
 الكود: `/var/www/fanni`

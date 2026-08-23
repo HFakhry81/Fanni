@@ -16,7 +16,7 @@
    - أدوار المستخدمين: `client`, `technician`, `admin`.
 
 3. **تطبيق الموبايل (React Native / Expo):**
-   - المجلد المحلي: `C:\Users\Sam\Downloads\Fanni\artifacts\mobile`.
+   - المجلد المحلي: `C:\Fanni\artifacts\mobile`.
    - البيئة: ملف `.env` موجه لـ `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com`.
    - تشغيل محلي: سكريبت `.bat` يدعم UTF-8 (`chcp 65001`) لضبط الـ IP المحلي بث `Metro` على الواي فاي وربطه بالباك إند الحي مباشرة.
    - تتبع الأخطاء: متصل بنجاح بـ **Sentry**.

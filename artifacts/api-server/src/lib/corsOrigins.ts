@@ -7,6 +7,10 @@ const LOCAL_DEV_ORIGINS = [
   "http://127.0.0.1:8081",
   "http://localhost:19006",
   "http://127.0.0.1:19006",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
 ];
 
 /** Used when NODE_ENV=production and CORS_ORIGINS is unset. Native apps send no Origin. */

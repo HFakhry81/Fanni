@@ -1,0 +1,54 @@
+name: Deploy VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - ".agents/**"
+      - "attached_assets/**"
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Require SSH secrets
+        env:
+          HOST: ${{ secrets.FANNI_VPS_HOST }}
+          USER: ${{ secrets.FANNI_VPS_USER }}
+          KEY: ${{ secrets.FANNI_VPS_SSH_KEY }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$KEY" ]; then
+            echo "Add GitHub secrets FANNI_VPS_HOST (origin IP, not Cloudflare), FANNI_VPS_USER, FANNI_VPS_SSH_KEY."
+            echo "Optional: FANNI_VPS_PORT (default 22)."
+            exit 1
+          fi
+
+      - name: Pull on origin and reload
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.FANNI_VPS_HOST }}
+          username: ${{ secrets.FANNI_VPS_USER }}
+          key: ${{ secrets.FANNI_VPS_SSH_KEY }}
+          port: ${{ secrets.FANNI_VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP_DIR="${FANNI_APP_DIR:-/var/www/fanni}"
+            cd "$APP_DIR"
+            if [ ! -d .git ]; then
+              echo "ERROR: $APP_DIR is not a git checkout. Run scripts/vps-bootstrap-from-github.sh once."
+              exit 1
+            fi
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+            sed -i 's/\r$//' scripts/deploy-vps.sh
+            export FANNI_APP_DIR="$APP_DIR"
+            bash scripts/deploy-vps.sh
