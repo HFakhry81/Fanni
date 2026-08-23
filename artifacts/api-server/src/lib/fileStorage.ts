@@ -10,8 +10,45 @@ export type StoredFile = {
   url: string;
 };
 
+export type UploadKind = "id" | "carnehat" | "uploads";
+
+export function parseUploadKind(raw: unknown): UploadKind {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (value === "id" || value === "national_id" || value === "card") return "id";
+  if (value === "carnehat" || value === "license" || value === "kyc_license") return "carnehat";
+  return "uploads";
+}
+
+export function isAllowedObjectKey(objectName: string): boolean {
+  if (!objectName || objectName.includes("..") || objectName.includes("\\")) return false;
+  return /^(uploads|id|carnehat)\/[A-Za-z0-9._/-]+$/.test(objectName);
+}
+
 function localRoot(): string {
   return process.env["PRIVATE_OBJECT_DIR"] || "./uploads";
+}
+
+export function localRootForKind(kind: UploadKind): string {
+  if (kind === "id") {
+    return process.env["PRIVATE_OBJECT_DIR_ID"] || path.join(localRoot(), "id");
+  }
+  if (kind === "carnehat") {
+    return process.env["PRIVATE_OBJECT_DIR_CARNEHAT"] || path.join(localRoot(), "carnehat");
+  }
+  return path.join(localRoot(), "uploads");
+}
+
+export function kindFromObjectName(objectName: string): UploadKind {
+  if (objectName.startsWith("id/")) return "id";
+  if (objectName.startsWith("carnehat/")) return "carnehat";
+  return "uploads";
+}
+
+export function resolveLocalAbsPath(objectName: string): string {
+  const kind = kindFromObjectName(objectName);
+  const prefix = `${kind}/`;
+  const rest = objectName.startsWith(prefix) ? objectName.slice(prefix.length) : objectName;
+  return path.resolve(localRootForKind(kind), rest);
 }
 
 export function storageDriver(): "local" | "gcs" {
@@ -36,13 +73,15 @@ export async function storePrivateImage(opts: {
   buffer: Buffer;
   mimeType: string;
   uploadedBy: string;
+  kind?: UploadKind;
 }): Promise<StoredFile> {
   const ext = extFor(opts.mimeType);
-  const objectName = `uploads/${opts.uploadedBy}/${randomUUID()}.${ext}`;
+  const kind = opts.kind ?? "uploads";
+  const objectName = `${kind}/${opts.uploadedBy}/${randomUUID()}.${ext}`;
   const driver = storageDriver();
 
   if (driver === "local") {
-    const abs = path.resolve(localRoot(), objectName);
+    const abs = resolveLocalAbsPath(objectName);
     await mkdir(path.dirname(abs), { recursive: true });
     await writeFile(abs, opts.buffer);
     return {
@@ -59,7 +98,7 @@ export async function storePrivateImage(opts: {
   const file = objectStorageClient.bucket(bucketName).file(objectName);
   await file.save(opts.buffer, {
     contentType: opts.mimeType,
-    metadata: { uploadedBy: opts.uploadedBy, visibility: "private" },
+    metadata: { uploadedBy: opts.uploadedBy, visibility: "private", kind },
   });
   return {
     storage: "gcs",
@@ -70,12 +109,12 @@ export async function storePrivateImage(opts: {
 }
 
 export async function readPrivateImage(objectName: string): Promise<{ buffer: Buffer; contentType: string }> {
-  if (!objectName.startsWith("uploads/") || objectName.includes("..")) {
+  if (!isAllowedObjectKey(objectName)) {
     throw new Error("Invalid object key");
   }
   const driver = storageDriver();
   if (driver === "local") {
-    const abs = path.resolve(localRoot(), objectName);
+    const abs = resolveLocalAbsPath(objectName);
     const buffer = await readFile(abs);
     const ext = path.extname(objectName).slice(1);
     const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";

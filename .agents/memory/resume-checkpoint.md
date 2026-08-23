@@ -1,12 +1,19 @@
 ---
 name: Resume checkpoint 23 Aug 2026
-description: GL first slice and 7-tab admin IA shipped; migrate 020 applied locally.
+description: VPS deploy cannot SSH from this PC (Cloudflare + no key); run deploy-vps.sh on origin.
 ---
 
-Shipped locally: double-entry GL (`020_general_ledger.sql` applied — re-run migrate reported all 20 files already applied), postings on payment/welcome/unlock/refund/expense, trial balance + journal APIs, GL section on admin ledger plus accounting trial balance, admin tabs collapsed to 7 hubs.
+Live `https://api.upnexa-eg.com/api/healthz` returns 200. DNS is Cloudflare; SSH to that hostname times out. This Windows machine has no `~/.ssh` keys.
 
-Still waiting on secrets/live: Twilio env, OPay API, production VPS, live e2e on device. KYC card store still needs VPS (`pending_review` exists).
+Operator: on the Ubuntu origin (existing panel/SSH), from the app clone:
 
-Next: do not re-implement GL. Remaining product work is KYC/VPS, live e2e, then Twilio/OPay when credentials exist. Later GL: fiscal periods, cost centers, cash-flow, gateway settlement, Super Admin fee-percent UI (setting key exists, default 0).
+```
+git pull
+bash scripts/deploy-vps.sh
+```
 
-Do not edit the orders plan file.
+That creates `/var/www/storage/fanni/{id,carnehat,uploads}`, merges missing `.env` keys from `deploy/env.production.example`, migrates, builds, reloads PM2 `fanni-api` on port 5000.
+
+Do not put SSH passwords in chat. Twilio still needs Console AC SID + token. OPay still deferred.
+
+Do not re-implement GL. Do not edit the orders plan file.

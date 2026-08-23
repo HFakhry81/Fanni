@@ -17,6 +17,6 @@ export function isAutoEligibleReason(reason: string): boolean {
 }
 
 export function autoDisputeDailyCap(): number {
-  const n = Number(process.env["DISPUTE_AUTO_DAILY_CAP"] ?? "3");
-  return Number.isFinite(n) && n > 0 ? n : 3;
+  const n = Number(process.env["DISPUTE_AUTO_DAILY_CAP"] ?? "2");
+  return Number.isFinite(n) && n > 0 ? n : 2;
 }

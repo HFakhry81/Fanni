@@ -9,13 +9,19 @@ const LOCAL_DEV_ORIGINS = [
   "http://127.0.0.1:19006",
 ];
 
+/** Used when NODE_ENV=production and CORS_ORIGINS is unset. Native apps send no Origin. */
+export const PRODUCTION_CORS_ORIGINS = [
+  "https://api.upnexa-eg.com",
+  "https://app.upnexa-eg.com",
+];
+
 export function allowedCorsOrigins(): string[] {
   const raw = process.env["CORS_ORIGINS"]?.trim();
   if (raw) {
     return raw.split(",").map((s) => s.trim()).filter(Boolean);
   }
   if (process.env["NODE_ENV"] === "production") {
-    return [];
+    return [...PRODUCTION_CORS_ORIGINS];
   }
   return LOCAL_DEV_ORIGINS;
 }

@@ -8,12 +8,14 @@ export async function uploadPhotoToServer(
   fileUri: string,
   sessionToken: string,
   mimeType: string = "image/jpeg",
+  purpose: "id" | "carnehat" | "uploads" = "uploads",
 ): Promise<UploadResult> {
   const apiBase = getApiBase();
   if (!apiBase) throw new Error("API base URL is not configured");
 
   const formData = new FormData();
   const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+  formData.append("purpose", purpose);
   formData.append("file", {
     uri: fileUri,
     type: mimeType,

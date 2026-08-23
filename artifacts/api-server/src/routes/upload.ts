@@ -3,7 +3,7 @@ import multer from "multer";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { checkRateLimit, clientIp } from "../lib/rateLimit";
-import { readPrivateImage, storePrivateImage } from "../lib/fileStorage";
+import { isAllowedObjectKey, parseUploadKind, readPrivateImage, storePrivateImage } from "../lib/fileStorage";
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_SIZE_BYTES = 8 * 1024 * 1024;
@@ -24,7 +24,7 @@ const router = Router();
 
 router.get("/uploads/file", authMiddleware, requireAuth, async (req: Request, res: Response) => {
   const key = typeof req.query.key === "string" ? req.query.key : "";
-  if (!key.startsWith("uploads/")) {
+  if (!isAllowedObjectKey(key)) {
     res.status(400).json({ error: "Invalid file key" });
     return;
   }
@@ -82,6 +82,7 @@ router.post(
         buffer: req.file.buffer,
         mimeType: req.file.mimetype,
         uploadedBy: req.user!.id,
+        kind: parseUploadKind((req.body as { purpose?: string } | undefined)?.purpose),
       });
       res.status(201).json({
         url: stored.url,

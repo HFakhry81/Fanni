@@ -524,6 +524,7 @@ export default function RegisterScreen() {
                 setUploadingPhoto(slot);
                 const formData = new FormData();
                 const ext = uri.endsWith(".png") ? "png" : uri.endsWith(".webp") ? "webp" : "jpg";
+                formData.append("purpose", slot === "license" ? "carnehat" : "id");
                 formData.append("file", { uri, type: `image/${ext === "jpg" ? "jpeg" : ext}`, name: `photo.${ext}` } as unknown as Blob);
                 const uploadRes = await fetch(`${apiBase}/api/upload`, {
                   method: "POST",
