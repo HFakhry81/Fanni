@@ -1,47 +1,71 @@
-# رفع فني على VPS (UpNexa) — الترتيب مهم
+# رفع الباك اند + الفرونت عبر WinSCP (الترتيب مهم)
 
-Twilio **غير مطلوب** لهذا الرفع. اترك `TWILIO_*` فارغة؛ الاتصال المقنّع يعيد 503 بالعربية حتى يتوفر الحساب.
+المجلد `/var/www/storage/fanni` للصور فقط. **لا تضع فيه الكود.**
+الكود: `/var/www/fanni`
+الواجهة الويب: `/var/www/fanni-web`
+Twilio وOPay ليسا جزءاً من هذا الرفع. لا ترفع `.env` المحلي ولا `backup.sql` ولا `node_modules`.
 
-لا تستخدم `ssh api.upnexa-eg.com` — النطاق خلف Cloudflare. ادخل بلوحة الاستضافة أو IP الأصل.
+## أ) على ويندوز (مرة)
 
-لا تضع باسورد SSH أو توكن Twilio في الشات أو في git.
+من مجلد المشروع:
 
-## على جهازك (تم)
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\pack-vps-upload.ps1
+```
 
-- الكود على `main`: `e68d31f` وما بعده على GitHub.
-- التطبيق المحلي يبقى كما هو؛ الرفع يتم من السيرفر عبر `git pull`.
+ينتج: `C:\Users\Sam\Downloads\fanni-vps-upload.zip`
 
-## على سيرفر Ubuntu (بهذا الترتيب)
+## ب) WinSCP
 
-1. ادخل جلسة الأصل (ليس Cloudflare).
-2. اذهب لمجلد النسخة الحالي (غالباً `/var/www/fanni` أو مسار PM2 الحالي):
-   `cd /path/to/Fanni && pwd`
-3. إن كان السكربت بنهاية سطر ويندوز:
-   `sed -i 's/\r$//' scripts/deploy-vps.sh`
-4. حدّث الكود:
-   `git fetch origin && git checkout main && git pull origin main`
-5. راجع `.env` في جذر المشروع (لا تستبدله بالكامل):
-   - أبقِ `DATABASE_URL` و`SESSION_SECRET` الحاليين.
-   - أضف إن نقص: `PORT=5000` `NODE_ENV=production` `PUBLIC_API_URL=https://api.upnexa-eg.com`
-   - `CORS_ORIGINS=https://api.upnexa-eg.com,https://app.upnexa-eg.com`
-   - `STORAGE_DRIVER=local`
-   - `PRIVATE_OBJECT_DIR=/var/www/storage/fanni`
-   - `PRIVATE_OBJECT_DIR_ID=/var/www/storage/fanni/id`
-   - `PRIVATE_OBJECT_DIR_CARNEHAT=/var/www/storage/fanni/carnehat`
-   - `DISPUTE_AUTO_DAILY_CAP=2`
-   - `PAYMENT_PROVIDER=manual`
-   - **لا** تضف مفاتيح Twilio.
-6. إن كان اسم عملية PM2 ليس `fanni-api`:
-   `pm2 ls` ثم `export FANNI_PM2_NAME=الاسم`
-7. نفّذ:
-   `bash scripts/deploy-vps.sh`
-8. تحقق:
-   `curl -sS http://127.0.0.1:5000/api/healthz`
-   `curl -sS https://api.upnexa-eg.com/api/healthz`
-9. Apache كما هو (بروكسي إلى `127.0.0.1:5000` + websocket). لا تجعل مجلدات `id`/`carnehat` عامة.
-10. تطبيق الموبايل يشير أصلاً إلى `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` — لا حاجة لرفع APK مع هذا التحديث ما لم تغيّر واجهة العميل.
+1. ارفع الزيب إلى `/root/fanni-vps-upload.zip` (ليس داخل `storage/fanni`).
+2. Commands → Open Terminal:
 
-## بعد الرفع (اختياري)
+```bash
+mkdir -p /var/www/fanni /var/www/fanni-web /var/www/storage/fanni/{id,carnehat,avatars,documents,uploads}
+KEEP_ENV=""
+if [ -f /var/www/fanni/.env ]; then cp /var/www/fanni/.env /root/fanni.env.bak; KEEP_ENV=1; fi
+rm -rf /tmp/fanni-unpack
+mkdir /tmp/fanni-unpack
+unzip -o /root/fanni-vps-upload.zip -d /tmp/fanni-unpack
+rsync -a --delete --exclude '.env' /tmp/fanni-unpack/ /var/www/fanni/
+if [ -n "$KEEP_ENV" ]; then cp /root/fanni.env.bak /var/www/fanni/.env; fi
+if [ -d /var/www/fanni/artifacts/mobile/dist-web ]; then
+  rsync -a --delete /var/www/fanni/artifacts/mobile/dist-web/ /var/www/fanni-web/
+fi
+```
 
-- مسار قبول: تسجيل فني بصور → اعتماد → شحن يدوي → طلب → موافق وكمل → وصول. بدون اتصال مقنّع.
-- OPay لاحقاً. Twilio لاحقاً.
+3. أكمل `.env` على السيرفر إن كان جديداً (انظر القيم أسفل). لا تستبدل `DATABASE_URL` القديم.
+4. إن وُجد باك اند قديم في مسار آخر: `pm2 ls` ثم أوقفه بعد نجاح المسار الجديد حتى لا يتعارض المنفذ 5000.
+
+```bash
+cd /var/www/fanni
+sed -i 's/\r$//' scripts/deploy-vps.sh
+export FANNI_APP_DIR=/var/www/fanni
+# إن لزم: export FANNI_PM2_NAME=اسم_العملية_القديمة
+bash scripts/deploy-vps.sh
+```
+
+5. Apache: أبقِ `api.upnexa-eg.com` بروكسي إلى `127.0.0.1:5000`. أضف موقع الواجهة من `deploy/apache-app.upnexa-eg.com.conf` على `app.upnexa-eg.com` ثم:
+
+```bash
+apachectl configtest && systemctl reload apache2
+curl -sS http://127.0.0.1:5000/api/healthz
+curl -sS https://api.upnexa-eg.com/api/healthz
+```
+
+## قيم `.env` الناقصة على السيرفر
+
+```
+PORT=5000
+NODE_ENV=production
+PUBLIC_API_URL=https://api.upnexa-eg.com
+CORS_ORIGINS=https://api.upnexa-eg.com,https://app.upnexa-eg.com
+STORAGE_DRIVER=local
+PRIVATE_OBJECT_DIR=/var/www/storage/fanni
+PRIVATE_OBJECT_DIR_ID=/var/www/storage/fanni/id
+PRIVATE_OBJECT_DIR_CARNEHAT=/var/www/storage/fanni/carnehat
+DISPUTE_AUTO_DAILY_CAP=2
+PAYMENT_PROVIDER=manual
+```
+
+لا تضف `TWILIO_*`. الموبايل الأصلي يستخدم `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` بعد بناء الويب محلياً داخل سكربت الحزمة.
