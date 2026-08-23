@@ -24,6 +24,6 @@
 👉 **الطلب:** يرجى التفاعل والرد بناءً على المعطيات والهيكلية البرمجية المذكورة أعلاه.
 
 4. **النشر على الـ VPS (لا باسورد SSH في الشات):**
-   - النطاق العام خلف **Cloudflare**؛ `ssh` إلى `api.upnexa-eg.com` يصل لحافة Cloudflare وليس أصل Ubuntu. ادخل من لوحة الاستضافة أو من IP الأصل (السحابة الرمادية / سجل DNS غير مُproxied).
-   - على السيرفر من مجلد النسخة: `git pull` ثم `bash scripts/deploy-vps.sh` (مجلدات KYC، migrate، build، PM2 على المنفذ 5000).
-   - قالب البيئة: `deploy/env.production.example` — لا تنسخ أسرار قاعدة البيانات إلى git.
+   - الترتيب الكامل: [`deploy/VPS-STEPS.md`](deploy/VPS-STEPS.md)
+   - النطاق العام خلف **Cloudflare**؛ ادخل من لوحة الاستضافة أو IP الأصل ثم `git pull` و`bash scripts/deploy-vps.sh`.
+   - Twilio وOPay ليسا جزءاً من هذا الرفع.

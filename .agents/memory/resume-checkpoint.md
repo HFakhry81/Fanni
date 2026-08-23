@@ -1,19 +1,10 @@
 ---
 name: Resume checkpoint 23 Aug 2026
-description: VPS deploy cannot SSH from this PC (Cloudflare + no key); run deploy-vps.sh on origin.
+description: Twilio deferred; VPS upload is ordered steps on origin (git pull + deploy-vps.sh).
 ---
 
-Live `https://api.upnexa-eg.com/api/healthz` returns 200. DNS is Cloudflare; SSH to that hostname times out. This Windows machine has no `~/.ssh` keys.
+Twilio is out of scope for this ship. Masked calling stays 503 until Console credentials exist.
 
-Operator: on the Ubuntu origin (existing panel/SSH), from the app clone:
+Closeout for VPS: follow `deploy/VPS-STEPS.md` on the Ubuntu origin (not Cloudflare). Local Windows copy is already on `main`; server must `git pull` then `bash scripts/deploy-vps.sh`.
 
-```
-git pull
-bash scripts/deploy-vps.sh
-```
-
-That creates `/var/www/storage/fanni/{id,carnehat,uploads}`, merges missing `.env` keys from `deploy/env.production.example`, migrates, builds, reloads PM2 `fanni-api` on port 5000.
-
-Do not put SSH passwords in chat. Twilio still needs Console AC SID + token. OPay still deferred.
-
-Do not re-implement GL. Do not edit the orders plan file.
+Do not re-implement GL. Do not edit the orders plan file. Do not put SSH passwords in chat.

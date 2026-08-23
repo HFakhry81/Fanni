@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Run THIS SCRIPT ON THE UBUNTU VPS (SSH/panel session you already have).
-# This Windows/Cursor machine cannot SSH: api.upnexa-eg.com is Cloudflare-proxied
-# (port 22 hits Cloudflare, not origin) and there is no local SSH key.
+# Run on the Ubuntu origin (not through Cloudflare DNS).
+# If this file has Windows CRLF: sed -i 's/\r$//' scripts/deploy-vps.sh
 #
-#   cd /var/www/fanni   # or your clone path
+#   cd /path/to/Fanni
 #   git pull
 #   bash scripts/deploy-vps.sh
+#
+# Existing PM2 name, if not fanni-api:
+#   FANNI_PM2_NAME=your-process bash scripts/deploy-vps.sh
 #
 set -euo pipefail
 
@@ -15,6 +17,7 @@ cd "$ROOT"
 STORAGE_ROOT="${PRIVATE_OBJECT_DIR:-/var/www/storage/fanni}"
 STORAGE_ID="${PRIVATE_OBJECT_DIR_ID:-${STORAGE_ROOT}/id}"
 STORAGE_CARNEHAT="${PRIVATE_OBJECT_DIR_CARNEHAT:-${STORAGE_ROOT}/carnehat}"
+PM2_NAME="${FANNI_PM2_NAME:-fanni-api}"
 
 echo "[deploy] app root: $ROOT"
 echo "[deploy] ensuring private storage dirs (no public Alias)"
@@ -28,28 +31,40 @@ fi
 ENV_FILE="$ROOT/.env"
 EXAMPLE="$ROOT/deploy/env.production.example"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "[deploy] no .env — copying keys from deploy/env.production.example (fill DATABASE_URL and SESSION_SECRET)"
+  echo "[deploy] no .env — copying keys from deploy/env.production.example (fill DATABASE_URL and SESSION_SECRET then re-run)"
   cp "$EXAMPLE" "$ENV_FILE"
-else
-  echo "[deploy] .env exists — appending missing keys only"
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      ""|\#*) continue ;;
-    esac
-    key="${line%%=*}"
-    if ! grep -qE "^${key}=" "$ENV_FILE"; then
-      printf '%s\n' "$line" >> "$ENV_FILE"
-      echo "[deploy] added missing key $key"
-    fi
-  done < "$EXAMPLE"
+  echo "[deploy] ERROR: edit $ENV_FILE then run this script again"
+  exit 1
 fi
 
-if [ ! -f "$ROOT/.env" ]; then
-  echo "[deploy] ERROR: .env missing"
+echo "[deploy] .env exists — appending missing non-Twilio keys only"
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in
+    ""|\#*) continue ;;
+  esac
+  key="${line%%=*}"
+  case "$key" in
+    TWILIO_*) continue ;;
+  esac
+  if ! grep -qE "^${key}=" "$ENV_FILE"; then
+    printf '%s\n' "$line" >> "$ENV_FILE"
+    echo "[deploy] added missing key $key"
+  fi
+done < "$EXAMPLE"
+
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+if [ -z "${DATABASE_URL:-}" ] || [ -z "${SESSION_SECRET:-}" ]; then
+  echo "[deploy] ERROR: DATABASE_URL and SESSION_SECRET must be set in .env"
   exit 1
 fi
 
 export FANNI_APP_DIR="$ROOT"
+export NODE_ENV=production
+export PORT="${PORT:-5000}"
 
 if command -v pnpm >/dev/null 2>&1; then
   PNPM=pnpm
@@ -67,16 +82,17 @@ echo "[deploy] install + migrate + build"
 "$PNPM" --filter @workspace/api-server run build
 
 if command -v pm2 >/dev/null 2>&1; then
-  echo "[deploy] restart PM2 fanni-api"
-  FANNI_APP_DIR="$ROOT" pm2 startOrReload "$ROOT/deploy/ecosystem.config.cjs" --update-env
+  echo "[deploy] PM2 process: $PM2_NAME"
+  FANNI_APP_DIR="$ROOT" pm2 startOrReload "$ROOT/deploy/ecosystem.config.cjs" --update-env --only "$PM2_NAME"
   pm2 save || true
 else
   echo "[deploy] PM2 not found — start with: PORT=5000 NODE_ENV=production $PNPM --filter @workspace/api-server run start"
 fi
 
 echo "[deploy] local health check"
-if curl -sf "http://127.0.0.1:5000/api/healthz" >/dev/null || curl -sf "http://127.0.0.1:5000/healthz" >/dev/null; then
+sleep 2
+if curl -sf "http://127.0.0.1:${PORT}/api/healthz" >/dev/null || curl -sf "http://127.0.0.1:${PORT}/healthz" >/dev/null; then
   echo "[deploy] local API healthy"
 else
-  echo "[deploy] WARN: local healthz failed — check pm2 logs"
+  echo "[deploy] WARN: local healthz failed — pm2 logs $PM2_NAME"
 fi

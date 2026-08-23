@@ -18,6 +18,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       max_memory_restart: "512M",
+      env_file: path.join(appDir, ".env"),
       env: {
         NODE_ENV: "production",
         PORT: "5000",

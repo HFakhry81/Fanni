@@ -34,7 +34,7 @@ router.post("/orders/:id/masked-call", authMiddleware, requireAuth, async (req: 
   if (!isMaskedCallingConfigured()) {
     res.status(503).json({
       error: "Masked calling is not configured",
-      message: "الاتصال المقنّع مش مفعّل. لازم رقم Twilio وPUBLIC_API_URL على السيرفر.",
+      message: "الاتصال المقنّع مش متاح حالياً. الطلب والمسار يكمّلوا من غير مكالمة من المنصة.",
     });
     return;
   }
