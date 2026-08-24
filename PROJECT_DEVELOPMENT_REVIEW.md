@@ -111,6 +111,39 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
+| 12 | [~] | M4 APK | مسار EAS لأندرويد جاهز في الكود؛ **لم يُنتَج APK ناجح بعد** ولا يوجد ملف على الـ VPS للتحميل |
+
+---
+
+## تقرير APK / EAS (24 أغسطس 2026) — آخر مشكلة حيّة
+
+### ماذا أردنا
+نسخة **APK** للإنتاج مرتبطة بـ `https://api.upnexa-eg.com`، تُرفع على الـ VPS ويُحمَّل التطبيق من `https://app.upnexa-eg.com/fanni.apk` عبر WinSCP إلى `/var/www/fanni-web/fanni.apk`. الـ VPS لا يبني أندرويد.
+
+### المشاكل التي ظهرت (بالترتيب) وما نُفِّذ
+
+| # | العَرَض | السبب الحقيقي | الحل المنفَّذ |
+|---|---|---|---|
+| 1 | فشل «كل طرق» استخراج APK | سكربت `pnpm build` في الموبايل يحزّم Expo Go/Replit وليس APK؛ `eas.json` كان في جذر المستودع بينما `app.json` في `artifacts/mobile` | إبقاء `eas.json` داخل الموبايل فقط؛ بروفايل `preview` بـ `buildType: apk` و`EXPO_PUBLIC_API_URL` |
+| 2 | EAS: `eas-build-pre-install` رمز 1 | `pnpm install --frozen-lockfile` بينما `package.json` على حزم SDK 54 (`expo-clipboard` ~8، `expo-file-system` ~18، `expo-notifications` ~0.32) و`pnpm-lock.yaml` ما زال على مواصفات SDK 55 | السكربت أصبح `pnpm install --no-frozen-lockfile` (`ad76264`) حتى سحابة Expo تثبّت الإصدارات من المانيفست. تحديث الـ lockfile محليًا فشل بسبب شهادة SSL على npm |
+| 3 | محليًا: `Run this command inside a project directory` | الأمر شُغِّل من PowerShell كمسؤول يبدأ من `C:\Windows\system32`؛ `npx eas-cli@16` لم يرَ `app.json` | سكربت `scripts/eas-apk.ps1` يثبت مجلد `artifacts/mobile` قبل البناء (`eb1687f`) |
+
+هجرات/بذور منفصلة عن APK (تمت في الكود): `021_schema_gap_repair.sql` + `pnpm --filter @workspace/db run seed` في `deploy-vps.sh` و`migrate-local.ps1`.
+
+### آخر مشكلة موجودة الآن (مفتوحة)
+
+**لم يكتمل بناء EAS بنجاح بعد هذا الإصلاح، ولا يوجد `fanni.apk` على السيرفر.**
+
+الخطوة الواجبة على جهاز ويندوز (من جذر المشروع، ليس من `system32`):
+
+```powershell
+cd C:\Fanni
+powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
+```
+
+بعد حالة **Finished** على Expo: تنزيل APK → WinSCP إلى `/var/www/fanni-web/fanni.apk` → `chmod 644` → فتح `https://app.upnexa-eg.com/fanni.apk`.
+
+إن فشل البناء التالي: أرسل رابط صفحة Build على expo.dev (مرحلة Gradle تختلف عن Pre-install وعن «مجلد المشروع»).
 
 ---
 
@@ -176,6 +209,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
+| 24 أغسطس 2026 | APK / EAS | تشخيص فشل البناء: lockfile مجمّد + تشغيل eas من system32؛ إصلاح pre-install وسكربت `eas-apk.ps1`؛ توثيق الرفع عبر WinSCP | تشغيل `scripts/eas-apk.ps1` حتى Finished؛ تنزيل APK؛ رفع `/var/www/fanni-web/fanni.apk`؛ تحديث lockfile محليًا عند صلاح SSL |
 | 24 أغسطس 2026 | نقل محلي + مسار GitHub | تثبيت pnpm؛ migrate 20/20 على Postgres المحلي؛ API على :3000 (`/healthz` 200)؛ CI + Deploy workflows؛ bootstrap VPS من GitHub | أسرار GitHub SSH ثم دفع `main`؛ e2e حي؛ Twilio؛ OPay؛ فترات GL |
 | 23 أغسطس 2026 | تقفيلة رفع VPS | Twilio مؤجّل؛ خطوات `deploy/VPS-STEPS.md`؛ السكربت يحمّل `.env` ولا يضيف مفاتيح Twilio | تشغيل الخطوات على أصل Ubuntu |
 | 23 أغسطس 2026 | تأكيد migrate 020 | إعادة تشغيل `pnpm --filter @workspace/db run migrate`: كل 20 ملفًا مطبّقة مسبقًا (020 موجود على Postgres المحلي) | KYC VPS، e2e حي، Twilio بيئة، OPay، VPS، إكمال GL (فترات/مراكز/تسوية) |
