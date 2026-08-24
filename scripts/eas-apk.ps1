@@ -1,10 +1,9 @@
-# Run from anywhere. Forces cwd to the Expo app so eas-cli finds app.json.
 $ErrorActionPreference = "Stop"
-$mobile = Join-Path $PSScriptRoot "..\artifacts\mobile" | Resolve-Path
-Set-Location $mobile
+$mobile = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\artifacts\mobile"))
+Set-Location -LiteralPath $mobile
 Write-Host "EAS project directory: $mobile"
-if (-not (Test-Path ".\app.json")) {
+if (-not (Test-Path -LiteralPath ".\app.json")) {
     Write-Host "ERROR: app.json not found. Wrong repo path." -ForegroundColor Red
     exit 1
 }
-npx --yes eas-cli@16 build -p android --profile preview
+npx --yes eas-cli@16 build --platform android --profile preview --non-interactive
