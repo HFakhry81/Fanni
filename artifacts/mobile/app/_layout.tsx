@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/react-native";
 Sentry.init({
   dsn: "https://f65a29e74485fd160dc1d53e3b2a3a73@o4511786733207552.ingest.de.sentry.io/4511786758045776",
   tracesSampleRate: 1.0,
-  debug: true,
+  debug: __DEV__,
 });
 import {
   Inter_400Regular,

@@ -29,6 +29,17 @@
     "android": {
       "package": "com.fanni.app",
       "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "POST_NOTIFICATIONS",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -51,12 +62,18 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://app.upnexa-eg.com"
         }
       ],
       "expo-font",
       "expo-web-browser",
       "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Fanni to use your location to match nearby technicians and confirm arrival."
+        }
+      ],
       "@react-native-community/datetimepicker",
       [
         "expo-notifications",
@@ -73,7 +90,7 @@
     },
     "extra": {
       "router": {
-        "origin": "https://replit.com/"
+        "origin": "https://app.upnexa-eg.com"
       },
       "eas": {
         "projectId": "79926a52-10d3-4d54-ac9b-b20ae9186e46"

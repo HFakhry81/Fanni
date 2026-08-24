@@ -1,10 +1,25 @@
 {
   "cli": {
-    "version": ">= 14.0.0"
+    "version": ">= 14.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "preview": {
       "distribution": "internal",
+      "pnpm": "10.15.1",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.upnexa-eg.com"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "distribution": "internal",
+      "pnpm": "10.15.1",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.upnexa-eg.com"
+      },
       "android": {
         "buildType": "apk"
       }

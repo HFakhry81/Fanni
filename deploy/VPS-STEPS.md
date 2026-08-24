@@ -86,3 +86,30 @@ PAYMENT_PROVIDER=manual
 ```
 
 لا تضف `TWILIO_*`. الموبايل الأصلي يستخدم `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` بعد بناء الويب محلياً داخل سكربت الحزمة.
+
+---
+
+## بناء APK عبر EAS ورفعه على الـ VPS
+
+الـ VPS **لا يبني** ملف Android. البناء من جهازك (بعد `eas login`) داخل مجلد الموبايل فقط — ليس من جذر المستودع.
+
+```powershell
+cd artifacts\mobile
+npx eas-cli@16 login
+npx eas-cli@16 build -p android --profile preview
+```
+
+أو من جذر المشروع: `pnpm --filter @workspace/mobile run eas:apk`
+
+البروفايل `preview` يضبط `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` ويخرج **APK** (توزيع داخلي). بعد نجاح البناء نزّل الملف من صفحة Expo ثم ارفعه إلى مجلد الويب، مثلاً:
+
+```bash
+# على الـ VPS
+install -d /var/www/fanni-web
+# بعد نسخ fanni.apk من جهازك إلى السيرفر:
+cp /root/fanni.apk /var/www/fanni-web/fanni.apk
+```
+
+رابط التحميل المتوقع: `https://app.upnexa-eg.com/fanni.apk` (Apache يخدم `/var/www/fanni-web`).
+
+GitHub Action اختياري يحتاج secret `EXPO_TOKEN` — غير مُضاف هنا حتى تضع التوكن بنفسك.

@@ -24,5 +24,5 @@ export function getApiBase(): string {
     }
   }
 
-  return "";
+  return "https://api.upnexa-eg.com";
 }

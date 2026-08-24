@@ -76,9 +76,10 @@ else
   PNPM=pnpm
 fi
 
-echo "[deploy] install + migrate + build"
+echo "[deploy] install + migrate + seed + build"
 "$PNPM" install --frozen-lockfile
 "$PNPM" --filter @workspace/db run migrate
+"$PNPM" --filter @workspace/db run seed
 "$PNPM" --filter @workspace/api-server run build
 
 if command -v pm2 >/dev/null 2>&1; then
