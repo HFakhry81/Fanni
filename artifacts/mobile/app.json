@@ -26,7 +26,7 @@
         ]
       }
     },
- "android": {
+    "android": {
       "package": "com.fanni.app",
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
@@ -70,6 +70,14 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "origin": "https://replit.com/"
+      },
+      "eas": {
+        "projectId": "79926a52-10d3-4d54-ac9b-b20ae9186e46"
+      }
     }
   }
 }
