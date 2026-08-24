@@ -46,6 +46,7 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  '@react-navigation/core': 7.21.13
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   'react-devtools-core>shell-quote': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'

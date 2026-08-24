@@ -1,6 +1,6 @@
 # Fanni — مراجعة تطور المشروع (مرجع مستمر)
 
-آخر مراجعة: 24 أغسطس 2026
+آخر مراجعة: 25 أغسطس 2026
 
 منصة طلبات صيانة منزلية في مصر: عميل ينشئ طلبًا، النظام يطابق فنيًا، الفني يدفع نقاطًا لكشف بيانات العميل، ثم تتبع جغرافي وتأكيد وصول ونتيجة خدمة وفوترة ثلاثية.
 
@@ -111,11 +111,38 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [~] | M4 APK | مسار EAS لأندرويد جاهز في الكود؛ **لم يُنتَج APK ناجح بعد** ولا يوجد ملف على الـ VPS للتحميل |
+| 12 | [~] | M4 APK | بناء EAS `preview` نجح (`0d1b9846`). APK محليًا: `artifacts/mobile/dist/fanni.apk`. ارفع عبر WinSCP إلى `/var/www/fanni-web/fanni.apk` |
 
 ---
 
-## تقرير APK / EAS (24 أغسطس 2026) — آخر مشكلة حيّة
+## تقرير APK / EAS (24–25 أغسطس 2026)
+
+### ملخص الجلسة
+
+**الهدف:** APK إنتاجي مرتبط بـ `https://api.upnexa-eg.com`، يُحمَّل من `https://app.upnexa-eg.com/fanni.apk` بعد رفعه على الـ VPS (WinSCP → `/var/www/fanni-web/fanni.apk`). الـ VPS لا يبني أندرويد؛ البناء على EAS Cloud من `artifacts/mobile`.
+
+**ما كان جاهزًا في الكود قبل هذه الجلسة:** هجرة `021_schema_gap_repair.sql`، أمر `pnpm --filter @workspace/db run seed`، `eas.json` داخل الموبايل فقط، بروفايل `preview` (`buildType: apk`)، `scripts/eas-apk.ps1`، توثيق في `deploy/VPS-STEPS.md`.
+
+**محاولات البناء على EAS (بالترتيب):**
+
+| Build ID | المرحلة التي سقطت | السبب |
+|---|---|---|
+| `e39d19dd` | Bundle JavaScript | `Invalid call … process.env.EXPO_ROUTER_APP_ROOT` في `expo-router/_ctx.android.js` |
+| `c23a3e77` | Bundle JS (ثم Gradle في محاولة لاحقة) | تكرار `@react-navigation/core` (7.17.2 vs 7.21.13)؛ ثم `sentry-cli` بدون `--org` |
+| `0d1b9846` | — | **نجح** — APK ~40MB |
+
+**إصلاحات طُبّقت في الجلسة:**
+
+- محاذاة حزم SDK 54 في `package.json` + تحديث `pnpm-lock.yaml` (محليًا: `NODE_OPTIONS=--use-system-ca` عند فشل TLS على npm).
+- إزالة الاعتماد المباشر على `@react-navigation/core@7.17.2`؛ `usePreventRemove` من `@react-navigation/native`؛ `pnpm.overrides` يثبّت `core` على 7.21.13.
+- `metro-router-ctx.js` + `resolveRequest` في `metro.config.js` لاستبدال `_ctx` Android بمسار `./app` ثابت.
+- بلجن `expo-router` صراحة في `babel.config.js`.
+- `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في `eas.json` (Sentry runtime عبر DSN يبقى).
+- `scripts/eas-apk.ps1`: `NODE_OPTIONS=--use-system-ca` على ويندوز.
+
+**النتيجة:** APK محليًا `artifacts/mobile/dist/fanni.apk`. صفحة البناء: https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/0d1b9846-8d39-402d-a46a-5e918d19e004
+
+**المتبقي اليدوي:** WinSCP → `/var/www/fanni-web/fanni.apk` → `chmod 644` → التحقق من `https://app.upnexa-eg.com/fanni.apk`. دفع تغييرات EAS إلى git عند الرغبة.
 
 ### ماذا أردنا
 نسخة **APK** للإنتاج مرتبطة بـ `https://api.upnexa-eg.com`، تُرفع على الـ VPS ويُحمَّل التطبيق من `https://app.upnexa-eg.com/fanni.apk` عبر WinSCP إلى `/var/www/fanni-web/fanni.apk`. الـ VPS لا يبني أندرويد.
@@ -125,25 +152,23 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | # | العَرَض | السبب الحقيقي | الحل المنفَّذ |
 |---|---|---|---|
 | 1 | فشل «كل طرق» استخراج APK | سكربت `pnpm build` في الموبايل يحزّم Expo Go/Replit وليس APK؛ `eas.json` كان في جذر المستودع بينما `app.json` في `artifacts/mobile` | إبقاء `eas.json` داخل الموبايل فقط؛ بروفايل `preview` بـ `buildType: apk` و`EXPO_PUBLIC_API_URL` |
-| 2 | EAS: `eas-build-pre-install` رمز 1 | `pnpm install --frozen-lockfile` بينما `package.json` على حزم SDK 54 (`expo-clipboard` ~8، `expo-file-system` ~18، `expo-notifications` ~0.32) و`pnpm-lock.yaml` ما زال على مواصفات SDK 55 | السكربت أصبح `pnpm install --no-frozen-lockfile` (`ad76264`) حتى سحابة Expo تثبّت الإصدارات من المانيفست. تحديث الـ lockfile محليًا فشل بسبب شهادة SSL على npm |
+| 2 | EAS: `eas-build-pre-install` رمز 1 | `pnpm install --frozen-lockfile` بينما `package.json` على حزم SDK 54 و`pnpm-lock.yaml` كان على مواصفات SDK 55 | حُدّث الـ lockfile (`expo-clipboard` ~8، `expo-file-system` ~19.0.24، `expo-notifications` ~0.32.17، netinfo 11.4.1، Sentry 7.2.0). `eas-build-pre-install` عاد إلى `--frozen-lockfile`. على ويندوز استخدم `NODE_OPTIONS=--use-system-ca` إن فشل TLS |
 | 3 | محليًا: `Run this command inside a project directory` | الأمر شُغِّل من PowerShell كمسؤول يبدأ من `C:\Windows\system32`؛ `npx eas-cli@16` لم يرَ `app.json` | سكربت `scripts/eas-apk.ps1` يثبت مجلد `artifacts/mobile` قبل البناء (`eb1687f`) |
+| 4 | EAS Prebuild: `expo doctor` | `expo-file-system` كان 18.0.12 (غير موجود كـ 18.0.24 على npm لـ SDK 54)؛ netinfo 11.5.2؛ Sentry 7.13.0 | محاذاة مع `bundledNativeModules` لـ SDK 54: `expo-file-system ~19.0.24`، netinfo `11.4.1`، Sentry `7.2.0`. الـ lockfile حُدّث محلياً مع `NODE_OPTIONS=--use-system-ca`؛ `eas-build-pre-install` عاد إلى `--frozen-lockfile` |
+| 5 | EAS Bundle JS: `EXPO_ROUTER_APP_ROOT` | Babel على EAS لا يحوّل `require.context(process.env.EXPO_ROUTER_APP_ROOT)` داخل `expo-router/_ctx.android.js` (pnpm: `hasModule('expo-router')` قد يفشل من `babel-preset-expo`) | ملف `metro-router-ctx.js` بمسار `./app` ثابت + `resolveRequest` يستبدل `_ctx`؛ بلجن expo-router صراحة في babel |
+| 6 | EAS Bundle JS: `expo doctor` + `export:embed` | نسختان من `@react-navigation/core` (7.17.2 مباشرة و7.21.13 تحت `@react-navigation/native`) | إزالة الاعتماد المباشر 7.17.2؛ الاستيراد من `@react-navigation/native`؛ `pnpm.overrides` يثبّت `core` على 7.21.13 |
+| 7 | EAS Gradle: رفع خرائط Sentry | `sentry-cli` بدون `--org` أثناء `createBundleReleaseJsAndAssets_SentryUpload` | `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في بروفايلات EAS (التشغيل يبقى عبر DSN) |
 
 هجرات/بذور منفصلة عن APK (تمت في الكود): `021_schema_gap_repair.sql` + `pnpm --filter @workspace/db run seed` في `deploy-vps.sh` و`migrate-local.ps1`.
 
-### آخر مشكلة موجودة الآن (مفتوحة)
+### الحالة الحالية
 
-**لم يكتمل بناء EAS بنجاح بعد هذا الإصلاح، ولا يوجد `fanni.apk` على السيرفر.**
-
-الخطوة الواجبة على جهاز ويندوز (من جذر المشروع، ليس من `system32`):
-
-```powershell
-cd C:\Fanni
-powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
-```
-
-بعد حالة **Finished** على Expo: تنزيل APK → WinSCP إلى `/var/www/fanni-web/fanni.apk` → `chmod 644` → فتح `https://app.upnexa-eg.com/fanni.apk`.
-
-إن فشل البناء التالي: أرسل رابط صفحة Build على expo.dev (مرحلة Gradle تختلف عن Pre-install وعن «مجلد المشروع»).
+| البند | الحالة |
+|---|---|
+| بناء EAS `preview` | **منتهٍ** (`0d1b9846`) |
+| APK محلي | `artifacts/mobile/dist/fanni.apk` (~40MB) |
+| APK على VPS | **لم يُرفع بعد** |
+| commit git للإصلاحات | **غير مُدفوع** (تغييرات محلية) |
 
 ---
 
@@ -209,7 +234,8 @@ powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 24 أغسطس 2026 | APK / EAS | تشخيص فشل البناء: lockfile مجمّد + تشغيل eas من system32؛ إصلاح pre-install وسكربت `eas-apk.ps1`؛ توثيق الرفع عبر WinSCP | تشغيل `scripts/eas-apk.ps1` حتى Finished؛ تنزيل APK؛ رفع `/var/www/fanni-web/fanni.apk`؛ تحديث lockfile محليًا عند صلاح SSL |
+| 25 أغسطس 2026 | APK / EAS — إغلاق البناء | ثلاث محاولات EAS؛ إصلاح lockfile SDK 54، تكرار `@react-navigation/core`، `EXPO_ROUTER_APP_ROOT`، رفع Sentry؛ بناء ناجح `0d1b9846`؛ APK في `artifacts/mobile/dist/fanni.apk` | رفع WinSCP إلى `/var/www/fanni-web/fanni.apk`؛ commit/push إصلاحات EAS؛ اختبار تثبيت APK على جهاز |
+| 24 أغسطس 2026 | APK / EAS — تشخيص | lockfile مجمّد + eas من system32؛ pre-install و`eas-apk.ps1`؛ توثيق WinSCP | (استُكمِل في 25 أغسطس) |
 | 24 أغسطس 2026 | نقل محلي + مسار GitHub | تثبيت pnpm؛ migrate 20/20 على Postgres المحلي؛ API على :3000 (`/healthz` 200)؛ CI + Deploy workflows؛ bootstrap VPS من GitHub | أسرار GitHub SSH ثم دفع `main`؛ e2e حي؛ Twilio؛ OPay؛ فترات GL |
 | 23 أغسطس 2026 | تقفيلة رفع VPS | Twilio مؤجّل؛ خطوات `deploy/VPS-STEPS.md`؛ السكربت يحمّل `.env` ولا يضيف مفاتيح Twilio | تشغيل الخطوات على أصل Ubuntu |
 | 23 أغسطس 2026 | تأكيد migrate 020 | إعادة تشغيل `pnpm --filter @workspace/db run migrate`: كل 20 ملفًا مطبّقة مسبقًا (020 موجود على Postgres المحلي) | KYC VPS، e2e حي، Twilio بيئة، OPay، VPS، إكمال GL (فترات/مراكز/تسوية) |

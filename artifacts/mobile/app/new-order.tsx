@@ -8,7 +8,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
-import { usePreventRemove } from "@react-navigation/core";
+import { usePreventRemove } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import AsyncStorage from "@react-native-async-storage/async-storage";

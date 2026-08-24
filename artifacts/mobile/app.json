@@ -62,7 +62,8 @@
       [
         "expo-router",
         {
-          "origin": "https://app.upnexa-eg.com"
+          "origin": "https://app.upnexa-eg.com",
+          "root": "./app"
         }
       ],
       "expo-font",
@@ -90,7 +91,8 @@
     },
     "extra": {
       "router": {
-        "origin": "https://app.upnexa-eg.com"
+        "origin": "https://app.upnexa-eg.com",
+        "root": "./app"
       },
       "eas": {
         "projectId": "79926a52-10d3-4d54-ac9b-b20ae9186e46"
