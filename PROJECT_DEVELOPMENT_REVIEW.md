@@ -158,6 +158,17 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 5 | EAS Bundle JS: `EXPO_ROUTER_APP_ROOT` | Babel على EAS لا يحوّل `require.context(process.env.EXPO_ROUTER_APP_ROOT)` داخل `expo-router/_ctx.android.js` (pnpm: `hasModule('expo-router')` قد يفشل من `babel-preset-expo`) | ملف `metro-router-ctx.js` بمسار `./app` ثابت + `resolveRequest` يستبدل `_ctx`؛ بلجن expo-router صراحة في babel |
 | 6 | EAS Bundle JS: `expo doctor` + `export:embed` | نسختان من `@react-navigation/core` (7.17.2 مباشرة و7.21.13 تحت `@react-navigation/native`) | إزالة الاعتماد المباشر 7.17.2؛ الاستيراد من `@react-navigation/native`؛ `pnpm.overrides` يثبّت `core` على 7.21.13 |
 | 7 | EAS Gradle: رفع خرائط Sentry | `sentry-cli` بدون `--org` أثناء `createBundleReleaseJsAndAssets_SentryUpload` | `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في بروفايلات EAS (التشغيل يبقى عبر DSN) |
+| 8 | APK يُغلق فور الفتح (بدون رسالة) | بلجن `expo-router` في `babel.config.js` يُشغَّل **بعد** `react-native-worklets/plugin` من preset فيُكسِر Reanimated في release | إزالة البلجن الإضافي من babel؛ الاعتماد على `metro-router-ctx.js` فقط؛ إعادة بناء APK |
+
+### تشخيص: التطبيق يظهر ثم يُغلق فورًا
+
+هذا **ليس** خطأ API أو شبكة — غالبًا **Native crash** (Hermes/Reanimated/وحدة native) قبل أن يظهر `ErrorBoundary`. للتأكيد على جهاز أندرويد مع USB debugging:
+
+```powershell
+adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-controller|Sentry|com.fanni"
+```
+
+إن ظهر `Worklets` أو `Reanimated` أو `keyboard-controller` → أعد البناء بعد إصلاح babel أعلاه (`scripts/eas-apk.ps1`).
 
 هجرات/بذور منفصلة عن APK (تمت في الكود): `021_schema_gap_repair.sql` + `pnpm --filter @workspace/db run seed` في `deploy-vps.sh` و`migrate-local.ps1`.
 
