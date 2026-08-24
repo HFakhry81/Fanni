@@ -1,10 +1,4 @@
 import * as Sentry from "@sentry/react-native";
-
-Sentry.init({
-  dsn: "https://f65a29e74485fd160dc1d53e3b2a3a73@o4511786733207552.ingest.de.sentry.io/4511786758045776",
-  tracesSampleRate: 1.0,
-  debug: __DEV__,
-});
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -22,6 +16,17 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import NetInfo from "@react-native-community/netinfo";
+
+try {
+  Sentry.init({
+    dsn: "https://f65a29e74485fd160dc1d53e3b2a3a73@o4511786733207552.ingest.de.sentry.io/4511786758045776",
+    tracesSampleRate: 0.2,
+    debug: __DEV__,
+    enableNative: true,
+  });
+} catch {
+  // Never block app launch if Sentry fails to init.
+}
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
