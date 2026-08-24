@@ -91,13 +91,23 @@ PAYMENT_PROVIDER=manual
 
 ## بناء APK عبر EAS ورفعه على الـ VPS
 
-الـ VPS **لا يبني** ملف Android. البناء من جهازك (بعد `eas login`) داخل مجلد الموبايل فقط — ليس من جذر المستودع.
+الـ VPS **لا يبني** ملف Android. من ويندوز شغّل السكربت من جذر المشروع حتى لا يبقى المجلد `C:\Windows\system32`:
 
 ```powershell
-cd artifacts\mobile
-npx eas-cli@16 login
-npx eas-cli@16 build -p android --profile preview
+cd C:\Fanni
+powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
 ```
+
+أو يدوياً بعد التأكد أنك داخل مجلد فيه `app.json`:
+
+```powershell
+cd C:\Fanni\artifacts\mobile
+dir app.json
+npx --yes eas-cli@16 build -p android --profile preview
+```
+
+خطأ `Run this command inside a project directory` يعني أن `eas-cli` لم يرَ `app.json` في المجلد الحالي (غالباً الأمر اشتغل قبل `cd` أو عبر `npx` من مجلد النظام). لا تستخدم `C:\Windows\system32` كبداية بدون `cd`.
+
 
 أو من جذر المشروع: `pnpm --filter @workspace/mobile run eas:apk`
 
