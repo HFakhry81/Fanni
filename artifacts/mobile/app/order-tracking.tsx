@@ -26,6 +26,7 @@ import {
   readPersistedRoute,
   writePersistedRoute,
 } from "@/utils/routeCache";
+import OsmMultiMap, { type OsmMarker, type OsmPolyline } from "@/components/OsmMultiMap";
 
 const ALEX = { lat: 31.2001, lng: 29.9187 };
 const TECH_START_OFFSET = 0.018;
@@ -511,7 +512,7 @@ export default function OrderTrackingScreen() {
       {Platform.OS === "web" ? (
         <WebMapView {...mapProps} colors={colors} t={t} isRTL={isRTL} />
       ) : (
-        <NativeMapView {...mapProps} />
+        <OsmTrackingMap {...mapProps} />
       )}
 
       <View style={[styles.infoCard, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
@@ -1389,256 +1390,77 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
   );
 }
 
-type MapComponents = {
-  MapView: React.ComponentType<import("react-native-maps").MapViewProps>;
-  Marker: React.ComponentType<import("react-native-maps").MapMarkerProps>;
-  Polyline: React.ComponentType<import("react-native-maps").MapPolylineProps>;
-  UrlTile: React.ComponentType<import("react-native-maps").MapUrlTileProps>;
-  Circle: React.ComponentType<import("react-native-maps").MapCircleProps>;
-};
+function OsmTrackingMap({
+  order,
+  techLat,
+  techLng,
+  clientLat,
+  clientLng,
+  routeCoords,
+  routeColors,
+}: MapProps) {
+  const markers: OsmMarker[] = [
+    {
+      id: "tech",
+      latitude: techLat,
+      longitude: techLng,
+      color: TECH_PIN_COLOR,
+      label: "F",
+    },
+    {
+      id: "client",
+      latitude: clientLat,
+      longitude: clientLng,
+      color: CLIENT_PIN_COLOR,
+      label: "C",
+    },
+  ];
 
-function NativeMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords, routeColors }: MapProps) {
-  const [components, setComponents] = useState<MapComponents | null>(null);
-  const mapRef = useRef<import("react-native-maps").default | null>(null);
-  const { t } = useApp();
-  const [segmentTooltip, setSegmentTooltip] = useState<{ text: string; color: string } | null>(null);
-  const nativeTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const animCoord = useRef(new Animated.ValueXY({ x: techLat, y: techLng })).current;
-  const [displayCoord, setDisplayCoord] = useState({ latitude: techLat, longitude: techLng });
-
-  const savedNative = _savedNativeRegion[order.id] ?? null;
-  const userInteractingRef = useRef(savedNative != null);
-  const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFittingRef = useRef(false);
-  const fittingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const visibleRegionRef = useRef<{ lat: number; lng: number; latDelta: number; lngDelta: number } | null>(
-    savedNative
-      ? {
-          lat: savedNative.latitude,
-          lng: savedNative.longitude,
-          latDelta: savedNative.latitudeDelta,
-          lngDelta: savedNative.longitudeDelta,
-        }
-      : null
-  );
-
-  useEffect(() => {
-    const id = animCoord.addListener(({ x, y }) => {
-      setDisplayCoord({ latitude: x, longitude: y });
-    });
-    return () => animCoord.removeListener(id);
-  }, [animCoord]);
-
-  useEffect(() => {
-    Animated.timing(animCoord, {
-      toValue: { x: techLat, y: techLng },
-      duration: 900,
-      useNativeDriver: false,
-    }).start();
-  }, [techLat, techLng, animCoord]);
-
-  useEffect(() => {
-    let cancelled = false;
-    import("react-native-maps").then((mod) => {
-      if (!cancelled) {
-        setComponents({
-          MapView: mod.default,
-          Marker: mod.Marker,
-          Polyline: mod.Polyline,
-          UrlTile: mod.UrlTile,
-          Circle: mod.Circle,
-        });
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  const fitPins = useCallback(() => {
-    if (!mapRef.current) return;
-    isFittingRef.current = true;
-    if (fittingTimeoutRef.current) clearTimeout(fittingTimeoutRef.current);
-    fittingTimeoutRef.current = setTimeout(() => {
-      isFittingRef.current = false;
-    }, 2500);
-    mapRef.current.fitToCoordinates(
-      [
-        { latitude: techLat, longitude: techLng },
-        { latitude: clientLat, longitude: clientLng },
-      ],
-      { edgePadding: { top: 80, right: 80, bottom: 80, left: 80 }, animated: true }
-    );
-  }, [techLat, techLng, clientLat, clientLng]);
-
-  const handleRegionChange = useCallback(() => {
-    if (isFittingRef.current) return;
-    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
-    userInteractingRef.current = true;
-  }, []);
-
-  const handleRegionChangeComplete = useCallback((region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => {
-    visibleRegionRef.current = {
-      lat: region.latitude,
-      lng: region.longitude,
-      latDelta: region.latitudeDelta,
-      lngDelta: region.longitudeDelta,
-    };
-    _savedNativeRegion[order.id] = {
-      latitude: region.latitude,
-      longitude: region.longitude,
-      latitudeDelta: region.latitudeDelta,
-      longitudeDelta: region.longitudeDelta,
-    };
-    if (isFittingRef.current) {
-      isFittingRef.current = false;
-      return;
-    }
-    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
-    interactionTimerRef.current = setTimeout(() => {
-      userInteractingRef.current = false;
-    }, 8000);
-  }, [order.id]);
-
-  useEffect(() => {
-    if (userInteractingRef.current) return;
-    const region = visibleRegionRef.current;
-    if (region) {
-      const MARGIN = 0.8;
-      const isInBounds = (lat: number, lng: number) =>
-        Math.abs(lat - region.lat) < (region.latDelta / 2) * MARGIN &&
-        Math.abs(lng - region.lng) < (region.lngDelta / 2) * MARGIN;
-      if (isInBounds(techLat, techLng) && isInBounds(clientLat, clientLng)) return;
-    }
-    fitPins();
-  }, [techLat, techLng, clientLat, clientLng, fitPins]);
-
-  useEffect(() => {
-    if (savedNative) {
-      interactionTimerRef.current = setTimeout(() => {
-        userInteractingRef.current = false;
-      }, 8000);
-    }
-    return () => {
-      if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
-      if (fittingTimeoutRef.current) clearTimeout(fittingTimeoutRef.current);
-      if (nativeTooltipTimerRef.current) clearTimeout(nativeTooltipTimerRef.current);
-    };
-  }, []);
-
-  if (!components) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  const { MapView, Marker, Polyline, UrlTile, Circle } = components;
-
-  const hasRoute = routeCoords.length > 1;
-  const routeCoordinates = hasRoute
-    ? [
-        { latitude: displayCoord.latitude, longitude: displayCoord.longitude },
-        ...routeCoords.slice(1).map((c) => ({ latitude: c.lat, longitude: c.lng })),
-      ]
-    : [
-        { latitude: displayCoord.latitude, longitude: displayCoord.longitude },
-        { latitude: clientLat, longitude: clientLng },
-      ];
-  const nativeTrafficSegments = hasRoute
-    ? buildTrafficSegments(
-        routeCoordinates.map((c) => ({ lat: c.latitude, lng: c.longitude })),
-        routeColors
-      )
-    : null;
+  const polylines: OsmPolyline[] =
+    routeCoords.length > 1
+      ? (() => {
+          const all = [
+            { latitude: techLat, longitude: techLng },
+            ...routeCoords.slice(1).map((c) => ({ latitude: c.lat, longitude: c.lng })),
+          ];
+          const segs = buildTrafficSegments(
+            all.map((c) => ({ lat: c.latitude, lng: c.longitude })),
+            routeColors
+          );
+          return segs.map((seg, i) => ({
+            id: `seg-${i}`,
+            color: seg.color,
+            coords: seg.coords.map((c) => ({ latitude: c.lat, longitude: c.lng })),
+          }));
+        })()
+      : [
+          {
+            id: "direct",
+            color: ROUTE_COLOR,
+            coords: [
+              { latitude: techLat, longitude: techLng },
+              { latitude: clientLat, longitude: clientLng },
+            ],
+          },
+        ];
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView
-        // @ts-ignore – ref forwarding on dynamic import; works at runtime
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={savedNative ?? {
-          latitude: ALEX.lat,
-          longitude: ALEX.lng,
-          latitudeDelta: 0.08,
-          longitudeDelta: 0.08,
-        }}
-        mapType="none"
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        onMapReady={savedNative ? undefined : fitPins}
-        onRegionChange={handleRegionChange}
-        onRegionChangeComplete={handleRegionChangeComplete}
-      >
-        <UrlTile
-          urlTemplate={OSM_TILE_URL}
-          maximumZ={19}
-          flipY={false}
-        />
-        {nativeTrafficSegments ? (
-          nativeTrafficSegments.map((seg, i) => (
-            <Polyline
-              key={i}
-              coordinates={seg.coords.map((c) => ({ latitude: c.lat, longitude: c.lng }))}
-              strokeColor={seg.color}
-              strokeWidth={4}
-              tappable
-              onPress={() => {
-                const text = t(getSegmentSpeedKey(seg.color));
-                if (nativeTooltipTimerRef.current) clearTimeout(nativeTooltipTimerRef.current);
-                setSegmentTooltip({ text, color: seg.color });
-                nativeTooltipTimerRef.current = setTimeout(() => setSegmentTooltip(null), 4000);
-              }}
-            />
-          ))
-        ) : (
-          <Polyline
-            coordinates={routeCoordinates}
-            strokeColor={ROUTE_COLOR}
-            strokeWidth={3}
-            lineDashPattern={[8, 5]}
-          />
-        )}
-        <Marker
-          coordinate={displayCoord}
-          title={order.technicianName ?? ""}
-          pinColor={TECH_PIN_COLOR}
-        />
-        <Marker
-          coordinate={{ latitude: clientLat, longitude: clientLng }}
-          title={order.street}
-          pinColor={CLIENT_PIN_COLOR}
-        />
-        <Circle
-          center={{ latitude: clientLat, longitude: clientLng }}
-          radius={120}
-          strokeColor="rgba(229,57,53,0.5)"
-          fillColor="rgba(229,57,53,0.12)"
-        />
-      </MapView>
-      <TouchableOpacity
-        style={styles.nativeFitBtn}
-        onPress={fitPins}
-        activeOpacity={0.75}
-      >
-        <VectorIcon name="maximize-2" size={18} color="#1565C0" />
-      </TouchableOpacity>
-
-      {segmentTooltip !== null && (
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setSegmentTooltip(null)}
-          style={[styles.nativeTooltipBackdrop, { pointerEvents: "box-only" } as object]}
-        >
-          <View style={[styles.nativeTooltipCard, { backgroundColor: "rgba(255,255,255,0.95)", borderColor: segmentTooltip.color }]}>
-            <View style={[styles.trafficTooltipDot, { backgroundColor: segmentTooltip.color }]} />
-            <Text style={{ color: "#222", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
-              {segmentTooltip.text}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      )}
+      <OsmMultiMap
+        key={order.id}
+        style={{ flex: 1 }}
+        markers={markers}
+        polylines={polylines}
+        fitMarkers
+        circles={[
+          {
+            latitude: clientLat,
+            longitude: clientLng,
+            radiusM: 120,
+            color: CLIENT_PIN_COLOR,
+          },
+        ]}
+      />
     </View>
   );
 }

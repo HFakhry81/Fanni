@@ -29,10 +29,9 @@ import {
   I18nManager,
   FlatList,
   Dimensions,
-  Animated,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
+import OsmMapView, { type OsmMapViewHandle } from "./OsmMapView";
 import { useQuery } from "@tanstack/react-query";
 
 // ── Imports داخلية (مطابقة لهيكل المشروع) ──────────────────
@@ -261,48 +260,28 @@ function MapPinModal({
   colors,
   labels,
 }: MapPinModalProps) {
-  const mapRef = useRef<MapView>(null);
+  const mapHandle = useRef<OsmMapViewHandle | null>(null);
   const styles = useMapModalStyles(colors);
-
-  // حركة أنيميشن للدبوس عند تحريك الخريطة
-  const pinScale = useRef(new Animated.Value(1)).current;
-
-  const handleRegionChange = useCallback(() => {
-    Animated.spring(pinScale, { toValue: 1.2, useNativeDriver: true, speed: 20 }).start();
-  }, [pinScale]);
-
-  const handleRegionChangeComplete = useCallback(
-    (region: { latitude: number; longitude: number }) => {
-      Animated.spring(pinScale, { toValue: 1, useNativeDriver: true }).start();
-      onPinMoved(region.latitude, region.longitude);
-    },
-    [onPinMoved, pinScale]
-  );
+  const marker = {
+    latitude: currentCoords?.lat ?? initialRegion.latitude,
+    longitude: currentCoords?.lng ?? initialRegion.longitude,
+  };
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        {/* Map */}
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-          initialRegion={initialRegion}
-          onRegionChange={handleRegionChange}
-          onRegionChangeComplete={handleRegionChangeComplete}
-          showsUserLocation
-          showsMyLocationButton
-          showsCompass
-          mapType="standard"
-        />
-
-        {/* Center Pin (Uber-style — stays fixed, map moves) */}
-        <View style={styles.pinContainer} pointerEvents="none">
-          <Animated.View style={{ transform: [{ scale: pinScale }] }}>
-            <Ionicons name="location" size={48} color={colors.primary} />
-          </Animated.View>
-          <View style={[styles.pinShadow, { backgroundColor: colors.primary + "40" }]} />
-        </View>
+        {/* Free OSM map — no Google Maps API key */}
+        {visible ? (
+          <OsmMapView
+            mapRef={mapHandle}
+            style={styles.map}
+            initialCoords={marker}
+            markerCoords={marker}
+            zoom={16}
+            onMapPress={(c) => onPinMoved(c.latitude, c.longitude)}
+            onMarkerDragEnd={(c) => onPinMoved(c.latitude, c.longitude)}
+          />
+        ) : null}
 
         {/* Back Button */}
         <TouchableOpacity style={[styles.fabClose, { backgroundColor: colors.darkMid }]} onPress={onClose}>
@@ -520,29 +499,18 @@ export function LocationPickerV2({
           {/* Inline mini-map preview */}
           <View style={[styles.mapPreviewContainer, { borderColor: isConfirmed ? colors.success : colors.border }]}>
             {hasPin && (
-              <MapView
+              <OsmMapView
                 style={styles.mapPreview}
-                provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-                region={{
+                initialCoords={{
                   latitude: sync.location.latitude!,
                   longitude: sync.location.longitude!,
-                  latitudeDelta: 0.008,
-                  longitudeDelta: 0.008,
                 }}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                pitchEnabled={false}
-                rotateEnabled={false}
-                pointerEvents="none"
-              >
-                <Marker
-                  coordinate={{
-                    latitude: sync.location.latitude!,
-                    longitude: sync.location.longitude!,
-                  }}
-                  pinColor={colors.primary}
-                />
-              </MapView>
+                markerCoords={{
+                  latitude: sync.location.latitude!,
+                  longitude: sync.location.longitude!,
+                }}
+                zoom={15}
+              />
             )}
 
             {/* Open map button overlay */}

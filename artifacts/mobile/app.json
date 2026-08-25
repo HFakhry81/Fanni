@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fanni - Home Maintenance",
     "slug": "mobile",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
@@ -28,6 +28,7 @@
     },
     "android": {
       "package": "com.fanni.app",
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -82,7 +83,8 @@
           "icon": "./assets/images/icon.png",
           "color": "#0D1B2A"
         }
-      ]
+      ],
+      "react-native-webview"
     ],
     "experiments": {
       "typedRoutes": true,
