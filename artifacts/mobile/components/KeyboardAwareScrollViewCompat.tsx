@@ -1,29 +1,22 @@
-import {
-  KeyboardAwareScrollView,
-  KeyboardAwareScrollViewProps,
-} from "react-native-keyboard-controller";
 import { Platform, ScrollView, ScrollViewProps } from "react-native";
 
-type Props = KeyboardAwareScrollViewProps & ScrollViewProps;
-
+/**
+ * Use RN ScrollView on native for release stability.
+ * react-native-keyboard-controller has caused silent launch crashes on some devices
+ * when KeyboardProvider is in the root tree.
+ */
 export function KeyboardAwareScrollViewCompat({
   children,
   keyboardShouldPersistTaps = "handled",
   ...props
-}: Props) {
-  if (Platform.OS === "web") {
-    return (
-      <ScrollView keyboardShouldPersistTaps={keyboardShouldPersistTaps} {...props}>
-        {children}
-      </ScrollView>
-    );
-  }
+}: ScrollViewProps) {
   return (
-    <KeyboardAwareScrollView
+    <ScrollView
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       {...props}
     >
       {children}
-    </KeyboardAwareScrollView>
+    </ScrollView>
   );
 }

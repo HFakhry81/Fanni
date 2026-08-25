@@ -1,0 +1,14 @@
+# Keep EAS archive small — monorepo root is uploaded from artifacts/mobile
+attached_assets/
+artifacts/mobile/dist/
+artifacts/mockup-sandbox/
+**/.git/
+**/node_modules/
+**/.expo/
+**/dist-web/
+uploads/
+.cache/
+.local/
+*.apk
+*.log
+eas-fail*

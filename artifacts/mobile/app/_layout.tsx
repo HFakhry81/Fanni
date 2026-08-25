@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/react-native";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -11,23 +10,10 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import Constants from "expo-constants";
 import React, { useEffect, useRef, useState } from "react";
-import { AppState, I18nManager, Platform, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import NetInfo from "@react-native-community/netinfo";
-
-try {
-  Sentry.init({
-    dsn: "https://f65a29e74485fd160dc1d53e3b2a3a73@o4511786733207552.ingest.de.sentry.io/4511786758045776",
-    tracesSampleRate: 0.2,
-    debug: __DEV__,
-    enableNative: true,
-  });
-} catch {
-  // Never block app launch if Sentry fails to init.
-}
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -37,6 +23,9 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { sweepExpiredRouteCache } from "@/utils/routeCache";
 import { getApiBase } from "@/utils/api";
+
+// Sentry is initialized lazily after first paint to avoid native launch crashes
+// on some Android devices when the DSN/org upload path is misconfigured.
 
 const LOC_CACHE_GOV_KEY = "location_cache_governorates";
 const LOC_CACHE_AREAS_KEY = "location_cache_areas";
@@ -424,6 +413,28 @@ function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  useEffect(() => {
+    if (!fontsLoaded && !fontError) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const Sentry = await import("@sentry/react-native");
+        if (cancelled) return;
+        Sentry.init({
+          dsn: "https://f65a29e74485fd160dc1d53e3b2a3a73@o4511786733207552.ingest.de.sentry.io/4511786758045776",
+          tracesSampleRate: 0.2,
+          debug: __DEV__,
+          enableNative: false,
+        });
+      } catch {
+        // Launch must not depend on Sentry.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fontsLoaded, fontError]);
+
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -431,22 +442,21 @@ function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <AppProvider>
-                <AuthProvider>
-                  <AuthUserBridge>
-                    <OrderProvider>
-                      <RootLayoutNav />
-                    </OrderProvider>
-                  </AuthUserBridge>
-                </AuthProvider>
-              </AppProvider>
-            </KeyboardProvider>
+            <AppProvider>
+              <AuthProvider>
+                <AuthUserBridge>
+                  <OrderProvider>
+                    <RootLayoutNav />
+                  </OrderProvider>
+                </AuthUserBridge>
+              </AuthProvider>
+            </AppProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );
-  }
-    export default Sentry.wrap(RootLayout);
+}
+
+export default RootLayout;
 

@@ -132,7 +132,8 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | `0d1b9846` | — | نجح لكن APK يُغلق فور الفتح (Babel worklets) |
 | `89991f75` | Gradle | تعطيل `newArchEnabled` كسر Reanimated 4 (`assertNewArchitectureEnabledTask`) |
 | `0bea6779` | — | نجح — v1.0.1، New Arch مفعّل، babel بلا بلجن إضافي بعد worklets |
-| `146287ef` | — | **نجح** — نفس الإصلاحات + `--clear-cache`؛ APK المُنزَّل محليًا |
+| `146287ef` | — | نجح — v1.0.1؛ APK مُنزَّل محليًا |
+| `2d798c8e` | — | **نجح** — v1.0.2 (Sentry متأخر + بدون KeyboardProvider في الجذر) |
 
 **إصلاحات طُبّقت في الجلسة:**
 
@@ -163,7 +164,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 6 | EAS Bundle JS: `expo doctor` + `export:embed` | نسختان من `@react-navigation/core` (7.17.2 مباشرة و7.21.13 تحت `@react-navigation/native`) | إزالة الاعتماد المباشر 7.17.2؛ الاستيراد من `@react-navigation/native`؛ `pnpm.overrides` يثبّت `core` على 7.21.13 |
 | 7 | EAS Gradle: رفع خرائط Sentry | `sentry-cli` بدون `--org` أثناء `createBundleReleaseJsAndAssets_SentryUpload` | `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في بروفايلات EAS (التشغيل يبقى عبر DSN) |
 | 8 | APK يُغلق فور الفتح (بدون رسالة) | بلجن `expo-router` في `babel.config.js` بعد `worklets` يكسر Reanimated في release | إزالة البلجن الإضافي؛ `metro-router-ctx.js`؛ إعادة بناء v1.0.1 |
-| 9 | EAS Gradle `89991f75` بعد تعطيل New Arch | Reanimated 4 يفرض `newArchEnabled=true` (`assertNewArchitectureEnabledTask`) | إعادة `newArchEnabled: true`؛ إبقاء `reactCompiler: false`؛ بناء ناجح `146287ef` |
+| 10 | APK splash ثم إغلاق (فيديو 25 أغسطس) | تثبيت من `app.upnexa-eg.com`؛ شاشة FANNI تظهر ثم يقفل بلا رسالة (native). الموقع كان قد يخدم نسخة قديمة؛ مع ذلك يُشتبه أيضًا في Sentry native + KeyboardProvider عند الإقلاع | v1.0.2: تأخير Sentry بعد أول رسم مع `enableNative:false`؛ إزالة بلجن Sentry من prebuild؛ إزالة KeyboardProvider؛ ScrollView بدل keyboard-controller |
 
 ### تشخيص: التطبيق يظهر ثم يُغلق فورًا
 
