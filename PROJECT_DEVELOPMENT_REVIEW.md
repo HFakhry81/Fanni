@@ -111,7 +111,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [~] | M4 APK | بناء EAS `146287ef` (و`0bea6779`) v1.0.1 نجح؛ محليًا `artifacts/mobile/dist/fanni.apk` (~40.3MB). **يحتاج WinSCP** لاستبدال `/var/www/fanni-web/fanni.apk` (الموقع ما زال ~42.3MB من `0d1b9846`) |
+| 12 | [~] | M4 APK | كود v1.0.3 (OSM/WebView، بدون Google Maps) على `main` (`1d8866f`). بناء EAS جارٍ؛ بعد Finished: تنزيل → WinSCP → `/var/www/fanni-web/fanni.apk` |
 
 ---
 
@@ -134,6 +134,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | `0bea6779` | — | نجح — v1.0.1، New Arch مفعّل، babel بلا بلجن إضافي بعد worklets |
 | `146287ef` | — | نجح — v1.0.1؛ APK مُنزَّل محليًا |
 | `2d798c8e` | — | **نجح** — v1.0.2 (Sentry متأخر + بدون KeyboardProvider في الجذر) |
+| *(جارٍ)* | — | v1.0.3 — OSM/Leaflet عبر WebView؛ إزالة `react-native-maps`؛ إصلاح crash خطوة العنوان |
 
 **إصلاحات طُبّقت في الجلسة:**
 
@@ -165,6 +166,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 7 | EAS Gradle: رفع خرائط Sentry | `sentry-cli` بدون `--org` أثناء `createBundleReleaseJsAndAssets_SentryUpload` | `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في بروفايلات EAS (التشغيل يبقى عبر DSN) |
 | 8 | APK يُغلق فور الفتح (بدون رسالة) | بلجن `expo-router` في `babel.config.js` بعد `worklets` يكسر Reanimated في release | إزالة البلجن الإضافي؛ `metro-router-ctx.js`؛ إعادة بناء v1.0.1 |
 | 10 | APK splash ثم إغلاق (فيديو 25 أغسطس) | تثبيت من `app.upnexa-eg.com`؛ شاشة FANNI تظهر ثم يقفل بلا رسالة (native). الموقع كان قد يخدم نسخة قديمة؛ مع ذلك يُشتبه أيضًا في Sentry native + KeyboardProvider عند الإقلاع | v1.0.2: تأخير Sentry بعد أول رسم مع `enableNative:false`؛ إزالة بلجن Sentry من prebuild؛ إزالة KeyboardProvider؛ ScrollView بدل keyboard-controller |
+| 11 | إغلاق عند خطوة تحديد العنوان (تسجيل) | `IllegalStateException: API key not found` لـ `com.google.android.geo.API_KEY` عند إنشاء `MapView` | استبدال Google Maps بـ **OpenStreetMap + Leaflet داخل WebView** (`OsmMapView` / `OsmMultiMap`)؛ إزالة `react-native-maps`؛ v1.0.3 + `versionCode` 3 |
 
 ### تشخيص: التطبيق يظهر ثم يُغلق فورًا
 
@@ -182,10 +184,11 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | البند | الحالة |
 |---|---|
-| بناء EAS `preview` v1.0.1 | **منتهٍ** (`146287ef`) — New Arch + babel worklets |
-| APK محلي | `artifacts/mobile/dist/fanni.apk` (42281277 بايت، صالح ZIP/APK) |
-| رابط تثبيت Expo | https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/146287ef-e88c-481e-b020-8e2be4c7fb32 |
-| APK على `app.upnexa-eg.com` | ما زال النسخة القديمة (~42324365 بايت من `0d1b9846`) — **يحتاج WinSCP** (لا مفاتيح SSH في هذه الجلسة) |
+| كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
+| إصدار التطبيق | **1.0.3** / `versionCode` 3 |
+| بناء EAS `preview` v1.0.2 | منتهٍ (`2d798c8e`) — يفتح لكن يغلق عند الخريطة |
+| بناء EAS `preview` v1.0.3 | **جارٍ** عبر `scripts/eas-apk.ps1` |
+| APK على `app.upnexa-eg.com` | قديم — بعد نجاح v1.0.3: WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
 
 ---
 
@@ -251,6 +254,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
+| 25 أغسطس 2026 | APK v1.0.3 OSM | استبدال Google Maps بـ OSM/Leaflet WebView؛ إزالة `react-native-maps`؛ تحسين دبوس/شريط العنوان؛ commit `1d8866f`؛ بدء بناء EAS | Finished → تنزيل APK → WinSCP إلى الموقع؛ اختبار تسجيل+عنوان |
 | 25 أغسطس 2026 | APK crash-fix + rebuild | فشل `89991f75` (New Arch off ↔ Reanimated 4)؛ إعادة New Arch؛ بناء `146287ef` v1.0.1؛ APK محلي صالح | WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644`؛ تثبيت من الرابط الجديد على الهاتف |
 | 25 أغسطس 2026 | APK / EAS — إغلاق البناء | ثلاث محاولات EAS؛ إصلاح lockfile SDK 54، تكرار `@react-navigation/core`، `EXPO_ROUTER_APP_ROOT`، رفع Sentry؛ بناء ناجح `0d1b9846` | (استُبدِل ببناء `146287ef` بعد إصلاح crash + New Arch) |
 | 24 أغسطس 2026 | APK / EAS — تشخيص | lockfile مجمّد + eas من system32؛ pre-install و`eas-apk.ps1`؛ توثيق WinSCP | (استُكمِل في 25 أغسطس) |
