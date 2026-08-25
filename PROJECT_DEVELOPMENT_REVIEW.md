@@ -111,7 +111,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [~] | M4 APK | كود v1.0.3 (OSM/WebView، بدون Google Maps) على `main` (`1d8866f`). بناء EAS جارٍ؛ بعد Finished: تنزيل → WinSCP → `/var/www/fanni-web/fanni.apk` |
+| 12 | [x] | M4 APK | v1.0.4 — دمج توثيق EAS + lockfile مجمد؛ OSM/WebView؛ APK v1.0.3 (`bae7ee22`) مُثبَّت محليًا |
 
 ---
 
@@ -134,7 +134,9 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | `0bea6779` | — | نجح — v1.0.1، New Arch مفعّل، babel بلا بلجن إضافي بعد worklets |
 | `146287ef` | — | نجح — v1.0.1؛ APK مُنزَّل محليًا |
 | `2d798c8e` | — | **نجح** — v1.0.2 (Sentry متأخر + بدون KeyboardProvider في الجذر) |
-| *(جارٍ)* | — | v1.0.3 — OSM/Leaflet عبر WebView؛ إزالة `react-native-maps`؛ إصلاح crash خطوة العنوان |
+| `08c6ea00` | Pre-install | `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` — `patchedDependencies` في الأرشيف دون `patches/` على EAS |
+| `51a8992e` | INSTALL_CUSTOM_TOOLS | pnpm 11.23.0 يتطلب Node ≥22؛ EAS Builder على Node 20 |
+| `bae7ee22` | — | **نجح** — v1.0.3 / `versionCode` 3؛ OSM WebView؛ بلجن محلي `./plugins/withReactNativeWebView` |
 
 **إصلاحات طُبّقت في الجلسة:**
 
@@ -145,6 +147,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 - `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في `eas.json`؛ `Sentry.init` داخل try/catch؛ إزالة `captureException` التجريبي من `(admin)/_layout`.
 - `reactCompiler: false`؛ `newArchEnabled: true` (مطلوب لـ Reanimated 4).
 - `scripts/eas-apk.ps1`: `NODE_OPTIONS=--use-system-ca` على ويندوز؛ حذف `eas.json`/`app.json` الخاطئين من جذر المستودع.
+- v1.0.3 (26 أغسطس): بلجن Expo محلي `artifacts/mobile/plugins/withReactNativeWebView.js` بدل `"react-native-webview"` في `app.json` (كان `index.js` ESM يكسر `expo config` على Node)؛ استبعاد `android/`/`ios` من `.easignore`؛ إزالة `patchedDependencies` من lockfile.
 
 **النتيجة (25 أغسطس):** بناء `146287ef` Finished (بعد فشل `89991f75`). APK محلي `artifacts/mobile/dist/fanni.apk` (~40.3MB؛ `index.android.bundle` + `classes.dex`). صفحة البناء: https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/146287ef-e88c-481e-b020-8e2be4c7fb32 — بديل ناجح سابق: `0bea6779`.
 
@@ -185,10 +188,11 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | البند | الحالة |
 |---|---|
 | كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
-| إصدار التطبيق | **1.0.3** / `versionCode` 3 |
+| إصدار التطبيق | **1.0.4** / `versionCode` 4 (دمج PR docs + lockfile على `main`) |
 | بناء EAS `preview` v1.0.2 | منتهٍ (`2d798c8e`) — يفتح لكن يغلق عند الخريطة |
-| بناء EAS `preview` v1.0.3 | **جارٍ** عبر `scripts/eas-apk.ps1` |
-| APK على `app.upnexa-eg.com` | قديم — بعد نجاح v1.0.3: WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
+| بناء EAS `preview` v1.0.3 | **منتهٍ** (`bae7ee22`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/bae7ee22-d5fa-413e-b1b1-6480f9289072 |
+| APK محلي v1.0.3 | `artifacts/mobile/dist/fanni.apk` (~96.8MB) — مُثبَّت على الجهاز |
+| APK على `app.upnexa-eg.com` | يُحدَّث عند رفع v1.0.4 → WinSCP → `/var/www/fanni-web/fanni.apk` |
 
 ---
 
@@ -254,7 +258,9 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 25 أغسطس 2026 | APK v1.0.3 OSM | استبدال Google Maps بـ OSM/Leaflet WebView؛ إزالة `react-native-maps`؛ تحسين دبوس/شريط العنوان؛ commit `1d8866f`؛ إزالة بلجن webview الخاطئ من `app.json` (كان يكسر `expo config`)؛ إعادة EAS | Finished → تنزيل APK → WinSCP إلى الموقع؛ اختبار تسجيل+عنوان |
+| 26 أغسطس 2026 | APK v1.0.4 — دمج PRs | دمج PR #1 (توثيق EAS `bae7ee22`) + PR #2 (`--frozen-lockfile` + lockfile نظيف)؛ رفع الإصدار إلى **1.0.4** / `versionCode` 4؛ إزالة `.idea` من Git | بناء EAS v1.0.4 عند الحاجة؛ رفع APK للموقع |
+| 26 أغسطس 2026 | APK v1.0.3 EAS Finished | إصلاح `react-native-webview`/`expo config` (بلجن محلي)؛ فشلان `08c6ea00`/`51a8992e`؛ بناء ناجح `bae7ee22`؛ APK `artifacts/mobile/dist/fanni.apk` (~96.8MB) | (استُكمِل — APK مُثبَّت محليًا) |
+| 25 أغسطس 2026 | APK v1.0.3 OSM | استبدال Google Maps بـ OSM/Leaflet WebView؛ إزالة `react-native-maps`؛ تحسين دبوس/شريط العنوان؛ commit `1d8866f`؛ إزالة بلجن webview الخاطئ من `app.json` (كان يكسر `expo config`)؛ إعادة EAS | (استُكمِل في 26 أغسطس — `bae7ee22`) |
 | 25 أغسطس 2026 | APK crash-fix + rebuild | فشل `89991f75` (New Arch off ↔ Reanimated 4)؛ إعادة New Arch؛ بناء `146287ef` v1.0.1؛ APK محلي صالح | WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644`؛ تثبيت من الرابط الجديد على الهاتف |
 | 25 أغسطس 2026 | APK / EAS — إغلاق البناء | ثلاث محاولات EAS؛ إصلاح lockfile SDK 54، تكرار `@react-navigation/core`، `EXPO_ROUTER_APP_ROOT`، رفع Sentry؛ بناء ناجح `0d1b9846` | (استُبدِل ببناء `146287ef` بعد إصلاح crash + New Arch) |
 | 24 أغسطس 2026 | APK / EAS — تشخيص | lockfile مجمّد + eas من system32؛ pre-install و`eas-apk.ps1`؛ توثيق WinSCP | (استُكمِل في 25 أغسطس) |
