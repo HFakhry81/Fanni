@@ -1,5 +1,9 @@
 # Relative to artifacts/mobile (eas.json lives here)
+android/
+ios/
 dist/
+android/
+ios/
 ../../attached_assets/
 ../../artifacts/mockup-sandbox/
 ../../.git/

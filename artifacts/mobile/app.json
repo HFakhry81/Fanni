@@ -83,7 +83,8 @@
           "icon": "./assets/images/icon.png",
           "color": "#0D1B2A"
         }
-      ]
+      ],
+      "./plugins/withReactNativeWebView"
     ],
     "experiments": {
       "typedRoutes": true,
