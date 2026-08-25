@@ -111,7 +111,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [~] | M4 APK | بناء EAS `preview` نجح (`0d1b9846`). APK محليًا: `artifacts/mobile/dist/fanni.apk`. ارفع عبر WinSCP إلى `/var/www/fanni-web/fanni.apk` |
+| 12 | [x] | M4 APK | بناء EAS `0bea6779` v1.0.1 نجح؛ ملف محلي `artifacts/mobile/dist/fanni.apk`. ارفع للـ VPS لاستبدال النسخة المعطوبة على `app.upnexa-eg.com/fanni.apk` |
 
 ---
 
@@ -129,20 +129,23 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 |---|---|---|
 | `e39d19dd` | Bundle JavaScript | `Invalid call … process.env.EXPO_ROUTER_APP_ROOT` في `expo-router/_ctx.android.js` |
 | `c23a3e77` | Bundle JS (ثم Gradle في محاولة لاحقة) | تكرار `@react-navigation/core` (7.17.2 vs 7.21.13)؛ ثم `sentry-cli` بدون `--org` |
-| `0d1b9846` | — | **نجح** — APK ~40MB |
+| `0d1b9846` | — | نجح لكن APK يُغلق فور الفتح (Babel worklets) |
+| `89991f75` | Gradle | تعطيل `newArchEnabled` كسر Reanimated 4 (`assertNewArchitectureEnabledTask`) |
+| `0bea6779` | — | **نجح** — v1.0.1، New Arch مفعّل، babel بلا بلجن إضافي بعد worklets |
 
 **إصلاحات طُبّقت في الجلسة:**
 
 - محاذاة حزم SDK 54 في `package.json` + تحديث `pnpm-lock.yaml` (محليًا: `NODE_OPTIONS=--use-system-ca` عند فشل TLS على npm).
 - إزالة الاعتماد المباشر على `@react-navigation/core@7.17.2`؛ `usePreventRemove` من `@react-navigation/native`؛ `pnpm.overrides` يثبّت `core` على 7.21.13.
 - `metro-router-ctx.js` + `resolveRequest` في `metro.config.js` لاستبدال `_ctx` Android بمسار `./app` ثابت.
-- بلجن `expo-router` صراحة في `babel.config.js`.
-- `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في `eas.json` (Sentry runtime عبر DSN يبقى).
-- `scripts/eas-apk.ps1`: `NODE_OPTIONS=--use-system-ca` على ويندوز.
+- **لا** بلجن إضافي بعد preset في `babel.config.js` (worklets يجب أن يبقى آخر بلجن).
+- `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في `eas.json`؛ `Sentry.init` داخل try/catch؛ إزالة `captureException` التجريبي من `(admin)/_layout`.
+- `reactCompiler: false`؛ `newArchEnabled: true` (مطلوب لـ Reanimated 4).
+- `scripts/eas-apk.ps1`: `NODE_OPTIONS=--use-system-ca` على ويندوز؛ حذف `eas.json`/`app.json` الخاطئين من جذر المستودع.
 
-**النتيجة:** APK محليًا `artifacts/mobile/dist/fanni.apk`. صفحة البناء: https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/0d1b9846-8d39-402d-a46a-5e918d19e004
+**النتيجة (25 أغسطس):** بناء `0bea6779` Finished. APK محلي `artifacts/mobile/dist/fanni.apk` (~40.3MB، يحتوي `index.android.bundle` + dex). صفحة البناء: https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/0bea6779-1cfd-4729-a82d-0fa7c8ed95ae
 
-**المتبقي اليدوي:** WinSCP → `/var/www/fanni-web/fanni.apk` → `chmod 644` → التحقق من `https://app.upnexa-eg.com/fanni.apk`. دفع تغييرات EAS إلى git عند الرغبة.
+**المتبقي للرفع على النطاق:** استبدال الملف القديم على VPS (حجم الموقع الحالي ~42.3MB من البناء المعطوب `0d1b9846`) بالملف الجديد عبر WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644`.
 
 ### ماذا أردنا
 نسخة **APK** للإنتاج مرتبطة بـ `https://api.upnexa-eg.com`، تُرفع على الـ VPS ويُحمَّل التطبيق من `https://app.upnexa-eg.com/fanni.apk` عبر WinSCP إلى `/var/www/fanni-web/fanni.apk`. الـ VPS لا يبني أندرويد.
@@ -158,7 +161,8 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 5 | EAS Bundle JS: `EXPO_ROUTER_APP_ROOT` | Babel على EAS لا يحوّل `require.context(process.env.EXPO_ROUTER_APP_ROOT)` داخل `expo-router/_ctx.android.js` (pnpm: `hasModule('expo-router')` قد يفشل من `babel-preset-expo`) | ملف `metro-router-ctx.js` بمسار `./app` ثابت + `resolveRequest` يستبدل `_ctx`؛ بلجن expo-router صراحة في babel |
 | 6 | EAS Bundle JS: `expo doctor` + `export:embed` | نسختان من `@react-navigation/core` (7.17.2 مباشرة و7.21.13 تحت `@react-navigation/native`) | إزالة الاعتماد المباشر 7.17.2؛ الاستيراد من `@react-navigation/native`؛ `pnpm.overrides` يثبّت `core` على 7.21.13 |
 | 7 | EAS Gradle: رفع خرائط Sentry | `sentry-cli` بدون `--org` أثناء `createBundleReleaseJsAndAssets_SentryUpload` | `SENTRY_DISABLE_AUTO_UPLOAD=true` و`SENTRY_ALLOW_FAILURE=true` في بروفايلات EAS (التشغيل يبقى عبر DSN) |
-| 8 | APK يُغلق فور الفتح (بدون رسالة) | بلجن `expo-router` في `babel.config.js` يُشغَّل **بعد** `react-native-worklets/plugin` من preset فيُكسِر Reanimated في release | إزالة البلجن الإضافي من babel؛ الاعتماد على `metro-router-ctx.js` فقط؛ إعادة بناء APK |
+| 8 | APK يُغلق فور الفتح (بدون رسالة) | بلجن `expo-router` في `babel.config.js` بعد `worklets` يكسر Reanimated في release | إزالة البلجن الإضافي؛ `metro-router-ctx.js`؛ بناء `0bea6779` v1.0.1 |
+| 9 | EAS Gradle بعد تعطيل New Arch | Reanimated 4 يفرض `newArchEnabled=true` | إعادة تفعيل New Architecture؛ إبقاء `reactCompiler: false` |
 
 ### تشخيص: التطبيق يظهر ثم يُغلق فورًا
 
@@ -176,10 +180,10 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | البند | الحالة |
 |---|---|
-| بناء EAS `preview` | **منتهٍ** (`0d1b9846`) |
-| APK محلي | `artifacts/mobile/dist/fanni.apk` (~40MB) |
-| APK على VPS | **لم يُرفع بعد** |
-| commit git للإصلاحات | **غير مُدفوع** (تغييرات محلية) |
+| بناء EAS `preview` v1.0.1 | **منتهٍ** (`0bea6779`) — إصلاح crash الإطلاق |
+| APK محلي | `artifacts/mobile/dist/fanni.apk` (~40.3MB، صالح ZIP/APK) |
+| رابط تثبيت Expo | https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/0bea6779-1cfd-4729-a82d-0fa7c8ed95ae |
+| APK على `app.upnexa-eg.com` | ما زال النسخة القديمة المعطوبة (~42.3MB من `0d1b9846`) — يحتاج استبدال WinSCP |
 
 ---
 
@@ -245,7 +249,8 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 25 أغسطس 2026 | APK / EAS — إغلاق البناء | ثلاث محاولات EAS؛ إصلاح lockfile SDK 54، تكرار `@react-navigation/core`، `EXPO_ROUTER_APP_ROOT`، رفع Sentry؛ بناء ناجح `0d1b9846`؛ APK في `artifacts/mobile/dist/fanni.apk` | رفع WinSCP إلى `/var/www/fanni-web/fanni.apk`؛ commit/push إصلاحات EAS؛ اختبار تثبيت APK على جهاز |
+| 25 أغسطس 2026 | APK crash-fix + rebuild | babel بلا بلجن بعد worklets؛ New Arch مفعّل؛ Sentry آمن؛ بناء `0bea6779` v1.0.1؛ APK محلي صالح | WinSCP يستبدل `/var/www/fanni-web/fanni.apk`؛ حذف التطبيق القديم من الهاتف وتثبيت الجديد |
+| 25 أغسطس 2026 | APK / EAS — إغلاق البناء | ثلاث محاولات EAS؛ إصلاح lockfile SDK 54، تكرار `@react-navigation/core`، `EXPO_ROUTER_APP_ROOT`، رفع Sentry؛ بناء ناجح `0d1b9846`؛ APK في `artifacts/mobile/dist/fanni.apk` | (استُبدِل ببناء `0bea6779` بعد إصلاح crash) |
 | 24 أغسطس 2026 | APK / EAS — تشخيص | lockfile مجمّد + eas من system32؛ pre-install و`eas-apk.ps1`؛ توثيق WinSCP | (استُكمِل في 25 أغسطس) |
 | 24 أغسطس 2026 | نقل محلي + مسار GitHub | تثبيت pnpm؛ migrate 20/20 على Postgres المحلي؛ API على :3000 (`/healthz` 200)؛ CI + Deploy workflows؛ bootstrap VPS من GitHub | أسرار GitHub SSH ثم دفع `main`؛ e2e حي؛ Twilio؛ OPay؛ فترات GL |
 | 23 أغسطس 2026 | تقفيلة رفع VPS | Twilio مؤجّل؛ خطوات `deploy/VPS-STEPS.md`؛ السكربت يحمّل `.env` ولا يضيف مفاتيح Twilio | تشغيل الخطوات على أصل Ubuntu |
