@@ -254,7 +254,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 25 أغسطس 2026 | APK v1.0.3 OSM | استبدال Google Maps بـ OSM/Leaflet WebView؛ إزالة `react-native-maps`؛ تحسين دبوس/شريط العنوان؛ commit `1d8866f`؛ بدء بناء EAS | Finished → تنزيل APK → WinSCP إلى الموقع؛ اختبار تسجيل+عنوان |
+| 25 أغسطس 2026 | APK v1.0.3 OSM | استبدال Google Maps بـ OSM/Leaflet WebView؛ إزالة `react-native-maps`؛ تحسين دبوس/شريط العنوان؛ commit `1d8866f`؛ إزالة بلجن webview الخاطئ من `app.json` (كان يكسر `expo config`)؛ إعادة EAS | Finished → تنزيل APK → WinSCP إلى الموقع؛ اختبار تسجيل+عنوان |
 | 25 أغسطس 2026 | APK crash-fix + rebuild | فشل `89991f75` (New Arch off ↔ Reanimated 4)؛ إعادة New Arch؛ بناء `146287ef` v1.0.1؛ APK محلي صالح | WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644`؛ تثبيت من الرابط الجديد على الهاتف |
 | 25 أغسطس 2026 | APK / EAS — إغلاق البناء | ثلاث محاولات EAS؛ إصلاح lockfile SDK 54، تكرار `@react-navigation/core`، `EXPO_ROUTER_APP_ROOT`، رفع Sentry؛ بناء ناجح `0d1b9846` | (استُبدِل ببناء `146287ef` بعد إصلاح crash + New Arch) |
 | 24 أغسطس 2026 | APK / EAS — تشخيص | lockfile مجمّد + eas من system32؛ pre-install و`eas-apk.ps1`؛ توثيق WinSCP | (استُكمِل في 25 أغسطس) |
