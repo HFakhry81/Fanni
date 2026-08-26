@@ -22,6 +22,7 @@ import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/componen
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
+import { openTermsOfUse } from "@/utils/terms";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
@@ -1023,6 +1024,21 @@ export default function TechProfileScreen() {
               ? <ActivityIndicator size="small" color={colors.mutedForeground} />
               : <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
             }
+          </TouchableOpacity>
+
+          {/* Terms of use */}
+          <TouchableOpacity
+            style={[styles.infoCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+            onPress={() => { void openTermsOfUse("technician"); }}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: "#0EA5E918", borderRadius: 10 }]}>
+              <VectorIcon name="file-text" size={18} color="#0EA5E9" />
+            </View>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15, flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
+              {t("profile.termsOfUse")}
+            </Text>
+            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
 
           {/* Logout */}

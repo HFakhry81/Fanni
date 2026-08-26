@@ -19,6 +19,7 @@ import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
+import { openTermsOfUse } from "@/utils/terms";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -406,9 +407,7 @@ export default function RegisterScreen() {
         newErrors.area = isRTL ? "يرجى تثبيت الموقع على الخريطة" : "Please pin your location on the map";
       }
       if (!acceptedTerms) {
-        newErrors.terms = isRTL
-          ? "يجب الموافقة على شروط استخدام النقاط قبل إنشاء الحساب"
-          : "You must accept the points terms of use before creating an account";
+        newErrors.terms = t(regType === "technician" ? "terms.requiredTech" : "terms.requiredClient");
       }
     }
 
@@ -1091,39 +1090,51 @@ export default function RegisterScreen() {
   );
   };
 
-  const renderTermsAcceptance = () => (
-    <View style={{ marginTop: 18 }}>
-      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
-        {isRTL ? "شروط استخدام النقاط" : "Points terms of use"}
-      </Text>
-      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 20, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
-        {isRTL
-          ? "النقاط أرصدة استخدام داخل فني وليست نقودًا. لا سحب ولا تحويل. كشف بيانات العميل يخصم التعريفة (افتراضي 20 نقطة) بعد «موافق وكمل»، وغير قابل للاسترداد إلا بنزاع/إلغاء مبكر وفق السياسة. الاتصال بعد الكشف عبر المنصة. الشحن: 120 نقطة لكل 100 جنيه."
-          : "Points are in-app usage credits, not cash. No withdrawal or transfer. Revealing client data deducts the tariff (default 20) after confirmation and is non-refundable except dispute/early cancel. Contact is via the platform. Top-up: 120 points per 100 EGP."}
-      </Text>
-      <TouchableOpacity
-        onPress={() => { setAcceptedTerms((v) => !v); setErrors((e) => ({ ...e, terms: undefined })); }}
-        style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", gap: 10 }}
-      >
-        <View style={{
-          width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, marginTop: 1,
-          borderColor: acceptedTerms ? colors.primary : colors.border,
-          backgroundColor: acceptedTerms ? colors.primary : "transparent",
-          alignItems: "center", justifyContent: "center",
-        }}>
-          {acceptedTerms && <VectorIcon name="check" size={12} color="#FFF" />}
-        </View>
-        <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-          {isRTL ? "أوافق على شروط استخدام النقاط وأفهم أنها غير قابلة للسحب النقدي" : "I accept the points terms and understand they cannot be withdrawn as cash"}
+  const renderTermsAcceptance = () => {
+    const isTech = regType === "technician";
+    const audience = isTech ? "technician" : "client";
+    return (
+      <View style={{ marginTop: 18 }}>
+        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
+          {t(isTech ? "terms.titleTech" : "terms.titleClient")}
         </Text>
-      </TouchableOpacity>
-      {!!errors.terms && (
-        <Text style={{ color: "#EF4444", fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left" }}>
-          {errors.terms}
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 20, textAlign: isRTL ? "right" : "left", marginBottom: 10 }}>
+          {t(isTech ? "terms.summaryTech" : "terms.summaryClient")}
         </Text>
-      )}
-    </View>
-  );
+        <TouchableOpacity
+          onPress={() => { void openTermsOfUse(audience); }}
+          style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 12 }}
+          activeOpacity={0.7}
+        >
+          <VectorIcon name="file-text" size={14} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, textDecorationLine: "underline" }}>
+            {t("terms.readFull")}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => { setAcceptedTerms((v) => !v); setErrors((e) => ({ ...e, terms: undefined })); }}
+          style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", gap: 10 }}
+        >
+          <View style={{
+            width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, marginTop: 1,
+            borderColor: acceptedTerms ? colors.primary : colors.border,
+            backgroundColor: acceptedTerms ? colors.primary : "transparent",
+            alignItems: "center", justifyContent: "center",
+          }}>
+            {acceptedTerms && <VectorIcon name="check" size={12} color="#FFF" />}
+          </View>
+          <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+            {t(isTech ? "terms.acceptTech" : "terms.acceptClient")}
+          </Text>
+        </TouchableOpacity>
+        {!!errors.terms && (
+          <Text style={{ color: "#EF4444", fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left" }}>
+            {errors.terms}
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   // ── Step 3 Client: Home address ───────────────────────────────────────────
   const renderStep3Client = () => (
@@ -1357,7 +1368,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             key={rt}
             style={[styles.typeBtn, { backgroundColor: regType === rt ? colors.primary : "transparent", borderRadius: colors.radius - 4 }]}
-            onPress={() => { setRegType(rt); setStep(1); setErrors({}); setSelectedCategories([]); }}
+            onPress={() => { setRegType(rt); setStep(1); setErrors({}); setSelectedCategories([]); setAcceptedTerms(false); }}
           >
             <VectorIcon name={rt === "client" ? "home" : "tool"} size={14} color={regType === rt ? "#FFF" : colors.mutedForeground} />
             <Text style={{ color: regType === rt ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: 5 }}>

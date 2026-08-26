@@ -383,6 +383,27 @@ const translations: Record<string, Record<Language, string>> = {
   "profile.resendWelcomeNoEmail": { ar: "لا توجد معلومات تواصل مسجّلة لإرسال الرسالة إليها", en: "No contact information on file to send the message to" },
   "profile.resendWelcomeRateLimited": { ar: "لقد أرسلت الرسالة مؤخراً. انتظر قليلاً قبل المحاولة مرة أخرى.", en: "You sent this recently. Please wait before trying again." },
   "profile.resendWelcomeError": { ar: "تعذّر إرسال الرسالة. حاول مرة أخرى.", en: "Could not send the message. Please try again." },
+  "profile.termsOfUse": { ar: "شروط الاستخدام", en: "Terms of Use" },
+
+  // Terms / register acceptance
+  "terms.titleClient": { ar: "شروط استخدام التطبيق", en: "App terms of use" },
+  "terms.titleTech": { ar: "شروط استخدام النقاط والتطبيق", en: "Points & app terms of use" },
+  "terms.summaryClient": {
+    ar: "باستخدام تطبيق فني فإنك توافق على شروط الاستخدام الخاصة بالعملاء، بما في ذلك إنشاء الطلبات والتواصل عبر المنصة وسياسة الإلغاء والنزاعات.",
+    en: "By using Fanni you agree to the client terms of use, including order creation, in-app communication, and cancellation/dispute policy.",
+  },
+  "terms.summaryTech": {
+    ar: "النقاط أرصدة استخدام داخل فني وليست نقودًا. لا سحب ولا تحويل. كشف بيانات العميل يخصم التعريفة (افتراضي 20 نقطة) بعد «موافق وكمل»، وغير قابل للاسترداد إلا بنزاع/إلغاء مبكر وفق السياسة. الاتصال بعد الكشف عبر المنصة. الشحن: 120 نقطة لكل 100 جنيه.",
+    en: "Points are in-app usage credits, not cash. No withdrawal or transfer. Revealing client data deducts the tariff (default 20) after confirmation and is non-refundable except dispute/early cancel. Contact is via the platform. Top-up: 120 points per 100 EGP.",
+  },
+  "terms.acceptClient": { ar: "أوافق على شروط استخدام التطبيق للعملاء", en: "I accept the client terms of use" },
+  "terms.acceptTech": {
+    ar: "أوافق على شروط استخدام النقاط والتطبيق وأفهم أنها غير قابلة للسحب النقدي",
+    en: "I accept the points & app terms and understand they cannot be withdrawn as cash",
+  },
+  "terms.readFull": { ar: "اقرأ الشروط كاملة", en: "Read full terms" },
+  "terms.requiredClient": { ar: "يجب الموافقة على شروط استخدام التطبيق قبل إنشاء الحساب", en: "You must accept the app terms of use before creating an account" },
+  "terms.requiredTech": { ar: "يجب الموافقة على شروط استخدام النقاط والتطبيق قبل إنشاء الحساب", en: "You must accept the points & app terms before creating an account" },
 
   // Common
   "common.next": { ar: "التالي", en: "Next" },

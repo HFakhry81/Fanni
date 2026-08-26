@@ -21,6 +21,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/utils/api";
+import { openTermsOfUse } from "@/utils/terms";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PointPackage {
@@ -93,7 +94,7 @@ const METHODS = [
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WalletScreen() {
   const colors = useColors();
-  const { isRTL } = useApp();
+  const { isRTL, t } = useApp();
   const { sessionToken } = useAuth();
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -382,6 +383,16 @@ export default function WalletScreen() {
               </Text>
             </View>
           ))}
+          <TouchableOpacity
+            onPress={() => { void openTermsOfUse("technician"); }}
+            style={{ marginTop: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
+            activeOpacity={0.7}
+          >
+            <VectorIcon name="file-text" size={14} color={colors.primary} />
+            <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, textDecorationLine: "underline" }}>
+              {t("profile.termsOfUse")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Packages ── */}

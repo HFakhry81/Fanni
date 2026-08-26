@@ -20,6 +20,7 @@ import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
+import { openTermsOfUse } from "@/utils/terms";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -509,6 +510,7 @@ export default function ClientProfileScreen() {
     { icon: "bar-chart-2", label: t("profile.reports"),          color: "#7C5CBF",        action: () => {},                               loading: false },
     { icon: "lock",        label: t("profile.changePassword"),   color: "#22A36B",        action: openPwSheet,                            loading: false },
     { icon: "mail",        label: t("profile.resendWelcome"),    color: "#4B7BEC",        action: handleResendWelcome,                    loading: resendWelcomeLoading },
+    { icon: "file-text",   label: t("profile.termsOfUse"),       color: "#0EA5E9",        action: () => { void openTermsOfUse("client"); }, loading: false },
   ];
 
   return (
