@@ -109,7 +109,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [~] | M4 APK | v1.0.5 على الموقع؛ **v1.0.6** قيد البناء (كيبورد + شروط استخدام + إصلاحات اتصال) |
+| 12 | [x] | M4 APK | **v1.0.6** / `versionCode` 6 — EAS `c9c57cc3` Finished؛ محلي `artifacts/mobile/dist/fanni.apk` (~95.6MB). رفع WinSCP → `/var/www/fanni-web/fanni.apk` |
 | 13 | [x] | Auth UX | رسائل خطأ تسجيل/دخول حقيقية + إعادة محاولة بدون PostGIS |
 | 14 | [x] | UI | فصل animated drivers في MapPickerModal (Sentry useNativeDriver) |
 | 15 | [x] | API base | توحيد `getApiBase`/`getWsUrl` وإزالة `http://DOMAIN` من المسارات الحية |
@@ -204,12 +204,12 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
 | إصدار التطبيق | **1.0.6** / `versionCode` 6 |
 | بناء EAS `preview` v1.0.3 | **منتهٍ** (`bae7ee22`) — OSM WebView |
-| بناء EAS `preview` v1.0.4 | **منتهٍ** (`60610e5a`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/60610e5a-0f68-4ce2-bc01-3b059f754707 |
+| بناء EAS `preview` v1.0.4 | **منتهٍ** (`60610e5a`) |
 | بناء EAS `preview` v1.0.5 | سابق — عمولة فقط + باقات Word |
-| بناء EAS `preview` v1.0.6 | قيد التنفيذ — كيبورد + شروط استخدام + إصلاح اتصال/أنيميشن |
-| APK محلي | يُحدَّث بعد Finished لـ v1.0.6 |
+| بناء EAS `preview` v1.0.6 | **منتهٍ** (`c9c57cc3`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/c9c57cc3-133a-4746-8e2f-6c385725981b |
+| APK محلي | `artifacts/mobile/dist/fanni.apk` (~100274280 بايت) |
 | Sentry (APK) | DSN `fanni-app`؛ wrap + ErrorBoundary + sessions؛ `enableNative: false` حتى smoke test |
-| APK على `app.upnexa-eg.com` | WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
+| APK على `app.upnexa-eg.com` | ارفع بـ WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
 
 ---
 
