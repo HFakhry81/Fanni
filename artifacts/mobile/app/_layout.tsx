@@ -24,10 +24,9 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { sweepExpiredRouteCache } from "@/utils/routeCache";
 import { getApiBase } from "@/utils/api";
+import { getAppBuildNumber, getAppReleaseId } from "@/constants/appIdentity";
 
-const APP_RELEASE = `com.fanni.app@${Constants.expoConfig?.version ?? "1.0.4"}+${
-  Constants.expoConfig?.android?.versionCode ?? 4
-}`;
+const APP_RELEASE = getAppReleaseId();
 
 // Single init only — do not double-init (wizard + lazy). enableNative stays false
 // until a monitored APK smoke-tests clean; JS errors/unhandled still report to Sentry.
@@ -39,14 +38,15 @@ try {
     enableNative: false,
     environment: __DEV__ ? "development" : "production",
     release: APP_RELEASE,
-    dist: String(Constants.expoConfig?.android?.versionCode ?? 4),
+    dist: getAppBuildNumber(),
     enableAutoSessionTracking: true,
   });
   Sentry.setTag("app.platform", Platform.OS);
   Sentry.setTag("app.channel", "eas-preview-apk");
+  Sentry.setTag("app.publisher", "UpNexa");
   Sentry.addBreadcrumb({
     category: "app.lifecycle",
-    message: "Sentry initialized for Fanni APK",
+    message: "Sentry initialized for Fanni APK (UpNexa)",
     level: "info",
   });
 } catch {

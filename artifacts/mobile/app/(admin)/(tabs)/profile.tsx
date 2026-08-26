@@ -26,6 +26,7 @@ import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
+import AppIdentityCard from "@/components/AppIdentityCard";
 import { getApiBase } from "@/utils/api";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
@@ -810,6 +811,9 @@ export default function AdminProfileScreen() {
           </Text>
           <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
         </TouchableOpacity>
+
+        {/* About / publisher */}
+        <AppIdentityCard />
 
         {/* Logout */}
         <TouchableOpacity

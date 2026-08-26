@@ -205,7 +205,7 @@ async function seedPointsDemo(): Promise<void> {
         INSERT INTO payment_account_config (bank_name, account_name, account_number, instapay_id, notes)
         VALUES (
           'البنك الأهلي المصري',
-          'شركة فاني للصيانة المنزلية',
+          'شركة أنظمة ذكية وحلول رقمية متكاملة — UpNexa',
           '1234567890',
           'fanni@instapay',
           'يرجى كتابة رقم الهاتف المسجل في التطبيق كمرجع للتحويل'

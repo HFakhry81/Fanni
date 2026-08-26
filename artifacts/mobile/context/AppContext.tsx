@@ -384,6 +384,8 @@ const translations: Record<string, Record<Language, string>> = {
   "profile.resendWelcomeRateLimited": { ar: "لقد أرسلت الرسالة مؤخراً. انتظر قليلاً قبل المحاولة مرة أخرى.", en: "You sent this recently. Please wait before trying again." },
   "profile.resendWelcomeError": { ar: "تعذّر إرسال الرسالة. حاول مرة أخرى.", en: "Could not send the message. Please try again." },
   "profile.termsOfUse": { ar: "شروط الاستخدام", en: "Terms of Use" },
+  "about.appIdentity": { ar: "عن التطبيق والملكية", en: "About & ownership" },
+  "about.version": { ar: "الإصدار", en: "Version" },
 
   // Terms / register acceptance
   "terms.titleClient": { ar: "شروط استخدام التطبيق", en: "App terms of use" },

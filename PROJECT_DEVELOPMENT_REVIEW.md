@@ -1,6 +1,6 @@
 # Fanni — مراجعة تطور المشروع (مرجع مستمر)
 
-آخر مراجعة: 26 أغسطس 2026
+آخر مراجعة: 26 أغسطس 2026 (مساءً — ملكية UpNexa + APK 1.0.7)
 
 منصة طلبات صيانة منزلية في مصر: عميل ينشئ طلبًا، النظام يطابق فنيًا، الفني يدفع نقاطًا لكشف بيانات العميل، ثم تتبع جغرافي وتأكيد وصول ونتيجة خدمة. **محاسبة المنصة = عمولة Lead فقط** (لا فواتير صيانة/OCR).
 
@@ -202,12 +202,11 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | البند | الحالة |
 |---|---|
 | كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
-| إصدار التطبيق | **1.0.6** / `versionCode` 6 |
-| بناء EAS `preview` v1.0.3 | **منتهٍ** (`bae7ee22`) — OSM WebView |
-| بناء EAS `preview` v1.0.4 | **منتهٍ** (`60610e5a`) |
-| بناء EAS `preview` v1.0.5 | سابق — عمولة فقط + باقات Word |
+| إصدار التطبيق | **1.0.7** / `versionCode` 7 |
 | بناء EAS `preview` v1.0.6 | **منتهٍ** (`c9c57cc3`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/c9c57cc3-133a-4746-8e2f-6c385725981b |
-| APK محلي | `artifacts/mobile/dist/fanni.apk` (~100274280 بايت) |
+| بناء EAS `preview` v1.0.7 | قيد التنفيذ — ملكية UpNexa + بطاقة هوية الإصدار |
+| APK محلي | يُحدَّث بعد Finished لـ v1.0.7 |
+| الناشر | **UpNexa** — `Info@upnexa-eg.com` · https://upnexa-eg.com |
 | Sentry (APK) | DSN `fanni-app`؛ wrap + ErrorBoundary + sessions؛ `enableNative: false` حتى smoke test |
 | APK على `app.upnexa-eg.com` | ارفع بـ WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
 

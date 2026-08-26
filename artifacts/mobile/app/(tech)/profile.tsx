@@ -22,6 +22,7 @@ import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/componen
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
+import AppIdentityCard from "@/components/AppIdentityCard";
 import { openTermsOfUse } from "@/utils/terms";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
@@ -1040,6 +1041,8 @@ export default function TechProfileScreen() {
             </Text>
             <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
+
+          <AppIdentityCard />
 
           {/* Logout */}
           <TouchableOpacity
