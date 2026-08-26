@@ -12,6 +12,7 @@ import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import { getApiBase } from "@/utils/api";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -64,12 +65,7 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 function getApiBaseUrl(): string {
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (apiUrl) return apiUrl;
-  if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
-  }
-  return "";
+  return getApiBase();
 }
 
 function getClientId(): string {

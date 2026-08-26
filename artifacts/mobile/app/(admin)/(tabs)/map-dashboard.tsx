@@ -98,6 +98,8 @@ export default function AdminMapDashboard() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title={isRTL ? "خريطة المراقبة الحية" : "Live Monitor Map"}
+        showBack
+        homeHref="/(admin)/(tabs)/dashboard"
         rightElement={
           <TouchableOpacity style={styles.refreshBtn} onPress={fetchMapData}>
             <VectorIcon name="refresh-cw" size={18} color={colors.foreground} />

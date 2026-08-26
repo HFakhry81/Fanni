@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -11,6 +12,8 @@ import { getApiBase } from "@/utils/api";
 
 interface Permission { id: string; group: string; groupAr: string; label: string; labelAr: string; enabled: boolean; }
 interface AdminEntry { id: string; name: string; email: string | null; isSuperAdmin: boolean; isActive: boolean; }
+
+const ADMIN_HOME = "/(admin)/(tabs)/dashboard";
 
 const ALL_PERMISSIONS: Omit<Permission, "enabled">[] = [
   { id: "p1",               group: "Clients",      groupAr: "العملاء",    label: "View all clients",          labelAr: "عرض جميع العملاء"           },
@@ -49,6 +52,7 @@ const GROUP_COLORS: Record<string, string> = {
 };
 
 export default function AdminPermissionsScreen() {
+  const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
   const { sessionToken } = useAuth();
@@ -139,10 +143,42 @@ export default function AdminPermissionsScreen() {
     }
   };
 
+  const hubLinks: { icon: IconName; label: string; color: string; route: string }[] = [
+    { icon: "user", label: isRTL ? "ملفي الشخصي" : "My Profile", color: "#4DADD9", route: "/(admin)/(tabs)/profile" },
+    { icon: "clock", label: isRTL ? "سجل الدخول" : "Login Logs", color: "#7C5CBF", route: "/(admin)/(tabs)/login-logs" },
+    { icon: "user-plus", label: isRTL ? "إضافة مسئول" : "Add Admin", color: "#22A36B", route: "/(admin)/add-admin" },
+    { icon: "alert-circle", label: isRTL ? "طلبات معلقة" : "Pending Approvals", color: "#C8880A", route: "/(admin)/(tabs)/pending" },
+  ];
+
+  const renderHub = () => (
+    <View style={{ marginBottom: 20 }}>
+      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
+        {isRTL ? "أدوات الإدارة" : "Admin Tools"}
+      </Text>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 10 }}>
+        {hubLinks.map((item) => (
+          <TouchableOpacity
+            key={item.route}
+            style={[styles.hubCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+            onPress={() => router.push(item.route as any)}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.groupIcon, { backgroundColor: item.color + "18", borderRadius: 10 }]}>
+              <VectorIcon name={item.icon} size={18} color={item.color} />
+            </View>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 8, textAlign: "center" }} numberOfLines={2}>
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
   if (initLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <AppHeader title={t("admin.sysAdmins")} showHome showLogout />
+        <AppHeader title={t("admin.sysAdmins")} showHome showLogout showProfile homeHref={ADMIN_HOME} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -155,21 +191,23 @@ export default function AdminPermissionsScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader
           title={t("admin.sysAdmins")}
-          subtitle={isRTL ? "وصول محظور" : "Access Restricted"}
+          subtitle={isRTL ? "أدوات المسئول" : "Admin tools"}
           showHome
           showLogout
+          showProfile
+          homeHref={ADMIN_HOME}
         />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-          <VectorIcon name="lock" size={48} color={colors.mutedForeground} />
-          <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 18, marginTop: 16, textAlign: "center" }}>
-            {isRTL ? "الوصول محظور" : "Access Restricted"}
-          </Text>
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 8, textAlign: "center", lineHeight: 22 }}>
-            {isRTL
-              ? "إدارة الصلاحيات متاحة للمسئول الأعلى فقط.\nراجع مسئولك الأعلى إذا كنت بحاجة إلى صلاحيات إضافية."
-              : "Permission management is only available to super-admins.\nContact your super-admin if you need additional access."}
-          </Text>
-        </View>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+          {renderHub()}
+          <View style={[styles.readOnlyBanner, { backgroundColor: colors.muted + "60", borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <VectorIcon name="lock" size={16} color={colors.mutedForeground} />
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL
+                ? "إدارة صلاحيات المسئولين متاحة للمسئول الأعلى فقط."
+                : "Permission management is available to super-admins only."}
+            </Text>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -181,9 +219,17 @@ export default function AdminPermissionsScreen() {
         subtitle={selectedAdmin ? (enabledCount + "/" + perms.length + (isRTL ? " مفعلة" : " enabled")) : (isRTL ? "اختر مسئولاً" : "Select an admin")}
         showHome
         showLogout
+        showProfile
+        homeHref={ADMIN_HOME}
       />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+        {renderHub()}
+
+        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
+          {isRTL ? "صلاحيات المسئولين" : "Admin Permissions"}
+        </Text>
+
         <TouchableOpacity
           style={[styles.adminPicker, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, flexDirection: isRTL ? "row-reverse" : "row" }]}
           onPress={() => setAdminPickerVisible(true)}
@@ -343,6 +389,7 @@ export default function AdminPermissionsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 16 },
+  hubCard: { width: "47%", paddingVertical: 14, paddingHorizontal: 10, borderWidth: 1.5, alignItems: "center" },
   readOnlyBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
   adminPicker: { flexDirection: "row", alignItems: "center", padding: 14, borderWidth: 1.5, marginBottom: 20 },
   groupBlock: { marginBottom: 20 },

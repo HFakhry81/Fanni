@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 
 interface AppHeaderProps {
   title: string;
@@ -12,6 +13,9 @@ interface AppHeaderProps {
   showHome?: boolean;
   showLogout?: boolean;
   showLangToggle?: boolean;
+  showProfile?: boolean;
+  /** Override home navigation target (default: /welcome) */
+  homeHref?: string;
   rightElement?: React.ReactNode;
   onBack?: () => void;
 }
@@ -23,29 +27,40 @@ export default function AppHeader({
   showHome = false,
   showLogout = false,
   showLangToggle = false,
+  showProfile = false,
+  homeHref = "/welcome",
   rightElement,
   onBack,
 }: AppHeaderProps) {
   const router = useRouter();
   const colors = useColors();
-  const { isRTL, setUser, setLanguage, language } = useApp();
+  const { isRTL, setLanguage, language } = useApp();
+  const { logout } = useAuth();
   const insets = useSafeAreaInsets();
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
 
   const handleLogout = async () => {
-    await setUser(null);
+    try {
+      await logout();
+    } catch {
+      // still leave the screen
+    }
     router.replace("/welcome");
   };
 
   const handleHome = () => {
-    router.replace("/welcome");
+    router.replace(homeHref as any);
   };
 
   const handleBack = () => {
     if (onBack) onBack();
     else if (router.canGoBack()) router.back();
-    else router.replace("/welcome");
+    else router.replace(homeHref as any);
+  };
+
+  const handleProfile = () => {
+    router.push("/(admin)/(tabs)/profile");
   };
 
   return (
@@ -86,6 +101,11 @@ export default function AppHeader({
             <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 12 }}>
               {language === "ar" ? "EN" : "عر"}
             </Text>
+          </TouchableOpacity>
+        )}
+        {showProfile && (
+          <TouchableOpacity style={[styles.iconBtn, { backgroundColor: "rgba(77,173,217,0.2)" }]} onPress={handleProfile}>
+            <Text style={styles.homeIcon}>👤</Text>
           </TouchableOpacity>
         )}
         {rightElement}

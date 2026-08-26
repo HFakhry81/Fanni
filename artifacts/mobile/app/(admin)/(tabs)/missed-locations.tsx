@@ -6,7 +6,8 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import VectorIcon from "@/components/VectorIcon";
 import AppHeader from "@/components/AppHeader";
-import LocationPicker from "@/components/LocationPicker"; // المنتقي الموحد الذي قمنا بتعديله في المقطع السابق
+import LocationPicker from "@/components/LocationPicker";
+import { getApiBase } from "@/utils/api";
 
 interface MissedLocation {
   id: string;
@@ -39,8 +40,7 @@ export default function MissedLocationsScreen() {
     if (!sessionToken) return;
     setLoading(true);
     try {
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const res = await fetch(`http://${domain}/api/admin/location-miss-log`, {
+      const res = await fetch(`${getApiBase()}/api/admin/location-miss-log`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       if (res.ok) {
@@ -75,8 +75,7 @@ export default function MissedLocationsScreen() {
 
     setSaving(true);
     try {
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const res = await fetch(`http://${domain}/api/admin/location-aliases`, {
+      const res = await fetch(`${getApiBase()}/api/admin/location-aliases`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${sessionToken}`,
@@ -110,6 +109,8 @@ export default function MissedLocationsScreen() {
       <AppHeader 
         title={isRTL ? "معالجة العناوين غير المطابقة" : "Resolve Missed Locations"} 
         subtitle={isRTL ? `${logs.length} عنوان يحتاج لتوجيه` : `${logs.length} unmatched coordinates`}
+        showBack
+        homeHref="/(admin)/(tabs)/dashboard"
       />
 
       {loading ? (

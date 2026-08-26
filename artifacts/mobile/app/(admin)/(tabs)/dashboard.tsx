@@ -9,13 +9,9 @@ import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import StatusBadge from "@/components/StatusBadge";
+import { getApiBase } from "@/utils/api";
 
-function getApiBaseUrl(): string {
-  if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
-  }
-  return "";
-}
+const ADMIN_HOME = "/(admin)/(tabs)/dashboard";
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
@@ -55,7 +51,11 @@ export default function AdminDashboardScreen() {
           onPress: async () => {
             setIsRegeocoding(true);
             try {
-              const base = getApiBaseUrl();
+              const base = getApiBase();
+              if (!base) {
+                Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "عنوان الخادم غير مضبوط" : "API base URL is not configured");
+                return;
+              }
               const resp = await fetch(`${base}/api/admin/technicians/backfill-locations`, {
                 method: "POST",
                 headers: {
@@ -64,9 +64,18 @@ export default function AdminDashboardScreen() {
                 },
                 credentials: "include",
               });
-              const data = await resp.json() as { success?: boolean; total?: number; updated?: number; skipped?: number; errors?: number; error?: string };
+              let data: { success?: boolean; total?: number; updated?: number; skipped?: number; errors?: number; error?: string } = {};
+              try {
+                data = await resp.json() as typeof data;
+              } catch {
+                // non-JSON body
+              }
               if (!resp.ok || !data.success) {
-                Alert.alert(isRTL ? "خطأ" : "Error", data.error ?? (isRTL ? "حدث خطأ غير متوقع" : "Unexpected error"));
+                const detail = data.error
+                  ?? (resp.status === 401 || resp.status === 403
+                    ? (isRTL ? "غير مصرح — سجّل الدخول مجدداً" : "Unauthorized — sign in again")
+                    : (isRTL ? `فشل الطلب (${resp.status})` : `Request failed (${resp.status})`));
+                Alert.alert(isRTL ? "خطأ" : "Error", detail);
                 return;
               }
               const msg = isRTL
@@ -84,6 +93,17 @@ export default function AdminDashboardScreen() {
     );
   }
 
+  const quickActions: { icon: IconName; label: string; color: string; route: string }[] = [
+    { icon: "users", label: t("admin.users"), color: colors.secondary, route: "/(admin)/(tabs)/users" },
+    { icon: "list", label: t("admin.orders"), color: colors.primary, route: "/(admin)/(tabs)/orders" },
+    { icon: "credit-card", label: isRTL ? "المدفوعات" : "Payments", color: "#22A36B", route: "/(admin)/(tabs)/payments" },
+    { icon: "alert-circle", label: isRTL ? "النزاعات" : "Disputes", color: "#C8880A", route: "/(admin)/(tabs)/disputes" },
+    { icon: "book-open", label: isRTL ? "الأستاذ" : "Ledger", color: "#7C5CBF", route: "/(admin)/(tabs)/ledger" },
+    { icon: "dollar-sign", label: isRTL ? "تسعير Lead" : "Lead Pricing", color: "#C8880A", route: "/(admin)/(tabs)/lead-pricing" },
+    { icon: "shield", label: isRTL ? "التدقيق" : "Audit", color: "#22A36B", route: "/(admin)/(tabs)/audit-logs" },
+    { icon: "user", label: isRTL ? "ملفي" : "My Profile", color: "#4DADD9", route: "/(admin)/(tabs)/profile" },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
@@ -92,10 +112,11 @@ export default function AdminDashboardScreen() {
         showHome
         showLogout
         showLangToggle
+        showProfile
+        homeHref={ADMIN_HOME}
       />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
-        {/* KPI grid */}
         <View style={styles.kpiGrid}>
           {kpis.map((kpi) => (
             <View key={kpi.label} style={[styles.kpiCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
@@ -112,12 +133,11 @@ export default function AdminDashboardScreen() {
           ))}
         </View>
 
-        {/* Status summary strip */}
         <View style={[styles.statusStrip, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {[
-            { label: isRTL ? "في الانتظار" : "Pending",   count: pending.length,   color: colors.primary },
-            { label: isRTL ? "نشطة" : "Active",            count: active.length,    color: colors.secondary },
-            { label: isRTL ? "مكتملة" : "Completed",       count: completed.length, color: colors.success },
+            { label: isRTL ? "في الانتظار" : "Pending", count: pending.length, color: colors.primary },
+            { label: isRTL ? "نشطة" : "Active", count: active.length, color: colors.secondary },
+            { label: isRTL ? "مكتملة" : "Completed", count: completed.length, color: colors.success },
           ].map((s, i) => (
             <View key={s.label} style={[styles.stripItem, { borderRightWidth: i < 2 ? 1 : 0, borderRightColor: colors.border }]}>
               <Text style={{ color: s.color, fontFamily: "Inter_700Bold", fontSize: 22 }}>{s.count}</Text>
@@ -126,7 +146,6 @@ export default function AdminDashboardScreen() {
           ))}
         </View>
 
-        {/* Recent orders */}
         <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
           {isRTL ? "آخر الطلبات" : "Recent Orders"}
         </Text>
@@ -148,23 +167,14 @@ export default function AdminDashboardScreen() {
           </TouchableOpacity>
         ))}
 
-        {/* Quick actions */}
         <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
           {isRTL ? "إجراءات سريعة" : "Quick Actions"}
         </Text>
-        <View style={[styles.actionsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          {([ 
-            { icon: "users",       label: t("admin.users"),       color: colors.secondary, route: "/(admin)/users" },
-            { icon: "list",        label: t("admin.orders"),      color: colors.primary,   route: "/(admin)/orders" },
-            { icon: "credit-card", label: isRTL ? "المدفوعات" : "Payments", color: "#22A36B", route: "/(admin)/payments" },
-            { icon: "alert-circle", label: isRTL ? "النزاعات" : "Disputes", color: "#C8880A", route: "/(admin)/disputes" },
-            { icon: "book-open",   label: isRTL ? "الأستاذ" : "Ledger", color: "#7C5CBF", route: "/(admin)/ledger" },
-            { icon: "dollar-sign", label: isRTL ? "تسعير Lead" : "Lead Pricing", color: "#C8880A", route: "/(admin)/lead-pricing" },
-            { icon: "shield",      label: isRTL ? "التدقيق" : "Audit", color: "#22A36B", route: "/(admin)/audit-logs" },
-          ] satisfies { icon: IconName; label: string; color: string; route: string }[]).map((item) => (
+        <View style={[styles.actionsRow, { flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap" }]}>
+          {quickActions.map((item) => (
             <TouchableOpacity
               key={item.label}
-              style={[styles.actionCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}
+              style={[styles.actionCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, width: "23%" }]}
               onPress={() => router.push(item.route as any)}
               activeOpacity={0.85}
             >
@@ -178,9 +188,8 @@ export default function AdminDashboardScreen() {
           ))}
         </View>
 
-        {/* Tools section */}
         <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginTop: 8 }]}>
-          {isRTL ? "أدوات" : "Tools"}
+          {isRTL ? "أدوات الموقع" : "Location Tools"}
         </Text>
         <TouchableOpacity
           style={[styles.toolRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
@@ -204,6 +213,44 @@ export default function AdminDashboardScreen() {
           </View>
           <VectorIcon name="chevron-right" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toolRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={() => router.push("/(admin)/(tabs)/map-dashboard")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.toolIcon, { backgroundColor: "#4DADD918", borderRadius: 12 }]}>
+            <VectorIcon name="map" size={22} color="#4DADD9" />
+          </View>
+          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+              {isRTL ? "خريطة الفنيين الحية" : "Live Technician Map"}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
+              {isRTL ? "عرض مواقع الفنيين والطلبات النشطة" : "View technician and active order locations"}
+            </Text>
+          </View>
+          <VectorIcon name="chevron-right" size={18} color={colors.mutedForeground} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toolRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={() => router.push("/(admin)/(tabs)/missed-locations")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.toolIcon, { backgroundColor: "#E67E2218", borderRadius: 12 }]}>
+            <VectorIcon name="alert-triangle" size={22} color="#E67E22" />
+          </View>
+          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+              {isRTL ? "عناوين غير مطابقة" : "Missed Locations"}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
+              {isRTL ? "ربط الأسماء العامية بالمناطق الرسمية" : "Map informal place names to official areas"}
+            </Text>
+          </View>
+          <VectorIcon name="chevron-right" size={18} color={colors.mutedForeground} />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -221,7 +268,7 @@ const styles = StyleSheet.create({
   orderRow: { padding: 14, marginBottom: 10, borderWidth: 1.5, alignItems: "center" },
   orderDot: { width: 10, height: 10, borderRadius: 5 },
   actionsRow: { gap: 10, marginBottom: 8 },
-  actionCard: { flex: 1, paddingVertical: 16, alignItems: "center", borderWidth: 1.5 },
+  actionCard: { paddingVertical: 16, alignItems: "center", borderWidth: 1.5, minWidth: "22%" },
   actionIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   toolRow: { padding: 14, borderWidth: 1.5, alignItems: "center", marginBottom: 10 },
   toolIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },

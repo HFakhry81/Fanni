@@ -13,6 +13,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+import { getApiBase } from "@/utils/api";
 
 interface LoginLog {
   id: number;
@@ -34,13 +35,6 @@ interface Pagination {
 
 type FilterRole = "all" | "client" | "technician" | "admin";
 type FilterSuccess = "all" | "true" | "false";
-
-function getApiBaseUrl(): string {
-  if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return `http://${process.env.EXPO_PUBLIC_DOMAIN}`;
-  }
-  return "";
-}
 
 function formatDateTime(iso: string, isRTL: boolean): string {
   const d = new Date(iso);
@@ -104,7 +98,7 @@ export default function LoginLogsScreen() {
       if (filterSuccess !== "all") params.append("success", filterSuccess);
 
       try {
-        const res = await fetch(`${getApiBaseUrl()}/api/admin/login-logs?${params}`, {
+        const res = await fetch(`${getApiBase()}/api/admin/login-logs?${params}`, {
           headers: { Authorization: `Bearer ${sessionToken}` },
         });
         if (!res.ok) throw new Error("Failed to fetch");
@@ -219,6 +213,8 @@ export default function LoginLogsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title={t("loginLogs.title")}
+        showBack
+        homeHref="/(admin)/(tabs)/dashboard"
         subtitle={(() => {
           if (!pagination) return isRTL ? "جارٍ التحميل..." : "Loading...";
           const isFiltered = filterRole !== "all" || filterSuccess !== "all";

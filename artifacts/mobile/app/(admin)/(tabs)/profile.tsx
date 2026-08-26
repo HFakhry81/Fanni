@@ -26,13 +26,9 @@ import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordS
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
+import { getApiBase } from "@/utils/api";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
-
-function getApiBaseUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  return domain ? `http://${domain}` : "";
-}
 
 // ─── Payment Manager Picker ───────────────────────────────────────────────────
 interface AdminOption { id: string; firstName: string | null; lastName: string | null; mobile: string | null }
@@ -49,7 +45,7 @@ function PaymentManagerPicker({ sessionToken, isRTL, colors }: {
   const [saving, setSaving] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
-  const apiBase = getApiBaseUrl();
+  const apiBase = getApiBase();
   const headers = { "Content-Type": "application/json", ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) };
 
   const load = async () => {
@@ -341,7 +337,7 @@ export default function AdminProfileScreen() {
     }
     setChangingPw(true);
     try {
-      const apiBase = getApiBaseUrl();
+      const apiBase = getApiBase();
       const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
       if (!apiBase || !token) throw new Error(t("profile.noServer"));
       const res = await fetch(`${apiBase}/api/auth/change-password`, {
@@ -387,7 +383,7 @@ export default function AdminProfileScreen() {
           onPress: async () => {
             setRevokingOtherSessions(true);
             try {
-              const apiBase = getApiBaseUrl();
+              const apiBase = getApiBase();
               const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
               if (!apiBase || !token) throw new Error(t("profile.noServer"));
               const res = await fetch(`${apiBase}/api/auth/revoke-other-sessions`, {
@@ -469,7 +465,7 @@ export default function AdminProfileScreen() {
     try {
       const mimeType = asset.mimeType ?? "image/jpeg";
       const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mimeType);
-      const apiBase = getApiBaseUrl();
+      const apiBase = getApiBase();
       if (apiBase) {
         const patchRes = await fetch(`${apiBase}/api/auth/me`, {
           method: "PATCH",
@@ -513,7 +509,7 @@ export default function AdminProfileScreen() {
                     const previousAvatar = (user as { avatar?: string | null }).avatar ?? undefined;
                     undoAvatarRef.current = previousAvatar;
                     await setUser({ ...user, avatar: undefined });
-                    const apiBase = getApiBaseUrl();
+                    const apiBase = getApiBase();
                     if (!apiBase || !sessionToken) {
                       await setUser({ ...user, avatar: previousAvatar });
                       undoAvatarRef.current = undefined;
@@ -581,7 +577,7 @@ export default function AdminProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title={t("admin.profile")} showHome showLangToggle onBack={() => router.replace("/(admin)/(tabs)/dashboard")} />
+      <AppHeader title={t("admin.profile")} showHome showLangToggle showLogout homeHref="/(admin)/(tabs)/dashboard" onBack={() => router.replace("/(admin)/(tabs)/dashboard")} />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Avatar hero */}
