@@ -111,7 +111,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [x] | M4 APK | v1.0.4 — دمج توثيق EAS + lockfile مجمد؛ OSM/WebView؛ APK v1.0.3 (`bae7ee22`) مُثبَّت محليًا |
+| 12 | [x] | M4 APK | v1.0.4 Finished (`60610e5a`) — Sentry JS monitor؛ OSM/WebView؛ APK محلي `artifacts/mobile/dist/fanni.apk` |
 
 ---
 
@@ -137,6 +137,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | `08c6ea00` | Pre-install | `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` — `patchedDependencies` في الأرشيف دون `patches/` على EAS |
 | `51a8992e` | INSTALL_CUSTOM_TOOLS | pnpm 11.23.0 يتطلب Node ≥22؛ EAS Builder على Node 20 |
 | `bae7ee22` | — | **نجح** — v1.0.3 / `versionCode` 3؛ OSM WebView؛ بلجن محلي `./plugins/withReactNativeWebView` |
+| `60610e5a` | — | **نجح** — v1.0.4 / `versionCode` 4؛ Sentry JS (`fanni-app`)؛ بدون keyboard-controller |
 
 **إصلاحات طُبّقت في الجلسة:**
 
@@ -190,9 +191,10 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
 | إصدار التطبيق | **1.0.4** / `versionCode` 4 |
 | بناء EAS `preview` v1.0.3 | **منتهٍ** (`bae7ee22`) — OSM WebView |
-| بناء EAS `preview` v1.0.4 | جاهز للبناء — بدون keyboard-controller؛ deps أصلية في dependencies؛ android/ محلي محذوف |
-| APK محلي v1.0.3 | `artifacts/mobile/dist/fanni.apk` (~96.8MB) |
-| APK على `app.upnexa-eg.com` | قديم حتى رفع v1.0.4 |
+| بناء EAS `preview` v1.0.4 | **منتهٍ** (`60610e5a`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/60610e5a-0f68-4ce2-bc01-3b059f754707 |
+| APK محلي v1.0.4 | `artifacts/mobile/dist/fanni.apk` (~95.6MB) |
+| Sentry (APK) | DSN `fanni-app`؛ wrap + ErrorBoundary + sessions؛ `enableNative: false` حتى smoke test |
+| APK على `app.upnexa-eg.com` | WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
 
 ---
 
@@ -258,7 +260,8 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 26 أغسطس 2026 | APK v1.0.4 + Sentry monitor | توحيد Sentry.init + wrap + ErrorBoundary + user tags؛ `enableNative: false`؛ بدء EAS preview v1.0.4 | Finished → تثبيت → تحقق أحداث Sentry → ثم تفعيل native |
+| 26 أغسطس 2026 | APK v1.0.4 EAS Finished | بناء `60610e5a` نجح (1.0.4 / versionCode 4)؛ Sentry JS monitor على `fanni-app`؛ APK محلي `dist/fanni.apk` | تثبيت + تحقق Sentry sessions → ثم `enableNative`؛ WinSCP للموقع |
+| 26 أغسطس 2026 | APK v1.0.4 + Sentry monitor | توحيد Sentry.init + wrap + ErrorBoundary + user tags؛ `enableNative: false`؛ بدء EAS preview v1.0.4 | (استُكمِل — `60610e5a`) |
 | 26 أغسطس 2026 | APK v1.0.4 — تثبيت قبل البناء | إزالة `keyboard-controller`؛ نقل الحزم الأصلية إلى `dependencies`؛ حذف `android/` المحلي القديم؛ تنظيف metro maps stub؛ `packageManager: pnpm@10.15.1` | بناء EAS preview v1.0.4 → WinSCP |
 | 26 أغسطس 2026 | APK v1.0.4 — دمج PRs | دمج PR #1 (توثيق EAS `bae7ee22`) + PR #2 (`--frozen-lockfile` + lockfile نظيف)؛ رفع الإصدار إلى **1.0.4** / `versionCode` 4؛ إزالة `.idea` من Git | بناء EAS v1.0.4 عند الحاجة؛ رفع APK للموقع |
 | 26 أغسطس 2026 | APK v1.0.3 EAS Finished | إصلاح `react-native-webview`/`expo config` (بلجن محلي)؛ فشلان `08c6ea00`/`51a8992e`؛ بناء ناجح `bae7ee22`؛ APK `artifacts/mobile/dist/fanni.apk` (~96.8MB) | (استُكمِل — APK مُثبَّت محليًا) |
