@@ -16,6 +16,7 @@ import { useFocusEffect } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
+import KeyboardAwareScrollViewCompat, { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -340,7 +341,7 @@ export default function WalletScreen() {
         </TouchableOpacity>
       )}
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl
@@ -525,7 +526,7 @@ export default function WalletScreen() {
         )}
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       {/* ════════════════════════════════════════════════════════════════════
           BUY MODAL — 3 steps
@@ -537,6 +538,7 @@ export default function WalletScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingSheet>
           <View style={[styles.modalBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {/* Header */}
             <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -566,7 +568,7 @@ export default function WalletScreen() {
               </View>
             )}
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <KeyboardAwareScrollViewCompat enableAvoidingView={false} showsVerticalScrollIndicator={false}>
               {/* ── STEP 1: Method ── */}
               {modalStep === "method" && (
                 <View style={{ gap: 10, marginTop: 8 }}>
@@ -752,8 +754,9 @@ export default function WalletScreen() {
                   </View>
                 </View>
               )}
-            </ScrollView>
+            </KeyboardAwareScrollViewCompat>
           </View>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
 

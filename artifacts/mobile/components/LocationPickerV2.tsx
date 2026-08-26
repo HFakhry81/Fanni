@@ -21,11 +21,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  ScrollView,
   Modal,
   Platform,
   ActivityIndicator,
-  KeyboardAvoidingView,
   I18nManager,
   FlatList,
   Dimensions,
@@ -44,6 +42,7 @@ import {
   GovCoordinate,
 } from "../constants/egyptLocations";
 import { getApiBase } from "../utils/api";
+import { KeyboardAvoidingSheet } from "./KeyboardAwareScrollViewCompat";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const IS_RTL = I18nManager.isRTL;
@@ -167,6 +166,7 @@ function SearchableDropdown({
       </TouchableOpacity>
 
       <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
+        <KeyboardAvoidingSheet>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             {/* Search Bar */}
@@ -226,6 +226,7 @@ function SearchableDropdown({
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingSheet>
       </Modal>
     </>
   );

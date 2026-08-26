@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Platform,
   TouchableOpacity,
-  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +17,7 @@ import { useAuth } from "@/context/AuthContext";
 import FanniButton from "@/components/FanniButton";
 import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
+import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
@@ -129,7 +129,7 @@ export default function LoginScreen() {
         showLangToggle
       />
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
@@ -232,7 +232,7 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }

@@ -1,12 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator,
+  StyleSheet, ActivityIndicator,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import VectorIcon from "@/components/VectorIcon";
 import FanniButton from "@/components/FanniButton";
+import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 const OTP_LENGTH = 6;
@@ -139,7 +140,7 @@ export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified, 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onCancel}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+        <KeyboardAvoidingSheet>
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
@@ -239,7 +240,7 @@ export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified, 
               </View>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAvoidingSheet>
       </View>
     </Modal>
   );

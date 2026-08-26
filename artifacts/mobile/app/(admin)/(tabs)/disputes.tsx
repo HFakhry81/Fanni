@@ -16,6 +16,7 @@ import { useFocusEffect } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
+import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -312,6 +313,7 @@ export default function AdminDisputesScreen() {
       {/* Resolve modal */}
       <Modal visible={resolveModal.visible} transparent animationType="slide" onRequestClose={() => setResolveModal({ visible: false, dispute: null })}>
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingSheet>
           <View style={[styles.modalBox, { backgroundColor: colors.card, borderRadius: 20 }]}>
             <Text style={[styles.modalTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
               {isRTL ? "البتّ في النزاع" : "Resolve Dispute"}
@@ -379,6 +381,7 @@ export default function AdminDisputesScreen() {
               </>
             )}
           </View>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
     </View>

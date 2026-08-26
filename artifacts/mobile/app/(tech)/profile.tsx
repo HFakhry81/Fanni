@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  Modal, TextInput, KeyboardAvoidingView, Alert, Image, ActivityIndicator, type AlertButton,
+  Modal, TextInput, Alert, Image, ActivityIndicator, type AlertButton,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -18,6 +18,7 @@ import Toast from "@/components/Toast";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
+import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
@@ -689,7 +690,7 @@ export default function TechProfileScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={t("profile.title")} />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+      <KeyboardAwareScrollViewCompat contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Hero */}
         <View style={[styles.hero, { backgroundColor: colors.darkMid }]}>
           <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8}>
@@ -1038,12 +1039,12 @@ export default function TechProfileScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       {/* Change Password Modal */}
       <Modal visible={pwVisible} animationType="slide" transparent onRequestClose={() => setPwVisible(false)}>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+          <KeyboardAvoidingSheet>
             <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: botPad + 16, minHeight: "50%", maxHeight: "80%" }]}>
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
               <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
@@ -1071,7 +1072,7 @@ export default function TechProfileScreen() {
                 })()}
               </View>
 
-              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+              <KeyboardAwareScrollViewCompat enableAvoidingView={false} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
                 {/* Current Password */}
                 <View style={styles.fieldWrap}>
                   <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
@@ -1141,16 +1142,16 @@ export default function TechProfileScreen() {
                     <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{pwErrors.confirm}</Text>
                   ) : null}
                 </View>
-              </ScrollView>
+              </KeyboardAwareScrollViewCompat>
             </View>
-          </KeyboardAvoidingView>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
 
       {/* Edit Profile Modal */}
       <Modal visible={editVisible} animationType="slide" transparent onRequestClose={() => setEditVisible(false)}>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+          <KeyboardAvoidingSheet>
             <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: botPad + 16 }]}>
               {/* Handle */}
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -1175,7 +1176,12 @@ export default function TechProfileScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView ref={editScrollRef} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+              <KeyboardAwareScrollViewCompat
+                ref={editScrollRef}
+                enableAvoidingView={false}
+                contentContainerStyle={{ padding: 16 }}
+                showsVerticalScrollIndicator={false}
+              >
                 {verificationToken && verificationSecondsLeft > 0 && (
                   <View style={[styles.expiryBanner, { backgroundColor: verificationSecondsLeft <= 300 ? "#FEF3C7" : "#F0F9FF", borderColor: verificationSecondsLeft <= 300 ? "#FCD34D" : "#BAE6FD" }]}>
                     <VectorIcon name="clock" size={14} color={verificationSecondsLeft <= 300 ? "#D97706" : "#0284C7"} />
@@ -1453,9 +1459,9 @@ export default function TechProfileScreen() {
                   showDetails={true}
                 />
                 </View>
-              </ScrollView>
+              </KeyboardAwareScrollViewCompat>
             </View>
-          </KeyboardAvoidingView>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
 

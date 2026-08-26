@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet,
   TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
   BackHandler, AppState, Modal, Animated,
 } from "react-native";
@@ -18,6 +18,7 @@ import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
+import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import AddressBlock, { AddressValue, EMPTY_ADDRESS } from "@/components/AddressBlock";
 import AppHeader from "@/components/AppHeader";
 import ImageLightbox from "@/components/ImageLightbox";
@@ -980,7 +981,7 @@ export default function NewOrderScreen() {
         ))}
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
@@ -1043,7 +1044,7 @@ export default function NewOrderScreen() {
                 />
           }
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       <Toast
         key={`photos-missing-${photosMissingToast.key}`}

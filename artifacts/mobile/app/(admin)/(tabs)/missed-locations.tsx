@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import VectorIcon from "@/components/VectorIcon";
 import AppHeader from "@/components/AppHeader";
 import LocationPicker from "@/components/LocationPicker";
+import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 interface MissedLocation {
@@ -165,6 +166,7 @@ export default function MissedLocationsScreen() {
       {/* مودال الربط والدمج */}
       <Modal visible={selectedLog !== null} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingSheet>
           <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>
@@ -175,7 +177,7 @@ export default function MissedLocationsScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalBody}>
+            <KeyboardAwareScrollViewCompat enableAvoidingView={false} contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
               {/* حقول تأكيد الأسماء المدخلة لجدول الـ aliases */}
               <View style={styles.fieldWrap}>
                 <Text style={[styles.label, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
@@ -230,8 +232,9 @@ export default function MissedLocationsScreen() {
                   </>
                 )}
               </TouchableOpacity>
-            </View>
+            </KeyboardAwareScrollViewCompat>
           </View>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
     </View>

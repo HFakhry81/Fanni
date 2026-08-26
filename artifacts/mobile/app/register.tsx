@@ -17,6 +17,7 @@ import FanniButton from "@/components/FanniButton";
 import AddressBlock, { AddressValue, EMPTY_ADDRESS } from "@/components/AddressBlock";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
+import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 const OTP_LENGTH = 6;
@@ -1366,7 +1367,7 @@ export default function RegisterScreen() {
         ))}
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
@@ -1414,7 +1415,7 @@ export default function RegisterScreen() {
             />
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }

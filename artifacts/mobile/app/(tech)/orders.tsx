@@ -20,6 +20,7 @@ import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
 import { getApiBase } from "@/utils/api";
 import { startMaskedCall } from "@/utils/maskedCall";
+import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 
 
 export default function TechOrdersScreen() {
@@ -528,7 +529,7 @@ export default function TechOrdersScreen() {
             </TouchableOpacity>
           </View>
         ) : null}
-        <ScrollView contentContainerStyle={[styles.completeContent, { paddingBottom: botPad + 24 }]} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScrollViewCompat contentContainerStyle={[styles.completeContent, { paddingBottom: botPad + 24 }]} keyboardShouldPersistTaps="handled">
 
           {/* Solution Description */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
@@ -590,7 +591,7 @@ export default function TechOrdersScreen() {
             fullWidth
             style={{ marginHorizontal: 16 }}
           />
-        </ScrollView>
+        </KeyboardAwareScrollViewCompat>
       </View>
     );
   }
@@ -647,7 +648,7 @@ export default function TechOrdersScreen() {
         renderItem={renderCard}
       />
       <Modal visible={!!failOrderId} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+        <KeyboardAvoidingSheet style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
           <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, paddingBottom: botPad + 16 }}>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
               {isRTL ? "ليه الخدمة ما اكتملتش؟" : "Why was the service incomplete?"}
@@ -704,7 +705,7 @@ export default function TechOrdersScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingSheet>
       </Modal>
     </View>
   );

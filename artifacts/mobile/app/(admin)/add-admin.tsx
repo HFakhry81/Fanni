@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, Platform, TextInput, TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +14,7 @@ import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import Toast from "@/components/Toast";
+import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
@@ -287,7 +288,7 @@ export default function AddAdminScreen() {
         onBack={() => { if (otpMode) setOtpMode(false); else router.back(); }}
       />
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
@@ -457,7 +458,7 @@ export default function AddAdminScreen() {
             disabled={loading}
           />
         )}
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       <Toast
         visible={showToast}

@@ -18,6 +18,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import VectorIcon from "@/components/VectorIcon";
+import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 interface AccountingSummary {
@@ -602,6 +603,7 @@ export default function AdminAccountingScreen() {
 
       <Modal visible={expenseModal} transparent animationType="slide" onRequestClose={() => setExpenseModal(false)}>
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingSheet>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
             <View style={[styles.modalTitleRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <Text style={[styles.modalTitle, { color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }]}>
@@ -656,6 +658,7 @@ export default function AdminAccountingScreen() {
               {expenseSaving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveExpenseText}>{isRTL ? "حفظ المصروف" : "Save Expense"}</Text>}
             </TouchableOpacity>
           </View>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
     </View>

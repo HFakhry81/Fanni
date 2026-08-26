@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  Modal, TextInput, KeyboardAvoidingView, Alert, Image, ActivityIndicator, type AlertButton,
+  View, Text, StyleSheet, TouchableOpacity, Platform,
+  Modal, TextInput, Alert, Image, ActivityIndicator, type AlertButton,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +17,7 @@ import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordS
 import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
+import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
 
@@ -514,7 +515,7 @@ export default function ClientProfileScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={t("profile.title")} />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+      <KeyboardAwareScrollViewCompat contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Profile hero */}
         <View style={[styles.profileHero, { backgroundColor: colors.darkMid }]}>
           <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8}>
@@ -632,12 +633,12 @@ export default function ClientProfileScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       {/* Change Password Modal */}
       <Modal visible={pwVisible} animationType="slide" transparent onRequestClose={() => setPwVisible(false)}>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+          <KeyboardAvoidingSheet>
             <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: botPad + 16, minHeight: "50%", maxHeight: "80%" }]}>
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
               <View style={[styles.modalHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
@@ -665,7 +666,7 @@ export default function ClientProfileScreen() {
                 })()}
               </View>
 
-              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+              <KeyboardAwareScrollViewCompat enableAvoidingView={false} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
                 {/* Current Password */}
                 <View style={styles.fieldWrap}>
                   <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
@@ -735,16 +736,16 @@ export default function ClientProfileScreen() {
                     <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{pwErrors.confirm}</Text>
                   ) : null}
                 </View>
-              </ScrollView>
+              </KeyboardAwareScrollViewCompat>
             </View>
-          </KeyboardAvoidingView>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
 
       {/* Edit Profile Modal */}
       <Modal visible={editVisible} animationType="slide" transparent onRequestClose={() => setEditVisible(false)}>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+          <KeyboardAvoidingSheet>
             <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: botPad + 16 }]}>
               {/* Handle */}
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -769,7 +770,7 @@ export default function ClientProfileScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView contentContainerStyle={{ padding: 16, gap: 0 }} showsVerticalScrollIndicator={false}>
+              <KeyboardAwareScrollViewCompat enableAvoidingView={false} contentContainerStyle={{ padding: 16, gap: 0 }} showsVerticalScrollIndicator={false}>
                 {verificationToken && verificationSecondsLeft > 0 && (
                   <View style={[styles.expiryBanner, { backgroundColor: verificationSecondsLeft <= 300 ? "#FEF3C7" : "#F0F9FF", borderColor: verificationSecondsLeft <= 300 ? "#FCD34D" : "#BAE6FD" }]}>
                     <VectorIcon name="clock" size={14} color={verificationSecondsLeft <= 300 ? "#D97706" : "#0284C7"} />
@@ -845,9 +846,9 @@ export default function ClientProfileScreen() {
                   onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, gov: undefined, area: undefined })); }}
                   error={errors.gov ?? errors.area}
                 />
-              </ScrollView>
+              </KeyboardAwareScrollViewCompat>
             </View>
-          </KeyboardAvoidingView>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
 

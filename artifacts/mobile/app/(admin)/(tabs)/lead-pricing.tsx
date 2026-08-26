@@ -17,6 +17,7 @@ import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
+import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -234,10 +235,12 @@ export default function LeadPricingScreen() {
 
       <Modal visible={modalOpen} animationType="slide" transparent>
         <View style={styles.modalBackdrop}>
+          <KeyboardAvoidingSheet>
           <View style={[styles.modalCard, { backgroundColor: colors.card, paddingBottom: botPad + 16 }]}>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
               {editingId ? (isRTL ? "تعديل القاعدة" : "Edit rule") : (isRTL ? "قاعدة جديدة" : "New rule")}
             </Text>
+            <KeyboardAwareScrollViewCompat enableAvoidingView={false} showsVerticalScrollIndicator={false}>
             {([
               ["serviceCategory", isRTL ? "الفئة (فارغ = الكل)" : "Category (empty = all)"],
               ["serviceSpecialization", isRTL ? "التخصص (فارغ = الكل)" : "Specialization (empty = all)"],
@@ -270,7 +273,9 @@ export default function LeadPricingScreen() {
                 <FanniButton title={isRTL ? "حفظ" : "Save"} onPress={() => { void saveRule(); }} loading={saving} />
               </View>
             </View>
+            </KeyboardAwareScrollViewCompat>
           </View>
+          </KeyboardAvoidingSheet>
         </View>
       </Modal>
     </View>

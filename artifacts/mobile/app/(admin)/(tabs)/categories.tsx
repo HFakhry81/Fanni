@@ -10,6 +10,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
+import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 
 
 interface Domain {
@@ -394,131 +395,135 @@ export default function AdminCategoriesScreen() {
 
       {/* Domain Modal */}
       <Modal visible={domainModal.visible} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDomainModal({ visible: false, editing: null })} />
-        <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, marginBottom: 20, textAlign: isRTL ? "right" : "left" }}>
-            {domainModal.editing
-              ? (isRTL ? "تعديل المجال" : "Edit Domain")
-              : (isRTL ? "إضافة مجال جديد" : "Add New Domain")}
-          </Text>
-
-          <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "الاسم بالإنجليزية" : "English Name"} *
-          </Text>
-          <TextInput
-            style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-            value={formNameEn}
-            onChangeText={setFormNameEn}
-            placeholder="e.g. Electricity"
-            placeholderTextColor={colors.mutedForeground}
-            textAlign={isRTL ? "right" : "left"}
-          />
-
-          <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "الاسم بالعربية" : "Arabic Name"} *
-          </Text>
-          <TextInput
-            style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-            value={formNameAr}
-            onChangeText={setFormNameAr}
-            placeholder="مثال: كهرباء"
-            placeholderTextColor={colors.mutedForeground}
-            textAlign="right"
-          />
-
-          <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "الأيقونة" : "Icon"}
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: "row", gap: 8, paddingBottom: 4 }}>
-              {ICON_OPTIONS.map((ico) => (
-                <TouchableOpacity
-                  key={ico}
-                  onPress={() => setFormIcon(ico)}
-                  style={[styles.iconOption, {
-                    backgroundColor: formIcon === ico ? colors.accent : colors.muted,
-                    borderColor: formIcon === ico ? colors.primary : colors.border,
-                    borderRadius: 10,
-                  }]}
-                >
-                  <VectorIcon name={ico} size={20} color={formIcon === ico ? colors.primary : colors.mutedForeground} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          {!!formError && (
-            <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
-              {formError}
+        <KeyboardAvoidingSheet>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDomainModal({ visible: false, editing: null })} />
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, marginBottom: 20, textAlign: isRTL ? "right" : "left" }}>
+              {domainModal.editing
+                ? (isRTL ? "تعديل المجال" : "Edit Domain")
+                : (isRTL ? "إضافة مجال جديد" : "Add New Domain")}
             </Text>
-          )}
 
-          <TouchableOpacity
-            style={[styles.saveModalBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: formSaving ? 0.6 : 1 }]}
-            onPress={saveDomain}
-            disabled={formSaving}
-          >
-            {formSaving ? <ActivityIndicator size="small" color="#FFF" /> : (
-              <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                {isRTL ? "حفظ" : "Save"}
+            <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+              {isRTL ? "الاسم بالإنجليزية" : "English Name"} *
+            </Text>
+            <TextInput
+              style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              value={formNameEn}
+              onChangeText={setFormNameEn}
+              placeholder="e.g. Electricity"
+              placeholderTextColor={colors.mutedForeground}
+              textAlign={isRTL ? "right" : "left"}
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+              {isRTL ? "الاسم بالعربية" : "Arabic Name"} *
+            </Text>
+            <TextInput
+              style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              value={formNameAr}
+              onChangeText={setFormNameAr}
+              placeholder="مثال: كهرباء"
+              placeholderTextColor={colors.mutedForeground}
+              textAlign="right"
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+              {isRTL ? "الأيقونة" : "Icon"}
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: "row", gap: 8, paddingBottom: 4 }}>
+                {ICON_OPTIONS.map((ico) => (
+                  <TouchableOpacity
+                    key={ico}
+                    onPress={() => setFormIcon(ico)}
+                    style={[styles.iconOption, {
+                      backgroundColor: formIcon === ico ? colors.accent : colors.muted,
+                      borderColor: formIcon === ico ? colors.primary : colors.border,
+                      borderRadius: 10,
+                    }]}
+                  >
+                    <VectorIcon name={ico} size={20} color={formIcon === ico ? colors.primary : colors.mutedForeground} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {!!formError && (
+              <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
+                {formError}
               </Text>
             )}
-          </TouchableOpacity>
-        </View>
+
+            <TouchableOpacity
+              style={[styles.saveModalBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: formSaving ? 0.6 : 1 }]}
+              onPress={saveDomain}
+              disabled={formSaving}
+            >
+              {formSaving ? <ActivityIndicator size="small" color="#FFF" /> : (
+                <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                  {isRTL ? "حفظ" : "Save"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingSheet>
       </Modal>
 
       {/* Specialization Modal */}
       <Modal visible={specModal.visible} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSpecModal({ visible: false, domainId: "", editing: null })} />
-        <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, marginBottom: 20, textAlign: isRTL ? "right" : "left" }}>
-            {specModal.editing
-              ? (isRTL ? "تعديل التخصص" : "Edit Specialization")
-              : (isRTL ? "إضافة تخصص" : "Add Specialization")}
-          </Text>
-
-          <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "الاسم بالإنجليزية" : "English Name"} *
-          </Text>
-          <TextInput
-            style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-            value={formNameEn}
-            onChangeText={setFormNameEn}
-            placeholder="e.g. Wiring"
-            placeholderTextColor={colors.mutedForeground}
-            textAlign={isRTL ? "right" : "left"}
-          />
-
-          <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "الاسم بالعربية" : "Arabic Name"} *
-          </Text>
-          <TextInput
-            style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-            value={formNameAr}
-            onChangeText={setFormNameAr}
-            placeholder="مثال: أسلاك"
-            placeholderTextColor={colors.mutedForeground}
-            textAlign="right"
-          />
-
-          {!!formError && (
-            <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
-              {formError}
+        <KeyboardAvoidingSheet>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSpecModal({ visible: false, domainId: "", editing: null })} />
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, marginBottom: 20, textAlign: isRTL ? "right" : "left" }}>
+              {specModal.editing
+                ? (isRTL ? "تعديل التخصص" : "Edit Specialization")
+                : (isRTL ? "إضافة تخصص" : "Add Specialization")}
             </Text>
-          )}
 
-          <TouchableOpacity
-            style={[styles.saveModalBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: formSaving ? 0.6 : 1 }]}
-            onPress={saveSpec}
-            disabled={formSaving}
-          >
-            {formSaving ? <ActivityIndicator size="small" color="#FFF" /> : (
-              <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                {isRTL ? "حفظ" : "Save"}
+            <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+              {isRTL ? "الاسم بالإنجليزية" : "English Name"} *
+            </Text>
+            <TextInput
+              style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              value={formNameEn}
+              onChangeText={setFormNameEn}
+              placeholder="e.g. Wiring"
+              placeholderTextColor={colors.mutedForeground}
+              textAlign={isRTL ? "right" : "left"}
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+              {isRTL ? "الاسم بالعربية" : "Arabic Name"} *
+            </Text>
+            <TextInput
+              style={[styles.textInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              value={formNameAr}
+              onChangeText={setFormNameAr}
+              placeholder="مثال: أسلاك"
+              placeholderTextColor={colors.mutedForeground}
+              textAlign="right"
+            />
+
+            {!!formError && (
+              <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
+                {formError}
               </Text>
             )}
-          </TouchableOpacity>
-        </View>
+
+            <TouchableOpacity
+              style={[styles.saveModalBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: formSaving ? 0.6 : 1 }]}
+              onPress={saveSpec}
+              disabled={formSaving}
+            >
+              {formSaving ? <ActivityIndicator size="small" color="#FFF" /> : (
+                <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                  {isRTL ? "حفظ" : "Save"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingSheet>
       </Modal>
     </View>
   );

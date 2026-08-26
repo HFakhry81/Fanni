@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import VectorIcon from "@/components/VectorIcon";
 import { getApiBase } from "@/utils/api";
 
@@ -445,7 +446,7 @@ export default function AdminPaymentsScreen() {
         animationType="fade"
         onRequestClose={() => setActionItem(null)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingSheet contentPosition="center" style={styles.modalOverlay}>
           <View
             style={[
               styles.modalBox,
@@ -581,7 +582,7 @@ export default function AdminPaymentsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingSheet>
       </Modal>
     </View>
   );

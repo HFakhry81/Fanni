@@ -29,6 +29,7 @@
     "android": {
       "package": "com.fanni.app",
       "versionCode": 5,
+      "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",

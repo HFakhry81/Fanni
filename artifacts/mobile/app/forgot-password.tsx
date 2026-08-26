@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -15,6 +14,7 @@ import { useApp } from "@/context/AppContext";
 import FanniInput from "@/components/FanniInput";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
+import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 type Step = "request" | "reset" | "success";
@@ -138,7 +138,7 @@ export default function ForgotPasswordScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={t("forgot.title")} showBack onBack={() => router.back()} />
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         keyboardShouldPersistTaps="handled"
@@ -276,7 +276,7 @@ export default function ForgotPasswordScreen() {
             </>
           )}
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }

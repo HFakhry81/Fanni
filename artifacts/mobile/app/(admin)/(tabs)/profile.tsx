@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Platform,
   Alert,
@@ -26,6 +25,7 @@ import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordS
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
+import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
@@ -588,7 +588,7 @@ export default function AdminProfileScreen() {
         onBack={() => router.replace("/(admin)/(tabs)/dashboard")}
       />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+      <KeyboardAwareScrollViewCompat contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Avatar hero */}
         <View style={[styles.hero, { backgroundColor: colors.darkMid }]}>
           <TouchableOpacity onPress={pickAdminPhoto} disabled={avatarUploading} style={[styles.avatarRing, { borderColor: colors.primary }]}>
@@ -824,7 +824,7 @@ export default function AdminProfileScreen() {
             {t("profile.logout")}
           </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       <OtpVerifyModal
         visible={otpModalVisible}
