@@ -744,9 +744,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   const firstName = nameParts[0] ?? name.trim();
   const lastName = nameParts.slice(1).join(" ") || null;
 
-  const [newUser] = await db
-    .insert(usersTable)
-    .values({
+  const hasCoords = latitude != null && longitude != null;
+  const baseUserValues = {
       email: email,
       firstName,
       lastName,
@@ -772,18 +771,39 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       bio: bio?.trim() || null,
       yearsOfExperience: yearsOfExperience ?? null,
       isApproved: role === "client",
-      approvalStatus: role === "technician"
+      approvalStatus: (role === "technician"
         ? ((nationalIdFrontUrl || nationalIdBackUrl) ? "pending_review" : "not_submitted")
-        : "approved",
+        : "approved") as "pending_review" | "not_submitted" | "approved",
       termsAcceptedAt: new Date(),
       termsVersion: "2026-08-22",
-      locationSource: (latitude != null && longitude != null) ? "map_picker" : null,
-      locationCapturedAt: (latitude != null && longitude != null) ? new Date() : null,
-      location: (latitude != null && longitude != null)
-        ? sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`
-        : null,
-    })
-    .returning();
+      locationSource: hasCoords ? ("map_picker" as const) : null,
+      locationCapturedAt: hasCoords ? new Date() : null,
+  };
+
+  let newUser: typeof usersTable.$inferSelect | undefined;
+  try {
+    const [row] = await db
+      .insert(usersTable)
+      .values({
+        ...baseUserValues,
+        location: hasCoords
+          ? sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`
+          : null,
+      } as typeof usersTable.$inferInsert)
+      .returning();
+    newUser = row;
+  } catch (locErr) {
+    // PostGIS missing / geography column issues must not block account creation
+    req.log.warn({ err: locErr }, "Register insert with geography failed; retrying without location");
+    const [row] = await db
+      .insert(usersTable)
+      .values({
+        ...baseUserValues,
+        location: null,
+      } as typeof usersTable.$inferInsert)
+      .returning();
+    newUser = row;
+  }
 
   if (!newUser) {
     res.status(500).json({ error: "Failed to create user" });
@@ -1159,8 +1179,8 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (nationalIdBackUrl !== undefined) updates.nationalIdBackUrl = nationalIdBackUrl ?? null;
   if (licenseCardUrl !== undefined) updates.licenseCardUrl = licenseCardUrl ?? null;
   if (
-    user.role === "technician" &&
-    !user.isApproved &&
+    req.user?.role === "technician" &&
+    !(req.user as { isApproved?: boolean }).isApproved &&
     (nationalIdFrontUrl || nationalIdBackUrl || licenseCardUrl)
   ) {
     updates.approvalStatus = "pending_review";

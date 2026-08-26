@@ -496,37 +496,38 @@ export default function MapPickerModal({
           )}
         </View>
 
-        {/* My location FAB — tracks sheet height */}
+        {/* My location FAB — tracks sheet height (JS driver) + scale (native) on separate nodes */}
         <Animated.View
           style={[
             styles.fabWrap,
             {
               bottom: fabBottom,
-              transform: [{ scale: fabScale }],
               [isRTL ? "left" : "right"]: 16,
             },
           ]}
         >
-          <TouchableOpacity
-            style={[
-              styles.myLocBtn,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.primary,
-              },
-            ]}
-            onPress={handleMyLocationPress}
-            activeOpacity={0.85}
-          >
-            {locPermissionLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <VectorIcon name="navigation" size={22} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-          <Text style={[styles.fabLabel, { color: colors.dark }]}>
-            {isRTL ? "موقعي" : "My location"}
-          </Text>
+          <Animated.View style={{ transform: [{ scale: fabScale }], alignItems: "center" }}>
+            <TouchableOpacity
+              style={[
+                styles.myLocBtn,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={handleMyLocationPress}
+              activeOpacity={0.85}
+            >
+              {locPermissionLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <VectorIcon name="navigation" size={22} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+            <Text style={[styles.fabLabel, { color: colors.dark }]}>
+              {isRTL ? "موقعي" : "My location"}
+            </Text>
+          </Animated.View>
         </Animated.View>
 
         {/* Draggable address sheet */}
