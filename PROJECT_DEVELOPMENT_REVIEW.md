@@ -258,6 +258,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
+| 26 أغسطس 2026 | APK v1.0.4 + Sentry monitor | توحيد Sentry.init + wrap + ErrorBoundary + user tags؛ `enableNative: false`؛ بدء EAS preview v1.0.4 | Finished → تثبيت → تحقق أحداث Sentry → ثم تفعيل native |
 | 26 أغسطس 2026 | APK v1.0.4 — تثبيت قبل البناء | إزالة `keyboard-controller`؛ نقل الحزم الأصلية إلى `dependencies`؛ حذف `android/` المحلي القديم؛ تنظيف metro maps stub؛ `packageManager: pnpm@10.15.1` | بناء EAS preview v1.0.4 → WinSCP |
 | 26 أغسطس 2026 | APK v1.0.4 — دمج PRs | دمج PR #1 (توثيق EAS `bae7ee22`) + PR #2 (`--frozen-lockfile` + lockfile نظيف)؛ رفع الإصدار إلى **1.0.4** / `versionCode` 4؛ إزالة `.idea` من Git | بناء EAS v1.0.4 عند الحاجة؛ رفع APK للموقع |
 | 26 أغسطس 2026 | APK v1.0.3 EAS Finished | إصلاح `react-native-webview`/`expo config` (بلجن محلي)؛ فشلان `08c6ea00`/`51a8992e`؛ بناء ناجح `bae7ee22`؛ APK `artifacts/mobile/dist/fanni.apk` (~96.8MB) | (استُكمِل — APK مُثبَّت محليًا) |
