@@ -881,9 +881,9 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
   const userRole = (role as "client" | "technician") ?? "client";
 
-  if (newUser.email) {
+  if (emailValue) {
     sendWelcomeEmail({
-      to: newUser.email,
+      to: emailValue,
       name: name.trim(),
       role: userRole,
     }).then((sent) => {
