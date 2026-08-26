@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -27,6 +28,10 @@ import { getApiBase } from "@/utils/api";
 // Sentry is initialized lazily after first paint to avoid native launch crashes
 // on some Android devices when the DSN/org upload path is misconfigured.
 
+Sentry.init({
+  dsn: 'https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656',
+  debug: false,
+});
 const LOC_CACHE_GOV_KEY = "location_cache_governorates";
 const LOC_CACHE_AREAS_KEY = "location_cache_areas";
 
@@ -421,9 +426,11 @@ function RootLayout() {
         const Sentry = await import("@sentry/react-native");
         if (cancelled) return;
         Sentry.init({
-          dsn: "https://f65a29e74485fd160dc1d53e3b2a3a73@o4511786733207552.ingest.de.sentry.io/4511786758045776",
+          dsn: "https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656",
           tracesSampleRate: 0.2,
           debug: __DEV__,
+          // Keep native SDK off for release APK stability (prior silent launch crashes).
+          // JS/errors still report to Sentry project fanni-app (org upnexa-yb).
           enableNative: false,
         });
       } catch {
@@ -457,6 +464,5 @@ function RootLayout() {
     </SafeAreaProvider>
   );
 }
-
-export default RootLayout;
+export default Sentry.wrap(RootLayout);
 

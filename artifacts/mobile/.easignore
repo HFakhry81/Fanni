@@ -1,9 +1,8 @@
 # Relative to artifacts/mobile (eas.json lives here)
+# Exclude stale local native projects — EAS uses CNG/prebuild fresh.
 android/
 ios/
 dist/
-android/
-ios/
 ../../attached_assets/
 ../../artifacts/mockup-sandbox/
 ../../.git/

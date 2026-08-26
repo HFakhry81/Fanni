@@ -19,10 +19,6 @@ config.resolver.nodeModulesPaths = [
   ]),
 ];
 
-const WEB_STUB = path.resolve(projectRoot, "web-stubs/react-native-maps.js");
-
-const NATIVE_ONLY_MODULES = new Set(["react-native-maps"]);
-
 const ROUTER_CTX = path.resolve(projectRoot, "metro-router-ctx.js");
 
 const isExpoRouterCtx = (context, moduleName) => {
@@ -37,9 +33,6 @@ const isExpoRouterCtx = (context, moduleName) => {
 const originalResolveRequest = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (platform === "web" && NATIVE_ONLY_MODULES.has(moduleName)) {
-    return { filePath: WEB_STUB, type: "sourceFile" };
-  }
   if (platform !== "web" && isExpoRouterCtx(context, moduleName)) {
     return { filePath: ROUTER_CTX, type: "sourceFile" };
   }

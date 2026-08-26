@@ -188,11 +188,11 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | البند | الحالة |
 |---|---|
 | كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
-| إصدار التطبيق | **1.0.4** / `versionCode` 4 (دمج PR docs + lockfile على `main`) |
-| بناء EAS `preview` v1.0.2 | منتهٍ (`2d798c8e`) — يفتح لكن يغلق عند الخريطة |
-| بناء EAS `preview` v1.0.3 | **منتهٍ** (`bae7ee22`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/bae7ee22-d5fa-413e-b1b1-6480f9289072 |
-| APK محلي v1.0.3 | `artifacts/mobile/dist/fanni.apk` (~96.8MB) — مُثبَّت على الجهاز |
-| APK على `app.upnexa-eg.com` | يُحدَّث عند رفع v1.0.4 → WinSCP → `/var/www/fanni-web/fanni.apk` |
+| إصدار التطبيق | **1.0.4** / `versionCode` 4 |
+| بناء EAS `preview` v1.0.3 | **منتهٍ** (`bae7ee22`) — OSM WebView |
+| بناء EAS `preview` v1.0.4 | جاهز للبناء — بدون keyboard-controller؛ deps أصلية في dependencies؛ android/ محلي محذوف |
+| APK محلي v1.0.3 | `artifacts/mobile/dist/fanni.apk` (~96.8MB) |
+| APK على `app.upnexa-eg.com` | قديم حتى رفع v1.0.4 |
 
 ---
 
@@ -258,6 +258,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
+| 26 أغسطس 2026 | APK v1.0.4 — تثبيت قبل البناء | إزالة `keyboard-controller`؛ نقل الحزم الأصلية إلى `dependencies`؛ حذف `android/` المحلي القديم؛ تنظيف metro maps stub؛ `packageManager: pnpm@10.15.1` | بناء EAS preview v1.0.4 → WinSCP |
 | 26 أغسطس 2026 | APK v1.0.4 — دمج PRs | دمج PR #1 (توثيق EAS `bae7ee22`) + PR #2 (`--frozen-lockfile` + lockfile نظيف)؛ رفع الإصدار إلى **1.0.4** / `versionCode` 4؛ إزالة `.idea` من Git | بناء EAS v1.0.4 عند الحاجة؛ رفع APK للموقع |
 | 26 أغسطس 2026 | APK v1.0.3 EAS Finished | إصلاح `react-native-webview`/`expo config` (بلجن محلي)؛ فشلان `08c6ea00`/`51a8992e`؛ بناء ناجح `bae7ee22`؛ APK `artifacts/mobile/dist/fanni.apk` (~96.8MB) | (استُكمِل — APK مُثبَّت محليًا) |
 | 25 أغسطس 2026 | APK v1.0.3 OSM | استبدال Google Maps بـ OSM/Leaflet WebView؛ إزالة `react-native-maps`؛ تحسين دبوس/شريط العنوان؛ commit `1d8866f`؛ إزالة بلجن webview الخاطئ من `app.json` (كان يكسر `expo config`)؛ إعادة EAS | (استُكمِل في 26 أغسطس — `bae7ee22`) |

@@ -2,8 +2,8 @@ import { Platform, ScrollView, ScrollViewProps } from "react-native";
 
 /**
  * Use RN ScrollView on native for release stability.
- * react-native-keyboard-controller has caused silent launch crashes on some devices
- * when KeyboardProvider is in the root tree.
+ * Avoid react-native-keyboard-controller / KeyboardProvider at root —
+ * they caused silent launch crashes on some Android devices.
  */
 export function KeyboardAwareScrollViewCompat({
   children,
