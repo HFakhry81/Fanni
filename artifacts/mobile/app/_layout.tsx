@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/react-native';
+import * as Sentry from "@sentry/react-native";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -25,13 +25,34 @@ import { OrderProvider } from "@/context/OrderContext";
 import { sweepExpiredRouteCache } from "@/utils/routeCache";
 import { getApiBase } from "@/utils/api";
 
-// Sentry is initialized lazily after first paint to avoid native launch crashes
-// on some Android devices when the DSN/org upload path is misconfigured.
+const APP_RELEASE = `com.fanni.app@${Constants.expoConfig?.version ?? "1.0.4"}+${
+  Constants.expoConfig?.android?.versionCode ?? 4
+}`;
 
-Sentry.init({
-  dsn: 'https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656',
-  debug: false,
-});
+// Single init only — do not double-init (wizard + lazy). enableNative stays false
+// until a monitored APK smoke-tests clean; JS errors/unhandled still report to Sentry.
+try {
+  Sentry.init({
+    dsn: "https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656",
+    debug: __DEV__,
+    tracesSampleRate: 0.2,
+    enableNative: false,
+    environment: __DEV__ ? "development" : "production",
+    release: APP_RELEASE,
+    dist: String(Constants.expoConfig?.android?.versionCode ?? 4),
+    enableAutoSessionTracking: true,
+  });
+  Sentry.setTag("app.platform", Platform.OS);
+  Sentry.setTag("app.channel", "eas-preview-apk");
+  Sentry.addBreadcrumb({
+    category: "app.lifecycle",
+    message: "Sentry initialized for Fanni APK",
+    level: "info",
+  });
+} catch {
+  // Launch must never depend on Sentry.
+}
+
 const LOC_CACHE_GOV_KEY = "location_cache_governorates";
 const LOC_CACHE_AREAS_KEY = "location_cache_areas";
 
@@ -79,6 +100,19 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   const govCacheRef = useRef<Map<string, { ar: string; en: string }>>(new Map());
   const areaCacheRef = useRef<Map<string, { ar: string; en: string }>>(new Map());
   const [locCacheHydrated, setLocCacheHydrated] = useState(false);
+
+  useEffect(() => {
+    if (authUser?.id) {
+      Sentry.setUser({
+        id: authUser.id,
+        // Avoid PII (phone/email) in crash reports.
+        segment: authUser.role ?? "unknown",
+      });
+      Sentry.setTag("user.role", authUser.role ?? "unknown");
+    } else {
+      Sentry.setUser(null);
+    }
+  }, [authUser?.id, authUser?.role]);
 
   useEffect(() => {
     (async () => {
@@ -418,35 +452,15 @@ function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  useEffect(() => {
-    if (!fontsLoaded && !fontError) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const Sentry = await import("@sentry/react-native");
-        if (cancelled) return;
-        Sentry.init({
-          dsn: "https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656",
-          tracesSampleRate: 0.2,
-          debug: __DEV__,
-          // Keep native SDK off for release APK stability (prior silent launch crashes).
-          // JS/errors still report to Sentry project fanni-app (org upnexa-yb).
-          enableNative: false,
-        });
-      } catch {
-        // Launch must not depend on Sentry.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fontsLoaded, fontError]);
-
   if (!fontsLoaded && !fontError) return null;
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
+      <ErrorBoundary
+        onError={(error, stackTrace) => {
+          Sentry.captureException(error, { extra: { componentStack: stackTrace } });
+        }}
+      >
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <AppProvider>
