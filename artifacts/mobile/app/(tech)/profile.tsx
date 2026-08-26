@@ -1338,47 +1338,37 @@ export default function TechProfileScreen() {
                   ) : null}
                 </View>
 
-                {/* Android time picker dialog */}
-                {Platform.OS === "android" && activeTimePicker !== null && (
-                  <DateTimePicker
-                    mode="time"
-                    is24Hour
-                    value={timeStringToDate(activeTimePicker === "start" ? editServiceStart : editServiceEnd)}
-                    onChange={(event: DateTimePickerEvent, date?: Date) => {
-                      const which = activeTimePicker;
-                      setActiveTimePicker(null);
-                      if (event.type === "set" && date) {
-                        const ts = dateToTimeString(date);
-                        if (which === "start") { setEditServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
-                        else { setEditServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
-                      }
-                    }}
-                  />
-                )}
-
-                {/* iOS: modal with spinner picker + Done button */}
-                {Platform.OS === "ios" && activeTimePicker !== null && (
-                  <Modal transparent animationType="slide">
+                {/* Time pickers — spinner sheet (Android dialog event.type is unreliable) */}
+                {activeTimePicker !== null && (
+                  <Modal transparent animationType="slide" onRequestClose={() => setActiveTimePicker(null)}>
                     <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setActiveTimePicker(null)} />
-                    <View style={{ backgroundColor: colors.card, paddingBottom: 20 }}>
-                      <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 12 }}>
+                    <View style={{ backgroundColor: colors.card, paddingBottom: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+                      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 12 }}>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                          {activeTimePicker === "start" ? t("register.serviceStart") : (isRTL ? "نهاية العمل" : "Work End")}
+                        </Text>
                         <TouchableOpacity onPress={() => setActiveTimePicker(null)}>
-                          <Text style={{ color: colors.accent, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
                         </TouchableOpacity>
                       </View>
                       <DateTimePicker
+                        key={`edit-time-${activeTimePicker}`}
                         mode="time"
                         is24Hour
                         display="spinner"
                         value={timeStringToDate(activeTimePicker === "start" ? editServiceStart : editServiceEnd)}
                         onChange={(_event: DateTimePickerEvent, date?: Date) => {
-                          if (date) {
-                            const ts = dateToTimeString(date);
-                            if (activeTimePicker === "start") { setEditServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
-                            else { setEditServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
+                          if (!date) return;
+                          const ts = dateToTimeString(date);
+                          if (activeTimePicker === "start") {
+                            setEditServiceStart(ts);
+                            setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
+                          } else {
+                            setEditServiceEnd(ts);
+                            setErrors((e) => ({ ...e, serviceEnd: undefined }));
                           }
                         }}
-                        style={{ width: "100%" }}
+                        style={{ width: "100%", height: Platform.OS === "ios" ? 180 : 160 }}
                       />
                     </View>
                   </Modal>

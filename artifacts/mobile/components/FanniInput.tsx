@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   TextInput,
@@ -6,10 +6,12 @@ import {
   StyleSheet,
   ViewStyle,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useKeyboardAwareScroll } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface FanniInputProps {
   label?: string;
@@ -42,11 +44,14 @@ export default function FanniInput({
   disabled = false,
   required = false,
   autoCapitalize = "sentences",
+  maxLength,
 }: FanniInputProps) {
   const colors = useColors();
   const { isRTL } = useApp();
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+  const kbScroll = useKeyboardAwareScroll();
 
   return (
     <View style={[styles.container, style]}>
@@ -82,6 +87,7 @@ export default function FanniInput({
         ]}
       >
         <TextInput
+          ref={inputRef}
           style={[
             styles.input,
             {
@@ -101,7 +107,13 @@ export default function FanniInput({
           numberOfLines={numberOfLines}
           editable={!disabled}
           autoCapitalize={autoCapitalize}
-          onFocus={() => setFocused(true)}
+          maxLength={maxLength}
+          onFocus={() => {
+            setFocused(true);
+            setTimeout(() => {
+              if (inputRef.current) kbScroll?.scrollToInput(inputRef.current);
+            }, Platform.OS === "ios" ? 80 : 280);
+          }}
           onBlur={() => setFocused(false)}
         />
         {secureTextEntry && (

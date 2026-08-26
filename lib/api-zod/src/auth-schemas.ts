@@ -1,8 +1,7 @@
 import * as zod from "zod";
 
 /**
- * Registration schema with required email
- * @summary Validates user registration data with mandatory email
+ * Registration schema — email optional (matches mobile UI)
  */
 export const registerSchema = zod.object({
   name: zod
@@ -10,13 +9,10 @@ export const registerSchema = zod.object({
     .min(1, "Name is required")
     .trim(),
 
-  email: zod
-    .string()
-    .email("Invalid email format")
-    .min(1, "Email is required")
-    .trim()
-    .toLowerCase(),
-
+  email: zod.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    zod.string().trim().toLowerCase().email("Invalid email format").optional(),
+  ),
   mobile: zod
     .string()
     .regex(/^(\+?20|0)(1[0125][0-9]{8})$/, "Invalid Egyptian mobile number"),
@@ -97,7 +93,7 @@ export const registerSchema = zod.object({
   nationalIdBackUrl: zod.string().optional(),
   licenseCardUrl: zod.string().optional(),
     bio: zod.string().max(500, "Bio must be at most 500 characters").optional(),
-  yearsOfExperience: zod.number().int().min(0).max(50).optional(),
+  yearsOfExperience: zod.number().int().min(0).max(70).optional(),
   paymentPreference: zod.string().optional(),
   acceptedTerms: zod
     .literal(true, { errorMap: () => ({ message: "Terms of use must be accepted" }) }),

@@ -376,8 +376,10 @@ export default function RegisterScreen() {
       const expNum = Number(experience.trim());
       if (!experience.trim()) {
         newErrors.experience = isRTL ? "سنوات الخبرة مطلوبة" : "Years of experience is required";
-      } else if (isNaN(expNum) || expNum <= 0) {
+      } else if (isNaN(expNum) || expNum < 0) {
         newErrors.experience = isRTL ? "يجب أن تكون الخبرة عدداً موجباً" : "Experience must be a positive number";
+      } else if (expNum > 70) {
+        newErrors.experience = isRTL ? "الحد الأقصى لسنوات الخبرة 70" : "Experience cannot exceed 70 years";
       }
 
       const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -489,7 +491,7 @@ export default function RegisterScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: name.trim(),
-            email: email.trim(),
+            email: email.trim() || undefined,
             mobile: normalizedMobile(),
             password,
             role: regType,
@@ -518,10 +520,18 @@ export default function RegisterScreen() {
         try {
           data = raw ? JSON.parse(raw) as typeof data : {};
         } catch {
+          const hint = raw.replace(/\s+/g, " ").slice(0, 120);
           setApiError(
             isRTL
-              ? `الخادم ردّ برد غير متوقع (${res.status}). جرّب مرة أخرى أو راجع السجلات.`
-              : `Unexpected server response (${res.status}). Please try again.`,
+              ? `الخادم ردّ برد غير متوقع (${res.status})${hint ? `: ${hint}` : ""}. إن استمر الخطأ انشر آخر نسخة API على الـ VPS.`
+              : `Unexpected server response (${res.status})${hint ? `: ${hint}` : ""}. If this persists, deploy the latest API to the VPS.`,
+          );
+          return;
+        }
+        if (!res.ok) {
+          setApiError(
+            data.error
+              || (isRTL ? `فشل التسجيل (${res.status})` : `Registration failed (${res.status})`),
           );
           return;
         }
@@ -1008,47 +1018,42 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      {/* Android: inline DateTimePicker dialog */}
-      {Platform.OS === "android" && activePicker !== null && (
-        <DateTimePicker
-          mode="time"
-          is24Hour
-          value={timeStringToDate(activePicker === "start" ? serviceStart : serviceEnd)}
-          onChange={(event: DateTimePickerEvent, date?: Date) => {
-            const which = activePicker;
-            setActivePicker(null);
-            if (event.type === "set" && date) {
-              const ts = dateToTimeString(date);
-              if (which === "start") { setServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
-              else { setServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
-            }
-          }}
-        />
-      )}
-
-      {/* iOS: modal with spinner picker + Done button */}
-      {Platform.OS === "ios" && activePicker !== null && (
-        <Modal transparent animationType="slide">
+      {/* Time pickers — Android spinner sheet (dialog event.type is unreliable) */}
+      {activePicker !== null && (
+        <Modal transparent animationType="slide" onRequestClose={() => setActivePicker(null)}>
           <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setActivePicker(null)} />
-          <View style={{ backgroundColor: colors.card, paddingBottom: 20 }}>
-            <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 12 }}>
-              <TouchableOpacity onPress={() => setActivePicker(null)}>
-                <Text style={{ color: colors.accent, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+          <View style={{ backgroundColor: colors.card, paddingBottom: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 12 }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                {activePicker === "start"
+                  ? (isRTL ? "بداية العمل" : "Work Start")
+                  : (isRTL ? "نهاية العمل" : "Work End")}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setActivePicker(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
               </TouchableOpacity>
             </View>
             <DateTimePicker
+              key={`reg-time-${activePicker}`}
               mode="time"
               is24Hour
-              display="spinner"
+              display={Platform.OS === "ios" ? "spinner" : "spinner"}
               value={timeStringToDate(activePicker === "start" ? serviceStart : serviceEnd)}
               onChange={(_event: DateTimePickerEvent, date?: Date) => {
-                if (date) {
-                  const ts = dateToTimeString(date);
-                  if (activePicker === "start") { setServiceStart(ts); setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined })); }
-                  else { setServiceEnd(ts); setErrors((e) => ({ ...e, serviceEnd: undefined })); }
+                if (!date) return;
+                const ts = dateToTimeString(date);
+                if (activePicker === "start") {
+                  setServiceStart(ts);
+                  setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
+                } else {
+                  setServiceEnd(ts);
+                  setErrors((e) => ({ ...e, serviceEnd: undefined }));
                 }
               }}
-              style={{ width: "100%" }}
+              style={{ width: "100%", height: Platform.OS === "ios" ? 180 : 160 }}
             />
           </View>
         </Modal>

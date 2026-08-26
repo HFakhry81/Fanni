@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fanni - Home Maintenance",
     "slug": "mobile",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.fanni.app",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "infoPlist": {
         "CFBundleDisplayName": "Fanni",
         "CFBundleURLTypes": [
@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.fanni.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
       "permissions": [

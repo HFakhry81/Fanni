@@ -1,5 +1,15 @@
-import React, { forwardRef, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  forwardRef,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
+  findNodeHandle,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -8,6 +18,7 @@ import {
   StyleSheet,
   type StyleProp,
   type ViewStyle,
+  type NativeMethods,
 } from "react-native";
 
 function readPaddingBottom(style: StyleProp<ViewStyle> | undefined): number {
@@ -21,13 +32,21 @@ type Props = ScrollViewProps & {
   enableAvoidingView?: boolean;
 };
 
+type KbScrollApi = {
+  scrollToInput: (node: Parameters<typeof findNodeHandle>[0]) => void;
+};
+
+const KeyboardScrollContext = createContext<KbScrollApi | null>(null);
+
+/** Call from focused TextInputs so the field scrolls above the keyboard. */
+export function useKeyboardAwareScroll() {
+  return useContext(KeyboardScrollContext);
+}
+
 /**
  * App-wide keyboard-safe scroll container.
- * - iOS: optional KeyboardAvoidingView + automaticallyAdjustKeyboardInsets
- * - Android: keyboard-height bottom padding (reliable with edge-to-edge / APK)
- *
- * Prefer this over plain ScrollView on any screen/modal with text inputs.
- * Avoid react-native-keyboard-controller at root (past APK launch crashes).
+ * Android uses softwareKeyboardLayoutMode=resize — avoid double full-keyboard padding;
+ * scroll the focused field into view instead.
  */
 export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
   function KeyboardAwareScrollViewCompat(
@@ -42,6 +61,16 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
     ref
   ) {
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const innerRef = useRef<ScrollView | null>(null);
+
+    const setRefs = useCallback(
+      (node: ScrollView | null) => {
+        innerRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) (ref as React.MutableRefObject<ScrollView | null>).current = node;
+      },
+      [ref]
+    );
 
     useEffect(() => {
       const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -56,20 +85,51 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
       };
     }, []);
 
+    const scrollToInput = useCallback((target: Parameters<typeof findNodeHandle>[0]) => {
+      const scrollNode = findNodeHandle(innerRef.current);
+      const inputNode = findNodeHandle(target);
+      if (!scrollNode || !inputNode || !innerRef.current) return;
+      const responder = innerRef.current as ScrollView & {
+        getScrollResponder?: () => {
+          scrollResponderScrollNativeHandleToKeyboard?: (
+            nodeHandle: number,
+            offset: number,
+            animated: boolean
+          ) => void;
+        };
+      };
+      const sr = responder.getScrollResponder?.();
+      if (sr?.scrollResponderScrollNativeHandleToKeyboard) {
+        // Keep a comfortable gap above the keyboard / nav buttons
+        sr.scrollResponderScrollNativeHandleToKeyboard(inputNode, 120, true);
+        return;
+      }
+      // Fallback: measure relative to scroll content
+      const input = target as unknown as NativeMethods;
+      if (typeof input.measureLayout !== "function") return;
+      input.measureLayout(
+        scrollNode,
+        (_x, y) => {
+          innerRef.current?.scrollTo({ y: Math.max(y - 24, 0), animated: true });
+        },
+        () => undefined
+      );
+    }, []);
+
+    const api = useMemo(() => ({ scrollToInput }), [scrollToInput]);
+
     const basePad = readPaddingBottom(contentContainerStyle);
+    // With android.softwareKeyboardLayoutMode=resize the window already shrinks;
+    // only add a modest pad so the last field can scroll clear of the keys.
     const extraPad = useMemo(() => {
       if (keyboardHeight <= 0) return 0;
-      // Android: full keyboard pad so fields can scroll above the keys.
-      // iOS: light pad; KeyboardAvoidingView + insets handle most of the lift.
-      return Platform.OS === "android"
-        ? Math.max(keyboardHeight - 12, 96)
-        : 24;
+      return Platform.OS === "android" ? 48 : 24;
     }, [keyboardHeight]);
 
     const scroll = (
       <ScrollView
-        ref={ref}
-        style={style}
+        ref={setRefs}
+        style={[{ flex: 1 }, style]}
         keyboardShouldPersistTaps={keyboardShouldPersistTaps}
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
@@ -80,7 +140,9 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
         ]}
         {...props}
       >
-        {children}
+        <KeyboardScrollContext.Provider value={api}>
+          {children}
+        </KeyboardScrollContext.Provider>
       </ScrollView>
     );
 

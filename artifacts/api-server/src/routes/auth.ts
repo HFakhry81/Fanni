@@ -745,8 +745,10 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   const lastName = nameParts.slice(1).join(" ") || null;
 
   const hasCoords = latitude != null && longitude != null;
+  const emailValue =
+    typeof email === "string" && email.trim() ? email.trim().toLowerCase() : null;
   const baseUserValues = {
-      email: email,
+      email: emailValue,
       firstName,
       lastName,
       mobile: normalizedMobile,
@@ -795,14 +797,48 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   } catch (locErr) {
     // PostGIS missing / geography column issues must not block account creation
     req.log.warn({ err: locErr }, "Register insert with geography failed; retrying without location");
-    const [row] = await db
-      .insert(usersTable)
-      .values({
-        ...baseUserValues,
-        location: null,
-      } as typeof usersTable.$inferInsert)
-      .returning();
-    newUser = row;
+    try {
+      const [row] = await db
+        .insert(usersTable)
+        .values({
+          ...baseUserValues,
+          location: null,
+        } as typeof usersTable.$inferInsert)
+        .returning();
+      newUser = row;
+    } catch (retryErr) {
+      // Older DBs may lack terms/location metadata columns — insert minimal row
+      req.log.warn({ err: retryErr }, "Register retry failed; inserting minimal user row");
+      const [row] = await db
+        .insert(usersTable)
+        .values({
+          email: emailValue,
+          firstName,
+          lastName,
+          mobile: normalizedMobile,
+          role: (role as "client" | "technician") ?? "client",
+          passwordHash,
+          governorate: governorateId ?? null,
+          area: areaId ?? null,
+          address: address?.trim() || null,
+          street: street?.trim() || null,
+          buildingNo: buildingNo?.trim() || null,
+          floorNo: floorNo?.trim() || null,
+          aptNo: aptNo?.trim() || null,
+          profession: profession?.trim() || null,
+          specialty: specialty?.trim() || null,
+          serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
+          serviceStart: serviceStart?.trim() || null,
+          serviceEnd: serviceEnd?.trim() || null,
+          nationalId: nationalId?.trim() || null,
+          bio: bio?.trim() || null,
+          yearsOfExperience: yearsOfExperience ?? null,
+          isApproved: role === "client",
+          location: null,
+        } as typeof usersTable.$inferInsert)
+        .returning();
+      newUser = row;
+    }
   }
 
   if (!newUser) {
