@@ -681,6 +681,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return;
   }
 
+  try {
   const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, street, buildingNo, floorNo, aptNo, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd, nationalIdFrontUrl, nationalIdBackUrl, licenseCardUrl, bio, yearsOfExperience } = parsed.data;
 
   if (role && !["client", "technician"].includes(role)) {
@@ -847,6 +848,17 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   }
 
   res.status(201).json({ token: sid, user: buildAuthUser(newUser) });
+  } catch (err) {
+    req.log.error({ err }, "Registration failed");
+    const msg = err instanceof Error ? err.message : "Registration failed";
+    if (/postgis|geography|ST_MakePoint|type \"geography\"/i.test(msg)) {
+      res.status(500).json({
+        error: "Location storage is not available on the server (PostGIS). Please contact support.",
+      });
+      return;
+    }
+    res.status(500).json({ error: "Registration failed. Please try again." });
+  }
 });
 
 // PUBLIC: Authenticates with mobile/email + password credentials. No auth required.

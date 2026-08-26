@@ -61,14 +61,34 @@ export default function LoginScreen() {
     setLocalLoading(true);
     try {
       const apiBase = getApiBase();
+      if (!apiBase) {
+        setLocalError(isRTL ? "عنوان الخادم غير مضبوط في التطبيق" : "API base URL is not configured");
+        return;
+      }
       const res = await fetch(`${apiBase}/api/auth/login-with-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { token?: string; error?: string } = {};
+      try {
+        data = raw ? JSON.parse(raw) as typeof data : {};
+      } catch {
+        setLocalError(
+          isRTL
+            ? `الخادم ردّ برد غير متوقع (${res.status})`
+            : `Unexpected server response (${res.status})`,
+        );
+        return;
+      }
       if (data.token) {
-        await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+        try {
+          await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+        } catch {
+          setLocalError(isRTL ? "تم الدخول لكن تعذّر حفظ الجلسة على الجهاز" : "Signed in but session could not be saved on device");
+          return;
+        }
         await refreshUser();
       } else {
         if (data.error === "Invalid credentials") {
@@ -76,7 +96,7 @@ export default function LoginScreen() {
         } else if (data.error === "Account is suspended") {
           setLocalError(isRTL ? "هذا الحساب موقوف. يرجى التواصل مع الدعم." : "Your account has been suspended. Please contact support.");
         } else {
-          setLocalError(isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again");
+          setLocalError(data.error || (isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again"));
         }
       }
     } catch {

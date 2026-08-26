@@ -480,6 +480,10 @@ export default function RegisterScreen() {
       } catch { /* keep current state on network error */ }
       try {
         const apiBase = getApiBase();
+        if (!apiBase) {
+          setApiError(isRTL ? "عنوان الخادم غير مضبوط في التطبيق" : "API base URL is not configured");
+          return;
+        }
         const res = await fetch(`${apiBase}/api/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -509,9 +513,25 @@ export default function RegisterScreen() {
             acceptedTerms: true,
           }),
         });
-        const data = await res.json() as { token?: string; user?: { id: string }; error?: string };
+        const raw = await res.text();
+        let data: { token?: string; user?: { id: string }; error?: string } = {};
+        try {
+          data = raw ? JSON.parse(raw) as typeof data : {};
+        } catch {
+          setApiError(
+            isRTL
+              ? `الخادم ردّ برد غير متوقع (${res.status}). جرّب مرة أخرى أو راجع السجلات.`
+              : `Unexpected server response (${res.status}). Please try again.`,
+          );
+          return;
+        }
         if (data.token) {
-          await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+          try {
+            await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+          } catch {
+            setApiError(isRTL ? "تم إنشاء الحساب لكن تعذّر حفظ الجلسة على الجهاز" : "Account created but session could not be saved on device");
+            return;
+          }
 
           // Upload ID photos + license card if provided (tech only)
           if (regType === "technician" && (nationalIdFrontUri || nationalIdBackUri || licenseCardUri)) {
@@ -592,8 +612,10 @@ export default function RegisterScreen() {
             setApiError(isRTL ? "البريد الإلكتروني مسجل بالفعل" : "Email address is already registered");
           } else if (msg.includes("Too many")) {
             setApiError(isRTL ? "محاولات كثيرة جداً، يرجى الانتظار" : "Too many attempts, please wait");
+          } else if (msg.includes("PostGIS") || msg.includes("Location storage")) {
+            setApiError(isRTL ? "تعذّر حفظ الموقع على الخادم (PostGIS). راجع إعداد قاعدة البيانات." : msg);
           } else {
-            setApiError(isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again");
+            setApiError(msg || (isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again"));
           }
         }
       } catch {

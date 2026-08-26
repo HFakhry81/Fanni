@@ -66,4 +66,15 @@ app.use("/api", router);
 // 👈 5. معالج الأخطاء الخاص بـ Sentry (يجب أن يكون دائماً بعد كل الـ Routes)
 Sentry.setupExpressErrorHandler(app);
 
+// Ensure API clients always get JSON errors (not HTML) after Sentry
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (res.headersSent) return;
+  const status =
+    typeof err === "object" && err !== null && "status" in err && typeof (err as { status: unknown }).status === "number"
+      ? (err as { status: number }).status
+      : 500;
+  const message = err instanceof Error ? err.message : "Internal Server Error";
+  res.status(status).json({ error: message });
+});
+
 export default app;
