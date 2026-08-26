@@ -51,21 +51,20 @@ function buildHtml(
     .leaflet-control-zoom { display: none !important; }
     .fanni-pin-wrap {
       position: relative; width: 44px; height: 56px;
-      margin-left: -22px; margin-top: -56px;
-      transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
+      /* Do NOT add CSS margins — Leaflet iconAnchor already offsets the tip */
+      transition: transform 0.15s ease-out;
       will-change: transform;
     }
     .fanni-pin-wrap.dragging {
-      transform: translateY(-14px) scale(1.12);
-      filter: drop-shadow(0 10px 14px rgba(13,27,42,0.35));
+      transform: scale(1.06);
+      filter: drop-shadow(0 6px 10px rgba(13,27,42,0.28));
     }
     .fanni-pin-wrap.settling {
-      animation: pinDrop 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
+      animation: pinDrop 0.28s ease-out;
     }
     @keyframes pinDrop {
-      0% { transform: translateY(-18px) scale(1.1); }
-      60% { transform: translateY(3px) scale(0.96); }
-      100% { transform: translateY(0) scale(1); }
+      0% { transform: scale(1.08); }
+      100% { transform: scale(1); }
     }
     .fanni-pin-head {
       width: 36px; height: 36px; border-radius: 50% 50% 50% 0;
@@ -141,10 +140,18 @@ function buildHtml(
     }).addTo(map);
 
     var bottomPad = ${bottomPadding};
-    map.setView([${lat}, ${lon}], ${zoom}, { animate: false });
-    if (bottomPad > 0) {
-      map.panBy([0, -bottomPad * 0.28], { animate: false });
-    }
+    // Single stable open framing: center the pin in the visible map area above the sheet
+    (function () {
+      var z = ${zoom};
+      var offsetY = Math.max(0, (bottomPad || 0) * 0.38);
+      var point = map.project([${lat}, ${lon}], z);
+      point.y += offsetY;
+      var center = map.unproject(point, z);
+      map.setView(center, z, { animate: false });
+    })();
+    setTimeout(function () {
+      try { map.invalidateSize({ animate: false }); } catch (e) {}
+    }, 120);
 
     var marker = L.marker([${lat}, ${lon}], {
       icon: pinIcon,
@@ -155,11 +162,14 @@ function buildHtml(
       riseOnHover: true
     }).addTo(map);
 
+    var isDragging = false;
+
     function pinEl() {
       return document.getElementById('fanniPin');
     }
 
     function setDragging(on) {
+      isDragging = !!on;
       var el = pinEl();
       if (!el) return;
       el.classList.toggle('dragging', !!on);
@@ -173,7 +183,7 @@ function buildHtml(
       el.classList.add('pulse', 'settling');
       setTimeout(function () {
         el.classList.remove('settling');
-      }, 400);
+      }, 300);
     }
 
     function post(type, lat, lon) {
@@ -183,24 +193,25 @@ function buildHtml(
       }));
     }
 
-    /** Offset view so the pin sits in the clear area above the address sheet */
+    /** Soft recenter above sheet — only when requested (not on every tap) */
     function focusPin(lat, lon, z, duration) {
       var targetZoom = z || map.getZoom();
       var offsetY = Math.max(0, (bottomPad || 0) * 0.38);
       var point = map.project([lat, lon], targetZoom);
       point.y += offsetY;
       var center = map.unproject(point, targetZoom);
-      map.flyTo(center, targetZoom, {
-        animate: true,
-        duration: duration == null ? 0.75 : duration,
-        easeLinearity: 0.25
+      map.setView(center, targetZoom, {
+        animate: duration > 0,
+        duration: duration == null ? 0.35 : duration,
+        easeLinearity: 0.3
       });
     }
 
     map.on('click', function (e) {
+      if (isDragging) return;
       marker.setLatLng(e.latlng);
       pulsePin();
-      focusPin(e.latlng.lat, e.latlng.lng, Math.max(map.getZoom(), 17), 0.55);
+      // Place pin exactly at tap — no flyTo (avoids lag / tip mismatch)
       post('press', e.latlng.lat, e.latlng.lng);
     });
 
@@ -209,40 +220,44 @@ function buildHtml(
       post('dragstart', marker.getLatLng().lat, marker.getLatLng().lng);
     });
 
-    marker.on('drag', function () {
-      var p = marker.getLatLng();
-      post('drag', p.lat, p.lng);
-    });
-
+    // Mid-drag: do not flood RN (avoids RN→__setMarker fight). Coords on dragend only.
     marker.on('dragend', function () {
       setDragging(false);
       var p = marker.getLatLng();
       pulsePin();
-      focusPin(p.lat, p.lng, Math.max(map.getZoom(), 17), 0.65);
       post('dragend', p.lat, p.lng);
     });
 
     window.__setMarker = function (lat, lon, animate) {
+      if (isDragging) return;
       marker.setLatLng([lat, lon]);
       if (animate) {
         pulsePin();
-        focusPin(lat, lon, Math.max(map.getZoom(), 16), 0.7);
+        focusPin(lat, lon, Math.max(map.getZoom(), 16), 0.35);
       }
     };
 
     window.__animateTo = function (lat, lon, z) {
+      if (isDragging) return;
       marker.setLatLng([lat, lon]);
       pulsePin();
-      focusPin(lat, lon, z || 17, 0.9);
+      focusPin(lat, lon, z || 17, 0.4);
     };
 
     window.__setBottomPadding = function (px) {
-      bottomPad = px || 0;
+      var next = px || 0;
+      if (Math.abs(next - (bottomPad || 0)) < 8) {
+        bottomPad = next;
+        return;
+      }
+      bottomPad = next;
+      try { map.invalidateSize({ animate: false }); } catch (e) {}
+      // Keep pin in view without a long fly animation
       var p = marker.getLatLng();
-      focusPin(p.lat, p.lng, map.getZoom(), 0.4);
+      focusPin(p.lat, p.lng, map.getZoom(), 0);
     };
 
-    setTimeout(function () { pulsePin(); }, 280);
+    setTimeout(function () { pulsePin(); }, 200);
     post('ready', ${lat}, ${lon});
   </script>
 </body>
@@ -265,6 +280,7 @@ export default function OsmMapView({
   const webRef = useRef<WebView>(null);
   const readyRef = useRef(false);
   const skipNextSync = useRef(false);
+  const draggingRef = useRef(false);
 
   const html = useMemo(
     () =>
@@ -312,6 +328,7 @@ export default function OsmMapView({
 
   useEffect(() => {
     if (!readyRef.current) return;
+    if (draggingRef.current) return;
     if (skipNextSync.current) {
       skipNextSync.current = false;
       return;
@@ -335,6 +352,7 @@ export default function OsmMapView({
           return;
         }
         if (data.type === "dragstart") {
+          draggingRef.current = true;
           onMarkerDragStart?.();
           return;
         }
@@ -344,11 +362,13 @@ export default function OsmMapView({
         }
         if (data.type === "press") {
           skipNextSync.current = true;
+          draggingRef.current = false;
           onMapPress?.(coords);
           return;
         }
         if (data.type === "dragend") {
           skipNextSync.current = true;
+          draggingRef.current = false;
           onMarkerDragEnd?.(coords);
         }
       } catch {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, Modal, FlatList,
@@ -142,6 +142,13 @@ export default function AddressBlock({
   }, [value, onChange, isRTL, governorates]);
 
   const confirmed = value.latitude != null && value.longitude != null;
+  const mapInitialCoords = useMemo(
+    () =>
+      confirmed && value.latitude != null && value.longitude != null
+        ? { latitude: value.latitude, longitude: value.longitude }
+        : null,
+    [confirmed, value.latitude, value.longitude]
+  );
   const govLabel = value.governorateId
     ? (governorates.find(g => g.id === value.governorateId)?.[isRTL ? "nameAr" : "nameEn"] ?? value.governorateName)
     : null;
@@ -364,7 +371,7 @@ export default function AddressBlock({
       {/* ── Map Modal ── */}
       <MapPickerModal
         visible={mapVisible}
-        initialCoords={confirmed ? { latitude: value.latitude!, longitude: value.longitude! } : null}
+        initialCoords={mapInitialCoords}
         onConfirm={handleMapConfirm}
         onClose={() => setMapVisible(false)}
       />

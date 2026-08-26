@@ -747,8 +747,10 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   const hasCoords = latitude != null && longitude != null;
   const emailValue =
     typeof email === "string" && email.trim() ? email.trim().toLowerCase() : null;
+  // users.email is NOT NULL + UNIQUE — synthesize a stable placeholder when omitted
+  const emailForInsert = emailValue ?? `${normalizedMobile}@noreply.fanni.app`;
   const baseUserValues = {
-      email: emailValue,
+      email: emailForInsert,
       firstName,
       lastName,
       mobile: normalizedMobile,
@@ -812,7 +814,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       const [row] = await db
         .insert(usersTable)
         .values({
-          email: emailValue,
+          email: emailForInsert,
           firstName,
           lastName,
           mobile: normalizedMobile,

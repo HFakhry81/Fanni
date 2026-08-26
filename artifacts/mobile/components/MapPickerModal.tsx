@@ -202,9 +202,33 @@ export default function MapPickerModal({
     })
   ).current;
 
+  const initialLat = initialCoords?.latitude;
+  const initialLng = initialCoords?.longitude;
+  const wasVisible = useRef(false);
+
+  const reverseGeocode = useCallback(async (lat: number, lon: number) => {
+    setReverseLoading(true);
+    try {
+      const data = await reverseGeocodeBilingual(lat, lon);
+      setGeoData(data);
+    } finally {
+      setReverseLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!visible) return;
-    const c = initialCoords ?? ALEX_COORDS;
+    if (!visible) {
+      wasVisible.current = false;
+      return;
+    }
+    // Remount map only when the modal opens — not on every parent re-render
+    if (wasVisible.current) return;
+    wasVisible.current = true;
+
+    const c =
+      initialLat != null && initialLng != null
+        ? { latitude: initialLat, longitude: initialLng }
+        : ALEX_COORDS;
     setMarkerCoords(c);
     setSearchQ("");
     setSearchResults([]);
@@ -222,17 +246,10 @@ export default function MapPickerModal({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [visible, initialCoords, collapsedH, sheetHeight, pinHintOpacity]);
-
-  const reverseGeocode = useCallback(async (lat: number, lon: number) => {
-    setReverseLoading(true);
-    try {
-      const data = await reverseGeocodeBilingual(lat, lon);
-      setGeoData(data);
-    } finally {
-      setReverseLoading(false);
-    }
-  }, []);
+    void reverseGeocode(c.latitude, c.longitude);
+    // collapsedH / sheetHeight / pinHintOpacity intentionally omitted — open once per visible=true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initialLat, initialLng, reverseGeocode]);
 
   const handleMyLocationPress = async () => {
     Animated.sequence([
@@ -315,8 +332,9 @@ export default function MapPickerModal({
     setGeoData(null);
   };
 
-  const onMarkerDrag = (coords: { latitude: number; longitude: number }) => {
-    setMarkerCoords(coords);
+  // Mid-drag: do not push coords into markerCoords (would fight Leaflet via __setMarker)
+  const onMarkerDrag = (_coords: { latitude: number; longitude: number }) => {
+    // intentionally no-op — final position applied on dragend
   };
 
   const onMarkerDragEnd = async (coords: { latitude: number; longitude: number }) => {
