@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SEED_VERSION } from "../constants/seedVersion";
 import { SEED_USER_IDS } from "./OrderContext";
+import { getApiBase } from "@/utils/api";
 
 export type Language = "ar" | "en";
 export type UserType = "client" | "technician" | "admin" | null;
@@ -573,8 +574,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const syncAvailabilityFromServer = async (sessionToken: string): Promise<boolean> => {
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-    const apiBase = process.env["EXPO_PUBLIC_API_URL"] || (domain ? `http://${domain}` : "");
+    const apiBase = getApiBase();
     if (!apiBase) return false;
     let res: Response;
     try {
@@ -605,8 +605,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem("techIsOnline", String(value));
     } catch (_) {}
     if (user?.id && sessionToken) {
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = process.env["EXPO_PUBLIC_API_URL"] || (domain ? `http://${domain}` : "");
+      const apiBase = getApiBase();
       if (apiBase) {
         try {
           const res = await fetch(
@@ -651,8 +650,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
         return false;
       }
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = process.env["EXPO_PUBLIC_API_URL"] || (domain ? `http://${domain}` : "");
+      const apiBase = getApiBase();
       if (!apiBase) return false;
       const res = await fetch(
         `${apiBase}/api/technicians/${userId}/availability`,

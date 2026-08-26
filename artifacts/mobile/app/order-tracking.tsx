@@ -369,8 +369,7 @@ export default function OrderTrackingScreen() {
       setOverpassColors(undefined);
       return;
     }
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    const apiBase = domain ? `http://${domain}` : "";
+    const apiBase = getApiBase();
     if (!apiBase) return;
 
     // Sample every Nth coordinate, capped at 25 samples
@@ -453,10 +452,10 @@ export default function OrderTrackingScreen() {
 
   const handleShare = useCallback(async () => {
     const deepLink = `mobile://order-tracking?orderId=${orderId}`;
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    const webLink = domain
-      ? `http://${domain}/order-tracking?orderId=${orderId}`
-      : null;
+    const apiBase = getApiBase();
+    const webLink = apiBase
+      ? `${apiBase.replace(/\/$/, "")}/order-tracking?orderId=${orderId}`
+      : "https://app.upnexa-eg.com";
     const message = t("order.shareTrackingMsg");
     if (Platform.OS === "web") {
       const url = typeof window !== "undefined" ? window.location.href : (webLink ?? deepLink);

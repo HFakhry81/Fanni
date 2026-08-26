@@ -56,9 +56,8 @@ export default function OrderDetailsScreen() {
 
   useEffect(() => {
     if (!order || order.status !== "completed" || !sessionToken) return;
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-    if (!domain) return;
-    const apiBase = `http://${domain}`;
+    const apiBase = getApiBase();
+    if (!apiBase) return;
     fetch(`${apiBase}/api/invoices/order/${order.id}`, {
       headers: { Authorization: `Bearer ${sessionToken}` },
     })

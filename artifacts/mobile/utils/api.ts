@@ -26,3 +26,16 @@ export function getApiBase(): string {
 
   return "https://api.upnexa-eg.com";
 }
+
+/** WebSocket base derived from the same API host (https→wss, http→ws). */
+export function getWsUrl(path = "/api/ws"): string {
+  const apiBase = getApiBase();
+  if (!apiBase) return "";
+  const wsBase = apiBase.startsWith("https://")
+    ? `wss://${apiBase.slice("https://".length)}`
+    : apiBase.startsWith("http://")
+      ? `ws://${apiBase.slice("http://".length)}`
+      : "";
+  if (!wsBase) return "";
+  return `${wsBase}${path.startsWith("/") ? path : `/${path}`}`;
+}

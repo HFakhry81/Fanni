@@ -1,24 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
+import { getWsUrl } from "@/utils/api";
 
 const WS_BASE_RECONNECT_DELAY_MS = 3000;
 const WS_MAX_RECONNECT_DELAY_MS = 60000;
 
 const NOTIFIABLE_STATUSES = new Set(["accepted", "inProgress", "completed"]);
-
-// دالة ديناميكية لتحديد بروتوكول الـ WebSocket بناءً على بروتوكول الـ API الرئيسي
-function getWsUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  if (!domain) return "";
-
-  const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
-  // تحديد ما إذا كان الاتصال آمناً (https) أم لا (http)
-  const isSecure = apiUrl.startsWith("https://");
-  const protocol = isSecure ? "wss" : "ws";
-
-  return `${protocol}://${domain}/api/ws`;
-}
 
 export interface OrderStatusNotification {
   orderId: string;

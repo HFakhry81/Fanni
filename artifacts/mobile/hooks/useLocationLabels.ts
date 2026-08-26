@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getApiBase } from "@/utils/api";
 
 interface LocationEntry {
   id: string;
@@ -15,8 +16,10 @@ function fetchAllLocations(): Promise<LocationEntry[]> {
   if (cachedLocations) return Promise.resolve(cachedLocations);
   if (cachePromise) return cachePromise;
 
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  const base = domain ? `http://${domain}` : "";
+  const base = getApiBase();
+  if (!base) {
+    return Promise.resolve([]);
+  }
 
   cachePromise = fetch(`${base}/api/locations/all`)
     .then((r) => (r.ok ? r.json() : { locations: [] }))

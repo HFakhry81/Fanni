@@ -23,6 +23,7 @@ import AppHeader from "@/components/AppHeader";
 import ImageLightbox from "@/components/ImageLightbox";
 import Toast from "@/components/Toast";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
+import { getApiBase } from "@/utils/api";
 import type { OrderPhoto } from "@/context/OrderContext";
 import * as FileSystem from "expo-file-system";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
@@ -588,14 +589,14 @@ export default function NewOrderScreen() {
 
     await addOrder(newOrder);
 
-    const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-    if (domain) {
+    const apiBase = getApiBase();
+    if (apiBase) {
       try {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (sessionToken) {
           headers["Authorization"] = `Bearer ${sessionToken}`;
         }
-        const res = await fetch(`http://${domain}/api/orders`, {
+        const res = await fetch(`${apiBase}/api/orders`, {
           method: "POST",
           headers,
           body: JSON.stringify(newOrder),

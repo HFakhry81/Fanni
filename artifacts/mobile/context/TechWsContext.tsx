@@ -11,21 +11,9 @@ import * as Location from "expo-location";
 import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
 import { professionToCategory } from "@/utils/serviceCategories";
+import { getWsUrl } from "@/utils/api";
 
 const WS_RECONNECT_DELAY_MS = 3000;
-
-// دالة ديناميكية لتحديد بروتوكول الـ WebSocket بناءً على بروتوكول الـ API الرئيسي
-function getWsUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-  if (!domain) return "";
-
-  const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
-  // تحديد ما إذا كان الاتصال آمناً (https) أم لا (http)
-  const isSecure = apiUrl.startsWith("https://");
-  const protocol = isSecure ? "wss" : "ws";
-
-  return `${protocol}://${domain}/api/ws`;
-}
 
 async function getCurrentCoords(): Promise<{ lat: number; lon: number } | null> {
   try {

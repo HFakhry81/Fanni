@@ -465,8 +465,7 @@ export default function TechProfileScreen() {
     }
     setResendWelcomeLoading(true);
     try {
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      const apiBase = domain ? `http://${domain}` : "";
+      const apiBase = getApiBase();
       if (!apiBase) {
         setToastMessage(t("profile.resendWelcomeError"));
         setToastAction(undefined);
@@ -522,9 +521,9 @@ export default function TechProfileScreen() {
     setToastVisible(true);
     try {
       const { url } = await uploadPhotoToServer(uri, sessionToken, mimeType);
-      const domain = process.env["EXPO_PUBLIC_DOMAIN"] ?? "";
-      if (domain) {
-        const patchRes = await fetch(`http://${domain}/api/auth/me`, {
+      const apiBase = getApiBase();
+      if (apiBase) {
+        const patchRes = await fetch(`${apiBase}/api/auth/me`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ profileImageUrl: url }),
