@@ -1329,16 +1329,32 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     req.log.info({ adminId: req.user?.id }, "Admin triggered backfill-locations");
 
-    const result = await backfillTechnicianLocations((msg) =>
-      req.log.info({ adminId: req.user?.id }, `backfill-locations: ${msg}`),
-    );
+    try {
+      const rawLimit = Number((req.body as { limit?: unknown } | undefined)?.limit);
+      const limit = Number.isFinite(rawLimit) ? rawLimit : 20;
 
-    req.log.info(
-      { ...result, adminId: req.user?.id },
-      "backfill-locations complete",
-    );
+      const result = await backfillTechnicianLocations(
+        (msg) => req.log.info({ adminId: req.user?.id }, `backfill-locations: ${msg}`),
+        { limit },
+      );
 
-    res.json({ success: true, ...result });
+      req.log.info(
+        { ...result, adminId: req.user?.id },
+        "backfill-locations complete",
+      );
+
+      res.json({ success: true, ...result });
+    } catch (err) {
+      req.log.error({ err, adminId: req.user?.id }, "backfill-locations failed");
+      const msg = err instanceof Error ? err.message : "Backfill failed";
+      if (/postgis|geography|ST_MakePoint/i.test(msg)) {
+        res.status(500).json({
+          error: "PostGIS/geography is not available on the database. Enable the extension and retry.",
+        });
+        return;
+      }
+      res.status(500).json({ error: "Failed to re-geocode technician locations" });
+    }
   },
 );
 

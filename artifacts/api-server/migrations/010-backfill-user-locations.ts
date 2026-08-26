@@ -26,7 +26,10 @@ const PREFIX = "[010-backfill-user-locations]";
 async function run(): Promise<void> {
   console.log(`${PREFIX} Starting backfill…`);
 
-  const result = await backfillTechnicianLocations((msg) => console.log(`${PREFIX} ${msg}`));
+  const result = await backfillTechnicianLocations(
+    (msg) => console.log(`${PREFIX} ${msg}`),
+    { limit: 500 },
+  );
 
   console.log(
     `${PREFIX} Done — total=${result.total} updated=${result.updated} skipped=${result.skipped} errors=${result.errors}`,

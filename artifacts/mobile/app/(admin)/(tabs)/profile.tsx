@@ -577,7 +577,16 @@ export default function AdminProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title={t("admin.profile")} showHome showLangToggle showLogout homeHref="/(admin)/(tabs)/dashboard" onBack={() => router.replace("/(admin)/(tabs)/dashboard")} />
+      <AppHeader
+        title={t("admin.profile")}
+        subtitle={isRTL ? "تسجيل الخروج وإدارة الجلسات" : "Sign out & session control"}
+        showHome
+        showBack
+        showLangToggle
+        showLogout
+        homeHref="/(admin)/(tabs)/dashboard"
+        onBack={() => router.replace("/(admin)/(tabs)/dashboard")}
+      />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
         {/* Avatar hero */}

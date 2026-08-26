@@ -16,9 +16,9 @@ const ADMIN_HOME = "/(admin)/(tabs)/dashboard";
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { t, isRTL, user } = useApp();
   const { allOrders } = useOrders();
-  const { sessionToken } = useAuth();
+  const { sessionToken, user: authUser } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
@@ -28,6 +28,9 @@ export default function AdminDashboardScreen() {
   const pending = allOrders.filter((o) => o.status === "pending");
   const active = allOrders.filter((o) => ["accepted", "inProgress"].includes(o.status));
   const totalRevenue = completed.reduce((sum, o) => sum + (o.invoice?.total ?? 0), 0);
+
+  const authDisplayName = [authUser?.firstName, authUser?.lastName].filter(Boolean).join(" ").trim();
+  const adminName = user?.name?.trim() || authDisplayName || (isRTL ? "المسئول" : "Admin");
 
   const kpis: { icon: IconName; label: string; value: string; unit: string; color: string; bg: string }[] = [
     { icon: "dollar-sign", label: t("admin.totalRevenue"), value: `${totalRevenue.toFixed(0)}`, unit: t("common.egp"), color: colors.primary,   bg: colors.accent },
@@ -42,8 +45,8 @@ export default function AdminDashboardScreen() {
     Alert.alert(
       isRTL ? "إعادة تحديد المواقع" : "Re-Geocode Locations",
       isRTL
-        ? "سيحاول النظام تحديد إحداثيات الفنيين الذين لا تزال مواقعهم غير محددة. هل تريد المتابعة؟"
-        : "This will attempt to geocode all technicians that still have no map location. Continue?",
+        ? "سيُعالَج حتى 20 فنيًا في كل مرة (قد يستغرق أقل من دقيقة). يمكنك التكرار إن بقي المزيد."
+        : "Up to 20 technicians are processed per run (usually under a minute). Run again if more remain.",
       [
         { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
         {
@@ -62,13 +65,30 @@ export default function AdminDashboardScreen() {
                   "Content-Type": "application/json",
                   ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
                 },
+                body: JSON.stringify({ limit: 20 }),
                 credentials: "include",
               });
-              let data: { success?: boolean; total?: number; updated?: number; skipped?: number; errors?: number; error?: string } = {};
+              const raw = await resp.text();
+              let data: {
+                success?: boolean;
+                total?: number;
+                updated?: number;
+                skipped?: number;
+                errors?: number;
+                remaining?: number;
+                hasMore?: boolean;
+                error?: string;
+              } = {};
               try {
-                data = await resp.json() as typeof data;
+                data = raw ? JSON.parse(raw) as typeof data : {};
               } catch {
-                // non-JSON body
+                Alert.alert(
+                  isRTL ? "خطأ" : "Error",
+                  isRTL
+                    ? `الخادم ردّ برد غير متوقع (${resp.status})`
+                    : `Unexpected server response (${resp.status})`,
+                );
+                return;
               }
               if (!resp.ok || !data.success) {
                 const detail = data.error
@@ -78,9 +98,12 @@ export default function AdminDashboardScreen() {
                 Alert.alert(isRTL ? "خطأ" : "Error", detail);
                 return;
               }
+              const moreHint = data.hasMore
+                ? (isRTL ? `\nمتبقٍ: ${data.remaining} — اضغط مرة أخرى للمتابعة` : `\nRemaining: ${data.remaining} — run again to continue`)
+                : "";
               const msg = isRTL
-                ? `الإجمالي: ${data.total}\nتم التحديث: ${data.updated}\nتم التخطي: ${data.skipped}\nأخطاء: ${data.errors}`
-                : `Total: ${data.total}\nUpdated: ${data.updated}\nSkipped: ${data.skipped}\nErrors: ${data.errors}`;
+                ? `هذه الدفعة: ${data.total}\nتم التحديث: ${data.updated}\nتم التخطي: ${data.skipped}\nأخطاء: ${data.errors}${moreHint}`
+                : `This batch: ${data.total}\nUpdated: ${data.updated}\nSkipped: ${data.skipped}\nErrors: ${data.errors}${moreHint}`;
               Alert.alert(isRTL ? "اكتمل" : "Done", msg);
             } catch {
               Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "تعذر الاتصال بالخادم" : "Could not reach the server");
@@ -101,7 +124,6 @@ export default function AdminDashboardScreen() {
     { icon: "book-open", label: isRTL ? "الأستاذ" : "Ledger", color: "#7C5CBF", route: "/(admin)/(tabs)/ledger" },
     { icon: "dollar-sign", label: isRTL ? "تسعير Lead" : "Lead Pricing", color: "#C8880A", route: "/(admin)/(tabs)/lead-pricing" },
     { icon: "shield", label: isRTL ? "التدقيق" : "Audit", color: "#22A36B", route: "/(admin)/(tabs)/audit-logs" },
-    { icon: "user", label: isRTL ? "ملفي" : "My Profile", color: "#4DADD9", route: "/(admin)/(tabs)/profile" },
   ];
 
   return (
@@ -117,6 +139,35 @@ export default function AdminDashboardScreen() {
       />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}>
+        <TouchableOpacity
+          style={[
+            styles.accountCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderRadius: colors.radius,
+              flexDirection: isRTL ? "row-reverse" : "row",
+            },
+          ]}
+          onPress={() => router.push("/(admin)/(tabs)/profile")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.accountAvatar, { backgroundColor: colors.primary + "22" }]}>
+            <VectorIcon name="user" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
+              {adminName}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL
+                ? "الملف الشخصي · تسجيل الخروج · الخروج من كل الأجهزة"
+                : "Profile · Sign out · Sign out other devices"}
+            </Text>
+          </View>
+          <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={18} color={colors.mutedForeground} />
+        </TouchableOpacity>
+
         <View style={styles.kpiGrid}>
           {kpis.map((kpi) => (
             <View key={kpi.label} style={[styles.kpiCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
@@ -208,7 +259,7 @@ export default function AdminDashboardScreen() {
               {isRTL ? "إعادة تحديد مواقع الفنيين" : "Re-Geocode Technician Locations"}
             </Text>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
-              {isRTL ? "تحديث إحداثيات الفنيين الذين لا تزال مواقعهم غير محددة" : "Fix map coordinates for technicians with no location set"}
+              {isRTL ? "دفعة حتى 20 فنيًا لكل تشغيل — كرّر إن بقي المزيد" : "Up to 20 techs per run — repeat if more remain"}
             </Text>
           </View>
           <VectorIcon name="chevron-right" size={18} color={colors.mutedForeground} />
@@ -259,6 +310,8 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 16 },
+  accountCard: { padding: 14, borderWidth: 1.5, alignItems: "center", marginBottom: 16 },
+  accountAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
   kpiCard: { width: "47%", padding: 16, borderWidth: 1.5, alignItems: "center" },
   kpiIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },

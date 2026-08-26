@@ -22,12 +22,16 @@ export interface BackfillResult {
   updated: number;
   skipped: number;
   errors: number;
+  remaining: number;
+  hasMore: boolean;
 }
 
 export async function backfillTechnicianLocations(
   onProgress?: (msg: string) => void,
+  options?: { limit?: number },
 ): Promise<BackfillResult> {
   const log = onProgress ?? (() => undefined);
+  const limit = Math.max(1, Math.min(options?.limit ?? 20, 50));
 
   const candidates = await db
     .select({
@@ -44,13 +48,15 @@ export async function backfillTechnicianLocations(
       ),
     );
 
-  log(`Found ${candidates.length} technician(s) to process`);
+  const batch = candidates.slice(0, limit);
+  const remaining = Math.max(0, candidates.length - batch.length);
+  log(`Found ${candidates.length} technician(s); processing ${batch.length} this run (${remaining} remaining)`);
 
   let updated = 0;
   let skipped = 0;
   let errors = 0;
 
-  for (const tech of candidates) {
+  for (const tech of batch) {
     try {
       const geoPoint = await geocodeArea(tech.area, tech.governorate);
 
@@ -75,7 +81,14 @@ export async function backfillTechnicianLocations(
     }
   }
 
-  log(`Done — total=${candidates.length} updated=${updated} skipped=${skipped} errors=${errors}`);
+  log(`Done — batch=${batch.length} updated=${updated} skipped=${skipped} errors=${errors} remaining=${remaining}`);
 
-  return { total: candidates.length, updated, skipped, errors };
+  return {
+    total: batch.length,
+    updated,
+    skipped,
+    errors,
+    remaining,
+    hasMore: remaining > 0,
+  };
 }
