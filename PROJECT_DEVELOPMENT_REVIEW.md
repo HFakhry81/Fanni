@@ -109,7 +109,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
 | 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [~] | M4 APK | v1.0.5 على الموقع؛ **بناء تالٍ موقف** حتى إغلاق E2E بعد نشر الإصلاحات |
+| 12 | [~] | M4 APK | v1.0.5 على الموقع؛ **v1.0.6** قيد البناء (كيبورد + شروط استخدام + إصلاحات اتصال) |
 | 13 | [x] | Auth UX | رسائل خطأ تسجيل/دخول حقيقية + إعادة محاولة بدون PostGIS |
 | 14 | [x] | UI | فصل animated drivers في MapPickerModal (Sentry useNativeDriver) |
 | 15 | [x] | API base | توحيد `getApiBase`/`getWsUrl` وإزالة `http://DOMAIN` من المسارات الحية |
@@ -124,11 +124,11 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | Crash Sentry `useNativeDriver` | FAB في MapPicker يخلط JS `bottom` مع native `scale` | **محلولة في الكود** (`de0f263`) |
 | متصفح الهاتف يرى `/healthz` ok | الشبكة/SSL سليمة على الجهاز | مُؤكد بلقطة مستخدم |
 
-**لا يُبنى APK الآن** — بقرار المشغّل حتى إغلاق باقي البنود.
+**قرار 26 أغسطس مساءً:** بناء **APK v1.0.6** بعد إغلاق بنود الكود (اتصال/أنيميشن/كيبورد/شروط). المؤجّل عمدًا يبقى: Twilio، OPay، نشر VPS اليدوي، E2E جهاز حي، GL المتقدم.
 
 ---
 
-## تقرير APK / EAS (24–25 أغسطس 2026)
+## تقرير APK / EAS (24–26 أغسطس 2026)
 
 ### ملخص الجلسة
 
@@ -202,11 +202,12 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | البند | الحالة |
 |---|---|
 | كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
-| إصدار التطبيق | **1.0.5** / `versionCode` 5 |
+| إصدار التطبيق | **1.0.6** / `versionCode` 6 |
 | بناء EAS `preview` v1.0.3 | **منتهٍ** (`bae7ee22`) — OSM WebView |
 | بناء EAS `preview` v1.0.4 | **منتهٍ** (`60610e5a`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/60610e5a-0f68-4ce2-bc01-3b059f754707 |
-| بناء EAS `preview` v1.0.5 | جارٍ — عمولة فقط + باقات Word |
-| APK محلي | يُحدَّث بعد Finished لـ v1.0.5 |
+| بناء EAS `preview` v1.0.5 | سابق — عمولة فقط + باقات Word |
+| بناء EAS `preview` v1.0.6 | قيد التنفيذ — كيبورد + شروط استخدام + إصلاح اتصال/أنيميشن |
+| APK محلي | يُحدَّث بعد Finished لـ v1.0.6 |
 | Sentry (APK) | DSN `fanni-app`؛ wrap + ErrorBoundary + sessions؛ `enableNative: false` حتى smoke test |
 | APK على `app.upnexa-eg.com` | WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
 
