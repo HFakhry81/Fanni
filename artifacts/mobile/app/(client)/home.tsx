@@ -258,9 +258,8 @@ export default function ClientHomeScreen() {
         </Text>
         <View style={[styles.quickRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {([
-            { icon: "list",      label: t("nav.orders"),   route: "/(client)/orders",   color: colors.primary },
-            { icon: "file-text", label: t("nav.invoices"), route: "/(client)/invoices", color: colors.secondary },
-            { icon: "user",      label: t("nav.profile"),  route: "/(client)/profile",  color: "#22A36B" },
+            { icon: "list", label: t("nav.orders"), route: "/(client)/orders", color: colors.primary },
+            { icon: "user", label: t("nav.profile"), route: "/(client)/profile", color: "#22A36B" },
           ] satisfies { icon: IconName; label: string; route: string; color: string }[]).map((item) => (
             <TouchableOpacity
               key={item.label}

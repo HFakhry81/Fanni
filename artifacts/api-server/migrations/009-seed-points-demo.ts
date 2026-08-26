@@ -46,10 +46,10 @@ if (pkgRows.length === 0) {
     INSERT INTO point_packages (name_en, name_ar, points_amount, price_egp, original_price_egp, sort_order)
     VALUES
       ('Starter 100', 'باقة 100 جنيه', 120, 100.00, NULL, 1),
-      ('Plus 200',    'باقة 200 جنيه', 240, 200.00, NULL, 2),
-      ('Pro 300',     'باقة 300 جنيه', 360, 300.00, NULL, 3),
-      ('Max 400',     'باقة 400 جنيه', 480, 400.00, NULL, 4),
-      ('Elite 500',   'باقة 500 جنيه', 600, 500.00, NULL, 5)
+      ('Plus 250',    'باقة 250 جنيه', 300, 250.00, NULL, 2),
+      ('Pro 500',     'باقة 500 جنيه', 600, 500.00, NULL, 3),
+      ('Max 750',     'باقة 750 جنيه', 900, 750.00, NULL, 4),
+      ('Elite 1000',  'باقة 1000 جنيه', 1200, 1000.00, NULL, 5)
     ON CONFLICT DO NOTHING
   `);
   console.log("✓  Seeded 3 default point packages");

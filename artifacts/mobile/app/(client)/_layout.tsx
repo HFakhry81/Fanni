@@ -41,10 +41,6 @@ function NativeClientTabs() {
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="invoices">
-        <Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} />
-        <Label>Invoices</Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -104,8 +100,7 @@ function ClassicClientTabs() {
       <Tabs.Screen
         name="invoices"
         options={{
-          title: t("nav.invoices"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📄</Text>,
+          href: null,
         }}
       />
       <Tabs.Screen

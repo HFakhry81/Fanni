@@ -4,7 +4,6 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Platfor
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-import { shareTechPayoutInvoicePdf, shareLegacyInvoicePdf } from "@/utils/invoicePdf";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useColors } from "@/hooks/useColors";
@@ -23,33 +22,6 @@ import { getApiBase } from "@/utils/api";
 import { startMaskedCall } from "@/utils/maskedCall";
 
 
-const SERVICE_FEE_RATE = 15;
-const VAT_RATE = 14;
-
-interface ServerInvoiceSummary {
-  techNetTotal?: number;
-  clientTotal?: number;
-  adminTotal?: number;
-  serviceFeeAmount?: number;
-  vatAmount?: number;
-  labourFee?: number;
-  transportFee?: number;
-  materialsTotal?: number;
-}
-
-interface CompleteOrderResponse {
-  invoices?: ServerInvoiceSummary;
-}
-
-function computePreview(labourFee: number, transportFee: number, materialsTotal: number) {
-  const serviceFeeAmount = (labourFee * SERVICE_FEE_RATE) / 100;
-  const vatAmount = (labourFee * VAT_RATE) / 100;
-  const base = materialsTotal + transportFee + labourFee;
-  const techNetTotal = base - serviceFeeAmount;
-  const clientTotal = base + serviceFeeAmount + vatAmount;
-  return { serviceFeeAmount, vatAmount, base, techNetTotal, clientTotal };
-}
-
 export default function TechOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
@@ -62,10 +34,6 @@ export default function TechOrdersScreen() {
   const [solutionDesc, setSolutionDesc] = useState("");
   const [satisfaction, setSatisfaction] = useState<"satisfied" | "neutral" | "unsatisfied" | null>(null);
 
-  const [labourFeeStr, setLabourFeeStr] = useState("");
-  const [transportFeeStr, setTransportFeeStr] = useState("");
-  const [materialsTotalStr, setMaterialsTotalStr] = useState("0");
-
   const [loading, setLoading] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [failOrderId, setFailOrderId] = useState<string | null>(null);
@@ -77,7 +45,6 @@ export default function TechOrdersScreen() {
   const [afterPhotoUploading, setAfterPhotoUploading] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
   const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
-  const [expandedInvoices, setExpandedInvoices] = useState<Record<string, boolean>>({});
 
   const isFetchingRef = useRef(false);
   const [updatedOrderIds, setUpdatedOrderIds] = useState<Set<string>>(new Set());
@@ -230,18 +197,6 @@ export default function TechOrdersScreen() {
       ],
     );
   };
-  const transportFee = parseFloat(transportFeeStr) || 0;
-  const materialsTotal = parseFloat(materialsTotalStr) || 0;
-  const preview = computePreview(labourFee, transportFee, materialsTotal);
-
-  const handleShareInvoice = async (order: Order) => {
-    if (order.threePartyInvoice) {
-      await shareTechPayoutInvoicePdf({ order, isRTL, t });
-      return;
-    }
-    await shareLegacyInvoicePdf({ order, isRTL, t });
-  };
-
   const pickPhasePhoto = async (orderId: string, phase: "before" | "during") => {
     if (!sessionToken) {
       Alert.alert(isRTL ? "غير مسجّل" : "Not Signed In", isRTL ? "يجب تسجيل الدخول لرفع الصور." : "You must be signed in to upload photos.");
@@ -298,17 +253,9 @@ export default function TechOrdersScreen() {
   };
 
   const handleComplete = async (orderId: string) => {
-    if (labourFee <= 0) {
-      Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "يرجى إدخال أجر العمالة" : "Please enter the labour fee");
-      return;
-    }
     setLoading(true);
 
-    const { serviceFeeAmount, vatAmount, techNetTotal, clientTotal } = preview;
-    const adminTotal = serviceFeeAmount * 2 + vatAmount;
-
     let serverSynced = false;
-    let serverInvoices: ServerInvoiceSummary | null = null;
     let afterPhotosSaved = false;
 
     try {
@@ -320,15 +267,10 @@ export default function TechOrdersScreen() {
           body: JSON.stringify({
             solutionDescription: solutionDesc,
             clientSatisfaction: satisfaction ?? "satisfied",
-            labourFee,
-            transportFee: transportFee || undefined,
-            materialsTotal,
           }),
         });
         if (res.ok) {
           serverSynced = true;
-          const data = await res.json() as CompleteOrderResponse;
-          serverInvoices = data.invoices ?? null;
         } else {
           console.warn(`[Fanni] Failed to complete order on server: ${res.status}`);
         }
@@ -365,21 +307,6 @@ export default function TechOrdersScreen() {
         solutionDescription: solutionDesc,
         clientSatisfaction: satisfaction ?? "satisfied",
         photos: [...(existingOrder?.photos ?? []), ...afterPhotoObjects],
-        threePartyInvoice: {
-          labourFee,
-          transportFee,
-          materialsTotal,
-          serviceFeeRate: SERVICE_FEE_RATE,
-          serviceFeeAmount: serverInvoices?.serviceFeeAmount ?? serviceFeeAmount,
-          vatRate: VAT_RATE,
-          vatAmount: serverInvoices?.vatAmount ?? vatAmount,
-          techNetTotal: serverInvoices?.techNetTotal ?? techNetTotal,
-          clientTotal: serverInvoices?.clientTotal ?? clientTotal,
-          adminTotal: serverInvoices?.adminTotal ?? adminTotal,
-          receiptPhotos: [],
-          ocrLineItems: [],
-          generatedAt: new Date().toISOString(),
-        },
       });
     }
 
@@ -389,9 +316,6 @@ export default function TechOrdersScreen() {
     setSolutionDesc("");
     setSatisfaction(null);
     setAfterPhotos([]);
-    setLabourFeeStr("");
-    setTransportFeeStr("");
-    setMaterialsTotalStr("0");
   };
 
   const handleCancelComplete = () => {
@@ -400,9 +324,6 @@ export default function TechOrdersScreen() {
     setSolutionDesc("");
     setSatisfaction(null);
     setAfterPhotos([]);
-    setLabourFeeStr("");
-    setTransportFeeStr("");
-    setMaterialsTotalStr("0");
   };
 
   const renderCard = ({ item }: { item: Order }) => {
@@ -534,133 +455,6 @@ export default function TechOrdersScreen() {
               )}
             </>
           )}
-          {item.status === "completed" && (item.threePartyInvoice || item.invoice) && (() => {
-            const invoiceExpanded = expandedInvoices[item.id] ?? false;
-            const inv3 = item.threePartyInvoice;
-            const invLegacy = item.invoice;
-            const displayTotal = inv3 ? inv3.techNetTotal : (invLegacy?.total ?? 0);
-            const displayNum = invLegacy?.invoiceNumber ?? (isRTL ? "فاتورة" : "Invoice");
-            return (
-              <View style={[styles.invoiceBlock, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
-                <TouchableOpacity
-                  style={[styles.invoiceLogoRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: invoiceExpanded ? colors.border : "transparent" }]}
-                  onPress={() => setExpandedInvoices((prev) => ({ ...prev, [item.id]: !invoiceExpanded }))}
-                  activeOpacity={0.75}
-                >
-                  <Image source={require("@/assets/images/icon.png")} style={styles.invoiceLogo} resizeMode="contain" />
-                  <View style={{ flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-                      {inv3 ? (isRTL ? "فاتورة الفني" : "Technician Invoice") : `${t("invoice.title")} #${displayNum}`}
-                    </Text>
-                    <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                      {isRTL ? "صافي المستحق" : "Net Payout"}: {displayTotal.toFixed(2)} {t("common.egp")}
-                    </Text>
-                  </View>
-                  <VectorIcon name={invoiceExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
-                </TouchableOpacity>
-                {invoiceExpanded && (
-                  <>
-                    {inv3 ? (
-                      <>
-                        {(() => {
-                          const matKey = `${item.id}-mat`;
-                          const matExpanded = expandedInvoices[matKey] ?? false;
-                          const hasMaterials = (item.materials ?? []).length > 0;
-                          const materialsLabel = isRTL ? "تكلفة المواد" : "Materials Cost";
-                          return (
-                            <>
-                              <TouchableOpacity
-                                activeOpacity={hasMaterials ? 0.7 : 1}
-                                onPress={() => {
-                                  if (!hasMaterials) return;
-                                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                  setExpandedInvoices((prev) => ({ ...prev, [matKey]: !matExpanded }));
-                                }}
-                                style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
-                              >
-                                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, flex: 1 }}>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{materialsLabel}</Text>
-                                  {hasMaterials && (
-                                    <VectorIcon name={matExpanded ? "chevron-up" : "chevron-down"} size={11} color={colors.mutedForeground} />
-                                  )}
-                                </View>
-                                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
-                                  {inv3.materialsTotal.toFixed(2)} {t("common.egp")}
-                                </Text>
-                              </TouchableOpacity>
-                              {matExpanded && (item.materials ?? []).map((mat) => (
-                                <View key={mat.id} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", paddingLeft: isRTL ? 0 : 16, paddingRight: isRTL ? 16 : 0, backgroundColor: colors.accent }]}>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={2}>
-                                    {mat.description}
-                                  </Text>
-                                  <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 11 }}>
-                                    {mat.amount.toFixed(2)} {t("common.egp")}
-                                  </Text>
-                                </View>
-                              ))}
-                            </>
-                          );
-                        })()}
-                        {[
-                          inv3.transportFee > 0 ? [isRTL ? "تكلفة النقل" : "Transport", inv3.transportFee] : null,
-                          [isRTL ? "أجر العمالة" : "Labour Fee", inv3.labourFee],
-                          [isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee (${SERVICE_FEE_RATE}%)`, -inv3.serviceFeeAmount],
-                        ].filter(Boolean).map((row) => {
-                          const [label, val] = row as [string, number];
-                          return (
-                            <View key={label} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label}</Text>
-                              <Text style={{ color: val < 0 ? colors.destructive : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
-                                {val < 0 ? `−${Math.abs(val).toFixed(2)}` : val.toFixed(2)} {t("common.egp")}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                        <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius - 6, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "صافي المستحق" : "Net Payout"}</Text>
-                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>
-                            {inv3.techNetTotal.toFixed(2)} {t("common.egp")}
-                          </Text>
-                        </View>
-                      </>
-                    ) : invLegacy ? (
-                      <>
-                        {[
-                          [t("invoice.materials"), invLegacy.materialsTotal],
-                          [t("invoice.materialsMark"), invLegacy.materialsMark],
-                          [t("invoice.labor"), invLegacy.laborFee],
-                          [t("invoice.tools"), invLegacy.toolRental],
-                          [t("invoice.tax"), invLegacy.tax],
-                          [t("invoice.vat"), invLegacy.vat],
-                        ].map(([label, val]) => (
-                          <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label as string}</Text>
-                            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
-                          </View>
-                        ))}
-                        <View style={[styles.invoiceTotalRow, { backgroundColor: colors.accent, borderRadius: colors.radius - 6, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{t("invoice.total")}</Text>
-                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 15 }}>
-                            {invLegacy.total.toFixed(2)} {t("common.egp")}
-                          </Text>
-                        </View>
-                      </>
-                    ) : null}
-                    <TouchableOpacity
-                      style={[styles.shareBtn, { backgroundColor: colors.darkMid, borderRadius: colors.radius - 4, flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10 }]}
-                      onPress={() => handleShareInvoice(item)}
-                      activeOpacity={0.8}
-                    >
-                      <VectorIcon name="share-2" size={14} color={colors.primary} />
-                      <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
-                        {t("invoice.share")}
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            );
-          })()}
           {item.status === "completed" && (item.photos ?? []).length > 0 && (() => {
             const phaseDef: { phase: string; icon: IconName; labelAr: string; labelEn: string; color: string }[] = [
               { phase: "problem", icon: "alert-circle", labelAr: "صور المشكلة", labelEn: "Problem Photos", color: colors.destructive },
@@ -736,118 +530,6 @@ export default function TechOrdersScreen() {
         ) : null}
         <ScrollView contentContainerStyle={[styles.completeContent, { paddingBottom: botPad + 24 }]} keyboardShouldPersistTaps="handled">
 
-          {/* Fees Section */}
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
-            <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 14, gap: 6 }]}>
-              <VectorIcon name="dollar-sign" size={16} color={colors.primary} />
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left", marginBottom: 0 }]}>
-                {isRTL ? "تفاصيل الأتعاب" : "Fee Details"}
-              </Text>
-            </View>
-
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 4 }}>
-              {isRTL ? "إجمالي تكلفة المواد (ج.م)" : "Materials Total (EGP)"}
-            </Text>
-            <TextInput
-              style={[styles.feeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="0.00"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="decimal-pad"
-              value={materialsTotalStr}
-              onChangeText={setMaterialsTotalStr}
-            />
-            <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left", marginBottom: 12, marginTop: 2 }}>
-              {isRTL ? "اختياري — اكتب صفر لو مفيش مواد" : "Optional — enter 0 if there were no materials"}
-            </Text>
-
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 4 }}>
-              {isRTL ? "أجر العمالة والمصنعية (ج.م) *" : "Labour & Service Fee (EGP) *"}
-            </Text>
-            <TextInput
-              style={[styles.feeInput, { backgroundColor: colors.background, borderColor: labourFeeStr && labourFee > 0 ? colors.primary : colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-              placeholder={isRTL ? "مطلوب" : "Required"}
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="decimal-pad"
-              value={labourFeeStr}
-              onChangeText={setLabourFeeStr}
-            />
-
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left", marginBottom: 4, marginTop: 12 }}>
-              {isRTL ? "تكلفة النقل (ج.م) — اختياري" : "Transport Cost (EGP) — Optional"}
-            </Text>
-            <TextInput
-              style={[styles.feeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="0.00"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="decimal-pad"
-              value={transportFeeStr}
-              onChangeText={setTransportFeeStr}
-            />
-          </View>
-
-          {/* Preview Panel */}
-          {labourFee > 0 && (
-            <View style={[styles.section, { backgroundColor: colors.darkMid, borderRadius: colors.radius, borderColor: colors.border }]}>
-              <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 14, gap: 6 }]}>
-                <VectorIcon name="eye" size={16} color={colors.primary} />
-                <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
-                  {isRTL ? "ملخص الفاتورة" : "Invoice Preview"}
-                </Text>
-              </View>
-
-              <View style={{ marginBottom: 14 }}>
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Inter_600SemiBold", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
-                  {isRTL ? "ما يدفعه العميل" : "Client Pays"}
-                </Text>
-                {[
-                  [isRTL ? "تكلفة المواد" : "Materials", materialsTotal],
-                  transportFee > 0 ? [isRTL ? "النقل" : "Transport", transportFee] : null,
-                  [isRTL ? "أجر العمالة" : "Labour", labourFee],
-                  [isRTL ? `رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee (${SERVICE_FEE_RATE}%)`, preview.serviceFeeAmount],
-                  [isRTL ? `ضريبة القيمة المضافة (${VAT_RATE}%)` : `VAT (${VAT_RATE}%)`, preview.vatAmount],
-                ].filter(Boolean).map((row) => {
-                  const [label, val] = row as [string, number];
-                  return (
-                    <View key={label} style={[{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingVertical: 4 }]}>
-                      <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Inter_400Regular" }}>{label}</Text>
-                      <Text style={{ color: "#fff", fontSize: 12, fontFamily: "Inter_500Medium" }}>{val.toFixed(2)} {t("common.egp")}</Text>
-                    </View>
-                  );
-                })}
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.2)", marginTop: 4 }}>
-                  <Text style={{ color: colors.secondary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "إجمالي العميل" : "Client Total"}</Text>
-                  <Text style={{ color: colors.secondary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{preview.clientTotal.toFixed(2)} {t("common.egp")}</Text>
-                </View>
-              </View>
-
-              <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.15)", paddingTop: 14 }}>
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Inter_600SemiBold", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>
-                  {isRTL ? "صافي استحقاقك" : "Your Net Payout"}
-                </Text>
-                {[
-                  [isRTL ? "تكلفة المواد" : "Materials", materialsTotal],
-                  transportFee > 0 ? [isRTL ? "النقل" : "Transport", transportFee] : null,
-                  [isRTL ? "أجر العمالة" : "Labour", labourFee],
-                  [isRTL ? `خصم رسوم الخدمة (${SERVICE_FEE_RATE}%)` : `Service Fee Deduction (${SERVICE_FEE_RATE}%)`, -preview.serviceFeeAmount],
-                ].filter(Boolean).map((row) => {
-                  const [label, val] = row as [string, number];
-                  return (
-                    <View key={label} style={[{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingVertical: 4 }]}>
-                      <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Inter_400Regular" }}>{label}</Text>
-                      <Text style={{ color: val < 0 ? "#fca5a5" : "#fff", fontSize: 12, fontFamily: "Inter_500Medium" }}>
-                        {val < 0 ? `−${Math.abs(val).toFixed(2)}` : val.toFixed(2)} {t("common.egp")}
-                      </Text>
-                    </View>
-                  );
-                })}
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.2)", marginTop: 4 }}>
-                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>{isRTL ? "صافي استحقاقك" : "Your Net Payout"}</Text>
-                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 18 }}>{preview.techNetTotal.toFixed(2)} {t("common.egp")}</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
           {/* Solution Description */}
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>{t("tech.solutionDesc")}</Text>
@@ -902,7 +584,7 @@ export default function TechOrdersScreen() {
           </View>
 
           <FanniButton
-            title={isRTL ? "إنهاء وإصدار الفاتورة" : "Complete & Generate Invoice"}
+            title={isRTL ? "إنهاء الطلب" : "Complete Order"}
             onPress={() => handleComplete(selectedOrderId)}
             loading={loading}
             fullWidth

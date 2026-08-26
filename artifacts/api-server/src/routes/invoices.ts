@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { SQL, and, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db, invoicesTable, ordersTable, usersTable } from "@workspace/db";
+import { db, invoicesTable, usersTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
@@ -12,10 +12,6 @@ const router: IRouter = Router();
 
 function formatInvoiceNumber(serial: number): string {
   return `INV-${String(serial).padStart(6, "0")}`;
-}
-
-function formatOrderNumber(serial: number): string {
-  return `ORD-${String(serial).padStart(6, "0")}`;
 }
 
 function mapInvoice(
@@ -205,169 +201,26 @@ router.get("/invoices/:id", authMiddleware, requireAuth, async (req: Request<{ i
   }
 });
 
-router.post("/invoices", authMiddleware, requireAuth, async (req, res) => {
-  const user = req.user!;
-
-  if (user.role !== "technician" && user.role !== "admin") {
-    res.status(403).json({ error: "Only technicians and admins can create invoices" });
-    return;
-  }
-
-  const { orderId, clientId, subtotal, taxRate = 14, noteAr, noteEn, category } = req.body as {
-    orderId?: string;
-    clientId?: string;
-    subtotal: number;
-    taxRate?: number;
-    noteAr?: string;
-    noteEn?: string;
-    category?: string;
-  };
-
-  if (!subtotal || subtotal <= 0) {
-    res.status(400).json({ error: "subtotal must be a positive number" });
-    return;
-  }
-
-  const taxAmount = (subtotal * taxRate) / 100;
-  const total = subtotal + taxAmount;
-
-  try {
-    const { inserted, orderNumber } = await db.transaction(async (tx) => {
-      let resolvedOrderNumber: string | null = null;
-      let resolvedClientId = clientId ?? null;
-
-      if (orderId) {
-        const orderRows = await tx
-          .select()
-          .from(ordersTable)
-          .where(eq(ordersTable.id, orderId))
-          .limit(1);
-
-        if (orderRows.length) {
-          const ord = orderRows[0]!;
-          resolvedOrderNumber = ord.orderNumber ?? formatOrderNumber(ord.orderSerial);
-          resolvedClientId = resolvedClientId ?? ord.clientId;
-        }
-      }
-
-      const [invoice] = await tx
-        .insert(invoicesTable)
-        .values({
-          orderId: orderId ?? null,
-          orderNumber: resolvedOrderNumber,
-          clientId: resolvedClientId,
-          technicianId: user.role === "technician" ? user.id : null,
-          category: category ?? null,
-          invoiceType: user.role === "technician" ? "technician" : "admin",
-          subtotal: String(subtotal.toFixed(2)),
-          taxRate: String(taxRate.toFixed(2)),
-          taxAmount: String(taxAmount.toFixed(2)),
-          total: String(total.toFixed(2)),
-          currency: "EGP",
-          status: "issued",
-          noteAr: noteAr ?? null,
-          noteEn: noteEn ?? null,
-          issuedAt: new Date(),
-        })
-        .returning();
-
-      if (orderId && invoice) {
-        await tx
-          .update(ordersTable)
-          .set({ status: "completed", completedAt: new Date(), updatedAt: new Date() })
-          .where(eq(ordersTable.id, orderId));
-      }
-
-      return { inserted: invoice!, orderNumber: resolvedOrderNumber };
-    });
-
-    logger.info({ invoiceSerial: inserted!.invoiceSerial, orderId }, "Invoice created");
-
-    res.status(201).json({
-      success: true,
-      invoice: {
-        id: inserted!.id,
-        invoiceNumber: formatInvoiceNumber(inserted!.invoiceSerial),
-        invoiceSerial: inserted!.invoiceSerial,
-        total,
-        status: inserted!.status,
-      },
-    });
-  } catch (err) {
-    logger.error({ err }, "Failed to create invoice");
-    res.status(500).json({ error: "Failed to create invoice" });
-  }
+router.post("/invoices", authMiddleware, requireAuth, async (_req, res) => {
+  // Job/purchase invoices retired — platform revenue is lead-unlock commission only.
+  res.status(410).json({
+    error: "Job invoices are disabled. Platform accounting is commission-only (lead unlock / points).",
+    code: "JOB_INVOICES_RETIRED",
+  });
 });
 
-router.patch("/invoices/:id/pay", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
-  const user = req.user!;
-  const id = req.params.id;
-  try {
-    const rows = await db
-      .select()
-      .from(invoicesTable)
-      .where(eq(invoicesTable.id, id))
-      .limit(1);
-
-    if (!rows.length) {
-      res.status(404).json({ error: "Invoice not found" });
-      return;
-    }
-
-    const inv = rows[0]!;
-    if (user.role !== "admin" && inv.technicianId !== user.id) {
-      res.status(403).json({ error: "Only the assigned technician or admin can mark invoice as paid" });
-      return;
-    }
-
-    if (inv.status === "paid") {
-      res.status(409).json({ error: "Invoice is already paid" });
-      return;
-    }
-
-    await db
-      .update(invoicesTable)
-      .set({ status: "paid", paidAt: new Date(), updatedAt: new Date() })
-      .where(eq(invoicesTable.id, id));
-
-    res.json({ success: true, status: "paid" });
-  } catch (err) {
-    logger.error({ err, id }, "Failed to mark invoice as paid");
-    res.status(500).json({ error: "Failed to update invoice" });
-  }
+router.patch("/invoices/:id/pay", authMiddleware, requireAuth, async (_req, res) => {
+  res.status(410).json({
+    error: "Job invoices are disabled. Platform accounting is commission-only (lead unlock / points).",
+    code: "JOB_INVOICES_RETIRED",
+  });
 });
 
-router.patch("/invoices/:id/cancel", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
-  const user = req.user!;
-  const id = req.params.id;
-  try {
-    const rows = await db
-      .select()
-      .from(invoicesTable)
-      .where(eq(invoicesTable.id, id))
-      .limit(1);
-
-    if (!rows.length) {
-      res.status(404).json({ error: "Invoice not found" });
-      return;
-    }
-
-    const inv = rows[0]!;
-    if (user.role !== "admin" && inv.technicianId !== user.id) {
-      res.status(403).json({ error: "Access denied" });
-      return;
-    }
-
-    await db
-      .update(invoicesTable)
-      .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
-      .where(eq(invoicesTable.id, id));
-
-    res.json({ success: true, status: "cancelled" });
-  } catch (err) {
-    logger.error({ err, id }, "Failed to cancel invoice");
-    res.status(500).json({ error: "Failed to cancel invoice" });
-  }
+router.patch("/invoices/:id/cancel", authMiddleware, requireAuth, async (_req, res) => {
+  res.status(410).json({
+    error: "Job invoices are disabled. Platform accounting is commission-only (lead unlock / points).",
+    code: "JOB_INVOICES_RETIRED",
+  });
 });
 
 export default router;

@@ -220,7 +220,8 @@ export default function OrderDetailsScreen() {
       ? (effectiveTechInvoice ? buildTechInvoice(effectiveTechInvoice) : (order.threePartyInvoice ?? null))
       : (effectiveClientInvoice ? rawToThreeParty(effectiveClientInvoice, effectiveTechInvoice, fetchedAdminLedger) : (order.threePartyInvoice ?? null));
 
-  const hasInvoice = !!order.invoice || !!effectiveThreePartyInvoice || !!fetchedClientInvoice || !!fetchedTechInvoice;
+  // JOB_INVOICES_RETIRED — platform accounting is commission-only (lead unlock).
+  const hasInvoice = false;
   const isCompleted = order.status === "completed";
 
   const phaseLabels: Record<string, string> = {

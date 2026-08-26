@@ -54,10 +54,6 @@ function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSe
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="invoices">
-        <Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} />
-        <Label>Invoices</Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="wallet">
         <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
         <Label>Wallet</Label>
@@ -137,8 +133,7 @@ function ClassicTechTabs({ notifUnreadCount }: { notifUnreadCount: number }) {
       <Tabs.Screen
         name="invoices"
         options={{
-          title: t("nav.invoices"),
-          tabBarIcon: () => isIOS ? null : <Text style={styles.tabIcon}>📄</Text>,
+          href: null,
         }}
       />
       <Tabs.Screen

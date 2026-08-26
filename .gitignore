@@ -15,6 +15,7 @@ node_modules
 # IDEs and editors
 /.idea
 artifacts/mobile/.idea/
+.tmp-spec-extract/
 .project
 .classpath
 .c9/
