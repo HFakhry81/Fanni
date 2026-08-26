@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Fanni - Home Maintenance",
+    "name": "Fanni",
     "slug": "mobile",
     "version": "1.0.8",
     "orientation": "portrait",
@@ -8,12 +8,12 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "description": "Fanni home-maintenance marketplace by UpNexa (upnexa-eg.com). Support: Info@upnexa-eg.com",
+    "description": "Fanni — home maintenance by UpNexa (upnexa-eg.com). Support: Info@upnexa-eg.com. Version 1.0.8",
     "owner": "haithamfakhry",
     "githubUrl": "https://github.com/HFakhry81/Fanni",
     "splash": {
       "image": "./assets/images/splash-icon.png",
-      "resizeMode": "cover",
+      "resizeMode": "contain",
       "backgroundColor": "#0D1B2A"
     },
     "ios": {
@@ -37,6 +37,10 @@
       "versionCode": 8,
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -77,6 +81,15 @@
       "expo-font",
       "expo-web-browser",
       "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#0D1B2A"
+        }
+      ],
       [
         "expo-location",
         {

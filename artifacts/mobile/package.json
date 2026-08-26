@@ -1,6 +1,6 @@
 {
   "name": "@workspace/mobile",
-  "version": "1.0.4",
+  "version": "1.0.8",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
@@ -74,5 +74,12 @@
     "@types/react-dom": "~19.1.7",
     "babel-plugin-react-compiler": "^19.0.0-beta-e993439-20250117",
     "typescript": "~5.9.2"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "@react-navigation/native"
+      ]
+    }
   }
 }

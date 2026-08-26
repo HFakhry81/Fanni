@@ -19,6 +19,7 @@ import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
+import { APP_IDENTITY, getAppVersionLabel } from "@/constants/appIdentity";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -232,6 +233,12 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <Text style={[styles.ownership, { color: colors.mutedForeground, textAlign: "center" }]}>
+          {isRTL ? APP_IDENTITY.companyLegalAr : APP_IDENTITY.companyLegalEn}
+          {"\n"}
+          {t("about.version")}: {getAppVersionLabel()}
+        </Text>
       </KeyboardAwareScrollViewCompat>
     </View>
   );
@@ -286,4 +293,11 @@ const styles = StyleSheet.create({
   registerHint: { justifyContent: "center", alignItems: "center", paddingVertical: 4 },
   registerHintText: { fontSize: 14 },
   registerHintLink: { fontSize: 14 },
+  ownership: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
+    marginTop: 8,
+    paddingHorizontal: 12,
+  },
 });
