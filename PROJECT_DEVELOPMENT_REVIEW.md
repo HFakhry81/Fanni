@@ -92,27 +92,28 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 
 ## يحتاج استكمالًا (أولوية) — قائمة مهام للاستئناف
 
-الجرد المحدَّث 26 أغسطس مساءً: **كود الاتصال والأنيميشن مُغلق على `main`**؛ المتبقي الحي = نشر VPS + تحقق جهاز + مؤجلات خارجية.
+الجرد المحدَّث 27 أغسطس 2026: **migrate 023 + APK 1.0.8 + تخزين الصور على VPS مؤكَّدة**؛ تسجيل حساب جديد نجح على هاتف حقيقي. المتبقي الحي لـ Live-pass الكامل = إكمال مسار الطلب/Lead/أدمن على الجهاز + مؤجلات Twilio/OPay/GL.
 
-آخر دفع على `origin/main`: راجع `git log -1`. طُبّق `020`/`022` محليًا؛ **نشر VPS + migrate 022 مطلوب**.
+آخر دفع على `origin/main`: راجع `git log -1`. **طُبّق migrate 023 على الإنتاج** (و022 سابقًا حسب البيئة).
 
 | # | الحالة | الوحدة | المهمة |
 |---|---|---|---|
 | 1 | [x] | M4 تشغيل | migrate 017–020 على بيئة التطوير (طُبّق 020 هنا) |
-| 2 | [~] | M1 | KYC: `id`/`carnehat` في الكود. ضع المسارات في `.env` على الـ VPS |
+| 2 | [x] | M1 | KYC: مسارات `id`/`carnehat`/`uploads` على VPS — **يستقبل الصور** (27 أغسطس) |
 | 3 | [x] | M3 | نزاع رقم خاطئ / عدم رد آلي + حد يومي **2** |
-| 4 | [x] | M3/M5 | e2e 360° **كود مكتمل 100%** — تقرير [`E2E_360_REPORT.md`](E2E_360_REPORT.md)؛ Live-pass ينتظر نشر VPS + جهاز |
+| 4 | [~] | M3/M5 | e2e 360° كود 100%؛ **Live جزئي**: تسجيل جهاز + APK 1.0.8 + migrate 023 — باقي المسار على الجهاز |
 | 5 | [~] | M6 | شريحة قيد مزدوج أولى (ترحيل + ميزان + قيود). ينقص فترات/مراكز تكلفة/تسوية بوابة |
 | 6 | [~] | M7 | Twilio مؤجّل — لا يوقف الرفع |
 | 7 | [x] | M8 | تبويبات الأدمن + ملف شخصي + أدوات موقع موصولة |
 | 8 | [x] | M0 | شاشة تدقيق في الأدمن |
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
-| 10 | [~] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat}` في الكود؛ فعّلها في `.env` السيرفر |
+| 10 | [x] | M9 | مسارات `/var/www/storage/fanni/{id,carnehat,uploads}` مفعَّلة على السيرفر وتستقبل الرفع |
 | 11 | [x] | M2 | Accuracy/Source على `/geo/update` |
-| 12 | [x] | M4 APK | **v1.0.6** / `versionCode` 6 — EAS `c9c57cc3` Finished؛ محلي `artifacts/mobile/dist/fanni.apk` (~95.6MB). رفع WinSCP → `/var/www/fanni-web/fanni.apk` |
+| 12 | [x] | M4 APK | **v1.0.8** / `versionCode` 8 — منشور على `app.upnexa-eg.com` + مثبت على هاتف حقيقي (27 أغسطس) |
 | 13 | [x] | Auth UX | رسائل خطأ تسجيل/دخول حقيقية + إعادة محاولة بدون PostGIS |
 | 14 | [x] | UI | فصل animated drivers في MapPickerModal (Sentry useNativeDriver) |
 | 15 | [x] | API base | توحيد `getApiBase`/`getWsUrl` وإزالة `http://DOMAIN` من المسارات الحية |
+| 16 | [x] | DB | migrate **023** (`working_hours`) على الإنتاج — 27 أغسطس |
 
 ---
 
@@ -201,14 +202,15 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | البند | الحالة |
 |---|---|
-| كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key (`1d8866f`)؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
-| إصدار التطبيق | **1.0.7** / `versionCode` 7 |
-| بناء EAS `preview` v1.0.6 | **منتهٍ** (`c9c57cc3`) — https://expo.dev/accounts/haithamfakhry/projects/mobile/builds/c9c57cc3-133a-4746-8e2f-6c385725981b |
-| بناء EAS `preview` v1.0.7 | قيد التنفيذ — ملكية UpNexa + بطاقة هوية الإصدار |
-| APK محلي | يُحدَّث بعد Finished لـ v1.0.7 |
+| كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
+| إصدار التطبيق | **1.0.8** / `versionCode` 8 (عرض الواجهة: `1.0.8` بلا أقواس) |
+| بناء EAS / APK | **منشور** على `https://app.upnexa-eg.com/fanni.apk` — مثبت على هاتف حقيقي 27 أغسطس |
+| تسجيل حي | **نجح** — حساب جديد من الجهاز ضد الإنتاج |
+| تخزين الملفات | **يعمل** — VPS يستقبل الصور المرفوعة (KYC/uploads) |
+| migrate إنتاج | **023** مطبَّق (`working_hours`) |
 | الناشر | **UpNexa** — `Info@upnexa-eg.com` · https://upnexa-eg.com |
-| Sentry (APK) | DSN `fanni-app`؛ wrap + ErrorBoundary + sessions؛ `enableNative: false` حتى smoke test |
-| APK على `app.upnexa-eg.com` | ارفع بـ WinSCP → `/var/www/fanni-web/fanni.apk` ثم `chmod 644` |
+| Sentry (APK) | DSN `fanni-app`؛ wrap + ErrorBoundary؛ `enableNative: false` حتى smoke أوسع |
+| Google Sign-In | واجهة مربوطة؛ يحتاج OAuth Client IDs على EAS + `OIDC_CLIENT_ID` على API |
 
 ---
 
@@ -274,7 +276,10 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 26 أغسطس 2026 | اتصال + أنيميشن + E2E 360 | رسائل auth حقيقية؛ تسجيل يتخطى PostGIS؛ إصلاح MapPicker FAB؛ توحيد getApiBase/getWsUrl؛ خطة E2E 360 في SPEC | نشر VPS؛ تحقق جهاز؛ APK لاحقًا؛ Twilio/OPay مؤجّل |
+| 27 أغسطس 2026 | تشغيل حي — بوابة جزئية | migrate **023** على VPS؛ APK **1.0.8** منشور ومثبت؛ تسجيل حساب جديد نجح؛ تخزين الصور يستقبل الرفع | إكمال Live-pass (طلب→Lead→أدمن)؛ ضبط Google OAuth؛ Twilio/OPay مؤجّل |
+| 27 أغسطس 2026 | Google + إصدار | دخول عبر Google بدل Replit؛ عرض الإصدار `1.0.8` بلا أقواس؛ ملكية UpNexa على شاشة الدخول (`62ca586`) | Client IDs في EAS + VPS |
+| 27 أغسطس 2026 | UX فني + صور | ساعات عمل، محفظة موافقة، شريط اتصال، صور ملف شخصي (`e4787ac`) | (مدمج في APK 1.0.8) |
+| 26 أغسطس 2026 | اتصال + أنيميشن + E2E 360 | رسائل auth حقيقية؛ تسجيل يتخطى PostGIS؛ إصلاح MapPicker FAB؛ توحيد getApiBase/getWsUrl؛ خطة E2E 360 في SPEC | (استُكمِل جزئيًا تشغيلًا في 27 أغسطس) |
 | 26 أغسطس 2026 | باقات Word + v1.0.5 | سلم 100/250/500/750/1000؛ migration 022؛ رفع versionCode 5؛ تجهيز EAS شبه نهائي | migrate على VPS؛ Finished → WinSCP |
 | 26 أغسطس 2026 | محاسبة عمولة فقط | إكمال بلا labour/مواد؛ 410 على كتابة الفواتير؛ إخفاء تبويبات الفواتير؛ مقارنة 7 مواصفات Word؛ تحديث OCR/SPEC/REVIEW | (يُغطّى في بناء v1.0.5) |
 | 26 أغسطس 2026 | APK v1.0.4 EAS Finished | بناء `60610e5a` نجح (1.0.4 / versionCode 4)؛ Sentry JS monitor على `fanni-app`؛ APK محلي `dist/fanni.apk` | تثبيت + تحقق Sentry → ثم rebuild بعد قرار الفواتير |
