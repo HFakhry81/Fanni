@@ -8,6 +8,10 @@ out-tsc
 .expo
 .expo-shared
 artifacts/mobile/dist-web
+artifacts/mobile/dist-web.zip
+artifacts/mobile/dist/
+artifacts/mobile/static-build/
+*.apk
 
 # dependencies
 node_modules
@@ -16,6 +20,8 @@ node_modules
 /.idea
 artifacts/mobile/.idea/
 .tmp-spec-extract/
+.tmp-specs/
+_qa_analysis*/
 .project
 .classpath
 .c9/
@@ -47,7 +53,7 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# Replit
+# Cache
 .cache/
 .local/
 
@@ -61,3 +67,11 @@ node_modules/
 
 # Local file uploads (used when PRIVATE_OBJECT_DIR=./uploads locally)
 uploads/
+
+# Chat / dump attachments (not part of the product)
+attached_assets/
+
+# Local DB dumps (never commit)
+backup.sql
+backup_new.sql
+*.sql.bak

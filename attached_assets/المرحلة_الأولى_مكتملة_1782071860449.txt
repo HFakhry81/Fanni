@@ -1,31 +1,0 @@
-ÇáãÑÍáÉ ÇáÃæáì ãßÊãáÉ ? — Åáíß ãáÎÕ ßá ãÇ Êã:
-
-? ãÇ ÃõäÌÒ İí ÇáãÑÍáÉ ÇáÃæáì
-1. ŞÇÚÏÉ ÇáÈíÇäÇÊ — Migration 005
-ÃõÖíİÊ 9 ÃÚãÏÉ ÌÏíÏÉ Úáì ÌÏæá users:
-national_id, national_id_front_url, national_id_back_url,
-license_card_url, is_approved, bio, years_of_experience,
-rating, rating_count
-æÚáì ÌÏæá orders:
-scheduled_at, client_rating, tech_rating, specialty_id
-æÚáì ÌÏæá admins:
-admin_role (super_admin / admin / operator)
-ÇáãäØŞ: ÇáÚãáÇÁ íÍÕáæä Úáì is_approved=true ÊáŞÇÆíÇğ¡ Çáİäíæä íÈÏÄæä ÈÜ false æíäÊÙÑæä ãæÇİŞÉ Admin.
-
-2. ÅÕáÇÍ Race Condition ?
-/orders/:id/acknowledge ÃÕÈÍ íÓÊÎÏã:
-SELECT ... FOR UPDATE SKIP LOCKED
-ÏÇÎá transaction — ÅĞÇ ÓÈŞå İäí ÂÎÑ íõÑÌÚ HTTP 409 ÈÏáÇğ ãä ŞÈæá äİÓ ÇáØáÈ ãÑÊíä.
-
-3. Endpoints ÇáÌÏíÏÉ İí ÇáÜ API
-EndpointÇáæÙíİÉGET /api/admin/technicians/pendingŞÇÆãÉ Çáİäííä ÛíÑ ÇáãæÇİŞ ÚáíåãPATCH /api/admin/technicians/:id/approveãæÇİŞÉ Admin Úáì İäíPATCH /api/admin/technicians/:id/rejectÑİÖ/ÊÚáíŞ İäíPOST /api/orders/:id/rateÊŞííã ÇáØáÈ (1-5 äÌæã)
-4. ÊÍÏíË ÇáÜ API responses
-buildAuthUser íõÑÌÚ ÇáÂä: isApproved, bio, yearsOfExperience, rating, ratingCount
-äÊíÌÉ ÇáÇÎÊÈÇÑ ÇáİÚáí:
-Client (01012345678):  isApproved=True,  rating=0
-Tech   (01098765432):  isApproved=False, rating=0  ? íäÊÙÑ ãæÇİŞÉ Admin
-
-ãáÇÍÙÉ: Çáİäí ÇáÊÌÑíÈí (01098765432) íÍÊÇÌ ãæÇİŞÉ Admin ÚÈÑ:
-PATCH /api/admin/technicians/:id/approve
-ŞÈá Ãä íÊãßä ãä ŞÈæá ÇáØáÈÇÊ.
-ÇÈÏÇÁ  ÈäÇÁ ÇáãÑÍáÉ ÇáËÇäíÉ - æÇÌåÉ ÊÓÌíá Çáİäííä ÇáßÇãáÉ ãÚ ÅãßÇäíÉ ÊÍãíá ÕæÑÉ ÇáåæíÉ ÇáæØäíÉ ÈÇáÅÖÇİÉ Åáì ÔÇÔÉ ãæÇİŞÉ ÇáãÓÄæá ÏÇÎá ÊØÈíŞ ÇáåÇÊİ ÇáãÍãæá. åá ÊÑÛÈ İí Ãä ÃŞæã ÈĞáß¿
