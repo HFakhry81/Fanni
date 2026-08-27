@@ -5,7 +5,21 @@ import { db, sessionsTable } from "@workspace/db";
 import { type SQL, and, eq, ne, sql } from "drizzle-orm";
 import type { AuthUser } from "@workspace/api-zod";
 
-export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
+export const ISSUER_URL =
+  process.env.ISSUER_URL ??
+  process.env.GOOGLE_ISSUER_URL ??
+  "https://accounts.google.com";
+
+/** OAuth/OIDC client id — Google Cloud OAuth client, or legacy Replit REPL_ID. */
+export function getOidcClientId(): string {
+  return (
+    process.env.OIDC_CLIENT_ID ||
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.REPL_ID ||
+    ""
+  );
+}
+
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
@@ -21,9 +35,17 @@ let oidcConfig: client.Configuration | null = null;
 
 export async function getOidcConfig(): Promise<client.Configuration> {
   if (!oidcConfig) {
+    const clientId = getOidcClientId();
+    if (!clientId) {
+      throw new Error(
+        "OIDC client id missing — set OIDC_CLIENT_ID or GOOGLE_CLIENT_ID (or legacy REPL_ID)",
+      );
+    }
+    const clientSecret = process.env.OIDC_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
     oidcConfig = await client.discovery(
       new URL(ISSUER_URL),
-      process.env.REPL_ID!,
+      clientId,
+      clientSecret ? { client_secret: clientSecret } : undefined,
     );
   }
   return oidcConfig;

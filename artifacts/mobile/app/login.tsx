@@ -28,7 +28,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
-  const { user, isLoading, isAuthenticated, login, refreshUser } = useAuth();
+  const { user, isLoading, isAuthenticated, login, refreshUser, googleConfigured } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [identifier, setIdentifier] = useState("");
@@ -36,8 +36,30 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+
+  const handleGoogleLogin = async () => {
+    setLocalError("");
+    setGoogleLoading(true);
+    try {
+      const result = await login();
+      if (result === "misconfigured") {
+        setLocalError(
+          isRTL
+            ? "دخول Google غير مضبوط بعد. تواصل مع الدعم أو استخدم كلمة المرور."
+            : "Google Sign-In is not configured yet. Contact support or use password login.",
+        );
+      } else if (result === "error") {
+        setLocalError(
+          isRTL ? "فشل الدخول عبر Google. حاول مرة أخرى." : "Google sign-in failed. Please try again.",
+        );
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
@@ -146,20 +168,28 @@ export default function LoginScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
           <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold", textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "تسجيل الدخول بحساب Replit" : "Sign in with Replit"}
+            {isRTL ? "تسجيل الدخول بحساب Google" : "Sign in with Google"}
           </Text>
           <Text style={[styles.cardDesc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }]}>
             {isRTL
-              ? "استخدم حسابك على Replit للدخول الآمن إلى تطبيق فني"
-              : "Use your Replit account to securely access the Fanni app"}
+              ? "استخدم حسابك على Google للدخول الآمن إلى تطبيق فني"
+              : "Use your Google account to securely access the Fanni app"}
           </Text>
 
           <FanniButton
-            title={isRTL ? "الدخول عبر Replit" : "Continue with Replit"}
-            onPress={login}
+            title={isRTL ? "الدخول عبر حساب Google" : "Continue with Google"}
+            onPress={handleGoogleLogin}
+            loading={googleLoading}
             fullWidth
-            style={{ marginTop: 4 }}
+            style={{ marginTop: 4, opacity: googleConfigured ? 1 : 0.85 }}
           />
+          {!googleConfigured ? (
+            <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left", fontFamily: "Inter_400Regular" }}>
+              {isRTL
+                ? "يتطلب ضبط معرّفات Google OAuth في إعدادات البناء."
+                : "Requires Google OAuth client IDs in the build configuration."}
+            </Text>
+          ) : null}
         </View>
 
         <View style={[styles.divider, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -237,7 +267,11 @@ export default function LoginScreen() {
         <Text style={[styles.ownership, { color: colors.mutedForeground, textAlign: "center" }]}>
           {isRTL ? APP_IDENTITY.companyLegalAr : APP_IDENTITY.companyLegalEn}
           {"\n"}
+          {isRTL ? APP_IDENTITY.copyrightAr : APP_IDENTITY.copyrightEn}
+          {"\n"}
           {t("about.version")}: {getAppVersionLabel()}
+          {"\n"}
+          {APP_IDENTITY.website.replace(/^https:\/\//, "")} · {APP_IDENTITY.supportEmail}
         </Text>
       </KeyboardAwareScrollViewCompat>
     </View>

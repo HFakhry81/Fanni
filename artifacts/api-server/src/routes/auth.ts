@@ -25,6 +25,7 @@ import {
   SESSION_COOKIE,
   SESSION_TTL,
   ISSUER_URL,
+  getOidcClientId,
   SessionData,
 } from "../lib/auth";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -111,11 +112,19 @@ function getSafeReturnTo(value: unknown): string {
 }
 
 async function upsertUser(claims: Record<string, unknown>) {
+  const given =
+    (claims.given_name as string | undefined) ||
+    (claims.first_name as string | undefined) ||
+    null;
+  const family =
+    (claims.family_name as string | undefined) ||
+    (claims.last_name as string | undefined) ||
+    null;
   const userData = {
     id: claims.sub as string,
     email: ((claims.email as string) || undefined) as string,
-    firstName: (claims.first_name as string) || null,
-    lastName: (claims.last_name as string) || null,
+    firstName: given,
+    lastName: family,
     profileImageUrl: (claims.profile_image_url || claims.picture) as string | null,
   };
 
@@ -347,7 +356,7 @@ router.get("/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
   await clearSession(res, sid);
   const endSessionUrl = oidc.buildEndSessionUrl(config, {
-    client_id: process.env.REPL_ID!,
+    client_id: getOidcClientId(),
     post_logout_redirect_uri: origin,
   });
   res.redirect(endSessionUrl.href);

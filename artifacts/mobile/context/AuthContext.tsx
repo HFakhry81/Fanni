@@ -7,6 +7,7 @@ import React, {
   type ReactNode,
 } from "react";
 import * as AuthSession from "expo-auth-session";
+import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
@@ -17,7 +18,9 @@ import { getApiBase } from "@/utils/api";
 WebBrowser.maybeCompleteAuthSession();
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
-const ISSUER_URL = process.env.EXPO_PUBLIC_ISSUER_URL ?? "https://replit.com/oidc";
+
+/** Google OIDC issuer (default). Override with EXPO_PUBLIC_ISSUER_URL if needed. */
+const ISSUER_URL = process.env.EXPO_PUBLIC_ISSUER_URL ?? "https://accounts.google.com";
 
 export interface AuthUser {
   id: string;
@@ -40,7 +43,7 @@ export interface AuthUser {
   serviceEnd?: string | null;
 }
 
-export type LoginResult = "success" | "cancel" | "dismiss" | "error" | "locked" | "opened" | "unknown";
+export type LoginResult = "success" | "cancel" | "dismiss" | "error" | "locked" | "opened" | "unknown" | "misconfigured";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -51,6 +54,7 @@ interface AuthContextValue {
   setRole: (role: "client" | "technician" | "admin") => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
+  googleConfigured: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -62,14 +66,26 @@ const AuthContext = createContext<AuthContextValue>({
   setRole: async () => {},
   refreshUser: async () => {},
   sessionToken: null,
+  googleConfigured: false,
 });
 
 function getApiBaseUrl(): string {
   return getApiBase();
 }
 
-function getClientId(): string {
-  return process.env.EXPO_PUBLIC_REPL_ID || "";
+function getGoogleClientIds() {
+  const web =
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+    process.env.EXPO_PUBLIC_OIDC_CLIENT_ID ||
+    "";
+  const android =
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+    web;
+  const ios =
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+    web;
+  return { web, android, ios };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -77,18 +93,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
-  const discovery = AuthSession.useAutoDiscovery(ISSUER_URL);
-  const redirectUri = AuthSession.makeRedirectUri();
+  const { web, android, ios } = getGoogleClientIds();
+  const googleConfigured = Boolean(web || android || ios);
 
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: getClientId(),
-      scopes: ["openid", "email", "profile", "offline_access"],
-      redirectUri,
-      prompt: AuthSession.Prompt.Login,
-    },
-    discovery,
-  );
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: "mobile",
+    path: "oauth",
+  });
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: web || undefined,
+    androidClientId: android || undefined,
+    iosClientId: ios || undefined,
+    scopes: ["openid", "profile", "email"],
+    redirectUri,
+    // Authorization code + PKCE so the API can exchange via /mobile-auth/token-exchange
+    responseType: AuthSession.ResponseType.Code,
+    shouldAutoExchangeCode: false,
+  });
 
   const fetchUser = useCallback(async (token?: string) => {
     try {
@@ -127,6 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (response?.type !== "success" || !request?.codeVerifier) return;
     const { code, state } = response.params;
+    if (!code) {
+      setIsLoading(false);
+      return;
+    }
     (async () => {
       try {
         const apiBase = getApiBaseUrl();
@@ -138,8 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             code,
             code_verifier: request.codeVerifier,
             redirect_uri: redirectUri,
-            state,
+            state: state ?? "google",
             nonce: (request as unknown as Record<string, unknown>).nonce as string | undefined,
+            issuer: ISSUER_URL,
           }),
         });
         if (!exchangeRes.ok) {
@@ -159,6 +186,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [response, request, redirectUri, fetchUser]);
 
   const login = useCallback(async (): Promise<LoginResult> => {
+    if (!googleConfigured) {
+      console.error("Google Sign-In misconfigured — set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID / ANDROID / IOS");
+      return "misconfigured";
+    }
     try {
       const result = await promptAsync();
       const type = result?.type;
@@ -174,10 +205,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return "unknown";
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("Google login error:", err);
       return "error";
     }
-  }, [promptAsync]);
+  }, [promptAsync, googleConfigured]);
 
   const logout = useCallback(async () => {
     try {
@@ -233,8 +264,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         if (Platform.OS === "web") return;
-        // expo-notifications was removed from Expo Go in SDK 53 — skip entirely
-        // to prevent the "Uncaught Error" overlay. Works normally in dev/prod builds.
         if (Constants.appOwnership === "expo") return;
 
         // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -264,7 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ token: expoPushToken }),
         });
       } catch {
-        // expo-notifications not supported in this environment (e.g. Expo Go SDK 53+)
+        // expo-notifications not supported in this environment
       }
     })();
   }, [user?.id, user?.role, sessionToken]);
@@ -280,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole,
         refreshUser,
         sessionToken,
+        googleConfigured,
       }}
     >
       {children}

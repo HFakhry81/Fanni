@@ -4,6 +4,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import {
   APP_IDENTITY,
+  getAppBuildNumber,
   getAppVersionLabel,
 } from "@/constants/appIdentity";
 
@@ -44,6 +45,9 @@ export default function AppIdentityCard() {
       </Text>
       <Text style={[styles.line, { color: colors.mutedForeground, textAlign: align }]}>
         {t("about.version")}: {getAppVersionLabel()}
+      </Text>
+      <Text style={[styles.line, { color: colors.mutedForeground, textAlign: align }]}>
+        {isRTL ? "رمز البناء" : "Build"}: {getAppBuildNumber()}
       </Text>
       <Text style={[styles.line, { color: colors.mutedForeground, textAlign: align }]}>
         {isRTL ? "معرّف الحزمة" : "Package"}: {APP_IDENTITY.packageId}

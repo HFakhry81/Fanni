@@ -45,12 +45,12 @@ export function getAppBuildNumber(): string {
   return String(Constants.expoConfig?.android?.versionCode ?? 0);
 }
 
-/** e.g. "1.0.7 (7)" — marketing version + Android versionCode / iOS buildNumber */
+/** Marketing version only — e.g. "1.0.8" (no build parentheses). */
 export function getAppVersionLabel(): string {
-  return `${getAppVersion()} (${getAppBuildNumber()})`;
+  return getAppVersion();
 }
 
-/** Sentry / diagnostics release string */
+/** Sentry / diagnostics release string — keeps build number for telemetry only */
 export function getAppReleaseId(): string {
   return `${APP_IDENTITY.packageId}@${getAppVersion()}+${getAppBuildNumber()}`;
 }
