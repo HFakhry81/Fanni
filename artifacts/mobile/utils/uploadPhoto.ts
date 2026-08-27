@@ -1,4 +1,5 @@
 import { getApiBase } from "./api";
+import { appendImageToFormData } from "./appendImageToFormData";
 
 export interface UploadResult {
   url: string;
@@ -14,13 +15,8 @@ export async function uploadPhotoToServer(
   if (!apiBase) throw new Error("API base URL is not configured");
 
   const formData = new FormData();
-  const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
   formData.append("purpose", purpose);
-  formData.append("file", {
-    uri: fileUri,
-    type: mimeType,
-    name: `photo.${ext}`,
-  } as unknown as Blob);
+  await appendImageToFormData(formData, "file", fileUri, mimeType);
 
   const res = await fetch(`${apiBase}/api/upload`, {
     method: "POST",
@@ -31,13 +27,12 @@ export async function uploadPhotoToServer(
   });
 
   if (!res.ok) {
-    const data = await res.json().catch(() => ({})) as { error?: string };
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(data.error ?? `Upload failed (${res.status})`);
   }
 
-  const data = await res.json() as { url: string };
+  const data = (await res.json()) as { url: string };
   if (!data.url) throw new Error("Server returned no URL");
-  // Always persist/display an absolute URL so Image can load it
   const absolute = data.url.startsWith("http")
     ? data.url
     : `${apiBase.replace(/\/$/, "")}${data.url.startsWith("/") ? data.url : `/${data.url}`}`;

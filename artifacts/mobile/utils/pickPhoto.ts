@@ -1,4 +1,4 @@
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
 export interface PickedAsset {
@@ -7,9 +7,9 @@ export interface PickedAsset {
 }
 
 async function launchSource(
-  source: "camera" | "library"
+  source: "camera" | "library",
 ): Promise<ImagePicker.ImagePickerResult> {
-  if (source === "camera") {
+  if (source === "camera" && Platform.OS !== "web") {
     return ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -18,14 +18,24 @@ async function launchSource(
   }
   return ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
+    allowsEditing: Platform.OS !== "web",
     quality: 0.75,
   });
 }
 
 export function pickPhotoWithSourceChooser(
-  isRTL: boolean
+  isRTL: boolean,
 ): Promise<PickedAsset | null> {
+  // Web: skip Alert action sheet (unreliable) and open the file picker.
+  if (Platform.OS === "web") {
+    return (async () => {
+      const result = await launchSource("library");
+      if (result.canceled || !result.assets[0]) return null;
+      const asset = result.assets[0];
+      return { uri: asset.uri, mimeType: asset.mimeType ?? "image/jpeg" };
+    })();
+  }
+
   return new Promise((resolve) => {
     Alert.alert(
       isRTL ? "إضافة صورة" : "Add Photo",
@@ -40,7 +50,7 @@ export function pickPhotoWithSourceChooser(
                 isRTL ? "لا يوجد إذن" : "Permission Required",
                 isRTL
                   ? "يرجى السماح للتطبيق بالوصول إلى الكاميرا من الإعدادات."
-                  : "Please allow camera access in your settings."
+                  : "Please allow camera access in your settings.",
               );
               return resolve(null);
             }
@@ -59,7 +69,7 @@ export function pickPhotoWithSourceChooser(
                 isRTL ? "لا يوجد إذن" : "Permission Required",
                 isRTL
                   ? "يرجى السماح للتطبيق بالوصول إلى معرض الصور من الإعدادات."
-                  : "Please allow photo library access in your settings."
+                  : "Please allow photo library access in your settings.",
               );
               return resolve(null);
             }
@@ -74,7 +84,7 @@ export function pickPhotoWithSourceChooser(
           style: "cancel",
           onPress: () => resolve(null),
         },
-      ]
+      ],
     );
   });
 }

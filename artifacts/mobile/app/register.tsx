@@ -20,6 +20,7 @@ import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewC
 import WorkHoursPickerSheet from "@/components/WorkHoursPickerSheet";
 import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
+import { appendImageToFormData } from "@/utils/appendImageToFormData";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -204,18 +205,21 @@ export default function RegisterScreen() {
 
   // ── Photo picker helper ────────────────────────────────────────────────────
   const pickPhoto = useCallback(async (slot: "front" | "back" | "license") => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        isRTL ? "الإذن مطلوب" : "Permission Required",
-        isRTL ? "يرجى السماح بالوصول إلى الصور" : "Please allow access to your photo library",
-      );
-      return;
+    // On web, media-library permission is not required for the file picker.
+    if (Platform.OS !== "web") {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          isRTL ? "الإذن مطلوب" : "Permission Required",
+          isRTL ? "يرجى السماح بالوصول إلى الصور" : "Please allow access to your photo library",
+        );
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,
-      allowsEditing: true,
+      allowsEditing: Platform.OS !== "web",
     });
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
@@ -226,6 +230,11 @@ export default function RegisterScreen() {
   }, [isRTL]);
 
   const pickPhotoCamera = useCallback(async (slot: "front" | "back" | "license") => {
+    if (Platform.OS === "web") {
+      // Browsers: open file picker (camera devices appear there when available).
+      await pickPhoto(slot);
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
@@ -241,19 +250,23 @@ export default function RegisterScreen() {
       else if (slot === "back") setNationalIdBackUri(uri);
       else setLicenseCardUri(uri);
     }
-  }, [isRTL]);
+  }, [isRTL, pickPhoto]);
 
-  const showPhotoPicker = useCallback((slot: "front" | "back" | "license", label: string) => {
-    Alert.alert(
-      isRTL ? "رفع صورة" : "Upload Photo",
-      label,
-      [
+  const showPhotoPicker = useCallback(
+    (slot: "front" | "back" | "license", _label: string) => {
+      // RN Alert action buttons are unreliable on web — go straight to the file picker.
+      if (Platform.OS === "web") {
+        void pickPhoto(slot);
+        return;
+      }
+      Alert.alert(isRTL ? "رفع صورة" : "Upload Photo", _label, [
         { text: isRTL ? "المعرض" : "Photo Library", onPress: () => pickPhoto(slot) },
         { text: isRTL ? "الكاميرا" : "Camera", onPress: () => pickPhotoCamera(slot) },
         { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
-      ],
-    );
-  }, [isRTL, pickPhoto, pickPhotoCamera]);
+      ]);
+    },
+    [isRTL, pickPhoto, pickPhotoCamera],
+  );
 
   // ── API-fetched domains & specializations ──────────────────────────────────
   const [apiDomains, setApiDomains] = useState<ApiDomain[]>([]);
@@ -549,9 +562,14 @@ export default function RegisterScreen() {
                 if (!uri) return;
                 setUploadingPhoto(slot);
                 const formData = new FormData();
-                const ext = uri.endsWith(".png") ? "png" : uri.endsWith(".webp") ? "webp" : "jpg";
+                const mime =
+                  uri.includes(".png") || uri.startsWith("data:image/png")
+                    ? "image/png"
+                    : uri.includes(".webp") || uri.startsWith("data:image/webp")
+                      ? "image/webp"
+                      : "image/jpeg";
                 formData.append("purpose", slot === "license" ? "carnehat" : "id");
-                formData.append("file", { uri, type: `image/${ext === "jpg" ? "jpeg" : ext}`, name: `photo.${ext}` } as unknown as Blob);
+                await appendImageToFormData(formData, "file", uri, mime);
                 const uploadRes = await fetch(`${apiBase}/api/upload`, {
                   method: "POST",
                   headers: { Authorization: `Bearer ${data.token!}` },
