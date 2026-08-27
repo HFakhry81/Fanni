@@ -2,12 +2,13 @@
 set -e
 pnpm install --frozen-lockfile
 
-# Fix tsx binary: pnpm generates a shell-script bootstrap named cli.mjs which
+# Fix tsx binary: pnpm may generate a shell-script bootstrap named cli.mjs which
 # causes Node to fail when it tries to load it as an ES module via the .mjs
 # extension. Replace it with a wrapper that calls the real CJS binary instead.
-TSX_STORE="/home/runner/workspace/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist"
-if [ -f "$TSX_STORE/cli.cjs" ]; then
-  printf '#!/bin/sh\nNODE_PATH="%s/node_modules:%s/../node_modules:%s/../../..:/home/runner/workspace/node_modules/.pnpm/node_modules" exec node "%s/cli.cjs" "$@"\n' \
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TSX_STORE="$(find "$ROOT/node_modules/.pnpm" -path '*/tsx@*/node_modules/tsx/dist' -type d 2>/dev/null | head -n 1 || true)"
+if [ -n "$TSX_STORE" ] && [ -f "$TSX_STORE/cli.cjs" ]; then
+  printf '#!/bin/sh\nNODE_PATH="%s/node_modules:%s/../node_modules:%s/../../.." exec node "%s/cli.cjs" "$@"\n' \
     "$TSX_STORE" "$TSX_STORE" "$TSX_STORE" "$TSX_STORE" > "$TSX_STORE/cli.mjs"
   chmod +x "$TSX_STORE/cli.mjs"
 fi
@@ -27,8 +28,8 @@ pnpm --filter db push
 # after a merge, which additionally validates ingress/proxy behaviour and gives
 # earlier feedback before the next deploy rolls out.
 #
-# Configuration (optional — set once in Replit Secrets):
-#   SMOKE_TEST_URL=https://your-app.replit.app
+# Configuration (optional):
+#   SMOKE_TEST_URL=https://api.upnexa-eg.com
 #
 # Behaviour:
 #   SMOKE_TEST_URL set   → smoke test runs; non-zero exit fails this script
@@ -45,6 +46,6 @@ else
   echo "OTP smoke test (post-merge): skipped — SMOKE_TEST_URL not set."
   echo "  Production deployments are still protected by scripts/run-production.sh."
   echo "  To also verify the public URL after each merge, add:"
-  echo "    SMOKE_TEST_URL=https://your-app.replit.app"
-  echo "  to your Replit Secrets."
+  echo "    SMOKE_TEST_URL=https://api.upnexa-eg.com"
+  echo "  to your environment."
 fi

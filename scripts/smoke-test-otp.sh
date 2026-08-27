@@ -6,7 +6,7 @@
 #
 # Examples:
 #   ./scripts/smoke-test-otp.sh                               # local dev server (http://localhost:8080)
-#   ./scripts/smoke-test-otp.sh https://your-app.replit.app  # production
+#   ./scripts/smoke-test-otp.sh https://api.upnexa-eg.com  # production API
 #
 # What it checks:
 #   1. GET  /api/config        — server reports otpEnabled=true
@@ -112,7 +112,7 @@ if [ "$FAIL" -eq 0 ]; then
   green "OTP enforcement is ACTIVE on $BASE_URL"
   echo ""
   echo "  To re-run after a future deploy:"
-  echo "    ./scripts/smoke-test-otp.sh https://your-app.replit.app"
+  echo "    ./scripts/smoke-test-otp.sh https://api.upnexa-eg.com"
   exit 0
 else
   red "OTP enforcement check FAILED on $BASE_URL — review output above"

@@ -1,21 +1,12 @@
 import { Storage } from "@google-cloud/storage";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-  },
-  universeDomain: "googleapis.com",
-  projectId: "",
-});
+/**
+ * Used only when STORAGE_DRIVER=gcs.
+ * Relies on Application Default Credentials / GOOGLE_APPLICATION_CREDENTIALS.
+ * Production VPS uses STORAGE_DRIVER=local (see fileStorage.ts).
+ */
+export const objectStorageClient = new Storage(
+  process.env.GCS_PROJECT_ID
+    ? { projectId: process.env.GCS_PROJECT_ID }
+    : undefined,
+);

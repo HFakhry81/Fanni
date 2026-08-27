@@ -402,7 +402,6 @@ function RootLayoutNav() {
       <Stack.Screen name="(client)" />
       <Stack.Screen name="(tech)" />
       <Stack.Screen name="(admin)" />
-      <Stack.Screen name="(tabs)" />
     </Stack>
   );
 }

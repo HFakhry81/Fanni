@@ -10,14 +10,9 @@ export const ISSUER_URL =
   process.env.GOOGLE_ISSUER_URL ??
   "https://accounts.google.com";
 
-/** OAuth/OIDC client id — Google Cloud OAuth client, or legacy Replit REPL_ID. */
+/** OAuth/OIDC client id — Google Cloud OAuth client. */
 export function getOidcClientId(): string {
-  return (
-    process.env.OIDC_CLIENT_ID ||
-    process.env.GOOGLE_CLIENT_ID ||
-    process.env.REPL_ID ||
-    ""
-  );
+  return process.env.OIDC_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "";
 }
 
 export const SESSION_COOKIE = "sid";
@@ -38,7 +33,7 @@ export async function getOidcConfig(): Promise<client.Configuration> {
     const clientId = getOidcClientId();
     if (!clientId) {
       throw new Error(
-        "OIDC client id missing — set OIDC_CLIENT_ID or GOOGLE_CLIENT_ID (or legacy REPL_ID)",
+        "OIDC client id missing — set OIDC_CLIENT_ID or GOOGLE_CLIENT_ID",
       );
     }
     const clientSecret = process.env.OIDC_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
