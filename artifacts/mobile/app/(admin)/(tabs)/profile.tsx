@@ -28,6 +28,7 @@ import OtpVerifyModal from "@/components/OtpVerifyModal";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import AppIdentityCard from "@/components/AppIdentityCard";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
@@ -440,7 +441,8 @@ export default function AdminProfileScreen() {
     .join("")
     .toUpperCase();
 
-  const avatarUri: string | null = (user as { avatar?: string | null })?.avatar ?? null;
+  const avatarUri: string | null =
+    resolveMediaUrl((user as { avatar?: string | null })?.avatar, { token: sessionToken }) ?? null;
 
   const doPickPhoto = async () => {
     if (!sessionToken) {
@@ -475,7 +477,7 @@ export default function AdminProfileScreen() {
         });
         if (!patchRes.ok) throw new Error(`Server update failed: ${patchRes.status}`);
       }
-      if (user) await setUser({ ...user, avatar: url });
+      if (user) await setUser({ ...user, avatar: resolveMediaUrl(url, { token: sessionToken }) ?? url });
       await refreshUser().catch(() => {});
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
     } catch (_) {
@@ -594,7 +596,7 @@ export default function AdminProfileScreen() {
         <View style={[styles.hero, { backgroundColor: colors.darkMid }]}>
           <TouchableOpacity onPress={pickAdminPhoto} disabled={avatarUploading} style={[styles.avatarRing, { borderColor: colors.primary }]}>
             {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={[styles.avatar, { borderRadius: 40 }]} />
+              <Image source={{ uri: avatarUri }} style={[styles.avatar, { borderRadius: 40 }]} resizeMode="cover" />
             ) : (
               <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                 {avatarUploading ? (

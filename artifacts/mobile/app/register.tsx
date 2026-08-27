@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, TextInput, Modal, Image, ActivityIndicator, Alert,
 } from "react-native";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
@@ -18,6 +17,7 @@ import AddressBlock, { AddressValue, EMPTY_ADDRESS } from "@/components/AddressB
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
+import WorkHoursPickerSheet from "@/components/WorkHoursPickerSheet";
 import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
 
@@ -28,20 +28,6 @@ const AUTH_TOKEN_KEY = "fanni_auth_token";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
-
-
-function timeStringToDate(hhmm: string): Date {
-  const [h, m] = hhmm.split(":").map(Number);
-  const d = new Date();
-  d.setHours(isNaN(h) ? 8 : h, isNaN(m) ? 0 : m, 0, 0);
-  return d;
-}
-
-function dateToTimeString(date: Date): string {
-  const h = date.getHours().toString().padStart(2, "0");
-  const m = date.getMinutes().toString().padStart(2, "0");
-  return `${h}:${m}`;
-}
 
 type RegisterType = "client" | "technician";
 type PaymentMethod = "bank" | "ewallet" | "instapay";
@@ -89,7 +75,6 @@ export default function RegisterScreen() {
   const [serviceStart, setServiceStart] = useState("08:00");
   const [serviceEnd, setServiceEnd] = useState("22:00");
   const [activePicker, setActivePicker] = useState<"start" | "end" | null>(null);
-  const [draftTime, setDraftTime] = useState("08:00");
 
   // ── OTP verification state ─────────────────────────────────────────────────
   const [otpMode, setOtpMode] = useState(false);
@@ -1057,10 +1042,8 @@ export default function RegisterScreen() {
             {isRTL ? "بداية العمل" : "Work Start"}
           </Text>
           <TouchableOpacity
-            onPress={() => {
-              setDraftTime(serviceStart);
-              setActivePicker("start");
-            }}
+            onPress={() => setActivePicker("start")}
+            delayPressIn={0}
             style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceStart ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceStart}</Text>
@@ -1073,10 +1056,8 @@ export default function RegisterScreen() {
             {isRTL ? "نهاية العمل" : "Work End"}
           </Text>
           <TouchableOpacity
-            onPress={() => {
-              setDraftTime(serviceEnd);
-              setActivePicker("end");
-            }}
+            onPress={() => setActivePicker("end")}
+            delayPressIn={0}
             style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceEnd ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceEnd}</Text>
@@ -1086,64 +1067,27 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      {/* Time pickers — draft + Confirm (Android spinner OK is unreliable) */}
-      {activePicker !== null && (
-        <Modal transparent animationType="slide" onRequestClose={() => setActivePicker(null)}>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }} activeOpacity={1} onPress={() => setActivePicker(null)} />
-          <View style={{ backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
-            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                {activePicker === "start"
-                  ? (isRTL ? "اختر بداية العمل" : "Pick work start")
-                  : (isRTL ? "اختر نهاية العمل" : "Pick work end")}
-              </Text>
-              <TouchableOpacity onPress={() => setActivePicker(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>{isRTL ? "إلغاء" : "Cancel"}</Text>
-              </TouchableOpacity>
-            </View>
-            <DateTimePicker
-              key={`reg-time-${activePicker}`}
-              mode="time"
-              is24Hour
-              display="spinner"
-              value={timeStringToDate(draftTime)}
-              onChange={(_event: DateTimePickerEvent, date?: Date) => {
-                if (!date) return;
-                setDraftTime(dateToTimeString(date));
-              }}
-              style={{ width: "100%", height: Platform.OS === "ios" ? 180 : 160 }}
-            />
-            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, marginBottom: 12 }}>
-              {(activePicker === "start" ? ["08:00", "09:00", "10:00"] : ["16:00", "18:00", "22:00"]).map((preset) => (
-                <TouchableOpacity
-                  key={preset}
-                  onPress={() => setDraftTime(preset)}
-                  style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: draftTime === preset ? colors.primary : colors.border, backgroundColor: draftTime === preset ? colors.accent : colors.muted }}
-                >
-                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>{preset}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                if (activePicker === "start") {
-                  setServiceStart(draftTime);
-                  setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
-                } else {
-                  setServiceEnd(draftTime);
-                  setErrors((e) => ({ ...e, serviceEnd: undefined }));
-                }
-                setActivePicker(null);
-              }}
-              style={{ marginHorizontal: 16, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center" }}
-            >
-              <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                {isRTL ? `تأكيد ${draftTime}` : `Confirm ${draftTime}`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Modal>
-      )}
+      <WorkHoursPickerSheet
+        visible={activePicker !== null}
+        title={
+          activePicker === "start"
+            ? (isRTL ? "اختر بداية العمل" : "Pick work start")
+            : (isRTL ? "اختر نهاية العمل" : "Pick work end")
+        }
+        value={activePicker === "start" ? serviceStart : serviceEnd}
+        presets={activePicker === "start" ? ["08:00", "09:00", "10:00"] : ["16:00", "18:00", "22:00"]}
+        onCancel={() => setActivePicker(null)}
+        onConfirm={(hhmm) => {
+          if (activePicker === "start") {
+            setServiceStart(hhmm);
+            setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
+          } else {
+            setServiceEnd(hhmm);
+            setErrors((e) => ({ ...e, serviceEnd: undefined }));
+          }
+          setActivePicker(null);
+        }}
+      />
 
       <FanniInput
         label={isRTL ? "نبذة شخصية (اختياري)" : "Bio (optional)"}

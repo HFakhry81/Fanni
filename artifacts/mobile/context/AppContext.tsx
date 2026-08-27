@@ -31,6 +31,7 @@ export interface User {
   serviceStart?: string;
   serviceEnd?: string;
   isApproved?: boolean;
+  approvalStatus?: "not_submitted" | "pending_review" | "approved" | "rejected" | "needs_correction";
   profileImageUrl?: string;
 }
 

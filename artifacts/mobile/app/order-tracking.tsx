@@ -20,6 +20,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { startMaskedCall } from "@/utils/maskedCall";
 import {
   RouteData,
@@ -629,9 +630,9 @@ export default function OrderTrackingScreen() {
 
         {order.technicianName && (
           <View style={[styles.techRow, { flexDirection: isRTL ? "row-reverse" : "row", borderTopColor: colors.border }]}>
-            {order.technicianAvatar ? (
+            {resolveMediaUrl(order.technicianAvatar, { token: sessionToken }) ? (
               <Image
-                source={{ uri: order.technicianAvatar }}
+                source={{ uri: resolveMediaUrl(order.technicianAvatar, { token: sessionToken })! }}
                 style={[styles.techAvatar, { backgroundColor: colors.muted }]}
                 resizeMode="cover"
               />

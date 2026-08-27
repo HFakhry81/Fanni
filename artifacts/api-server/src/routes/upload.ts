@@ -22,16 +22,25 @@ const upload = multer({
 
 const router = Router();
 
-router.get("/uploads/file", authMiddleware, requireAuth, async (req: Request, res: Response) => {
+router.get("/uploads/file", authMiddleware, async (req: Request, res: Response) => {
   const key = typeof req.query.key === "string" ? req.query.key : "";
   if (!isAllowedObjectKey(key)) {
     res.status(400).json({ error: "Invalid file key" });
     return;
   }
+
+  // Profile / general uploads are displayable in-app (technician avatar on orders, etc.).
+  // National ID and license cards remain auth-only.
+  const isPublicUpload = key.startsWith("uploads/");
+  if (!isPublicUpload && !req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   try {
     const file = await readPrivateImage(key);
     res.setHeader("Content-Type", file.contentType);
-    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("Cache-Control", isPublicUpload ? "public, max-age=3600" : "private, max-age=300");
     res.send(file.buffer);
   } catch (err) {
     req.log.warn({ err }, "Private file read failed");

@@ -83,6 +83,12 @@ export function getSessionId(req: Request): string | undefined {
   if (authHeader?.startsWith("Bearer ")) {
     return authHeader.slice(7);
   }
+  // Allow Image / <img> loads to pass the session via query (no Authorization header)
+  const q = req.query as Record<string, unknown> | undefined;
+  const qToken = q?.access_token ?? q?.token;
+  if (typeof qToken === "string" && qToken.trim().length > 10) {
+    return qToken.trim();
+  }
   return req.cookies?.[SESSION_COOKIE];
 }
 

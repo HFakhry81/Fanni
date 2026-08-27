@@ -1,4 +1,4 @@
-import { Tabs, Redirect } from "expo-router";
+import { Tabs, Redirect, useSegments } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
@@ -385,7 +385,7 @@ function TechLayoutInner() {
     ? <NativeTechTabs availablePendingCount={availablePendingCount} unreadCompletedCount={unreadCompletedCount} profileSetupIncomplete={profileSetupIncomplete} notifUnreadCount={notifUnreadCount} />
     : <ClassicTechTabs notifUnreadCount={notifUnreadCount} />;
 
-  const reconnectLabel = language === "ar" ? "جارٍ إعادة الاتصال…" : "Reconnecting…";
+  const reconnectLabel = language === "ar" ? "تعذر الاتصال — جارٍ إعادة المحاولة…" : "Connection failed — retrying…";
   const syncingLabel = language === "ar" ? "جارٍ المزامنة…" : "Syncing…";
   const cancelledMessage = language === "ar"
     ? `${ORDER_CANCELLED_MESSAGES.ar}\n${ORDER_CANCELLED_MESSAGES.en}`
@@ -398,9 +398,7 @@ function TechLayoutInner() {
       {tabs}
       
       {/* 👈 تم تصحيح الكود هنا لتضمين الخصائص الفعلية وإزالة رمز النقاط الثلاث */}
-      {!isWsConnected && (
-        <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
-      )}
+      <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
       
       <SyncingBanner visible={hasPendingToggle} label={syncingLabel} topOffset={syncingTopOffset} />
       <Toast
@@ -424,8 +422,16 @@ function TechLayoutInner() {
 export default function TechLayout() {
   const { user, isOnline } = useApp();
   const { sessionToken } = useAuth();
+  const segments = useSegments();
 
-  if (user?.type === "technician" && user?.isApproved === false) {
+  // Pending techs may open wallet (balance + review notice) and profile; other tabs stay blocked.
+  const leaf = segments[segments.length - 1];
+  const allowedWhilePending = leaf === "wallet" || leaf === "profile";
+  if (
+    user?.type === "technician" &&
+    user?.isApproved === false &&
+    !allowedWhilePending
+  ) {
     return <Redirect href="/tech-pending" />;
   }
 

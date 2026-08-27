@@ -19,11 +19,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Toast from "@/components/Toast";
-import { AppProvider, useApp, type UserType } from "@/context/AppContext";
+import { AppProvider, useApp, type User, type UserType } from "@/context/AppContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { sweepExpiredRouteCache } from "@/utils/routeCache";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { getAppBuildNumber, getAppReleaseId } from "@/constants/appIdentity";
 
 const APP_RELEASE = getAppReleaseId();
@@ -256,7 +257,10 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         name: displayName,
         mobile: authUser.mobile ?? "",
         email: authUser.email ?? "",
-        avatar: appUser?.avatar ?? authUser.profileImageUrl ?? undefined,
+        avatar:
+          resolveMediaUrl(authUser.profileImageUrl, { token: sessionToken }) ??
+          resolveMediaUrl(appUser?.avatar, { token: sessionToken }) ??
+          undefined,
         governorate: govId,
         governorateNameAr: govLabels?.governorateNameAr ?? (appUserGovMatches ? appUser?.governorateNameAr : undefined),
         governorateNameEn: govLabels?.governorateNameEn ?? (appUserGovMatches ? appUser?.governorateNameEn : undefined),
@@ -270,6 +274,9 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         serviceCategories: authUser.serviceCategories ?? undefined,
         serviceStart: authUser.serviceStart ?? undefined,
         serviceEnd: authUser.serviceEnd ?? undefined,
+        isApproved: (authUser as { isApproved?: boolean }).isApproved ?? undefined,
+        approvalStatus: (authUser as { approvalStatus?: User["approvalStatus"] }).approvalStatus ?? undefined,
+        experience: (authUser as { yearsOfExperience?: number | null }).yearsOfExperience ?? appUser?.experience,
       });
     } else {
       setUser(null);
@@ -277,7 +284,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       needsRetry.current = false;
       lastForegroundSyncRef.current = 0;
     }
-  }, [authUser, isAvailabilityHydrated, locationLabels]);
+  }, [authUser, isAvailabilityHydrated, locationLabels, sessionToken]);
 
   useEffect(() => {
     if (

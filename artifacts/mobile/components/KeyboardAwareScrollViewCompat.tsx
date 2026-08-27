@@ -101,7 +101,7 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
       const sr = responder.getScrollResponder?.();
       if (sr?.scrollResponderScrollNativeHandleToKeyboard) {
         // Keep a comfortable gap above the keyboard / nav buttons
-        sr.scrollResponderScrollNativeHandleToKeyboard(inputNode, 200, true);
+        sr.scrollResponderScrollNativeHandleToKeyboard(inputNode, 260, true);
         return;
       }
       // Fallback: measure relative to scroll content
@@ -110,7 +110,7 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
       input.measureLayout(
         scrollNode,
         (_x, y) => {
-          innerRef.current?.scrollTo({ y: Math.max(y - 80, 0), animated: true });
+          innerRef.current?.scrollTo({ y: Math.max(y - 120, 0), animated: true });
         },
         () => undefined
       );
@@ -125,8 +125,8 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
       if (keyboardHeight <= 0) return 0;
       // resize mode already shrinks the window; still leave room so last fields clear the keys
       return Platform.OS === "android"
-        ? Math.min(Math.max(keyboardHeight * 0.35, 100), 180)
-        : Math.min(Math.max(keyboardHeight * 0.15, 40), 100);
+        ? Math.min(Math.max(keyboardHeight * 0.42, 120), 220)
+        : Math.min(Math.max(keyboardHeight * 0.2, 56), 140);
     }, [keyboardHeight]);
 
     const scroll = (

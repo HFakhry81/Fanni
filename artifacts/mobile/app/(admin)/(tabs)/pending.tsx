@@ -10,6 +10,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import VectorIcon from "@/components/VectorIcon";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 interface PendingTech {
   id: string;
@@ -62,6 +63,9 @@ export default function PendingTechniciansScreen() {
   const [selected, setSelected] = useState<PendingTech | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
+
+  const media = (url: string | null | undefined) =>
+    resolveMediaUrl(url, { token: sessionToken }) ?? undefined;
 
   const load = useCallback(async (isRefresh = false) => {
     if (!sessionToken) return;
@@ -260,9 +264,9 @@ export default function PendingTechniciansScreen() {
                     {doc.label}
                   </Text>
                   {doc.url ? (
-                    <TouchableOpacity onPress={() => setPhotoModal(doc.url!)}>
+                    <TouchableOpacity onPress={() => setPhotoModal(media(doc.url) ?? doc.url!)}>
                       <Image
-                        source={{ uri: doc.url }}
+                        source={{ uri: media(doc.url) ?? doc.url }}
                         style={[styles.docImage, { borderColor: colors.border, borderRadius: colors.radius }]}
                         resizeMode="cover"
                       />

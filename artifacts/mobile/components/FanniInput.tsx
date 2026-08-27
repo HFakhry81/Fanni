@@ -113,9 +113,16 @@ export default function FanniInput({
           maxLength={maxLength}
           onFocus={() => {
             setFocused(true);
+            const delay = Platform.OS === "ios" ? 80 : 280;
             setTimeout(() => {
               if (inputRef.current) kbScroll?.scrollToInput(inputRef.current);
-            }, Platform.OS === "ios" ? 100 : 350);
+            }, delay);
+            // Second pass after keyboard fully open (Android resize)
+            if (Platform.OS === "android") {
+              setTimeout(() => {
+                if (inputRef.current) kbScroll?.scrollToInput(inputRef.current);
+              }, 520);
+            }
           }}
           onBlur={() => setFocused(false)}
         />

@@ -1,46 +1,85 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, Text, StyleSheet, Platform } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 
 interface ConnectionBannerProps {
   connected: boolean;
   reconnectingLabel?: string;
+  /** Delay before showing after disconnect (avoids flicker). Default 2500ms. */
+  showDelayMs?: number;
 }
 
-export default function ConnectionBanner({ connected, reconnectingLabel = "Reconnecting…" }: ConnectionBannerProps) {
+/**
+ * Always mounted. Shows after a debounce when disconnected; hides immediately when connected.
+ * Avoids a stuck thin orange strip from partial opacity / remount races on Android.
+ */
+export default function ConnectionBanner({
+  connected,
+  reconnectingLabel = "Reconnecting…",
+  showDelayMs = 2500,
+}: ConnectionBannerProps) {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(-60)).current;
-  const visibleRef = useRef(false);
+  const translateY = useRef(new Animated.Value(-100)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const [shown, setShown] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!connected && !visibleRef.current) {
-      visibleRef.current = true;
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        bounciness: 4,
-      }).start();
-    } else if (connected && visibleRef.current) {
-      visibleRef.current = false;
-      Animated.timing(translateY, {
-        toValue: -60,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
-  }, [connected, translateY]);
+
+    if (!connected) {
+      timerRef.current = setTimeout(() => {
+        setShown(true);
+        Animated.parallel([
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 2 }),
+          Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }),
+        ]).start();
+      }, showDelayMs);
+    } else {
+      // Hide immediately — no residual orange line after reconnect
+      setShown(false);
+      translateY.stopAnimation();
+      opacity.stopAnimation();
+      translateY.setValue(-100);
+      opacity.setValue(0);
+    }
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [connected, showDelayMs, translateY, opacity]);
+
+  // Collapsed when hidden so Android cannot paint a 1px orange hairline
+  if (!shown && connected) {
+    return <View style={styles.placeholder} pointerEvents="none" />;
+  }
 
   return (
     <Animated.View
       style={[
         styles.banner,
-        { top: insets.top, transform: [{ translateY }] },
+        {
+          top: insets.top,
+          transform: [{ translateY }],
+          opacity,
+          // Transparent while hidden so any residual frame is invisible
+          backgroundColor: shown ? "#B45309" : "transparent",
+        },
       ]}
       pointerEvents="none"
+      accessibilityElementsHidden={!shown}
+      importantForAccessibility={shown ? "yes" : "no-hide-descendants"}
     >
-      <VectorIcon name="wifi-off" size={14} color="#fff" style={{ marginRight: 6 }} />
-      <Text style={styles.text}>{reconnectingLabel}</Text>
+      {shown ? (
+        <>
+          <VectorIcon name="wifi-off" size={14} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.text}>{reconnectingLabel}</Text>
+        </>
+      ) : null}
     </Animated.View>
   );
 }
@@ -51,12 +90,17 @@ export const CONNECTION_BANNER_HEIGHT =
   CONNECTION_BANNER_PADDING_VERTICAL * 2 + CONNECTION_BANNER_LINE_HEIGHT;
 
 const styles = StyleSheet.create({
+  placeholder: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+    opacity: 0,
+  },
   banner: {
     position: "absolute",
     left: 0,
     right: 0,
     zIndex: 10000,
-    backgroundColor: "#B45309",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

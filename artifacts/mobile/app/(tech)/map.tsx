@@ -12,6 +12,7 @@ import StatusBadge from "@/components/StatusBadge";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 
 export default function TechMapScreen() {
@@ -157,7 +158,7 @@ export default function TechMapScreen() {
       technicianId: user?.id ?? "tech1",
       technicianName: user?.name ?? "محمد علي",
       technicianMobile: user?.mobile ?? "01098765432",
-      technicianAvatar: user?.avatar,
+      technicianAvatar: resolveMediaUrl(user?.avatar, { token: sessionToken }),
       technicianRating: 4.8,
     };
     let serverSynced = false;

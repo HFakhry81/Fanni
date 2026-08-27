@@ -37,5 +37,9 @@ export async function uploadPhotoToServer(
 
   const data = await res.json() as { url: string };
   if (!data.url) throw new Error("Server returned no URL");
-  return { url: data.url };
+  // Always persist/display an absolute URL so Image can load it
+  const absolute = data.url.startsWith("http")
+    ? data.url
+    : `${apiBase.replace(/\/$/, "")}${data.url.startsWith("/") ? data.url : `/${data.url}`}`;
+  return { url: absolute };
 }

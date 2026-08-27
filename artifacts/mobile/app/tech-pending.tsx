@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import AppIdentityCard from "@/components/AppIdentityCard";
 import VectorIcon from "@/components/VectorIcon";
 
 export default function TechPendingScreen() {
@@ -72,7 +73,9 @@ export default function TechPendingScreen() {
           ) : null}
 
           <Text style={[styles.desc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center" }]}>
-            {t("tech.pendingDesc")}
+            {isRTL
+              ? "طلب التسجيل بتاعك قيد المراجعة. سيتم إبلاغك فور الموافقة عليه."
+              : "Your registration request is under review. We'll notify you as soon as it's approved."}
           </Text>
 
           <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -99,17 +102,32 @@ export default function TechPendingScreen() {
           <Text style={[styles.contactHint, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center" }]}>
             {t("tech.pendingContact")}
           </Text>
+
+          <View style={{ width: "100%", marginTop: 8 }}>
+            <AppIdentityCard />
+          </View>
         </View>
       </ScrollView>
 
       <View style={[styles.btnArea, { paddingHorizontal: 24 }]}>
         <TouchableOpacity
           style={[styles.refreshBtn, { backgroundColor: colors.primary, borderRadius: colors.radius ?? 12 }]}
+          onPress={() => router.push("/(tech)/wallet")}
+          activeOpacity={0.85}
+        >
+          <VectorIcon name="credit-card" size={16} color="#FFF" />
+          <Text style={[styles.refreshBtnText, { fontFamily: "Inter_700Bold" }]}>
+            {isRTL ? "عرض رصيد النقاط" : "View points balance"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.refreshBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius ?? 12, marginTop: 10 }]}
           onPress={handleRefresh}
           activeOpacity={0.85}
         >
-          <VectorIcon name="refresh-cw" size={16} color="#FFF" />
-          <Text style={[styles.refreshBtnText, { fontFamily: "Inter_700Bold" }]}>
+          <VectorIcon name="refresh-cw" size={16} color={colors.primary} />
+          <Text style={[styles.refreshBtnText, { fontFamily: "Inter_700Bold", color: colors.primary }]}>
             {isRTL ? "تحديث الحالة" : "Refresh Status"}
           </Text>
         </TouchableOpacity>

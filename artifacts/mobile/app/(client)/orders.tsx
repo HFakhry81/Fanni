@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { startMaskedCall } from "@/utils/maskedCall";
 
 
@@ -242,8 +243,8 @@ export default function ClientOrdersScreen() {
           <View style={[styles.techRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
             {item.technicianName && (
               <>
-                {item.technicianAvatar ? (
-                  <Image source={{ uri: item.technicianAvatar }} style={styles.techAvatar} />
+                {resolveMediaUrl(item.technicianAvatar, { token: sessionToken }) ? (
+                  <Image source={{ uri: resolveMediaUrl(item.technicianAvatar, { token: sessionToken })! }} style={styles.techAvatar} />
                 ) : (
                   <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
                     <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 12 }}>{item.technicianName[0]}</Text>

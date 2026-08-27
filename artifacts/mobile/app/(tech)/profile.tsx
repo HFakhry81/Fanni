@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
   Modal, TextInput, Alert, Image, ActivityIndicator, type AlertButton,
 } from "react-native";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
@@ -17,30 +16,18 @@ import LocationPicker from "@/components/LocationPicker";
 import Toast from "@/components/Toast";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
+import WorkHoursPickerSheet from "@/components/WorkHoursPickerSheet";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import AppIdentityCard from "@/components/AppIdentityCard";
 import { openTermsOfUse } from "@/utils/terms";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
-
-
-function timeStringToDate(hhmm: string): Date {
-  const [h, m] = hhmm.split(":").map(Number);
-  const d = new Date();
-  d.setHours(isNaN(h) ? 8 : h, isNaN(m) ? 0 : m, 0, 0);
-  return d;
-}
-
-function dateToTimeString(date: Date): string {
-  const h = date.getHours().toString().padStart(2, "0");
-  const m = date.getMinutes().toString().padStart(2, "0");
-  return `${h}:${m}`;
-}
 
 export default function TechProfileScreen() {
   const router = useRouter();
@@ -533,7 +520,7 @@ export default function TechProfileScreen() {
         });
         if (!patchRes.ok) throw new Error(`Server update failed: ${patchRes.status}`);
       }
-      await setUser({ ...user, avatar: url });
+      await setUser({ ...user, avatar: resolveMediaUrl(url, { token: sessionToken }) ?? url });
       await refreshUser().catch(() => {});
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
     } catch (_) {
@@ -697,8 +684,12 @@ export default function TechProfileScreen() {
         <View style={[styles.hero, { backgroundColor: colors.darkMid }]}>
           <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8}>
             <View style={[styles.avatarRing, { borderColor: colors.secondary }]}>
-              {user?.avatar ? (
-                <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              {resolveMediaUrl(user?.avatar, { token: sessionToken }) ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(user?.avatar, { token: sessionToken })! }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                />
               ) : (
                 <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
                   <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 34 }}>
@@ -1338,50 +1329,27 @@ export default function TechProfileScreen() {
                   ) : null}
                 </View>
 
-                {activeTimePicker !== null && (
-                  <Modal transparent animationType="slide" onRequestClose={() => setActiveTimePicker(null)}>
-                    <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }} activeOpacity={1} onPress={() => setActiveTimePicker(null)} />
-                    <View style={{ backgroundColor: colors.card, paddingBottom: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
-                      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 12 }}>
-                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                          {activeTimePicker === "start" ? t("register.serviceStart") : (isRTL ? "نهاية العمل" : "Work End")}
-                        </Text>
-                        <TouchableOpacity onPress={() => setActiveTimePicker(null)}>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>{isRTL ? "إلغاء" : "Cancel"}</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <DateTimePicker
-                        key={`edit-time-${activeTimePicker}`}
-                        mode="time"
-                        is24Hour
-                        display="spinner"
-                        value={timeStringToDate(activeTimePicker === "start" ? editServiceStart : editServiceEnd)}
-                        onChange={(_event: DateTimePickerEvent, date?: Date) => {
-                          if (!date) return;
-                          const ts = dateToTimeString(date);
-                          if (activeTimePicker === "start") {
-                            setEditServiceStart(ts);
-                            setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
-                          } else {
-                            setEditServiceEnd(ts);
-                            setErrors((e) => ({ ...e, serviceEnd: undefined }));
-                          }
-                        }}
-                        style={{ width: "100%", height: Platform.OS === "ios" ? 180 : 160 }}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setActiveTimePicker(null)}
-                        style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center" }}
-                      >
-                        <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                          {isRTL
-                            ? `تأكيد ${activeTimePicker === "start" ? editServiceStart : editServiceEnd}`
-                            : `Confirm ${activeTimePicker === "start" ? editServiceStart : editServiceEnd}`}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </Modal>
-                )}
+                <WorkHoursPickerSheet
+                  visible={activeTimePicker !== null}
+                  title={
+                    activeTimePicker === "start"
+                      ? (isRTL ? "اختر بداية العمل" : "Pick work start")
+                      : (isRTL ? "اختر نهاية العمل" : "Pick work end")
+                  }
+                  value={activeTimePicker === "start" ? editServiceStart : editServiceEnd}
+                  presets={activeTimePicker === "start" ? ["08:00", "09:00", "10:00"] : ["16:00", "18:00", "22:00"]}
+                  onCancel={() => setActiveTimePicker(null)}
+                  onConfirm={(hhmm) => {
+                    if (activeTimePicker === "start") {
+                      setEditServiceStart(hhmm);
+                      setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
+                    } else {
+                      setEditServiceEnd(hhmm);
+                      setErrors((e) => ({ ...e, serviceEnd: undefined }));
+                    }
+                    setActiveTimePicker(null);
+                  }}
+                />
 
                 {/* Service Categories */}
                 <View
@@ -1573,8 +1541,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {},
   hero: { alignItems: "center", paddingVertical: 28, paddingBottom: 28 },
-  avatarRing: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, alignItems: "center", justifyContent: "center" },
-  avatar: { width: 90, height: 90, borderRadius: 45, alignItems: "center", justifyContent: "center" },
+  avatarRing: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  avatar: { width: 90, height: 90, borderRadius: 45, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   cameraOverlay: { position: "absolute", bottom: 0, right: 0, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, width: 24, height: 24, alignItems: "center", justifyContent: "center" },
   editBadge: { flexDirection: "row", alignItems: "center", marginTop: 14, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20 },
   badgesRow: { marginTop: 14, gap: 8 },

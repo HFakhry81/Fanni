@@ -12,16 +12,19 @@ import {
   RefreshControl,
   Clipboard,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
+import AppIdentityCard from "@/components/AppIdentityCard";
 import KeyboardAwareScrollViewCompat, { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
+import { WELCOME_BONUS_POINTS } from "@/constants/appIdentity";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PointPackage {
@@ -94,8 +97,8 @@ const METHODS = [
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WalletScreen() {
   const colors = useColors();
-  const { isRTL, t } = useApp();
-  const { sessionToken } = useAuth();
+  const { isRTL, t, user } = useApp();
+  const { sessionToken, refreshUser } = useAuth();
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTx[]>([]);
@@ -105,6 +108,7 @@ export default function WalletScreen() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [congratsDismissed, setCongratsDismissed] = useState(true);
 
   // Modal state
   const [selectedPkg, setSelectedPkg] = useState<PointPackage | null>(null);
@@ -166,7 +170,41 @@ export default function WalletScreen() {
     }
   }, [sessionToken, apiHeaders]);
 
-  useFocusEffect(useCallback(() => { void fetchData(); }, [fetchData]));
+  useFocusEffect(useCallback(() => { void fetchData(); void refreshUser?.(); }, [fetchData, refreshUser]));
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user?.id) return;
+      const key = `fanni_welcome_congrats_seen_${user.id}`;
+      const seen = await AsyncStorage.getItem(key);
+      if (!cancelled) setCongratsDismissed(seen === "1");
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const dismissCongrats = useCallback(async () => {
+    if (!user?.id) return;
+    setCongratsDismissed(true);
+    await AsyncStorage.setItem(`fanni_welcome_congrats_seen_${user.id}`, "1");
+  }, [user?.id]);
+
+  const isPendingApproval =
+    user?.type === "technician" &&
+    (user.isApproved === false ||
+      user.approvalStatus === "pending_review" ||
+      user.approvalStatus === "not_submitted" ||
+      user.approvalStatus === "needs_correction");
+
+  const welcomeTxPts = transactions
+    .filter((tx) => tx.type === "welcome_bonus")
+    .reduce((sum, tx) => sum + (Number(tx.pointsAmount) || 0), 0);
+  const welcomePtsDisplay = welcomeTxPts > 0 ? welcomeTxPts : WELCOME_BONUS_POINTS;
+  const showCongrats =
+    user?.type === "technician" &&
+    user.isApproved === true &&
+    !congratsDismissed &&
+    !isPendingApproval;
 
   // ─── Dismiss notification ──────────────────────────────────────────────────
   const dismissNotification = async (id: string) => {
@@ -363,6 +401,35 @@ export default function WalletScreen() {
           </View>
         </View>
 
+        {isPendingApproval && (
+          <View style={[styles.statusBanner, { backgroundColor: "#FFF7ED", borderColor: "#FDBA74" }]}>
+            <VectorIcon name="clock" size={18} color="#C2410C" />
+            <Text style={[styles.statusBannerText, { color: "#9A3412", textAlign: isRTL ? "right" : "left" }]}>
+              {isRTL
+                ? "طلب التسجيل بتاعك قيد المراجعة. سيتم إبلاغك فور الموافقة عليه."
+                : "Your registration request is under review. We'll notify you as soon as it's approved."}
+            </Text>
+          </View>
+        )}
+
+        {showCongrats && (
+          <View style={[styles.statusBanner, { backgroundColor: "#ECFDF5", borderColor: "#6EE7B7" }]}>
+            <VectorIcon name="check-circle" size={18} color="#059669" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statusBannerText, { color: "#065F46", textAlign: isRTL ? "right" : "left" }]}>
+                {isRTL
+                  ? `تمت الموافقة على طلبك. مبروك، تم إضافة ${welcomePtsDisplay} نقطة في رصيدك.`
+                  : `Your request was approved. Congratulations — ${welcomePtsDisplay} welcome points were added to your balance.`}
+              </Text>
+              <TouchableOpacity onPress={() => { void dismissCongrats(); }} style={{ marginTop: 8, alignSelf: isRTL ? "flex-start" : "flex-end" }}>
+                <Text style={{ color: "#059669", fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                  {isRTL ? "حسناً" : "Got it"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* ── How it works ── */}
         <View style={[styles.howToCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.howToTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
@@ -535,6 +602,10 @@ export default function WalletScreen() {
             ))}
           </>
         )}
+
+        <View style={{ marginTop: 24, marginBottom: 8 }}>
+          <AppIdentityCard />
+        </View>
 
         <View style={{ height: 40 }} />
       </KeyboardAwareScrollViewCompat>
@@ -880,6 +951,22 @@ const styles = StyleSheet.create({
   balanceRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   balanceAmount: { fontFamily: "Inter_700Bold", fontSize: 40, color: "#fff" },
   balancePtsLabel: { fontFamily: "Inter_500Medium", fontSize: 16, color: "rgba(255,255,255,0.8)" },
+
+  statusBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  statusBannerText: {
+    flex: 1,
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    lineHeight: 20,
+  },
 
   // How-to
   howToCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 16, gap: 10 },

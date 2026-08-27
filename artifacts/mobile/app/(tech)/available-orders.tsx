@@ -22,6 +22,7 @@ import FanniButton from "@/components/FanniButton";
 import Toast from "@/components/Toast";
 import { useRouter } from "expo-router";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 
 const CATEGORY_ICONS: Record<string, IconName> = {
@@ -224,7 +225,7 @@ export default function AvailableOrdersScreen() {
         body: JSON.stringify({
           technicianName: user?.name ?? "",
           technicianMobile: user?.mobile ?? "",
-          technicianAvatar: user?.avatar,
+          technicianAvatar: resolveMediaUrl(user?.avatar, { token: sessionToken }),
           technicianRating: 4.8,
         }),
       });
@@ -240,7 +241,7 @@ export default function AvailableOrdersScreen() {
           technicianId: user?.id ?? "",
           technicianName: user?.name ?? "",
           technicianMobile: user?.mobile ?? "",
-          technicianAvatar: user?.avatar,
+          technicianAvatar: resolveMediaUrl(user?.avatar, { token: sessionToken }),
           technicianRating: 4.8,
         });
         setOrders((prev) => {

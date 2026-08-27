@@ -190,17 +190,14 @@ export default function ClientLayout() {
     }
   }, [current?.orderId, router]);
 
-  const reconnectLabel = language === "ar" ? "جارٍ إعادة الاتصال…" : "Reconnecting…";
+  const reconnectLabel = language === "ar" ? "تعذر الاتصال — جارٍ إعادة المحاولة…" : "Connection failed — retrying…";
 
   return (
     <>
       <ClientOrderUpdatesListener onNotification={handleNotification} onConnectionChange={setIsWsConnected} />
       {isLiquidGlassAvailable() ? <NativeClientTabs /> : <ClassicClientTabs />}
       
-      {/* 👈 التعديل هنا: منع رندرة البانر نهائياً عند نجاح الاتصال لمنع ظهور الخط الرفيع */}
-      {!isWsConnected && (
-        <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
-      )}
+      <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
 
       <Toast
         visible={current !== null}

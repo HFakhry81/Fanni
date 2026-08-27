@@ -21,6 +21,8 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useOrders, ThreePartyInvoice } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import StatusBadge from "@/components/StatusBadge";
 import StarRating from "@/components/StarRating";
 import FanniButton from "@/components/FanniButton";
@@ -28,7 +30,6 @@ import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useLocationLabels } from "@/hooks/useLocationLabels";
-import { getApiBase } from "@/utils/api";
 import { startMaskedCall } from "@/utils/maskedCall";
 
 export default function OrderDetailsScreen() {
@@ -394,8 +395,8 @@ export default function OrderDetailsScreen() {
               {t("order.techInfo")}
             </Text>
             <View style={[styles.techCard, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              {order.technicianAvatar ? (
-                <Image source={{ uri: order.technicianAvatar }} style={styles.techAvatar} />
+              {resolveMediaUrl(order.technicianAvatar, { token: sessionToken }) ? (
+                <Image source={{ uri: resolveMediaUrl(order.technicianAvatar, { token: sessionToken })! }} style={styles.techAvatar} />
               ) : (
                 <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
                   <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 22 }}>{order.technicianName[0]}</Text>

@@ -20,6 +20,7 @@ import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import AppIdentityCard from "@/components/AppIdentityCard";
 import { openTermsOfUse } from "@/utils/terms";
 
@@ -357,7 +358,7 @@ export default function ClientProfileScreen() {
         });
         if (!patchRes.ok) throw new Error(`Server update failed: ${patchRes.status}`);
       }
-      await setUser({ ...user, avatar: url });
+      await setUser({ ...user, avatar: resolveMediaUrl(url, { token: sessionToken }) ?? url });
       await refreshUser().catch(() => {});
       setToastMessage(isRTL ? "تم تحديث صورة الملف الشخصي" : "Profile photo updated");
     } catch (_) {
@@ -523,8 +524,12 @@ export default function ClientProfileScreen() {
         <View style={[styles.profileHero, { backgroundColor: colors.darkMid }]}>
           <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8}>
             <View style={[styles.avatarRing, { borderColor: colors.primary }]}>
-              {user?.avatar ? (
-                <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              {resolveMediaUrl(user?.avatar, { token: sessionToken }) ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(user?.avatar, { token: sessionToken })! }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                />
               ) : (
                 <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                   <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 34 }}>

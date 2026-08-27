@@ -170,6 +170,7 @@ function buildAuthUser(
     yearsOfExperience: dbUser.yearsOfExperience ?? null,
     rating: dbUser.rating ? Number(dbUser.rating) : 0,
     ratingCount: dbUser.ratingCount ?? 0,
+    approvalStatus: dbUser.approvalStatus ?? null,
   };
 }
 
