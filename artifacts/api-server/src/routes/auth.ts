@@ -682,7 +682,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   }
 
   try {
-  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, street, buildingNo, floorNo, aptNo, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd, nationalIdFrontUrl, nationalIdBackUrl, licenseCardUrl, bio, yearsOfExperience } = parsed.data;
+  const { name, email, mobile, password, role, nationalId, governorateId, areaId, address, street, buildingNo, floorNo, aptNo, latitude, longitude, verificationToken, serviceCategories, profession, specialty, serviceStart, serviceEnd, nationalIdFrontUrl, nationalIdBackUrl, licenseCardUrl, bio, yearsOfExperience, workingHours, paymentPreference } = parsed.data;
 
   if (role && !["client", "technician"].includes(role)) {
     res.status(400).json({ error: "Invalid role" });
@@ -749,6 +749,26 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     typeof email === "string" && email.trim() ? email.trim().toLowerCase() : null;
   // users.email is NOT NULL + UNIQUE — synthesize a stable placeholder when omitted
   const emailForInsert = emailValue ?? `${normalizedMobile}@noreply.fanni.app`;
+
+  // Default weekly schedule from serviceStart/serviceEnd (stored as profile default hours)
+  const startH = serviceStart?.trim() || "08:00";
+  const endH = serviceEnd?.trim() || "22:00";
+  const defaultDay = { start: startH, end: endH, enabled: true };
+  const workingHoursForInsert =
+    workingHours && typeof workingHours === "object"
+      ? workingHours
+      : role === "technician"
+        ? {
+            sun: defaultDay,
+            mon: defaultDay,
+            tue: defaultDay,
+            wed: defaultDay,
+            thu: defaultDay,
+            fri: defaultDay,
+            sat: defaultDay,
+          }
+        : null;
+
   const baseUserValues = {
       email: emailForInsert,
       firstName,
@@ -766,14 +786,16 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       profession: profession?.trim() || null,
       specialty: specialty?.trim() || null,
       serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
-      serviceStart: serviceStart?.trim() || null,
-      serviceEnd: serviceEnd?.trim() || null,
+      serviceStart: role === "technician" ? startH : null,
+      serviceEnd: role === "technician" ? endH : null,
       nationalId: nationalId?.trim() || null,
       nationalIdFrontUrl: nationalIdFrontUrl?.trim() || null,
       nationalIdBackUrl: nationalIdBackUrl?.trim() || null,
       licenseCardUrl: licenseCardUrl?.trim() || null,
       bio: bio?.trim() || null,
       yearsOfExperience: yearsOfExperience ?? null,
+      workingHours: workingHoursForInsert,
+      paymentPreference: paymentPreference?.trim() || null,
       isApproved: role === "client",
       approvalStatus: (role === "technician"
         ? ((nationalIdFrontUrl || nationalIdBackUrl) ? "pending_review" : "not_submitted")
@@ -809,36 +831,51 @@ router.post("/auth/register", async (req: Request, res: Response) => {
         .returning();
       newUser = row;
     } catch (retryErr) {
-      // Older DBs may lack terms/location metadata columns — insert minimal row
-      req.log.warn({ err: retryErr }, "Register retry failed; inserting minimal user row");
-      const [row] = await db
-        .insert(usersTable)
-        .values({
-          email: emailForInsert,
+      // Schema drift fallback — explicit columns only (avoids missing working_hours etc.)
+      req.log.warn({ err: retryErr }, "Register retry failed; inserting minimal user row via SQL");
+      const roleVal = (role as "client" | "technician") ?? "client";
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO users (
+           email, first_name, last_name, mobile, role, password_hash,
+           governorate, area, address, street, building_no, floor_no, apt_no,
+           profession, specialty, service_categories, service_start, service_end,
+           national_id, bio, years_of_experience, is_approved
+         ) VALUES (
+           $1,$2,$3,$4,$5,$6,
+           $7,$8,$9,$10,$11,$12,$13,
+           $14,$15,$16::jsonb,$17,$18,
+           $19,$20,$21,$22
+         ) RETURNING id`,
+        [
+          emailForInsert,
           firstName,
           lastName,
-          mobile: normalizedMobile,
-          role: (role as "client" | "technician") ?? "client",
+          normalizedMobile,
+          roleVal,
           passwordHash,
-          governorate: governorateId ?? null,
-          area: areaId ?? null,
-          address: address?.trim() || null,
-          street: street?.trim() || null,
-          buildingNo: buildingNo?.trim() || null,
-          floorNo: floorNo?.trim() || null,
-          aptNo: aptNo?.trim() || null,
-          profession: profession?.trim() || null,
-          specialty: specialty?.trim() || null,
-          serviceCategories: (Array.isArray(serviceCategories) && serviceCategories.length > 0) ? serviceCategories : null,
-          serviceStart: serviceStart?.trim() || null,
-          serviceEnd: serviceEnd?.trim() || null,
-          nationalId: nationalId?.trim() || null,
-          bio: bio?.trim() || null,
-          yearsOfExperience: yearsOfExperience ?? null,
-          isApproved: role === "client",
-          location: null,
-        } as typeof usersTable.$inferInsert)
-        .returning();
+          governorateId ?? null,
+          areaId ?? null,
+          address?.trim() || null,
+          street?.trim() || null,
+          buildingNo?.trim() || null,
+          floorNo?.trim() || null,
+          aptNo?.trim() || null,
+          profession?.trim() || null,
+          specialty?.trim() || null,
+          (Array.isArray(serviceCategories) && serviceCategories.length > 0)
+            ? JSON.stringify(serviceCategories)
+            : null,
+          roleVal === "technician" ? startH : null,
+          roleVal === "technician" ? endH : null,
+          nationalId?.trim() || null,
+          bio?.trim() || null,
+          yearsOfExperience ?? null,
+          roleVal === "client",
+        ],
+      );
+      const insertedId = rows[0]?.id;
+      if (!insertedId) throw retryErr;
+      const [row] = await db.select().from(usersTable).where(eq(usersTable.id, insertedId)).limit(1);
       newUser = row;
     }
   }
@@ -1216,6 +1253,22 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   if (nationalIdFrontUrl !== undefined) updates.nationalIdFrontUrl = nationalIdFrontUrl ?? null;
   if (nationalIdBackUrl !== undefined) updates.nationalIdBackUrl = nationalIdBackUrl ?? null;
   if (licenseCardUrl !== undefined) updates.licenseCardUrl = licenseCardUrl ?? null;
+
+  // Keep weekly working_hours in sync with default start/end when either changes
+  if (serviceStart !== undefined || serviceEnd !== undefined) {
+    const startH =
+      (updates.serviceStart as string | null | undefined) ??
+      (typeof serviceStart === "string" ? serviceStart.trim() : null) ??
+      "08:00";
+    const endH =
+      (updates.serviceEnd as string | null | undefined) ??
+      (typeof serviceEnd === "string" ? serviceEnd.trim() : null) ??
+      "22:00";
+    const day = { start: startH || "08:00", end: endH || "22:00", enabled: true };
+    updates.workingHours = {
+      sun: day, mon: day, tue: day, wed: day, thu: day, fri: day, sat: day,
+    };
+  }
   if (
     req.user?.role === "technician" &&
     !(req.user as { isApproved?: boolean }).isApproved &&

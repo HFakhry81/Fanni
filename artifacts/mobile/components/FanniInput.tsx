@@ -23,6 +23,8 @@ interface FanniInputProps {
   multiline?: boolean;
   numberOfLines?: number;
   error?: string;
+  /** Soft guidance shown under the field when there is no error */
+  hint?: string;
   style?: ViewStyle;
   disabled?: boolean;
   required?: boolean;
@@ -40,6 +42,7 @@ export default function FanniInput({
   multiline = false,
   numberOfLines = 1,
   error,
+  hint,
   style,
   disabled = false,
   required = false,
@@ -112,7 +115,7 @@ export default function FanniInput({
             setFocused(true);
             setTimeout(() => {
               if (inputRef.current) kbScroll?.scrollToInput(inputRef.current);
-            }, Platform.OS === "ios" ? 80 : 280);
+            }, Platform.OS === "ios" ? 100 : 350);
           }}
           onBlur={() => setFocused(false)}
         />
@@ -129,7 +132,7 @@ export default function FanniInput({
           </TouchableOpacity>
         )}
       </View>
-      {error && (
+      {error ? (
         <Text
           style={[
             styles.error,
@@ -142,7 +145,20 @@ export default function FanniInput({
         >
           {error}
         </Text>
-      )}
+      ) : hint ? (
+        <Text
+          style={[
+            styles.hint,
+            {
+              color: colors.mutedForeground,
+              fontFamily: "Inter_400Regular",
+              textAlign: isRTL ? "right" : "left",
+            },
+          ]}
+        >
+          {hint}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -172,5 +188,11 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 12,
     marginTop: 4,
+    lineHeight: 17,
+  },
+  hint: {
+    fontSize: 11,
+    marginTop: 4,
+    lineHeight: 16,
   },
 });

@@ -39,20 +39,23 @@ export function getPasswordStrength(password: string, isRTL: boolean): PasswordS
 
 interface Props {
   password: string;
+  /** Show requirements even when password is empty */
+  alwaysShow?: boolean;
 }
 
 const SEGMENT_COLORS = ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#16A34A"];
 
-export default function PasswordStrengthBar({ password }: Props) {
+export default function PasswordStrengthBar({ password, alwaysShow = false }: Props) {
   const colors = useColors();
   const { isRTL } = useApp();
 
-  if (!password) return null;
+  if (!password && !alwaysShow) return null;
 
   const { score, missing } = getPasswordStrength(password, isRTL);
 
-  const label =
-    score <= 1
+  const label = !password
+    ? (isRTL ? "المتطلبات" : "Requirements")
+    : score <= 1
       ? isRTL ? "ضعيف جداً" : "Very Weak"
       : score === 2
       ? isRTL ? "ضعيف" : "Weak"
@@ -62,39 +65,41 @@ export default function PasswordStrengthBar({ password }: Props) {
       ? isRTL ? "جيد" : "Good"
       : isRTL ? "قوي" : "Strong";
 
-  const barColor = SEGMENT_COLORS[Math.max(0, score - 1)];
+  const barColor = password ? SEGMENT_COLORS[Math.max(0, score - 1)] : colors.border;
 
   return (
     <View style={styles.container}>
-      <View style={[styles.barRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <View
-            key={i}
+      {!!password && (
+        <View style={[styles.barRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View
+              key={i}
+              style={[
+                styles.segment,
+                {
+                  backgroundColor: i <= score ? barColor : colors.border,
+                  marginLeft: isRTL ? 0 : i === 1 ? 0 : 4,
+                  marginRight: isRTL ? (i === 1 ? 0 : 4) : 0,
+                },
+              ]}
+            />
+          ))}
+          <Text
             style={[
-              styles.segment,
+              styles.label,
               {
-                backgroundColor: i <= score ? barColor : colors.border,
-                marginLeft: isRTL ? 0 : i === 1 ? 0 : 4,
-                marginRight: isRTL ? (i === 1 ? 0 : 4) : 0,
+                color: barColor,
+                marginLeft: isRTL ? 0 : 8,
+                marginRight: isRTL ? 8 : 0,
               },
             ]}
-          />
-        ))}
-        <Text
-          style={[
-            styles.label,
-            {
-              color: barColor,
-              marginLeft: isRTL ? 0 : 8,
-              marginRight: isRTL ? 8 : 0,
-            },
-          ]}
-        >
-          {label}
-        </Text>
-      </View>
+          >
+            {label}
+          </Text>
+        </View>
+      )}
 
-      {missing.length > 0 && (
+      {(missing.length > 0 || !password) && (
         <View style={[styles.hintRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <Text
             style={[
@@ -102,8 +107,12 @@ export default function PasswordStrengthBar({ password }: Props) {
               { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" },
             ]}
           >
-            {isRTL ? "يلزم إضافة: " : "Add: "}
-            {missing.join(isRTL ? " · " : " · ")}
+            {isRTL
+              ? "كلمة المرور يجب أن تحتوي: 8 أحرف · حرف كبير · حرف صغير · رقم · رمز خاص (!@#)"
+              : "Password must include: 8+ chars · uppercase · lowercase · number · special (!@#)"}
+            {password && missing.length > 0
+              ? `\n${isRTL ? "ناقص الآن: " : "Still missing: "}${missing.join(isRTL ? " · " : " · ")}`
+              : ""}
           </Text>
         </View>
       )}

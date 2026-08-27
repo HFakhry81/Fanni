@@ -89,6 +89,7 @@ export default function RegisterScreen() {
   const [serviceStart, setServiceStart] = useState("08:00");
   const [serviceEnd, setServiceEnd] = useState("22:00");
   const [activePicker, setActivePicker] = useState<"start" | "end" | null>(null);
+  const [draftTime, setDraftTime] = useState("08:00");
 
   // ── OTP verification state ─────────────────────────────────────────────────
   const [otpMode, setOtpMode] = useState(false);
@@ -351,6 +352,8 @@ export default function RegisterScreen() {
 
       if (regType === "technician" && !nationalId.trim()) {
         newErrors.nationalId = isRTL ? "الرقم القومي مطلوب" : "National ID is required";
+      } else if (regType === "technician" && !/^\d{14}$/.test(nationalId.trim())) {
+        newErrors.nationalId = isRTL ? "الرقم القومي يجب أن يكون 14 رقمًا" : "National ID must be exactly 14 digits";
       }
 
       if (!password) {
@@ -512,6 +515,14 @@ export default function RegisterScreen() {
             serviceEnd: regType === "technician" ? serviceEnd.trim() : undefined,
             bio: regType === "technician" && bio.trim() ? bio.trim() : undefined,
             yearsOfExperience: regType === "technician" && experience.trim() ? Number(experience.trim()) : undefined,
+            workingHours: regType === "technician"
+              ? Object.fromEntries(
+                  ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map((d) => [
+                    d,
+                    { start: serviceStart.trim(), end: serviceEnd.trim(), enabled: true },
+                  ]),
+                )
+              : undefined,
             acceptedTerms: true,
           }),
         });
@@ -691,10 +702,11 @@ export default function RegisterScreen() {
         onChangeText={(v) => { setName(v); if (v.trim()) setErrors((e) => ({ ...e, name: undefined })); }}
         required
         placeholder={isRTL ? "الاسم رباعي كامل" : "Full name"}
+        hint={isRTL ? "اكتب الاسم كما يظهر في البطاقة" : "Enter your full legal name"}
         error={errors.name}
       />
       {regType === "technician" && (
-        <FanniInput label={t("register.age")} value={age} onChangeText={setAge} keyboardType="numeric" placeholder="25" />
+        <FanniInput label={t("register.age")} value={age} onChangeText={setAge} keyboardType="numeric" placeholder="25" hint={isRTL ? "اختياري" : "Optional"} />
       )}
       <FanniInput
         label={isRTL ? "رقم الهاتف" : "Mobile Number"}
@@ -702,6 +714,7 @@ export default function RegisterScreen() {
         onChangeText={(v) => { setMobile(v); setMobileTaken(false); setErrors((e) => ({ ...e, mobile: undefined })); }}
         keyboardType="phone-pad" required
         placeholder="01XXXXXXXXX"
+        hint={isRTL ? "رقم مصري صحيح: 010 / 011 / 012 / 015 ثم 8 أرقام" : "Egyptian mobile: 010 / 011 / 012 / 015 + 8 digits"}
         error={errors.mobile}
       />
       {mobileTaken && (
@@ -723,6 +736,7 @@ export default function RegisterScreen() {
         onChangeText={(v) => { setEmail(v); setEmailTaken(false); setErrors((e) => ({ ...e, email: undefined })); }}
         keyboardType="email-address"
         placeholder="email@example.com"
+        hint={isRTL ? "صيغة صحيحة مثل name@gmail.com" : "Valid format e.g. name@gmail.com"}
         error={errors.email}
       />
       {emailTaken && (
@@ -748,7 +762,7 @@ export default function RegisterScreen() {
         placeholder={isRTL ? "أدخل كلمة مرور قوية" : "Enter a strong password"}
         error={errors.password}
       />
-      {!!password && <PasswordStrengthBar password={password} />}
+      <PasswordStrengthBar password={password} alwaysShow />
 
       <FanniInput
         label={isRTL ? "تأكيد كلمة المرور" : "Confirm Password"}
@@ -757,6 +771,7 @@ export default function RegisterScreen() {
         secureTextEntry
         required
         placeholder={isRTL ? "أعد إدخال كلمة المرور" : "Re-enter your password"}
+        hint={isRTL ? "يجب أن تطابق كلمة المرور أعلاه" : "Must match the password above"}
         error={errors.confirmPassword}
       />
 
@@ -766,7 +781,9 @@ export default function RegisterScreen() {
           value={nationalId}
           onChangeText={(v) => { setNationalId(v); if (v.trim()) setErrors((e) => ({ ...e, nationalId: undefined })); }}
           keyboardType="numeric" required
-          placeholder="2XXXXXXXXXXXXXXXXX"
+          placeholder="2XXXXXXXXXXXXXX"
+          maxLength={14}
+          hint={isRTL ? "14 رقمًا كما في بطاقة الرقم القومي" : "14 digits as on your national ID card"}
           error={errors.nationalId}
         />
       )}
@@ -979,23 +996,71 @@ export default function RegisterScreen() {
           </ScrollView>
         </View>
       </Modal>
-      <FanniInput
-        label={`${t("register.experience")} (${isRTL ? "سنوات" : "years"})`}
-        value={experience}
-        onChangeText={(v) => { setExperience(v); setErrors((e) => ({ ...e, experience: undefined })); }}
-        keyboardType="numeric"
-        required
-        placeholder="5"
-        error={errors.experience}
-      />
+      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+        {`${t("register.experience")} (${isRTL ? "سنوات" : "years"})`} <Text style={{ color: colors.destructive }}>*</Text>
+      </Text>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: errors.experience ? 4 : 6 }}>
+        <TouchableOpacity
+          onPress={() => {
+            const n = Math.max(0, (Number(experience) || 0) - 1);
+            setExperience(String(n));
+            setErrors((e) => ({ ...e, experience: undefined }));
+          }}
+          style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+        >
+          <Text style={{ fontSize: 22, color: colors.foreground, fontFamily: "Inter_700Bold" }}>−</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <FanniInput
+            value={experience}
+            onChangeText={(v) => {
+              const cleaned = v.replace(/[^\d]/g, "").slice(0, 2);
+              setExperience(cleaned);
+              setErrors((e) => ({ ...e, experience: undefined }));
+            }}
+            keyboardType="numeric"
+            placeholder="5"
+            error={undefined}
+            style={{ marginBottom: 0 }}
+          />
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            const n = Math.min(70, (Number(experience) || 0) + 1);
+            setExperience(String(n));
+            setErrors((e) => ({ ...e, experience: undefined }));
+          }}
+          style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+        >
+          <Text style={{ fontSize: 22, color: colors.foreground, fontFamily: "Inter_700Bold" }}>+</Text>
+        </TouchableOpacity>
+      </View>
+      {errors.experience ? (
+        <Text style={{ color: colors.destructive, fontSize: 12, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>{errors.experience}</Text>
+      ) : (
+        <Text style={{ color: colors.mutedForeground, fontSize: 11, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>
+          {isRTL ? "من 0 إلى 70 سنة — استخدم +/− أو اكتب الرقم" : "0–70 years — use +/− or type the number"}
+        </Text>
+      )}
 
+      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
+        {isRTL ? "ساعات العمل الافتراضية" : "Default work hours"} <Text style={{ color: colors.destructive }}>*</Text>
+      </Text>
+      <Text style={{ color: colors.mutedForeground, fontSize: 11, marginBottom: 10, textAlign: isRTL ? "right" : "left", lineHeight: 16 }}>
+        {isRTL
+          ? "تُحفظ في ملفك الشخصي كوقت العمل الافتراضي (بداية – نهاية)."
+          : "Saved on your profile as your default daily work window (start – end)."}
+      </Text>
       <View style={[styles.timeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
           <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-            {isRTL ? "بداية العمل" : "Work Start"} <Text style={{ color: colors.destructive }}>*</Text>
+            {isRTL ? "بداية العمل" : "Work Start"}
           </Text>
           <TouchableOpacity
-            onPress={() => setActivePicker("start")}
+            onPress={() => {
+              setDraftTime(serviceStart);
+              setActivePicker("start");
+            }}
             style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceStart ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceStart}</Text>
@@ -1005,10 +1070,13 @@ export default function RegisterScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-            {isRTL ? "نهاية العمل" : "Work End"} <Text style={{ color: colors.destructive }}>*</Text>
+            {isRTL ? "نهاية العمل" : "Work End"}
           </Text>
           <TouchableOpacity
-            onPress={() => setActivePicker("end")}
+            onPress={() => {
+              setDraftTime(serviceEnd);
+              setActivePicker("end");
+            }}
             style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceEnd ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceEnd}</Text>
@@ -1018,43 +1086,61 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      {/* Time pickers — Android spinner sheet (dialog event.type is unreliable) */}
+      {/* Time pickers — draft + Confirm (Android spinner OK is unreliable) */}
       {activePicker !== null && (
         <Modal transparent animationType="slide" onRequestClose={() => setActivePicker(null)}>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setActivePicker(null)} />
-          <View style={{ backgroundColor: colors.card, paddingBottom: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
-            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 12 }}>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }} activeOpacity={1} onPress={() => setActivePicker(null)} />
+          <View style={{ backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
               <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>
                 {activePicker === "start"
-                  ? (isRTL ? "بداية العمل" : "Work Start")
-                  : (isRTL ? "نهاية العمل" : "Work End")}
+                  ? (isRTL ? "اختر بداية العمل" : "Pick work start")
+                  : (isRTL ? "اختر نهاية العمل" : "Pick work end")}
               </Text>
-              <TouchableOpacity
-                onPress={() => setActivePicker(null)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+              <TouchableOpacity onPress={() => setActivePicker(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>{isRTL ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
             </View>
             <DateTimePicker
               key={`reg-time-${activePicker}`}
               mode="time"
               is24Hour
-              display={Platform.OS === "ios" ? "spinner" : "spinner"}
-              value={timeStringToDate(activePicker === "start" ? serviceStart : serviceEnd)}
+              display="spinner"
+              value={timeStringToDate(draftTime)}
               onChange={(_event: DateTimePickerEvent, date?: Date) => {
                 if (!date) return;
-                const ts = dateToTimeString(date);
-                if (activePicker === "start") {
-                  setServiceStart(ts);
-                  setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
-                } else {
-                  setServiceEnd(ts);
-                  setErrors((e) => ({ ...e, serviceEnd: undefined }));
-                }
+                setDraftTime(dateToTimeString(date));
               }}
               style={{ width: "100%", height: Platform.OS === "ios" ? 180 : 160 }}
             />
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, marginBottom: 12 }}>
+              {(activePicker === "start" ? ["08:00", "09:00", "10:00"] : ["16:00", "18:00", "22:00"]).map((preset) => (
+                <TouchableOpacity
+                  key={preset}
+                  onPress={() => setDraftTime(preset)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: draftTime === preset ? colors.primary : colors.border, backgroundColor: draftTime === preset ? colors.accent : colors.muted }}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>{preset}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (activePicker === "start") {
+                  setServiceStart(draftTime);
+                  setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
+                } else {
+                  setServiceEnd(draftTime);
+                  setErrors((e) => ({ ...e, serviceEnd: undefined }));
+                }
+                setActivePicker(null);
+              }}
+              style={{ marginHorizontal: 16, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center" }}
+            >
+              <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                {isRTL ? `تأكيد ${draftTime}` : `Confirm ${draftTime}`}
+              </Text>
+            </TouchableOpacity>
           </View>
         </Modal>
       )}
@@ -1385,7 +1471,7 @@ export default function RegisterScreen() {
 
       <KeyboardAwareScrollViewCompat
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: botPad + 120 }]}
         keyboardShouldPersistTaps="handled"
       >
         {!otpMode && renderStepIndicator()}

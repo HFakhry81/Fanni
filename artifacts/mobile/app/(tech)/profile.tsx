@@ -1338,17 +1338,16 @@ export default function TechProfileScreen() {
                   ) : null}
                 </View>
 
-                {/* Time pickers — spinner sheet (Android dialog event.type is unreliable) */}
                 {activeTimePicker !== null && (
                   <Modal transparent animationType="slide" onRequestClose={() => setActiveTimePicker(null)}>
-                    <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setActiveTimePicker(null)} />
+                    <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }} activeOpacity={1} onPress={() => setActiveTimePicker(null)} />
                     <View style={{ backgroundColor: colors.card, paddingBottom: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
                       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 12 }}>
                         <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>
                           {activeTimePicker === "start" ? t("register.serviceStart") : (isRTL ? "نهاية العمل" : "Work End")}
                         </Text>
                         <TouchableOpacity onPress={() => setActiveTimePicker(null)}>
-                          <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>{isRTL ? "إلغاء" : "Cancel"}</Text>
                         </TouchableOpacity>
                       </View>
                       <DateTimePicker
@@ -1370,6 +1369,16 @@ export default function TechProfileScreen() {
                         }}
                         style={{ width: "100%", height: Platform.OS === "ios" ? 180 : 160 }}
                       />
+                      <TouchableOpacity
+                        onPress={() => setActiveTimePicker(null)}
+                        style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center" }}
+                      >
+                        <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                          {isRTL
+                            ? `تأكيد ${activeTimePicker === "start" ? editServiceStart : editServiceEnd}`
+                            : `Confirm ${activeTimePicker === "start" ? editServiceStart : editServiceEnd}`}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </Modal>
                 )}
