@@ -146,23 +146,24 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     console.log(`Setting EXPO_PUBLIC_REPL_ID=${expoPublicReplId}`);
   }
 
-  metroProcess = spawn(
-    "pnpm",
-    [
-      "exec",
-      "expo",
-      "start",
-      "--no-dev",
-      "--minify",
-      "--localhost",
-    ],
-    {
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: false,
-      cwd: projectRoot,
-      env,
-    },
-  );
+ metroProcess = spawn(
+  "pnpm",
+  [
+    "exec",
+    "expo",
+    "start",
+    "--no-dev",
+    "--minify",
+    "--localhost",
+  ],
+  {
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: false,
+    cwd: projectRoot,
+    env,
+    shell: true, // <-- أضف السطر ده هنا
+  },
+);
 
   if (metroProcess.stdout) {
     metroProcess.stdout.on("data", (data) => {
