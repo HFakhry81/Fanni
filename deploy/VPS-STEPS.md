@@ -9,7 +9,7 @@
    - `FANNI_VPS_SSH_KEY` = مفتاح خاص لمستخدم النشر (صلاحية محدودة)
    - اختياري: `FANNI_VPS_PORT`
 3. الدفع إلى `main` أو Actions → **Deploy VPS** → Run workflow.
-4. Apache يبقى كما هو: `api.upnexa-eg.com` → `127.0.0.1:5000`، و`app.upnexa-eg.com` من `/var/www/fanni-web`.
+4. Nginx (أو Apache): `api.upnexa-eg.com` → `127.0.0.1:5000`، و`app.upnexa-eg.com` من `/var/www/fanni-web` مع SPA `try_files` — انظر [`deploy/nginx-app.upnexa-eg.com.conf`](nginx-app.upnexa-eg.com.conf) و[`deploy/WEB-APP-UPNEXA.md`](WEB-APP-UPNEXA.md).
 
 لا تضع كلمات سر SSH أو `.env` في Git.
 

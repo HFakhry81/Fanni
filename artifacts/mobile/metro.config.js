@@ -22,7 +22,11 @@ config.resolver.nodeModulesPaths = [
 const ROUTER_CTX = path.resolve(projectRoot, "metro-router-ctx.js");
 
 const isExpoRouterCtx = (context, moduleName) => {
-  if (moduleName === "expo-router/_ctx" || moduleName === "expo-router/_ctx.android") {
+  if (
+    moduleName === "expo-router/_ctx" ||
+    moduleName === "expo-router/_ctx.android" ||
+    moduleName === "expo-router/_ctx.web"
+  ) {
     return true;
   }
   if (!moduleName.startsWith("./_ctx")) return false;
@@ -33,7 +37,7 @@ const isExpoRouterCtx = (context, moduleName) => {
 const originalResolveRequest = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (platform !== "web" && isExpoRouterCtx(context, moduleName)) {
+  if (isExpoRouterCtx(context, moduleName)) {
     return { filePath: ROUTER_CTX, type: "sourceFile" };
   }
   if (originalResolveRequest) {
