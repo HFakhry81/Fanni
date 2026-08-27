@@ -6,21 +6,13 @@ import React, {
   useCallback,
   type ReactNode,
 } from "react";
-import * as AuthSession from "expo-auth-session";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { getApiBase } from "@/utils/api";
 
-WebBrowser.maybeCompleteAuthSession();
-
 const AUTH_TOKEN_KEY = "fanni_auth_token";
-
-/** Google OIDC issuer (default). Override with EXPO_PUBLIC_ISSUER_URL if needed. */
-const ISSUER_URL = process.env.EXPO_PUBLIC_ISSUER_URL ?? "https://accounts.google.com";
 
 export interface AuthUser {
   id: string;
@@ -43,74 +35,42 @@ export interface AuthUser {
   serviceEnd?: string | null;
 }
 
-export type LoginResult = "success" | "cancel" | "dismiss" | "error" | "locked" | "opened" | "unknown" | "misconfigured";
-
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: () => Promise<LoginResult>;
+  /** @deprecated Social login removed — navigate to /login for password auth. */
+  login: () => Promise<"misconfigured">;
   logout: () => Promise<void>;
   setRole: (role: "client" | "technician" | "admin") => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
-  googleConfigured: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
   isAuthenticated: false,
-  login: async () => "error",
+  login: async () => "misconfigured",
   logout: async () => {},
   setRole: async () => {},
   refreshUser: async () => {},
   sessionToken: null,
-  googleConfigured: false,
 });
 
 function getApiBaseUrl(): string {
   return getApiBase();
 }
 
-function getGoogleClientIds() {
-  const web =
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
-    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
-    process.env.EXPO_PUBLIC_OIDC_CLIENT_ID ||
-    "";
-  const android =
-    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
-    web;
-  const ios =
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
-    web;
-  return { web, android, ios };
-}
-
+/**
+ * Session auth only (email/mobile + password via API).
+ * Replit and Google OAuth are intentionally not used — they broke Expo web builds
+ * when client IDs were missing.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-
-  const { web, android, ios } = getGoogleClientIds();
-  const googleConfigured = Boolean(web || android || ios);
-
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: "mobile",
-    path: "oauth",
-  });
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: web || undefined,
-    androidClientId: android || undefined,
-    iosClientId: ios || undefined,
-    scopes: ["openid", "profile", "email"],
-    redirectUri,
-    // Authorization code + PKCE so the API can exchange via /mobile-auth/token-exchange
-    responseType: AuthSession.ResponseType.Code,
-    shouldAutoExchangeCode: false,
-  });
 
   const fetchUser = useCallback(async (token?: string) => {
     try {
@@ -146,69 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchUser();
   }, [fetchUser]);
 
-  useEffect(() => {
-    if (response?.type !== "success" || !request?.codeVerifier) return;
-    const { code, state } = response.params;
-    if (!code) {
-      setIsLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const apiBase = getApiBaseUrl();
-        if (!apiBase) return;
-        const exchangeRes = await fetch(`${apiBase}/api/mobile-auth/token-exchange`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code,
-            code_verifier: request.codeVerifier,
-            redirect_uri: redirectUri,
-            state: state ?? "google",
-            nonce: (request as unknown as Record<string, unknown>).nonce as string | undefined,
-            issuer: ISSUER_URL,
-          }),
-        });
-        if (!exchangeRes.ok) {
-          setIsLoading(false);
-          return;
-        }
-        const data = await exchangeRes.json();
-        if (data.token) {
-          await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
-          setIsLoading(true);
-          await fetchUser(data.token);
-        }
-      } catch {
-        setIsLoading(false);
-      }
-    })();
-  }, [response, request, redirectUri, fetchUser]);
-
-  const login = useCallback(async (): Promise<LoginResult> => {
-    if (!googleConfigured) {
-      console.error("Google Sign-In misconfigured — set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID / ANDROID / IOS");
-      return "misconfigured";
-    }
-    try {
-      const result = await promptAsync();
-      const type = result?.type;
-      if (
-        type === "success" ||
-        type === "cancel" ||
-        type === "dismiss" ||
-        type === "error" ||
-        type === "locked" ||
-        type === "opened"
-      ) {
-        return type;
-      }
-      return "unknown";
-    } catch (err) {
-      console.error("Google login error:", err);
-      return "error";
-    }
-  }, [promptAsync, googleConfigured]);
+  const login = useCallback(async (): Promise<"misconfigured"> => {
+    return "misconfigured";
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -218,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetch(`${apiBase}/api/mobile-auth/logout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
-        });
+        }).catch(() => undefined);
       }
     } catch {
     } finally {
@@ -229,26 +129,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const setRole = useCallback(
-    async (role: "client" | "technician" | "admin") => {
-      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-      if (!token) return;
-      const apiBase = getApiBaseUrl();
-      const res = await fetch(`${apiBase}/api/auth/role`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ role }),
-      });
-      const data = await res.json();
-      if (data.user) {
-        setUser(data.user as AuthUser);
-      }
-    },
-    [],
-  );
+  const setRole = useCallback(async (role: "client" | "technician" | "admin") => {
+    const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+    if (!token) return;
+    const apiBase = getApiBaseUrl();
+    const res = await fetch(`${apiBase}/api/auth/role`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ role }),
+    });
+    const data = await res.json();
+    if (data.user) {
+      setUser(data.user as AuthUser);
+    }
+  }, []);
 
   const refreshUser = useCallback(async () => {
     const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
@@ -309,7 +206,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole,
         refreshUser,
         sessionToken,
-        googleConfigured,
       }}
     >
       {children}

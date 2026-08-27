@@ -23,12 +23,11 @@ import { APP_IDENTITY, getAppVersionLabel } from "@/constants/appIdentity";
 
 const AUTH_TOKEN_KEY = "fanni_auth_token";
 
-
 export default function LoginScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
-  const { user, isLoading, isAuthenticated, login, refreshUser, googleConfigured } = useAuth();
+  const { user, isLoading, isAuthenticated, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [identifier, setIdentifier] = useState("");
@@ -36,30 +35,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState("");
-  const [googleLoading, setGoogleLoading] = useState(false);
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
-
-  const handleGoogleLogin = async () => {
-    setLocalError("");
-    setGoogleLoading(true);
-    try {
-      const result = await login();
-      if (result === "misconfigured") {
-        setLocalError(
-          isRTL
-            ? "دخول Google غير مضبوط بعد. تواصل مع الدعم أو استخدم كلمة المرور."
-            : "Google Sign-In is not configured yet. Contact support or use password login.",
-        );
-      } else if (result === "error") {
-        setLocalError(
-          isRTL ? "فشل الدخول عبر Google. حاول مرة أخرى." : "Google sign-in failed. Please try again.",
-        );
-      }
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
@@ -77,7 +54,11 @@ export default function LoginScreen() {
 
   const handleLocalLogin = async () => {
     if (!identifier.trim() || !password) {
-      setLocalError(isRTL ? "يرجى إدخال البريد الإلكتروني/الهاتف وكلمة المرور" : "Please enter your email/mobile and password");
+      setLocalError(
+        isRTL
+          ? "يرجى إدخال البريد الإلكتروني/الهاتف وكلمة المرور"
+          : "Please enter your email/mobile and password",
+      );
       return;
     }
     setLocalError("");
@@ -85,7 +66,9 @@ export default function LoginScreen() {
     try {
       const apiBase = getApiBase();
       if (!apiBase) {
-        setLocalError(isRTL ? "عنوان الخادم غير مضبوط في التطبيق" : "API base URL is not configured");
+        setLocalError(
+          isRTL ? "عنوان الخادم غير مضبوط في التطبيق" : "API base URL is not configured",
+        );
         return;
       }
       const res = await fetch(`${apiBase}/api/auth/login-with-password`, {
@@ -96,7 +79,7 @@ export default function LoginScreen() {
       const raw = await res.text();
       let data: { token?: string; error?: string } = {};
       try {
-        data = raw ? JSON.parse(raw) as typeof data : {};
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
       } catch {
         setLocalError(
           isRTL
@@ -109,18 +92,31 @@ export default function LoginScreen() {
         try {
           await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
         } catch {
-          setLocalError(isRTL ? "تم الدخول لكن تعذّر حفظ الجلسة على الجهاز" : "Signed in but session could not be saved on device");
+          setLocalError(
+            isRTL
+              ? "تم الدخول لكن تعذّر حفظ الجلسة على الجهاز"
+              : "Signed in but session could not be saved on device",
+          );
           return;
         }
         await refreshUser();
+      } else if (data.error === "Invalid credentials") {
+        setLocalError(
+          isRTL
+            ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+            : "Invalid email/mobile or password",
+        );
+      } else if (data.error === "Account is suspended") {
+        setLocalError(
+          isRTL
+            ? "هذا الحساب موقوف. يرجى التواصل مع الدعم."
+            : "Your account has been suspended. Please contact support.",
+        );
       } else {
-        if (data.error === "Invalid credentials") {
-          setLocalError(isRTL ? "البريد الإلكتروني أو كلمة المرور غير صحيحة" : "Invalid email/mobile or password");
-        } else if (data.error === "Account is suspended") {
-          setLocalError(isRTL ? "هذا الحساب موقوف. يرجى التواصل مع الدعم." : "Your account has been suspended. Please contact support.");
-        } else {
-          setLocalError(data.error || (isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again"));
-        }
+        setLocalError(
+          data.error ||
+            (isRTL ? "حدث خطأ، يرجى المحاولة مرة أخرى" : "Something went wrong, please try again"),
+        );
       }
     } catch {
       setLocalError(isRTL ? "تعذر الاتصال بالخادم" : "Could not reach server");
@@ -161,55 +157,54 @@ export default function LoginScreen() {
           <Text style={[styles.appName, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>
             {t("app.name")}
           </Text>
-          <Text style={[styles.tagline, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+          <Text
+            style={[
+              styles.tagline,
+              { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+            ]}
+          >
             {t("app.tagline")}
           </Text>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
-          <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold", textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "تسجيل الدخول بحساب Google" : "Sign in with Google"}
+          <Text
+            style={[
+              styles.cardTitle,
+              {
+                color: colors.foreground,
+                fontFamily: "Inter_600SemiBold",
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+          >
+            {isRTL ? "تسجيل الدخول" : "Sign in"}
           </Text>
-          <Text style={[styles.cardDesc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }]}>
+          <Text
+            style={[
+              styles.cardDesc,
+              {
+                color: colors.mutedForeground,
+                fontFamily: "Inter_400Regular",
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+          >
             {isRTL
-              ? "استخدم حسابك على Google للدخول الآمن إلى تطبيق فني"
-              : "Use your Google account to securely access the Fanni app"}
-          </Text>
-
-          <FanniButton
-            title={isRTL ? "الدخول عبر حساب Google" : "Continue with Google"}
-            onPress={handleGoogleLogin}
-            loading={googleLoading}
-            fullWidth
-            style={{ marginTop: 4, opacity: googleConfigured ? 1 : 0.85 }}
-          />
-          {!googleConfigured ? (
-            <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left", fontFamily: "Inter_400Regular" }}>
-              {isRTL
-                ? "يتطلب ضبط معرّفات Google OAuth في إعدادات البناء."
-                : "Requires Google OAuth client IDs in the build configuration."}
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={[styles.divider, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-          <Text style={[styles.dividerText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            {isRTL ? "أو" : "or"}
-          </Text>
-          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius * 1.5 }]}>
-          <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold", textAlign: isRTL ? "right" : "left" }]}>
-            {isRTL ? "الدخول بكلمة المرور" : "Sign in with Password"}
+              ? "ادخل بالبريد أو رقم الهاتف وكلمة المرور"
+              : "Sign in with email or mobile and your password"}
           </Text>
 
           <FanniInput
             label={t("forgot.identifier")}
             value={identifier}
-            onChangeText={(v) => { setIdentifier(v); setLocalError(""); }}
-            placeholder={isRTL ? "example@email.com أو 01XXXXXXXXX" : "example@email.com or 01XXXXXXXXX"}
+            onChangeText={(v) => {
+              setIdentifier(v);
+              setLocalError("");
+            }}
+            placeholder={
+              isRTL ? "example@email.com أو 01XXXXXXXXX" : "example@email.com or 01XXXXXXXXX"
+            }
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -218,20 +213,35 @@ export default function LoginScreen() {
             <FanniInput
               label={t("login.password")}
               value={password}
-              onChangeText={(v) => { setPassword(v); setLocalError(""); }}
+              onChangeText={(v) => {
+                setPassword(v);
+                setLocalError("");
+              }}
               placeholder="••••••••"
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity
-              style={[styles.eyeBtn, { right: isRTL ? undefined : 12, left: isRTL ? 12 : undefined }]}
+              style={[
+                styles.eyeBtn,
+                { right: isRTL ? undefined : 12, left: isRTL ? 12 : undefined },
+              ]}
               onPress={() => setShowPassword(!showPassword)}
             >
-              <VectorIcon name={showPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+              <VectorIcon
+                name={showPassword ? "eye-off" : "eye"}
+                size={18}
+                color={colors.mutedForeground}
+              />
             </TouchableOpacity>
           </View>
 
           {!!localError && (
-            <Text style={[styles.error, { color: colors.destructive, textAlign: isRTL ? "right" : "left" }]}>
+            <Text
+              style={[
+                styles.error,
+                { color: colors.destructive, textAlign: isRTL ? "right" : "left" },
+              ]}
+            >
               {localError}
             </Text>
           )}
@@ -247,18 +257,30 @@ export default function LoginScreen() {
             onPress={() => router.push("/forgot-password")}
             style={styles.forgotBtn}
           >
-            <Text style={[styles.forgotText, { color: colors.primary, fontFamily: "Inter_500Medium" }]}>
+            <Text
+              style={[styles.forgotText, { color: colors.primary, fontFamily: "Inter_500Medium" }]}
+            >
               {t("login.forgot")}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={[styles.registerHint, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          <Text style={[styles.registerHintText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+          <Text
+            style={[
+              styles.registerHintText,
+              { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+            ]}
+          >
             {t("login.noAccount")}{" "}
           </Text>
           <TouchableOpacity onPress={() => router.push("/register")}>
-            <Text style={[styles.registerHintLink, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+            <Text
+              style={[
+                styles.registerHintLink,
+                { color: colors.primary, fontFamily: "Inter_600SemiBold" },
+              ]}
+            >
               {t("login.register")}
             </Text>
           </TouchableOpacity>
@@ -313,13 +335,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  divider: {
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 4,
-  },
-  dividerLine: { flex: 1, height: 1 },
-  dividerText: { fontSize: 13 },
   forgotBtn: { alignItems: "center", paddingVertical: 4 },
   forgotText: { fontSize: 14 },
   eyeBtn: { position: "absolute", bottom: 18, zIndex: 1 },

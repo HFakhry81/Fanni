@@ -79,7 +79,7 @@ export default function NewOrderScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { addOrder } = useOrders();
-  const { sessionToken, isAuthenticated, isLoading: authLoading, login } = useAuth();
+  const { sessionToken, isAuthenticated, isLoading: authLoading } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<OrderStep>(1);
@@ -344,15 +344,7 @@ export default function NewOrderScreen() {
         .map((p) => ({ id: p.id, uri: p.uri, phase: p.phase })),
     };
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    const result = await login();
-    // Only discard the draft when the login definitively failed or was abandoned.
-    // "opened" means the browser is still open; "success" means auth completed.
-    // For any other unexpected result we keep the draft to avoid data loss.
-    if (result === "cancel" || result === "dismiss" || result === "error" || result === "locked") {
-      await AsyncStorage.removeItem(DRAFT_KEY);
-      // Re-enable unmount auto-save so further edits aren't silently dropped.
-      loginDraftSavedRef.current = false;
-    }
+    router.push("/login");
   };
 
   // ── Draft banner handlers ─────────────────────────────────────────────────────

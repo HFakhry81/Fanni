@@ -9,7 +9,6 @@
       "pnpm": "10.15.1",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.upnexa-eg.com",
-        "EXPO_PUBLIC_ISSUER_URL": "https://accounts.google.com",
         "EXPO_ROUTER_APP_ROOT": "./app",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "SENTRY_ALLOW_FAILURE": "true",
@@ -25,7 +24,6 @@
       "pnpm": "10.15.1",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.upnexa-eg.com",
-        "EXPO_PUBLIC_ISSUER_URL": "https://accounts.google.com",
         "EXPO_ROUTER_APP_ROOT": "./app",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "SENTRY_ALLOW_FAILURE": "true",

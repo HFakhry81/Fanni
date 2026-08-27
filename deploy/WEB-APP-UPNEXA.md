@@ -19,7 +19,6 @@
 cd C:\Fanni\artifacts\mobile
 $env:NODE_OPTIONS="--use-system-ca"
 $env:EXPO_PUBLIC_API_URL="https://api.upnexa-eg.com"
-$env:EXPO_PUBLIC_ISSUER_URL="https://accounts.google.com"
 $env:EXPO_ROUTER_APP_ROOT="./app"
 pnpm exec expo export --platform web --output-dir dist-web
 ```
