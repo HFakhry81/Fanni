@@ -21,6 +21,7 @@ import WorkHoursPickerSheet from "@/components/WorkHoursPickerSheet";
 import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
 import { appendImageToFormData } from "@/utils/appendImageToFormData";
+import { getTechnicianIdPhotosError } from "@/utils/technicianRegisterValidation";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -87,6 +88,8 @@ export default function RegisterScreen() {
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [verificationToken, setVerificationToken] = useState("");
   const otpInputRefs = useRef<(TextInput | null)[]>([]);
+  const scrollRef = useRef<import("react-native").ScrollView | null>(null);
+  const idPhotosSectionY = useRef(0);
 
   useEffect(() => {
     // Fetch backend config to know if OTP is mandatory
@@ -226,6 +229,9 @@ export default function RegisterScreen() {
       if (slot === "front") setNationalIdFrontUri(uri);
       else if (slot === "back") setNationalIdBackUri(uri);
       else setLicenseCardUri(uri);
+      if (slot === "front" || slot === "back") {
+        setErrors((e) => ({ ...e, idPhotos: undefined }));
+      }
     }
   }, [isRTL]);
 
@@ -249,6 +255,9 @@ export default function RegisterScreen() {
       if (slot === "front") setNationalIdFrontUri(uri);
       else if (slot === "back") setNationalIdBackUri(uri);
       else setLicenseCardUri(uri);
+      if (slot === "front" || slot === "back") {
+        setErrors((e) => ({ ...e, idPhotos: undefined }));
+      }
     }
   }, [isRTL, pickPhoto]);
 
@@ -356,11 +365,8 @@ export default function RegisterScreen() {
       }
 
       if (regType === "technician") {
-        if (!nationalIdFrontUri || !nationalIdBackUri) {
-          newErrors.idPhotos = isRTL
-            ? "صور البطاقة (الوجه والظهر) إجبارية"
-            : "National ID photos (front and back) are required";
-        }
+        const idPhotoError = getTechnicianIdPhotosError(nationalIdFrontUri, nationalIdBackUri, isRTL);
+        if (idPhotoError) newErrors.idPhotos = idPhotoError;
       }
 
       if (!password) {
@@ -424,6 +430,15 @@ export default function RegisterScreen() {
     }
 
     setErrors(newErrors);
+    if (newErrors.idPhotos) {
+      Alert.alert(
+        isRTL ? "صور البطاقة مطلوبة" : "ID photos required",
+        newErrors.idPhotos,
+      );
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y: Math.max(idPhotosSectionY.current - 24, 0), animated: true });
+      });
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -474,6 +489,18 @@ export default function RegisterScreen() {
       setStep(step + 1);
     } else {
       setApiError("");
+      if (regType === "technician") {
+        const idPhotoError = getTechnicianIdPhotosError(nationalIdFrontUri, nationalIdBackUri, isRTL);
+        if (idPhotoError) {
+          setStep(1);
+          setErrors({ idPhotos: idPhotoError });
+          setApiError(idPhotoError);
+          requestAnimationFrame(() => {
+            scrollRef.current?.scrollTo({ y: Math.max(idPhotosSectionY.current - 24, 0), animated: true });
+          });
+          return;
+        }
+      }
       setLoading(true);
       // Re-check OTP setting before submitting — it may have changed mid-session
       try {
@@ -801,7 +828,10 @@ export default function RegisterScreen() {
       )}
 
       {regType === "technician" && (
-        <View style={{ gap: 10 }}>
+        <View
+          style={{ gap: 10 }}
+          onLayout={(e) => { idPhotosSectionY.current = e.nativeEvent.layout.y; }}
+        >
           <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, textAlign: isRTL ? "right" : "left", marginBottom: 2 }}>
             {isRTL ? "صور بطاقة الهوية الوطنية" : "National ID Photos"} <Text style={{ color: colors.destructive }}>*</Text>
           </Text>
@@ -1444,6 +1474,7 @@ export default function RegisterScreen() {
       </View>
 
       <KeyboardAwareScrollViewCompat
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 120 }]}
         keyboardShouldPersistTaps="handled"
