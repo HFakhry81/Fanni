@@ -2,9 +2,6 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useApp } from "@/context/AppContext";
-import { useColors } from "@/hooks/useColors";
-
-type Status = "pending" | "accepted" | "inProgress" | "completed" | "cancelled";
 
 interface StatusBadgeProps {
   status: string;
@@ -29,7 +26,6 @@ const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
 
 export default function StatusBadge({ status, size = "sm" }: StatusBadgeProps) {
   const { isRTL } = useApp();
-  const colors = useColors();
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG["pending"];
   const labels = STATUS_LABELS[status] ?? { ar: status, en: status };
   const label = isRTL ? labels.ar : labels.en;

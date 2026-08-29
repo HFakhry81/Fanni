@@ -87,7 +87,7 @@ function monthAgoStr() {
 
 export default function AdminLedgerScreen() {
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { isRTL } = useApp();
   const { sessionToken } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;

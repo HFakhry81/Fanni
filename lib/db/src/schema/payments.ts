@@ -1,4 +1,4 @@
-import { boolean, integer, json, numeric, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, integer, json, numeric, pgEnum, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { usersTable } from "./auth";
 import { pointPackagesTable, walletTransactionsTable } from "./points";

@@ -56,7 +56,7 @@ const ROLES: RoleOption[] = [
 export default function SelectRoleScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { isRTL } = useApp();
   const { setRole, logout } = useAuth();
   const insets = useSafeAreaInsets();
 

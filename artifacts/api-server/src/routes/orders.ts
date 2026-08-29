@@ -2,16 +2,16 @@ import { Router, type IRouter, type Request } from "express";
 import { sql, desc, eq, and, inArray, not } from "drizzle-orm";
 import { broadcastNewOrder, broadcastOrderStatusToClient, removeOrderFromPending, broadcastOrderCancelledToTechnicians } from "../lib/orderBroadcaster";
 import { logger } from "../lib/logger";
-import { db, ordersTable, pool, usersTable, leadUnlocksTable, walletTransactionsTable, orderDeclinesTable, disputesTable } from "@workspace/db";
+import { db, ordersTable, pool, usersTable, leadUnlocksTable, orderDeclinesTable, disputesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../lib/locationNormalizer";
 import { queryString } from "../lib/queryParams";
-import { sendOrderStatusPushNotification, sendExpoPushNotification } from "../lib/pushNotifications";
+import { sendOrderStatusPushNotification } from "../lib/pushNotifications";
 import { sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
-import { resolveLeadCost } from "../lib/leadPricing";
-import { contactFromOrderData, InsufficientPointsError, maskSensitiveOrderFields, refundEligibleUnlocksForCancelledOrder, unlockLeadAtomically } from "../lib/leadUnlock";
+import { InsufficientPointsError, maskSensitiveOrderFields, refundEligibleUnlocksForCancelledOrder, unlockLeadAtomically } from "../lib/leadUnlock";
 import { maskPhoneDisplay } from "../lib/phone";
+import { markTechnicianBusy, markTechnicianAvailable } from "../lib/orderLifecycle";
 
 const router: IRouter = Router();
 
@@ -293,45 +293,6 @@ function leadErrorResponse(res: import("express").Response, err: unknown, orderI
   return false;
 }
 
-async function assignPendingOrderToTechnician(opts: {
-  orderId: string;
-  technicianId: string;
-  technicianName?: string;
-  technicianMobile?: string;
-  technicianAvatar?: string;
-  technicianRating?: number;
-}): Promise<{ clientId: string | null } | null> {
-  const dataPatch: Record<string, unknown> = {
-    status: "en_route",
-    technicianId: opts.technicianId,
-  };
-  if (opts.technicianName !== undefined) dataPatch.technicianName = opts.technicianName;
-  if (opts.technicianMobile !== undefined) dataPatch.technicianMobile = opts.technicianMobile;
-  if (opts.technicianAvatar !== undefined) dataPatch.technicianAvatar = opts.technicianAvatar;
-  if (opts.technicianRating !== undefined) dataPatch.technicianRating = opts.technicianRating;
-
-  let updated: { clientId: string | null } | undefined;
-  await db.transaction(async (tx) => {
-    const locked = await tx.execute(
-      sql`SELECT id FROM orders WHERE id = ${opts.orderId} AND status = 'pending' FOR UPDATE SKIP LOCKED`,
-    );
-    if (locked.rows.length === 0) return;
-    const rows = await tx
-      .update(ordersTable)
-      .set({
-        status: "en_route",
-        technicianId: opts.technicianId,
-        acknowledgedAt: new Date(),
-        updatedAt: new Date(),
-        data: sql`${ordersTable.data} || ${JSON.stringify(dataPatch)}::jsonb`,
-      })
-      .where(and(eq(ordersTable.id, opts.orderId), eq(ordersTable.status, "pending")))
-      .returning({ clientId: ordersTable.clientId });
-    updated = rows[0];
-  });
-  return updated ?? null;
-}
-
 function notifyClientAccepted(orderId: string, clientId: string, technician: {
   technicianId: string;
   technicianName?: string;
@@ -477,7 +438,6 @@ router.post("/orders/:id/accept", authMiddleware, requireAuth, async (req: Reque
     }
     res.json({
       success: true,
-      assigned: true,
       ...result,
       contact: { ...result.contact, clientMobile: maskPhoneDisplay(result.contact.clientMobile as string | null) },
     });

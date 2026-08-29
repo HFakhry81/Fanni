@@ -60,7 +60,7 @@ export default function AdminPermissionsScreen() {
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [ownPermissions, setOwnPermissions] = useState<string[]>([]);
+  const [, setOwnPermissions] = useState<string[]>([]);
   const [initLoading, setInitLoading] = useState(true);
 
   const [adminsList, setAdminsList] = useState<AdminEntry[]>([]);

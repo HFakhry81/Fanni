@@ -23,7 +23,7 @@ interface MissedLocation {
 
 export default function MissedLocationsScreen() {
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { isRTL } = useApp();
   const { sessionToken } = useAuth();
 
   const [logs, setLogs] = useState<MissedLocation[]>([]);

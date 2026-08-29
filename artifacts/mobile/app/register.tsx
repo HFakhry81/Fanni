@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Platform, TextInput, Modal, Image, ActivityIndicator, Alert,
+  TouchableOpacity, Platform, TextInput, Modal, Image, Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -67,7 +67,7 @@ export default function RegisterScreen() {
   const [nationalIdFrontUri, setNationalIdFrontUri] = useState<string | null>(null);
   const [nationalIdBackUri, setNationalIdBackUri] = useState<string | null>(null);
   const [licenseCardUri, setLicenseCardUri] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState<"front" | "back" | "license" | null>(null);
+  const [, setUploadingPhoto] = useState<"front" | "back" | "license" | null>(null);
 
   // ── Location (shared) ──────────────────────────────────────────────────────
   const [addrVal, setAddrVal] = useState<AddressValue>(EMPTY_ADDRESS);

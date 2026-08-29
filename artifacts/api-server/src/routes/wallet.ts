@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { eq, desc, sql } from "drizzle-orm";
-import { db, walletsTable, walletTransactionsTable, pointPackagesTable, leadUnlocksTable, unlockCostsTable, operationalExpensesTable, leadPricingRulesTable } from "@workspace/db";
+import { db, walletsTable, walletTransactionsTable, pointPackagesTable, unlockCostsTable, operationalExpensesTable, leadPricingRulesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";

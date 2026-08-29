@@ -133,17 +133,17 @@ router.post("/voice/bridge", async (req, res) => {
       ? await db.select().from(maskedCallSessionsTable).where(eq(maskedCallSessionsTable.id, sessionId)).limit(1)
       : [];
     if (!session) {
-      response.say({ language: "ar-EG" }, "تعذر إكمال الاتصال.");
+      response.say({ language: "ar-EG" as "ar-AE" }, "تعذر إكمال الاتصال.");
       res.type("text/xml").send(response.toString());
       return;
     }
     const [order] = await db.select({ status: ordersTable.status }).from(ordersTable).where(eq(ordersTable.id, session.orderId)).limit(1);
     if (!order || !ALLOWED_STATUSES.includes(order.status)) {
-      response.say({ language: "ar-EG" }, "الطلب لم يعد متاحا للاتصال.");
+      response.say({ language: "ar-EG" as "ar-AE" }, "الطلب لم يعد متاحا للاتصال.");
       res.type("text/xml").send(response.toString());
       return;
     }
-    response.say({ language: "ar-EG" }, "جاري توصيلك عبر منصة فني.");
+    response.say({ language: "ar-EG" as "ar-AE" }, "جاري توصيلك عبر منصة فني.");
     const dial = response.dial({
       callerId: process.env.TWILIO_VOICE_NUMBER,
       timeout: 25,
@@ -152,7 +152,7 @@ router.post("/voice/bridge", async (req, res) => {
     res.type("text/xml").send(response.toString());
   } catch (err) {
     logger.error({ err, sessionId }, "Masked call TwiML failed");
-    response.say({ language: "ar-EG" }, "حدث خطأ. حاول مرة أخرى.");
+    response.say({ language: "ar-EG" as "ar-AE" }, "حدث خطأ. حاول مرة أخرى.");
     res.type("text/xml").send(response.toString());
   }
 });

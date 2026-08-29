@@ -55,7 +55,7 @@ function NativeAdminTabs() {
 // ─── Classic tabs (Android / web / older iOS) ────────────────────────────────
 function ClassicAdminTabs() {
   const colors = useColors();
-  const { t, isRTL } = useApp();
+  const { isRTL } = useApp();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -166,7 +166,6 @@ function ClassicAdminTabs() {
 export default function AdminTabsLayout() {
   const { user } = useAuth();
   const { t, isRTL } = useApp();
-  const colors = useColors();
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const showBanner = !bannerDismissed && user?.mustChangePassword === true;

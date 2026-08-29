@@ -39,7 +39,6 @@ import {
   EGYPT_GOV_COORDINATES,
   EGYPT_CENTER,
   getGovById,
-  GovCoordinate,
 } from "../constants/egyptLocations";
 import { getApiBase } from "../utils/api";
 import { KeyboardAvoidingSheet } from "./KeyboardAwareScrollViewCompat";

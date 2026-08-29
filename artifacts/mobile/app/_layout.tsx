@@ -386,8 +386,6 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
 }
 
 function RootLayoutNav() {
-  const { isRTL } = useApp();
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />

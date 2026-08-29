@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
+import VectorIcon, { toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import FanniButton from "@/components/FanniButton";

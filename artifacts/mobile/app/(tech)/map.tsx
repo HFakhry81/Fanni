@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
-import StatusBadge from "@/components/StatusBadge";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
@@ -21,7 +19,6 @@ export default function TechMapScreen() {
   const { t, isRTL, user, isOnline, setIsOnline, hasPendingToggle } = useApp();
   const { sessionToken } = useAuth();
   const { allOrders, updateOrder, newPendingOrders, markOrderSeen } = useOrders();
-  const insets = useSafeAreaInsets();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -80,15 +77,15 @@ export default function TechMapScreen() {
   };
 
   useEffect(() => {
-    if (isOnline) {
-      fetchServerPendingOrders();
-      const intervalId = setInterval(() => {
-        fetchServerPendingOrders();
-      }, 30_000);
-      return () => clearInterval(intervalId);
-    } else {
+    if (!isOnline) {
       setServerPendingOrders(null);
+      return;
     }
+    fetchServerPendingOrders();
+    const intervalId = setInterval(() => {
+      fetchServerPendingOrders();
+    }, 30_000);
+    return () => clearInterval(intervalId);
   }, [isOnline, sessionToken, user?.governorate, user?.area]);
 
   const localPendingOrders = allOrders.filter((o) => o.status === "pending");

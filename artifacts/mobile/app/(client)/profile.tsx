@@ -18,7 +18,7 @@ import OtpVerifyModal from "@/components/OtpVerifyModal";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
 import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
-import { serializeAddress, deserializeAddress } from "@/utils/addressHelpers";
+import { deserializeAddress } from "@/utils/addressHelpers";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import AppIdentityCard from "@/components/AppIdentityCard";

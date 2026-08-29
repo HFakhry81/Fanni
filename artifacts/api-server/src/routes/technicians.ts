@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool, walletsTable, leadUnlocksTable, unlockCostsTable, walletTransactionsTable, orderDeclinesTable } from "@workspace/db";
+import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool, leadUnlocksTable, unlockCostsTable, orderDeclinesTable } from "@workspace/db";
 import { and, eq, ne, sql, SQL, inArray } from "drizzle-orm";
 import { maskPhoneDisplay } from "../lib/phone";
 import { authMiddleware } from "../middlewares/authMiddleware";

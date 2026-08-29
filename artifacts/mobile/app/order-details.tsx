@@ -99,7 +99,6 @@ export default function OrderDetailsScreen() {
     };
   }
 
-  const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   if (!order) {

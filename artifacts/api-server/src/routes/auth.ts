@@ -11,7 +11,7 @@ import {
   registerSchema,
 } from "@workspace/api-zod";
 import { db, pool, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
-import { eq, and, gt, isNull, lt, desc, sql } from "drizzle-orm";
+import { eq, and, gt, isNull, desc, sql } from "drizzle-orm";
 import { geocodeArea } from "../lib/geocode";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import { sendWelcomeSms, sendSms } from "../lib/sms";

@@ -1,0 +1,17 @@
+---
+description: Self-check loop — TypeScript, ESLint, and tests before finishing
+alwaysApply: true
+---
+
+# Quality loop (TypeScript + ESLint + Jest/Vitest)
+
+After editing TypeScript or React Native code:
+
+1. **Type safety** — Run `pnpm run typecheck` (or `npx tsc --noEmit` in the package you changed). Fix every error. Do not use `any`; prefer `unknown`, generics, or narrow types.
+2. **Lint** — Run `pnpm run lint` and resolve reported issues. The ESLint extension (`dbaeumer.vscode-eslint`) should stay enabled in Cursor so diagnostics appear inline.
+3. **Tests** — For new logic (stores, utils, API handlers), add or update tests in the same change:
+   - Mobile: Jest in `artifacts/mobile` (`pnpm --filter @workspace/mobile test`)
+   - API: Vitest in `artifacts/api-server` (`pnpm --filter @workspace/api-server test`)
+4. **Strict mode** — Match `strict: true`, `noUnusedLocals`, and `noImplicitReturns` from `tsconfig.base.json`. When asked to refactor a file for strict mode, eliminate `any` and unused bindings.
+
+Before marking work complete, run the relevant commands above and fix failures.

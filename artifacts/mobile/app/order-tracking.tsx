@@ -7,8 +7,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
-  Linking,
-  Animated,
   Share,
   Alert,
 } from "react-native";
@@ -750,7 +748,6 @@ function buildTrafficSegments(coords: Array<{ lat: number; lng: number }>, color
 const TILE_SIZE = 256;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 18;
-const INITIAL_ZOOM = 14;
 
 interface WebMapViewProps extends MapProps {
   colors: AppColors;
