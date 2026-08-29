@@ -1,3 +1,107 @@
+# تحديث كامل للـ VPS — v1.0.9 (29 أغسطس 2026)
+
+يشمل: **كود API + migrate 024 + واجهة ويب + APK 1.0.9**.
+
+| المكوّن | ماذا يتغيّر |
+|--------|-------------|
+| API / DB | `git pull` ثم `deploy-vps.sh` → install + **migrate (024)** + seed + PM2 reload + تصدير ويب على السيرفر |
+| ويب | `https://app.upnexa-eg.com` من `/var/www/fanni-web` |
+| APK | بناء EAS من ويندوز ثم رفع `fanni.apk` إلى `/var/www/fanni-web/fanni.apk` |
+
+> الـ VPS **لا يبني** Android. الويب يمكن بناؤه على السيرفر داخل `deploy-vps.sh` أو رفعه جاهزًا من ويندوز.
+
+---
+
+## أ) على ويندوز — قبل/أثناء النشر
+
+1. تأكد أن `main` محدّث (الإصدار `1.0.9` / `versionCode` 9).
+2. بناء APK (إن لم يكن قيد التشغيل):
+
+```powershell
+cd C:\Fanni
+powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
+```
+
+3. بعد انتهاء EAS: نزّل الـ APK من صفحة البناء على expo.dev واحفظه كـ `fanni.apk`.
+4. (اختياري) حزمة WinSCP تحتوي الكود + ويب جاهز:
+
+```powershell
+cd C:\Fanni
+powershell -ExecutionPolicy Bypass -File scripts\pack-vps-upload.ps1
+```
+
+ينتج: `%USERPROFILE%\Downloads\fanni-vps-upload.zip`
+
+---
+
+## ب) على الـ VPS — مسار Git (المفضّل)
+
+```bash
+cd /var/www/fanni
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+
+# مهم إن وُجدت نهايات سطر ويندوز:
+sed -i 's/\r$//' scripts/deploy-vps.sh
+
+export FANNI_APP_DIR=/var/www/fanni
+# إن كان اسم PM2 مختلفًا: export FANNI_PM2_NAME=...
+bash scripts/deploy-vps.sh
+```
+
+ما يفعله السكربت تلقائيًا:
+
+1. `pnpm install --frozen-lockfile`
+2. `pnpm --filter @workspace/db run migrate` ← يطبّق **024** (`icon` للمجالات/التخصصات) إن لم تُطبَّق
+3. `seed`
+4. بناء API + إعادة تحميل PM2
+5. `expo export --platform web` → مزامنة إلى `/var/www/fanni-web`
+
+تحقق:
+
+```bash
+curl -sS http://127.0.0.1:5000/api/healthz
+curl -sS https://api.upnexa-eg.com/api/healthz
+# تأكد أن migrate وصلت (مثال):
+# psql "$DATABASE_URL" -c "\d service_specializations" | grep icon
+```
+
+### migrate يدوي فقط (إن احتجت)
+
+```bash
+cd /var/www/fanni
+set -a && . ./.env && set +a
+pnpm --filter @workspace/db run migrate
+```
+
+محتوى **024**: توسيع `service_domains.icon` إلى `varchar(500)` وإضافة عمود `service_specializations.icon`.
+
+---
+
+## ج) رفع APK 1.0.9 على الـ VPS
+
+بعد تنزيل APK من EAS (WinSCP → `/root/fanni.apk`):
+
+```bash
+install -d /var/www/fanni-web
+cp /root/fanni.apk /var/www/fanni-web/fanni.apk
+chmod 644 /var/www/fanni-web/fanni.apk
+ls -la /var/www/fanni-web/fanni.apk
+```
+
+رابط التحميل: `https://app.upnexa-eg.com/fanni.apk`
+
+على الهاتف: أزل النسخة القديمة إن لزم، ثبّت من الرابط، وتحقق أن الإصدار المعروض **1.0.9**.
+
+---
+
+## د) مسار WinSCP (احتياطي بدون git pull)
+
+اتبع القسم «رفع الباك اند + الفرونت عبر WinSCP» أدناه بعد تشغيل `pack-vps-upload.ps1`، ثم نفّذ `deploy-vps.sh`، ثم ارفع الـ APK كما في (ج).
+
+---
+
 # نشر الإنتاج عبر GitHub (المسار المعتمد)
 
 المستودع: `https://github.com/HFakhry81/Fanni`.
