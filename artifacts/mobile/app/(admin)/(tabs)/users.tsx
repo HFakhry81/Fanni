@@ -306,7 +306,11 @@ function UserListView({
   const fetchUsers = useCallback(
     async (refresh = false) => {
       if (!sessionToken) return;
-      refresh ? setRefreshing(true) : setLoading(true);
+      if (refresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       try {
         const base = getApiBase();
         const params = new URLSearchParams({

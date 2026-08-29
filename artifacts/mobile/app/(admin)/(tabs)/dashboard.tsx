@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -151,7 +151,7 @@ export default function AdminDashboardScreen() {
     );
   }
 
-  const quickActions: { icon: IconName; label: string; color: string; route: string }[] = [
+  const quickActions: { icon: IconName; label: string; color: string; route: Href }[] = [
     { icon: "users", label: t("admin.users"), color: colors.secondary, route: "/(admin)/(tabs)/users" },
     { icon: "list", label: t("admin.orders"), color: colors.primary, route: "/(admin)/(tabs)/orders" },
     { icon: "credit-card", label: isRTL ? "المدفوعات" : "Payments", color: "#22A36B", route: "/(admin)/(tabs)/payments" },
@@ -268,7 +268,7 @@ export default function AdminDashboardScreen() {
             <TouchableOpacity
               key={item.label}
               style={[styles.actionCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, width: "23%" }]}
-              onPress={() => router.push(item.route as any)}
+              onPress={() => router.push(item.route)}
               activeOpacity={0.85}
             >
               <View style={[styles.actionIcon, { backgroundColor: item.color + "18", borderRadius: 12 }]}>

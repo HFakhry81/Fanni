@@ -10,6 +10,8 @@ import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import AppHeader from "@/components/AppHeader";
+import CATEGORY_ICON_MAP from "@/constants/categoryIconMap";
+import SUB_IMAGE_MAP from "@/constants/subImageMap";
 
 type Category = {
   id: string;
@@ -19,50 +21,50 @@ type Category = {
 };
 
 const CATEGORIES: Category[] = [
-  { id: "electricity", image: require("@/assets/images/icon_electricity.webp"), color: "#F5A623" },
-  { id: "plumbing",    image: require("@/assets/images/icon_plumbing.webp"),    color: "#4DADD9" },
-  { id: "ac",          image: require("@/assets/images/icon_ac.webp"),          color: "#2B8FBB" },
-  { id: "carpentry",   image: require("@/assets/images/icon_carpentry.webp"),   color: "#8B6F47" },
-  { id: "appliances",  image: require("@/assets/images/icon_appliances.webp"),  color: "#7C5CBF" },
-  { id: "painting",    image: require("@/assets/images/icon_painting.webp"),    color: "#E84393" },
-  { id: "pest",        image: require("@/assets/images/icon_pest.webp"),        color: "#22A36B" },
-  { id: "flooring",    image: require("@/assets/images/icon_flooring.webp"),    color: "#E67E22" },
+  { id: "electricity", image: CATEGORY_ICON_MAP.electricity, color: "#F5A623" },
+  { id: "plumbing",    image: CATEGORY_ICON_MAP.plumbing,    color: "#4DADD9" },
+  { id: "ac",          image: CATEGORY_ICON_MAP.ac,          color: "#2B8FBB" },
+  { id: "carpentry",   image: CATEGORY_ICON_MAP.carpentry,   color: "#8B6F47" },
+  { id: "appliances",  image: CATEGORY_ICON_MAP.appliances,  color: "#7C5CBF" },
+  { id: "painting",    image: CATEGORY_ICON_MAP.painting,    color: "#E84393" },
+  { id: "pest",        image: CATEGORY_ICON_MAP.pest,        color: "#22A36B" },
+  { id: "flooring",    image: CATEGORY_ICON_MAP.flooring,    color: "#E67E22" },
 ];
 
-const SUB_CATEGORIES: Record<string, { id: string; imageKey: string; image: ImageSourcePropType; label_ar: string; label_en: string }[]> = {
+const SUB_CATEGORIES: Record<string, { id: string; imageKey: keyof typeof SUB_IMAGE_MAP; label_ar: string; label_en: string }[]> = {
   electricity: [
-    { id: "wiring",        imageKey: "sub_electrical_wiring", image: require("@/assets/images/sub_electrical_wiring.webp"), label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
-    { id: "computers",     imageKey: "sub_computers",         image: require("@/assets/images/sub_computers.webp"),         label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
-    { id: "washingmachine",imageKey: "sub_washing_machine",   image: require("@/assets/images/sub_washing_machine.webp"),   label_ar: "غسالات",            label_en: "Washing Machines" },
-    { id: "heater",        imageKey: "sub_water_heater",      image: require("@/assets/images/sub_water_heater.webp"),      label_ar: "سخانات",            label_en: "Water Heaters" },
+    { id: "wiring",         imageKey: "sub_electrical_wiring", label_ar: "توصيلات كهربائية", label_en: "Electrical Wiring" },
+    { id: "computers",      imageKey: "sub_computers",         label_ar: "أجهزة كمبيوتر",    label_en: "Computers" },
+    { id: "washingmachine", imageKey: "sub_washing_machine",   label_ar: "غسالات",            label_en: "Washing Machines" },
+    { id: "heater",         imageKey: "sub_water_heater",      label_ar: "سخانات",            label_en: "Water Heaters" },
   ],
   ac: [
-    { id: "repair",   imageKey: "sub_ac_repair",   image: require("@/assets/images/sub_ac_repair.webp"),   label_ar: "صيانة مكيفات", label_en: "AC Repair" },
-    { id: "cleaning", imageKey: "sub_ac_cleaning", image: require("@/assets/images/sub_ac_cleaning.webp"), label_ar: "تنظيف مكيفات", label_en: "AC Cleaning" },
+    { id: "repair",   imageKey: "sub_ac_repair",   label_ar: "صيانة مكيفات", label_en: "AC Repair" },
+    { id: "cleaning", imageKey: "sub_ac_cleaning", label_ar: "تنظيف مكيفات", label_en: "AC Cleaning" },
   ],
   plumbing: [
-    { id: "pipes",    imageKey: "sub_pipes",    image: require("@/assets/images/sub_pipes.webp"),   label_ar: "مواسير",      label_en: "Pipes" },
-    { id: "sanitary", imageKey: "sub_sanitary", image: require("@/assets/images/sub_sanitary.webp"), label_ar: "أدوات صحية", label_en: "Sanitary" },
+    { id: "pipes",    imageKey: "sub_pipes",    label_ar: "مواسير",      label_en: "Pipes" },
+    { id: "sanitary", imageKey: "sub_sanitary", label_ar: "أدوات صحية", label_en: "Sanitary" },
   ],
   carpentry: [
-    { id: "doors",     imageKey: "sub_doors",     image: require("@/assets/images/sub_doors.webp"),     label_ar: "أبواب", label_en: "Doors" },
-    { id: "furniture", imageKey: "sub_furniture", image: require("@/assets/images/sub_furniture.webp"), label_ar: "أثاث",  label_en: "Furniture" },
+    { id: "doors",     imageKey: "sub_doors",     label_ar: "أبواب", label_en: "Doors" },
+    { id: "furniture", imageKey: "sub_furniture", label_ar: "أثاث",  label_en: "Furniture" },
   ],
   appliances: [
-    { id: "fridge",     imageKey: "sub_fridge",     image: require("@/assets/images/sub_fridge.webp"),     label_ar: "ثلاجات",       label_en: "Refrigerators" },
-    { id: "dishwasher", imageKey: "sub_dishwasher", image: require("@/assets/images/sub_dishwasher.webp"), label_ar: "غسالة أطباق", label_en: "Dishwasher" },
+    { id: "fridge",     imageKey: "sub_fridge",     label_ar: "ثلاجات",       label_en: "Refrigerators" },
+    { id: "dishwasher", imageKey: "sub_dishwasher", label_ar: "غسالة أطباق", label_en: "Dishwasher" },
   ],
   painting: [
-    { id: "interior", imageKey: "sub_interior_paint", image: require("@/assets/images/sub_interior_paint.webp"), label_ar: "دهان داخلي", label_en: "Interior Paint" },
-    { id: "exterior", imageKey: "sub_exterior_paint", image: require("@/assets/images/sub_exterior_paint.webp"), label_ar: "دهان خارجي", label_en: "Exterior Paint" },
+    { id: "interior", imageKey: "sub_interior_paint", label_ar: "دهان داخلي", label_en: "Interior Paint" },
+    { id: "exterior", imageKey: "sub_exterior_paint", label_ar: "دهان خارجي", label_en: "Exterior Paint" },
   ],
   pest: [
-    { id: "insects", imageKey: "sub_insects", image: require("@/assets/images/sub_insects.webp"), label_ar: "حشرات", label_en: "Insects" },
-    { id: "rodents", imageKey: "sub_rodents", image: require("@/assets/images/sub_rodents.webp"), label_ar: "قوارض", label_en: "Rodents" },
+    { id: "insects", imageKey: "sub_insects", label_ar: "حشرات", label_en: "Insects" },
+    { id: "rodents", imageKey: "sub_rodents", label_ar: "قوارض", label_en: "Rodents" },
   ],
   flooring: [
-    { id: "tiles",   imageKey: "sub_tiles",   image: require("@/assets/images/sub_tiles.webp"),   label_ar: "سيراميك", label_en: "Tiles" },
-    { id: "parquet", imageKey: "sub_parquet", image: require("@/assets/images/sub_parquet.webp"), label_ar: "باركيه",  label_en: "Parquet" },
+    { id: "tiles",   imageKey: "sub_tiles",   label_ar: "سيراميك", label_en: "Tiles" },
+    { id: "parquet", imageKey: "sub_parquet", label_ar: "باركيه",  label_en: "Parquet" },
   ],
 };
 
@@ -233,7 +235,7 @@ export default function ClientHomeScreen() {
                   activeOpacity={0.85}
                 >
                   <ImageBackground
-                    source={sub.image}
+                    source={SUB_IMAGE_MAP[sub.imageKey]}
                     style={styles.subBg}
                     resizeMode="cover"
                   >

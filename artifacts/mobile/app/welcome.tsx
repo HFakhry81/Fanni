@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import appIcon from "@/constants/appIcon";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function WelcomeScreen() {
         {/* Logo card */}
         <View style={[styles.logoCard, { backgroundColor: colors.navyMid, borderColor: "rgba(245,166,35,0.3)" }]}>
           <Image
-            source={require("../assets/images/icon.png")}
+            source={appIcon}
             style={styles.logo}
             resizeMode="cover"
           />

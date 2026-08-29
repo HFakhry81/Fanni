@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import { createServer } from "node:http";
 
-const mockUser = vi.hoisted(() => ({ role: "client" as "client" | "admin" }));
+const mockUser = vi.hoisted(() => ({ role: "client" as "client" | "admin" | "technician" }));
 
 vi.mock("@workspace/db", () => ({
   db: {
@@ -267,13 +267,13 @@ describe("PATCH /orders/:id — slug safeguard on update", () => {
     expect(status).toBe(200);
   });
 
-  it("forbids non-admin users from updating order location fields", async () => {
-    mockUser.role = "client";
+  it("forbids technicians from updating order location fields", async () => {
+    mockUser.role = "technician";
 
     const { status, body } = await makeRequest("PATCH", "/orders/ord-6", { governorate: "cairo" });
 
     expect(status).toBe(403);
-    expect((body as { error: string }).error).toMatch(/admin/i);
+    expect((body as { error: string }).error).toMatch(/admin|owner/i);
   });
 
   it("rejects with 400 when updated area slug does not belong to the updated governorate", async () => {

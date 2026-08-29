@@ -9,6 +9,7 @@ import {
   Image,
   Share,
   Alert,
+  type ViewStyle,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -405,6 +406,39 @@ export default function OrderTrackingScreen() {
     return () => { cancelled = true; };
   }, [routeData]);
 
+  const handleShare = useCallback(async () => {
+    const deepLink = `mobile://order-tracking?orderId=${orderId}`;
+    const apiBase = getApiBase();
+    const webLink = apiBase
+      ? `${apiBase.replace(/\/$/, "")}/order-tracking?orderId=${orderId}`
+      : "https://app.upnexa-eg.com";
+    const message = t("order.shareTrackingMsg");
+    if (Platform.OS === "web") {
+      const url = typeof window !== "undefined" ? window.location.href : (webLink ?? deepLink);
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({ title: t("order.shareTracking"), text: message, url });
+          return;
+        } catch {}
+      }
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(url);
+          Alert.alert(t("order.shareTrackingCopied"), url);
+          return;
+        } catch {}
+      }
+      Alert.alert(t("order.shareTracking"), url);
+    } else {
+      const shareText = webLink
+        ? `${message}\n${deepLink}\n\n${webLink}`
+        : `${message}\n${deepLink}`;
+      try {
+        await Share.share({ message: shareText, url: deepLink, title: t("order.shareTracking") });
+      } catch {}
+    }
+  }, [orderId, t]);
+
   if (!order) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
@@ -448,41 +482,6 @@ export default function OrderTrackingScreen() {
   }
 
   const mapProps: MapProps = { order, techLat, techLng, clientLat, clientLng, routeCoords, routeColors };
-
-  const handleShare = useCallback(async () => {
-    const deepLink = `mobile://order-tracking?orderId=${orderId}`;
-    const apiBase = getApiBase();
-    const webLink = apiBase
-      ? `${apiBase.replace(/\/$/, "")}/order-tracking?orderId=${orderId}`
-      : "https://app.upnexa-eg.com";
-    const message = t("order.shareTrackingMsg");
-    if (Platform.OS === "web") {
-      const url = typeof window !== "undefined" ? window.location.href : (webLink ?? deepLink);
-      if (typeof navigator !== "undefined" && navigator.share) {
-        try {
-          await navigator.share({ title: t("order.shareTracking"), text: message, url });
-          return;
-        } catch {}
-      }
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        try {
-          await navigator.clipboard.writeText(url);
-          Alert.alert(t("order.shareTrackingCopied"), url);
-          return;
-        } catch {}
-      }
-      Alert.alert(t("order.shareTracking"), url);
-    } else {
-      // Deep link opens the app directly when installed (mobile:// scheme).
-      // Web URL is included as fallback for recipients without the app.
-      const shareText = webLink
-        ? `${message}\n${deepLink}\n\n${webLink}`
-        : `${message}\n${deepLink}`;
-      try {
-        await Share.share({ message: shareText, url: deepLink, title: t("order.shareTracking") });
-      } catch {}
-    }
-  }, [orderId, t]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -1219,7 +1218,6 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     <View
       ref={containerRef}
       style={[styles.webMapContainer, { backgroundColor: "#d4e4f0" }]}
-      // @ts-ignore
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         sizeRef.current = { w: width, h: height };
@@ -1251,7 +1249,6 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
       ))}
 
       {Platform.OS === "web" && (
-        // @ts-ignore
         <svg
           style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
         >
@@ -1264,7 +1261,6 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
                 })
                 .join(" ");
               return (
-                // @ts-ignore
                 <polyline
                   key={i}
                   ref={(el) => { segmentPolylineRefsRef.current[i] = el as SVGPolylineElement | null; }}
@@ -1279,7 +1275,6 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
               );
             })
           ) : (
-            // @ts-ignore
             <line
               ref={(el) => { fallbackLineRef.current = el as SVGLineElement | null; }}
               x1={techScreen.x + PIN_HALF}
@@ -1301,10 +1296,8 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
         style={[
           styles.pinMarker,
           { left: techScreen.x, top: techScreen.y, backgroundColor: TECH_PIN_COLOR },
-          // @ts-ignore – CSS transition for web smooth animation (restored by React after imperative pan/zoom updates)
-          { transition: "left 1s linear, top 1s linear" },
+          { transition: "left 1s linear, top 1s linear" } as ViewStyle & { transition: string },
         ]}
-        // @ts-ignore
         pointerEvents="none"
       >
         <VectorIcon name="tool" size={11} color="#FFF" />
@@ -1315,7 +1308,6 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
           styles.pinMarker,
           { left: clientScreen.x, top: clientScreen.y, backgroundColor: CLIENT_PIN_COLOR },
         ]}
-        // @ts-ignore
         pointerEvents="none"
       >
         <VectorIcon name="home" size={11} color="#FFF" />
@@ -1374,7 +1366,6 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
               borderColor: colors.border,
             },
           ]}
-          // @ts-ignore
           pointerEvents="none"
         >
           <View style={[styles.trafficTooltipDot, { backgroundColor: trafficTooltip.color }]} />

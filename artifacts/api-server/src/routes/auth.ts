@@ -1523,7 +1523,7 @@ router.post("/auth/push-token", authMiddleware, requireAuth, async (req, res) =>
       .set({ expoPushToken: token, updatedAt: new Date() })
       .where(eq(usersTable.id, user.id));
     res.json({ success: true });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Failed to save push token" });
   }
 });

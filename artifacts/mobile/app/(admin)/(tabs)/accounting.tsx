@@ -432,7 +432,7 @@ export default function AdminAccountingScreen() {
                     </Text>
                   ))}
                 </View>
-                {data?.byMethod?.map((row, i) => (
+                {data?.byMethod?.map((row) => (
                   <View
                     key={row.payment_method}
                     style={[

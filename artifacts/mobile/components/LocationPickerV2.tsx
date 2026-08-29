@@ -903,7 +903,7 @@ function useDropdownStyles(colors: ReturnType<typeof useColors>) {
   });
 }
 
-function useMapModalStyles(colors: ReturnType<typeof useColors>) {
+function useMapModalStyles(_colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: {
       flex: 1,

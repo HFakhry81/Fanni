@@ -9,6 +9,7 @@ import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useLocationLabels } from "@/hooks/useLocationLabels";
+import appIcon from "@/constants/appIcon";
 
 const DEFAULT_SERVICE_FEE_RATE = 15;
 const DEFAULT_VAT_RATE = 14;
@@ -197,7 +198,7 @@ export default function AdminOrdersScreen() {
                       onPress={() => setExpandedInvoices((prev) => ({ ...prev, [item.id]: !invoiceExpanded }))}
                       activeOpacity={0.75}
                     >
-                      <Image source={require("@/assets/images/icon.png")} style={styles.invoiceLogo} resizeMode="contain" />
+                      <Image source={appIcon} style={styles.invoiceLogo} resizeMode="contain" />
                       <View style={{ flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                         <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
                           {inv3

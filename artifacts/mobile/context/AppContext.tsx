@@ -605,8 +605,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       res = await fetch(`${apiBase}/api/auth/user`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
-    } catch (networkErr) {
-      throw networkErr;
+    } catch {
+      return false;
     }
     if (!res.ok) return false;
     try {

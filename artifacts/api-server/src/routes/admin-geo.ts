@@ -87,7 +87,7 @@ router.get("/api/admin/location-miss-log", authMiddleware, requireAuth, requireA
       .orderBy(desc(locationMissLogTable.seenCount));
 
     return res.json({ success: true, logs });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch miss logs" });
   }
 });

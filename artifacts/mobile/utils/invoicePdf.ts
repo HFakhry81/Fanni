@@ -4,12 +4,13 @@ import { Asset } from "expo-asset";
 import { readAsStringAsync } from "expo-file-system/legacy";
 import { Alert } from "react-native";
 import { Order, ThreePartyInvoice } from "@/context/OrderContext";
+import appIcon from "@/constants/appIcon";
 
 export type TranslateFn = (key: string) => string;
 
 async function loadLogoDataUri(): Promise<string> {
   try {
-    const asset = Asset.fromModule(require("@/assets/images/icon.png"));
+    const asset = Asset.fromModule(appIcon);
     await asset.downloadAsync();
     if (asset.localUri) {
       const base64 = await readAsStringAsync(asset.localUri, { encoding: "base64" });

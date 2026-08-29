@@ -39,7 +39,17 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-function NativeTechTabs({ availablePendingCount, unreadCompletedCount, profileSetupIncomplete, notifUnreadCount }: { availablePendingCount: number; unreadCompletedCount: number; profileSetupIncomplete: boolean; notifUnreadCount: number }) {
+function NativeTechTabs({
+  availablePendingCount: _availablePendingCount,
+  unreadCompletedCount: _unreadCompletedCount,
+  profileSetupIncomplete: _profileSetupIncomplete,
+  notifUnreadCount: _notifUnreadCount,
+}: {
+  availablePendingCount: number;
+  unreadCompletedCount: number;
+  profileSetupIncomplete: boolean;
+  notifUnreadCount: number;
+}) {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="map">

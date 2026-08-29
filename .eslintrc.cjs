@@ -31,7 +31,11 @@ module.exports = {
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-unused-vars": [
       "error",
-      { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrors: "none",
+      },
     ],
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
@@ -62,6 +66,7 @@ module.exports = {
       env: { jest: true },
       rules: {
         "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-require-imports": "off",
       },
     },
   ],

@@ -305,7 +305,7 @@ wss.on("connection", (ws: WebSocket) => {
           }
         }
       }
-    } catch (_) {}
+    } catch {}
   });
 
   ws.on("close", () => {

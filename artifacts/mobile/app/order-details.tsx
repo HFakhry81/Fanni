@@ -30,6 +30,7 @@ import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 import { useLocationLabels } from "@/hooks/useLocationLabels";
+import appIcon from "@/constants/appIcon";
 import { startMaskedCall } from "@/utils/maskedCall";
 
 export default function OrderDetailsScreen() {
@@ -79,6 +80,34 @@ export default function OrderDetailsScreen() {
       })
       .catch(() => {});
   }, [order?.id, order?.status, sessionToken]);
+
+  const { slugToName } = useLocationLabels();
+
+  const handleShareTracking = useCallback(async () => {
+    const deepLink = `mobile://order-tracking?orderId=${orderId}`;
+    const message = t("order.shareTrackingMsg");
+    if (Platform.OS === "web") {
+      const url = typeof window !== "undefined" ? window.location.href : deepLink;
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({ title: t("order.shareTracking"), text: message, url });
+          return;
+        } catch {}
+      }
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(url);
+          Alert.alert(t("order.shareTrackingCopied"), url);
+          return;
+        } catch {}
+      }
+      Alert.alert(t("order.shareTracking"), url);
+    } else {
+      try {
+        await Share.share({ message: `${message}\n${deepLink}`, url: deepLink, title: t("order.shareTracking") });
+      } catch {}
+    }
+  }, [orderId, t]);
 
   function rawToThreeParty(ci: RawInvoice, ti?: RawInvoice | null, al?: RawInvoice | null): ThreePartyInvoice {
     const labour = Number(ci.labourFee ?? 0);
@@ -160,36 +189,8 @@ export default function OrderDetailsScreen() {
     });
   };
 
-  const { slugToName } = useLocationLabels();
-
   const isAdmin = appUser?.type === "admin";
   const isTechnician = appUser?.type === "technician";
-
-  const handleShareTracking = useCallback(async () => {
-    const deepLink = `mobile://order-tracking?orderId=${orderId}`;
-    const message = t("order.shareTrackingMsg");
-    if (Platform.OS === "web") {
-      const url = typeof window !== "undefined" ? window.location.href : deepLink;
-      if (typeof navigator !== "undefined" && navigator.share) {
-        try {
-          await navigator.share({ title: t("order.shareTracking"), text: message, url });
-          return;
-        } catch {}
-      }
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        try {
-          await navigator.clipboard.writeText(url);
-          Alert.alert(t("order.shareTrackingCopied"), url);
-          return;
-        } catch {}
-      }
-      Alert.alert(t("order.shareTracking"), url);
-    } else {
-      try {
-        await Share.share({ message: `${message}\n${deepLink}`, url: deepLink, title: t("order.shareTracking") });
-      } catch {}
-    }
-  }, [orderId, t]);
 
   const effectiveClientInvoice = fetchedClientInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, ocrMaterialsTotal: order.threePartyInvoice.materialsTotal ?? 0, netTotal: order.threePartyInvoice.clientTotal, total: order.threePartyInvoice.clientTotal, materialsPhotos: [] } as unknown as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
   const effectiveTechInvoice = fetchedTechInvoice ?? (order.threePartyInvoice ? { ...order.threePartyInvoice, ocrMaterialsTotal: order.threePartyInvoice.materialsTotal ?? 0, netTotal: order.threePartyInvoice.techNetTotal, total: order.threePartyInvoice.techNetTotal, materialsPhotos: [] } as unknown as { labourFee: number; transportFee: number; ocrMaterialsTotal: number; serviceFeeRate: number; serviceFeeAmount: number; vatRate: number; vatAmount: number; netTotal: number; total: number; materialsPhotos: string[] } : null);
@@ -503,7 +504,7 @@ export default function OrderDetailsScreen() {
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             {/* Logo header */}
             <View style={[styles.invoiceLogoRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-              <Image source={require("@/assets/images/icon.png")} style={styles.invoiceLogo} resizeMode="contain" />
+              <Image source={appIcon} style={styles.invoiceLogo} resizeMode="contain" />
               <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0, textAlign: isRTL ? "right" : "left" }}>
                 {isRTL ? "فني · FANNI" : "FANNI · فني"}
               </Text>

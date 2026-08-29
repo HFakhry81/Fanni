@@ -30,7 +30,9 @@ export interface LocationPickerProps {
 }
 
 export default function LocationPicker({
-  governorateId, areaId, onGovernorateChange, onAreaChange, onGovernorateSelect, onAreaSelect,
+  governorateId: _governorateId, areaId: _areaId,
+  onGovernorateChange: _onGovernorateChange, onAreaChange: _onAreaChange,
+  onGovernorateSelect: _onGovernorateSelect, onAreaSelect: _onAreaSelect,
   street, onStreetChange, building = "", onBuildingChange, floor = "", onFloorChange, apartment = "", onApartmentChange,
   latitude, longitude, onCoordsChange, showDetails = true,
   governorateError: _governorateError, areaError: _areaError

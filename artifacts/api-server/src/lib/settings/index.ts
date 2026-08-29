@@ -21,7 +21,7 @@ export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
       .where(eq(systemSettingsTable.key, key));
     
     return setting ? (setting.value as T) : defaultValue;
-  } catch (err) {
+  } catch {
     return defaultValue;
   }
 }
