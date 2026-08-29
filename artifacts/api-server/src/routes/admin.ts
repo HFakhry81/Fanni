@@ -188,11 +188,17 @@ router.get("/admin/users/counts", authMiddleware, requireAuth, requireAdmin, asy
       all: sql<number>`count(*)::int`,
       active: sql<number>`count(*) filter (where ${usersTable.isActive} = true)::int`,
       suspended: sql<number>`count(*) filter (where ${usersTable.isActive} = false)::int`,
+      pending: sql<number>`count(*) filter (where ${usersTable.approvalStatus} = 'pending_review' and ${usersTable.isActive} = true)::int`,
     })
     .from(usersTable)
     .where(whereClause);
 
-  return res.json({ all: row?.all ?? 0, active: row?.active ?? 0, suspended: row?.suspended ?? 0 });
+  return res.json({
+    all: row?.all ?? 0,
+    active: row?.active ?? 0,
+    suspended: row?.suspended ?? 0,
+    pending: row?.pending ?? 0,
+  });
 });
 
 router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
@@ -201,6 +207,7 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   const role = queryString(req.query.role);
   const search = queryString(req.query.search)?.trim();
   const isActiveParam = queryString(req.query.isActive);
+  const approvalStatusParam = queryString(req.query.approvalStatus);
   const offset = (page - 1) * limit;
 
   // Admins are now in a separate table; only list clients and technicians here.
@@ -269,6 +276,10 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
   } else if (isActiveParam === "false") {
     conditions.push(eq(usersTable.isActive, false));
   }
+  if (approvalStatusParam === "pending_review") {
+    conditions.push(eq(usersTable.approvalStatus, "pending_review"));
+    conditions.push(eq(usersTable.isActive, true));
+  }
   if (search) {
     const pattern = `%${search}%`;
     conditions.push(
@@ -300,6 +311,7 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
       governorate: usersTable.governorate,
       specialty: usersTable.specialty,
       profession: usersTable.profession,
+      approvalStatus: usersTable.approvalStatus,
       createdAt: usersTable.createdAt,
       toggleCount24h: sql<number>`(
         select count(*)::int
@@ -397,6 +409,111 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requ
 
   req.log.info({ userId: id, updates, adminId: req.user?.id }, "Admin updated user");
   res.json({ success: true, user: updated });
+});
+
+router.get("/admin/dashboard/stats", authMiddleware, requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const [[clientsRow], [techsRow], [ordersRow], [revenueRow]] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(eq(usersTable.role, "client")),
+      db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(eq(usersTable.role, "technician")),
+      db
+        .select({
+          pending: sql<number>`count(*) filter (where ${ordersTable.status} in ('pending', 'acknowledged'))::int`,
+          active: sql<number>`count(*) filter (where ${ordersTable.status} = 'in_progress')::int`,
+          completed: sql<number>`count(*) filter (where ${ordersTable.status} = 'completed')::int`,
+        })
+        .from(ordersTable),
+      db
+        .select({
+          total: sql<number>`coalesce(sum(${invoicesTable.total}::numeric), 0)::float`,
+        })
+        .from(invoicesTable)
+        .where(eq(invoicesTable.status, "paid")),
+    ]);
+
+    res.json({
+      totalClients: clientsRow?.count ?? 0,
+      registeredTechs: techsRow?.count ?? 0,
+      pendingOrders: ordersRow?.pending ?? 0,
+      activeOrders: ordersRow?.active ?? 0,
+      completedOrders: ordersRow?.completed ?? 0,
+      totalRevenue: revenueRow?.total ?? 0,
+    });
+  } catch (err) {
+    _req.log.error({ err }, "GET /admin/dashboard/stats failed");
+    res.status(500).json({ error: "Failed to load dashboard stats" });
+  }
+});
+
+router.get("/admin/orders", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const limit = Math.min(50, Math.max(1, queryInt(req.query.limit, 10)));
+  const status = queryString(req.query.status);
+
+  const conditions = [];
+  if (status && status !== "all") {
+    conditions.push(sql`${ordersTable.status} = ${status}`);
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select({
+      id: ordersTable.id,
+      orderNumber: ordersTable.orderNumber,
+      status: ordersTable.status,
+      category: ordersTable.category,
+      clientName: sql<string>`concat(${usersTable.firstName}, ' ', coalesce(${usersTable.lastName}, ''))`,
+      createdAt: ordersTable.createdAt,
+    })
+    .from(ordersTable)
+    .leftJoin(usersTable, eq(ordersTable.clientId, usersTable.id))
+    .where(whereClause)
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(limit);
+
+  res.json({ orders: rows });
+});
+
+router.get("/admin/ledger", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const limit = Math.min(200, Math.max(1, queryInt(req.query.limit, 100)));
+  const dateFrom = queryString(req.query.dateFrom);
+  const dateTo = queryString(req.query.dateTo);
+
+  const conditions = [eq(invoicesTable.status, "paid")];
+  if (dateFrom) {
+    conditions.push(gte(invoicesTable.issuedAt, new Date(`${dateFrom}T00:00:00.000Z`)));
+  }
+  if (dateTo) {
+    conditions.push(lte(invoicesTable.issuedAt, new Date(`${dateTo}T23:59:59.999Z`)));
+  }
+
+  const whereClause = and(...conditions);
+
+  const entries = await db
+    .select({
+      id: invoicesTable.id,
+      orderNumber: invoicesTable.orderNumber,
+      technicianName: sql<string | null>`(
+        select concat(u.first_name, ' ', coalesce(u.last_name, ''))
+        from users u where u.id = ${invoicesTable.technicianId}
+      )`,
+      clientName: sql<string | null>`(
+        select concat(u.first_name, ' ', coalesce(u.last_name, ''))
+        from users u where u.id = ${invoicesTable.clientId}
+      )`,
+      labourFee: invoicesTable.labourFee,
+      serviceFeeAmount: invoicesTable.serviceFeeAmount,
+      vatAmount: invoicesTable.vatAmount,
+      netTotal: invoicesTable.netTotal,
+      status: invoicesTable.status,
+      createdAt: invoicesTable.issuedAt,
+    })
+    .from(invoicesTable)
+    .where(whereClause)
+    .orderBy(desc(invoicesTable.issuedAt))
+    .limit(limit);
+
+  res.json({ entries });
 });
 
 // ADMIN ONLY: Reset another admin's password
@@ -760,24 +877,25 @@ router.get("/admin/categories/specializations", authMiddleware, requireAuth, req
 
 // ─── ADMIN: Create specialization ─────────────────────────────────────────
 router.post("/admin/categories/specializations", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request, res: Response) => {
-  const { domainId, nameEn, nameAr, sortOrder } = req.body as { domainId?: string; nameEn?: string; nameAr?: string; sortOrder?: number };
+  const { domainId, nameEn, nameAr, icon, sortOrder } = req.body as { domainId?: string; nameEn?: string; nameAr?: string; icon?: string; sortOrder?: number };
   if (!domainId?.trim()) { res.status(400).json({ error: "domainId is required" }); return; }
   if (!nameAr?.trim()) { res.status(400).json({ error: "nameAr is required" }); return; }
   const [domain] = await db.select({ id: serviceDomainsTable.id }).from(serviceDomainsTable).where(eq(serviceDomainsTable.id, domainId.trim()));
   if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
   const [spec] = await db
     .insert(serviceSpecializationsTable)
-    .values({ domainId: domainId.trim(), nameEn: nameEn?.trim() ?? "", nameAr: nameAr.trim(), sortOrder: sortOrder ?? 0 })
+    .values({ domainId: domainId.trim(), nameEn: nameEn?.trim() ?? "", nameAr: nameAr.trim(), icon: icon?.trim() || null, sortOrder: sortOrder ?? 0 })
     .returning();
   res.status(201).json({ specialization: spec });
 });
 
 // ─── ADMIN: Update specialization ─────────────────────────────────────────
 router.patch("/admin/categories/specializations/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_categories"), async (req: Request<{ id: string }>, res: Response) => {
-  const { nameEn, nameAr, isActive, sortOrder } = req.body as { nameEn?: string; nameAr?: string; isActive?: boolean; sortOrder?: number };
+  const { nameEn, nameAr, icon, isActive, sortOrder } = req.body as { nameEn?: string; nameAr?: string; icon?: string; isActive?: boolean; sortOrder?: number };
   const updates: Record<string, unknown> = {};
   if (nameEn !== undefined) updates.nameEn = nameEn.trim();
   if (nameAr !== undefined) updates.nameAr = nameAr.trim();
+  if (icon !== undefined) updates.icon = icon.trim() || null;
   if (isActive !== undefined) updates.isActive = isActive;
   if (sortOrder !== undefined) updates.sortOrder = sortOrder;
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }

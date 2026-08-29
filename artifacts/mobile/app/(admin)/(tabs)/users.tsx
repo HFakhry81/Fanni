@@ -25,7 +25,7 @@ import { getApiBase } from "@/utils/api";
 type MainView = "hub" | "clients" | "technicians" | "collection";
 type TechSubView = "hub" | "list";
 type CollSubView = "hub" | "received" | "refunded" | "tech_balances" | "commission";
-type StatusFilter = "all" | "active" | "suspended";
+type StatusFilter = "all" | "active" | "suspended" | "pending";
 
 interface ApiUser {
   id: string;
@@ -40,6 +40,7 @@ interface ApiUser {
   governorate: string | null;
   specialty: string | null;
   profession: string | null;
+  approvalStatus?: string | null;
   createdAt: string;
   toggleCount24h?: number | null;
 }
@@ -240,6 +241,11 @@ function UserRow({
             {" "}{[user.governorate, user.area].filter(Boolean).join(" · ")}
           </Text>
         ) : null}
+        {isTech && user.approvalStatus === "pending_review" ? (
+          <Text style={[styles.userMeta, { color: "#7C5CBF", marginTop: 2 }]}>
+            {isRTL ? "بانتظار الموافقة" : "Pending approval"}
+          </Text>
+        ) : null}
       </View>
       <View style={styles.userActions}>
         <View
@@ -306,7 +312,11 @@ function UserListView({
         const params = new URLSearchParams({
           role,
           limit: "50",
-          ...(filter !== "all" ? { isActive: filter === "active" ? "true" : "false" } : {}),
+          ...(filter === "pending"
+            ? { approvalStatus: "pending_review" }
+            : filter !== "all"
+              ? { isActive: filter === "active" ? "true" : "false" }
+              : {}),
           ...(debouncedSearch ? { search: debouncedSearch } : {}),
         });
         const res = await fetch(`${base}/api/admin/users?${params}`, {
@@ -335,7 +345,6 @@ function UserListView({
   const toggleUser = useCallback(
     async (user: ApiUser) => {
       if (!sessionToken) return;
-      const action = user.isActive ? "suspend" : "reactivate";
       Alert.alert(
         isRTL
           ? user.isActive ? "تعليق الحساب؟" : "تفعيل الحساب؟"
@@ -352,9 +361,13 @@ function UserListView({
               setUpdatingId(user.id);
               try {
                 const base = getApiBase();
-                const res = await fetch(`${base}/api/admin/users/${user.id}/${action}`, {
+                const res = await fetch(`${base}/api/admin/users/${user.id}`, {
                   method: "PATCH",
-                  headers: { Authorization: `Bearer ${sessionToken}` },
+                  headers: {
+                    Authorization: `Bearer ${sessionToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ isActive: !user.isActive }),
                 });
                 if (res.ok) {
                   setUsers((prev) =>
@@ -377,6 +390,9 @@ function UserListView({
     { label: isRTL ? "الكل" : "All", value: "all" },
     { label: isRTL ? "نشط" : "Active", value: "active" },
     { label: isRTL ? "موقوف" : "Suspended", value: "suspended" },
+    ...(role === "technician"
+      ? [{ label: isRTL ? "بانتظار الموافقة" : "Pending", value: "pending" as const }]
+      : []),
   ];
 
   if (loading) {
@@ -499,7 +515,7 @@ function TechHubView({
       iconBg: "#E3F2FD",
       title: t("admin.tech.liveMap"),
       subtitle: t("admin.tech.liveMapDesc"),
-      onPress: () => router.push("/(admin)/(tabs)/map-dashboard"),
+      onPress: () => router.push({ pathname: "/(admin)/(tabs)/map-dashboard", params: { mode: "tech" } }),
     },
     {
       icon: "alert-triangle",

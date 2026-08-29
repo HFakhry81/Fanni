@@ -1,45 +1,80 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import StatusBadge from "@/components/StatusBadge";
+import AdminLiveMapPreview from "@/components/AdminLiveMapPreview";
 import { getApiBase } from "@/utils/api";
 
 const ADMIN_HOME = "/(admin)/(tabs)/dashboard";
+
+interface DashboardStats {
+  totalClients: number;
+  registeredTechs: number;
+  pendingOrders: number;
+  activeOrders: number;
+  completedOrders: number;
+  totalRevenue: number;
+}
+
+interface RecentOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+  category: string;
+  clientName: string;
+}
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user } = useApp();
-  const { allOrders } = useOrders();
   const { sessionToken, user: authUser } = useAuth();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
   const [isRegeocoding, setIsRegeocoding] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
 
-  const completed = allOrders.filter((o) => o.status === "completed");
-  const pending = allOrders.filter((o) => o.status === "pending");
-  const active = allOrders.filter((o) => ["accepted", "inProgress"].includes(o.status));
-  const totalRevenue = completed.reduce((sum, o) => sum + (o.invoice?.total ?? 0), 0);
+  const loadDashboard = useCallback(async () => {
+    if (!sessionToken) return;
+    const base = getApiBase();
+    if (!base) return;
+    try {
+      const headers = { Authorization: `Bearer ${sessionToken}` };
+      const [statsRes, ordersRes] = await Promise.all([
+        fetch(`${base}/api/admin/dashboard/stats`, { headers }),
+        fetch(`${base}/api/admin/orders?limit=5`, { headers }),
+      ]);
+      if (statsRes.ok) {
+        setStats(await statsRes.json() as DashboardStats);
+      }
+      if (ordersRes.ok) {
+        const data = await ordersRes.json() as { orders?: RecentOrder[] };
+        setRecentOrders(data.orders ?? []);
+      }
+    } catch {
+      // keep last values
+    }
+  }, [sessionToken]);
+
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   const authDisplayName = [authUser?.firstName, authUser?.lastName].filter(Boolean).join(" ").trim();
   const adminName = user?.name?.trim() || authDisplayName || (isRTL ? "المسئول" : "Admin");
 
   const kpis: { icon: IconName; label: string; value: string; unit: string; color: string; bg: string }[] = [
-    { icon: "dollar-sign", label: t("admin.totalRevenue"), value: `${totalRevenue.toFixed(0)}`, unit: t("common.egp"), color: colors.primary,   bg: colors.accent },
-    { icon: "activity",    label: t("admin.activeOrders"), value: active.length.toString(),     unit: "",                color: colors.secondary, bg: colors.accentBlue },
-    { icon: "tool",        label: t("admin.registeredTechs"), value: "12",                      unit: "",                color: "#7C5CBF",        bg: "#EDE9FE" },
-    { icon: "users",       label: t("admin.totalClients"),    value: "48",                      unit: "",                color: "#22A36B",        bg: "#D4EDDA" },
+    { icon: "dollar-sign", label: t("admin.totalRevenue"), value: `${(stats?.totalRevenue ?? 0).toFixed(0)}`, unit: t("common.egp"), color: colors.primary, bg: colors.accent },
+    { icon: "activity", label: t("admin.activeOrders"), value: String(stats?.activeOrders ?? 0), unit: "", color: colors.secondary, bg: colors.accentBlue },
+    { icon: "tool", label: t("admin.registeredTechs"), value: String(stats?.registeredTechs ?? 0), unit: "", color: "#7C5CBF", bg: "#EDE9FE" },
+    { icon: "users", label: t("admin.totalClients"), value: String(stats?.totalClients ?? 0), unit: "", color: "#22A36B", bg: "#D4EDDA" },
   ];
-
-  const recentOrders = [...allOrders].reverse().slice(0, 5);
 
   async function handleRegeocodeLocations() {
     Alert.alert(
@@ -186,9 +221,9 @@ export default function AdminDashboardScreen() {
 
         <View style={[styles.statusStrip, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {[
-            { label: isRTL ? "في الانتظار" : "Pending", count: pending.length, color: colors.primary },
-            { label: isRTL ? "نشطة" : "Active", count: active.length, color: colors.secondary },
-            { label: isRTL ? "مكتملة" : "Completed", count: completed.length, color: colors.success },
+            { label: isRTL ? "في الانتظار" : "Pending", count: stats?.pendingOrders ?? 0, color: colors.primary },
+            { label: isRTL ? "نشطة" : "Active", count: stats?.activeOrders ?? 0, color: colors.secondary },
+            { label: isRTL ? "مكتملة" : "Completed", count: stats?.completedOrders ?? 0, color: colors.success },
           ].map((s, i) => (
             <View key={s.label} style={[styles.stripItem, { borderRightWidth: i < 2 ? 1 : 0, borderRightColor: colors.border }]}>
               <Text style={{ color: s.color, fontFamily: "Inter_700Bold", fontSize: 22 }}>{s.count}</Text>
@@ -197,9 +232,16 @@ export default function AdminDashboardScreen() {
           ))}
         </View>
 
+        <AdminLiveMapPreview sessionToken={sessionToken} isRTL={isRTL} compact />
+
         <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
           {isRTL ? "آخر الطلبات" : "Recent Orders"}
         </Text>
+        {recentOrders.length === 0 ? (
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+            {t("common.noData")}
+          </Text>
+        ) : null}
         {recentOrders.map((order) => (
           <TouchableOpacity
             key={order.id}
@@ -267,7 +309,7 @@ export default function AdminDashboardScreen() {
 
         <TouchableOpacity
           style={[styles.toolRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
-          onPress={() => router.push("/(admin)/(tabs)/map-dashboard")}
+          onPress={() => router.push({ pathname: "/(admin)/(tabs)/map-dashboard", params: { mode: "live" } })}
           activeOpacity={0.85}
         >
           <View style={[styles.toolIcon, { backgroundColor: "#4DADD918", borderRadius: 12 }]}>
@@ -279,6 +321,25 @@ export default function AdminDashboardScreen() {
             </Text>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
               {isRTL ? "عرض مواقع الفنيين والطلبات النشطة" : "View technician and active order locations"}
+            </Text>
+          </View>
+          <VectorIcon name="chevron-right" size={18} color={colors.mutedForeground} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toolRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
+          onPress={() => router.push({ pathname: "/(admin)/(tabs)/map-dashboard", params: { mode: "monitor" } })}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.toolIcon, { backgroundColor: "#7C5CBF18", borderRadius: 12 }]}>
+            <VectorIcon name="eye" size={22} color="#7C5CBF" />
+          </View>
+          <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+              {isRTL ? "خريطة المراقبة" : "Monitoring Map"}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
+              {isRTL ? "تحديث كل 30 دقيقة" : "Refreshes every 30 minutes"}
             </Text>
           </View>
           <VectorIcon name="chevron-right" size={18} color={colors.mutedForeground} />

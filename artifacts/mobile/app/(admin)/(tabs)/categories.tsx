@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, ActivityIndicator, Platform, Alert,
+  TextInput, Modal, ActivityIndicator, Platform, Alert, Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -10,7 +11,12 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
+import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
+
+function isRemoteIcon(icon: string | null | undefined): boolean {
+  return !!icon && (icon.startsWith("http") || icon.startsWith("/api/"));
+}
 
 
 interface Domain {
@@ -27,6 +33,7 @@ interface Specialization {
   domainId: string;
   nameEn: string;
   nameAr: string;
+  icon: string | null;
   isActive: boolean;
 }
 
@@ -57,6 +64,8 @@ export default function AdminCategoriesScreen() {
   const [formNameEn, setFormNameEn] = useState("");
   const [formNameAr, setFormNameAr] = useState("");
   const [formIcon, setFormIcon] = useState<IconName>("tool");
+  const [formIconUrl, setFormIconUrl] = useState<string | null>(null);
+  const [iconUploading, setIconUploading] = useState(false);
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -114,7 +123,13 @@ export default function AdminCategoriesScreen() {
   const openDomainModal = (domain?: Domain) => {
     setFormNameEn(domain?.nameEn ?? "");
     setFormNameAr(domain?.nameAr ?? "");
-    setFormIcon(toIconName(domain?.icon));
+    if (isRemoteIcon(domain?.icon)) {
+      setFormIconUrl(domain?.icon ?? null);
+      setFormIcon("tool");
+    } else {
+      setFormIconUrl(null);
+      setFormIcon(toIconName(domain?.icon));
+    }
     setFormError("");
     setDomainModal({ visible: true, editing: domain ?? null });
   };
@@ -122,8 +137,39 @@ export default function AdminCategoriesScreen() {
   const openSpecModal = (domainId: string, spec?: Specialization) => {
     setFormNameEn(spec?.nameEn ?? "");
     setFormNameAr(spec?.nameAr ?? "");
+    if (isRemoteIcon(spec?.icon)) {
+      setFormIconUrl(spec?.icon ?? null);
+      setFormIcon("tool");
+    } else {
+      setFormIconUrl(null);
+      setFormIcon("tool");
+    }
     setFormError("");
     setSpecModal({ visible: true, domainId, editing: spec ?? null });
+  };
+
+  const pickCatalogIcon = async () => {
+    if (!sessionToken) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+      allowsEditing: Platform.OS !== "web",
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setIconUploading(true);
+    try {
+      const mime = asset.mimeType ?? "image/jpeg";
+      const { url } = await uploadPhotoToServer(asset.uri, sessionToken, mime, "uploads");
+      setFormIconUrl(url);
+    } catch (err) {
+      Alert.alert(
+        isRTL ? "فشل الرفع" : "Upload failed",
+        err instanceof Error ? err.message : (isRTL ? "تعذّر رفع الصورة" : "Could not upload image"),
+      );
+    } finally {
+      setIconUploading(false);
+    }
   };
 
   const saveDomain = async () => {
@@ -139,7 +185,11 @@ export default function AdminCategoriesScreen() {
       const res = await fetch(url, {
         method,
         headers: authHeaders(),
-        body: JSON.stringify({ nameEn: formNameEn.trim(), nameAr: formNameAr.trim(), icon: formIcon }),
+        body: JSON.stringify({
+          nameEn: formNameEn.trim(),
+          nameAr: formNameAr.trim(),
+          icon: formIconUrl ?? formIcon,
+        }),
       });
       const data = await res.json() as { error?: string };
       if (!res.ok) { setFormError(data.error ?? "Failed to save"); return; }
@@ -163,8 +213,13 @@ export default function AdminCategoriesScreen() {
         : `${getApiBase()}/api/admin/categories/specializations`;
       const method = editing ? "PATCH" : "POST";
       const body = editing
-        ? { nameEn: formNameEn.trim(), nameAr: formNameAr.trim() }
-        : { domainId: specModal.domainId, nameEn: formNameEn.trim(), nameAr: formNameAr.trim() };
+        ? { nameEn: formNameEn.trim(), nameAr: formNameAr.trim(), icon: formIconUrl ?? undefined }
+        : {
+            domainId: specModal.domainId,
+            nameEn: formNameEn.trim(),
+            nameAr: formNameAr.trim(),
+            icon: formIconUrl ?? undefined,
+          };
       const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
       const data = await res.json() as { error?: string };
       if (!res.ok) { setFormError(data.error ?? "Failed to save"); return; }
@@ -300,7 +355,11 @@ export default function AdminCategoriesScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={[styles.domainIcon, { backgroundColor: domain.isActive ? colors.accent : colors.muted }]}>
-                    <VectorIcon name={toIconName(domain.icon)} size={18} color={domain.isActive ? colors.primary : colors.mutedForeground} />
+                    {isRemoteIcon(domain.icon) ? (
+                      <Image source={{ uri: domain.icon! }} style={{ width: 22, height: 22, borderRadius: 6 }} />
+                    ) : (
+                      <VectorIcon name={toIconName(domain.icon)} size={18} color={domain.isActive ? colors.primary : colors.mutedForeground} />
+                    )}
                   </View>
                   <View style={{ flex: 1, marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }}>
                     <Text style={{ color: domain.isActive ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
@@ -431,6 +490,36 @@ export default function AdminCategoriesScreen() {
             <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
               {isRTL ? "الأيقونة" : "Icon"}
             </Text>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              {formIconUrl ? (
+                <Image source={{ uri: formIconUrl }} style={{ width: 44, height: 44, borderRadius: 10 }} />
+              ) : (
+                <View style={[styles.domainIcon, { backgroundColor: colors.accent }]}>
+                  <VectorIcon name={formIcon} size={20} color={colors.primary} />
+                </View>
+              )}
+              <TouchableOpacity
+                onPress={pickCatalogIcon}
+                disabled={iconUploading}
+                style={[styles.addSpecBtn, { borderColor: colors.primary, paddingHorizontal: 12, marginBottom: 0 }]}
+              >
+                {iconUploading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <VectorIcon name="image" size={14} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
+                      {isRTL ? "رفع صورة" : "Upload image"}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              {formIconUrl ? (
+                <TouchableOpacity onPress={() => setFormIconUrl(null)}>
+                  <VectorIcon name="x" size={16} color={colors.destructive} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
               <View style={{ flexDirection: "row", gap: 8, paddingBottom: 4 }}>
                 {ICON_OPTIONS.map((ico) => (
@@ -504,6 +593,40 @@ export default function AdminCategoriesScreen() {
               placeholderTextColor={colors.mutedForeground}
               textAlign="right"
             />
+
+            <Text style={[styles.inputLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+              {isRTL ? "صورة التخصص (اختياري)" : "Specialization image (optional)"}
+            </Text>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              {formIconUrl ? (
+                <Image source={{ uri: formIconUrl }} style={{ width: 44, height: 44, borderRadius: 10 }} />
+              ) : (
+                <View style={[styles.domainIcon, { backgroundColor: colors.muted }]}>
+                  <VectorIcon name="image" size={18} color={colors.mutedForeground} />
+                </View>
+              )}
+              <TouchableOpacity
+                onPress={pickCatalogIcon}
+                disabled={iconUploading}
+                style={[styles.addSpecBtn, { borderColor: colors.primary, paddingHorizontal: 12, marginBottom: 0 }]}
+              >
+                {iconUploading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <VectorIcon name="upload" size={14} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, marginLeft: 6 }}>
+                      {isRTL ? "رفع صورة" : "Upload image"}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              {formIconUrl ? (
+                <TouchableOpacity onPress={() => setFormIconUrl(null)}>
+                  <VectorIcon name="x" size={16} color={colors.destructive} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
 
             {!!formError && (
               <Text style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>

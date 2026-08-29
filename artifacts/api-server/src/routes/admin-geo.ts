@@ -4,44 +4,73 @@ import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { sql, eq, desc } from "drizzle-orm";
 import { usersTable, ordersTable, locationMissLogTable, locationAliasesTable } from "@workspace/db/schema";
+import { authMiddleware } from "../middlewares/authMiddleware";
+import { requireAuth } from "../middlewares/requireAuth";
+import { requireAdmin } from "../middlewares/requireAdmin";
+import { queryString } from "../lib/queryParams";
 
 const router = Router();
 
 /**
- * 1. جلب مواقع الفنيين الحية والطلبات النشطة لخريطة المسئول
+ * Live / monitoring map data for admin dashboards.
+ * Query: availableOnly=true (technicians map), includeOrders=false
  */
-router.get("/api/admin/map-data", async (req: Request, res: Response) => {
+router.get("/api/admin/map-data", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
+    const availableOnly = queryString(req.query.availableOnly) === "true";
+    const includeOrders = queryString(req.query.includeOrders) !== "false";
+
+    const techConditions = [
+      sql`${usersTable.role} = 'technician'`,
+      sql`${usersTable.location} IS NOT NULL`,
+      sql`${usersTable.isApproved} = true`,
+    ];
+    if (availableOnly) {
+      techConditions.push(sql`${usersTable.isAvailable} = true`);
+    }
+
     const techs = await db
       .select({
         id: usersTable.id,
         name: sql<string>`CONCAT(${usersTable.firstName}, ' ', COALESCE(${usersTable.lastName}, ''))`,
         profession: usersTable.profession,
+        specialty: usersTable.specialty,
         isAvailable: usersTable.isAvailable,
         latitude: sql<number>`ST_Y(${usersTable.location}::geometry)`,
         longitude: sql<number>`ST_X(${usersTable.location}::geometry)`,
       })
       .from(usersTable)
-      .where(
-        sql`${usersTable.role} = 'technician' AND ${usersTable.location} IS NOT NULL`
-      );
+      .where(sql.join(techConditions, sql` AND `));
 
-    const orders = await db
-      .select({
-        id: ordersTable.id,
-        orderNumber: ordersTable.orderNumber,
-        category: ordersTable.category,
-        subCategory: sql<string | null>`orders.sub_category`,
-        status: ordersTable.status,
-        clientName: sql<string>`CONCAT(${usersTable.firstName}, ' ', COALESCE(${usersTable.lastName}, ''))`,
-        latitude: sql<number>`ST_Y(${ordersTable.location}::geometry)`,
-        longitude: sql<number>`ST_X(${ordersTable.location}::geometry)`,
-      })
-      .from(ordersTable)
-      .leftJoin(usersTable, eq(ordersTable.clientId, usersTable.id))
-      .where(
-        sql`${ordersTable.status} IN ('pending', 'acknowledged', 'in_progress') AND ${ordersTable.location} IS NOT NULL`
-      );
+    let orders: Array<{
+      id: string;
+      orderNumber: string;
+      category: string | null;
+      subCategory: string | null;
+      status: string;
+      clientName: string;
+      latitude: number;
+      longitude: number;
+    }> = [];
+
+    if (includeOrders) {
+      orders = await db
+        .select({
+          id: ordersTable.id,
+          orderNumber: ordersTable.orderNumber,
+          category: ordersTable.category,
+          subCategory: sql<string | null>`orders.sub_category`,
+          status: ordersTable.status,
+          clientName: sql<string>`CONCAT(${usersTable.firstName}, ' ', COALESCE(${usersTable.lastName}, ''))`,
+          latitude: sql<number>`ST_Y(${ordersTable.location}::geometry)`,
+          longitude: sql<number>`ST_X(${ordersTable.location}::geometry)`,
+        })
+        .from(ordersTable)
+        .leftJoin(usersTable, eq(ordersTable.clientId, usersTable.id))
+        .where(
+          sql`${ordersTable.status} IN ('pending', 'acknowledged', 'in_progress') AND ${ordersTable.location} IS NOT NULL`
+        );
+    }
 
     return res.json({ success: true, techs, orders });
   } catch (error) {
@@ -50,10 +79,7 @@ router.get("/api/admin/map-data", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * 2. جلب سجلات العناوين المفقودة المراد تصحيحها
- */
-router.get("/api/admin/location-miss-log", async (req: Request, res: Response) => {
+router.get("/api/admin/location-miss-log", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const logs = await db
       .select()
@@ -66,10 +92,7 @@ router.get("/api/admin/location-miss-log", async (req: Request, res: Response) =
   }
 });
 
-/**
- * 3. دمج وحفظ الاسم البديل وحل السجل المرتبط به
- */
-router.post("/api/admin/location-aliases", async (req: Request, res: Response) => {
+router.post("/api/admin/location-aliases", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const { logId, governorateId, areaId, aliasAr, aliasEn } = req.body;
 
   if (!governorateId || !areaId || !aliasAr || !aliasEn) {
@@ -78,10 +101,9 @@ router.post("/api/admin/location-aliases", async (req: Request, res: Response) =
 
   try {
     await db.transaction(async (tx) => {
-      // إدخال الاسمين البديلين (العربي والإنجليزي) كقيود منفصلة مرتبطة بنفس الـ locationId
       await tx.insert(locationAliasesTable).values([
         { locationId: areaId, alias: aliasAr.toLowerCase().trim() },
-        { locationId: areaId, alias: aliasEn.toLowerCase().trim() }
+        { locationId: areaId, alias: aliasEn.toLowerCase().trim() },
       ]);
 
       if (logId) {
