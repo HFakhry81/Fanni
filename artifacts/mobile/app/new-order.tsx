@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View, Text, StyleSheet,
   TouchableOpacity, Platform, ImageBackground, Image, Alert, ActivityIndicator,
@@ -27,6 +27,7 @@ import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { getApiBase } from "@/utils/api";
 import type { OrderPhoto } from "@/context/OrderContext";
 import * as FileSystem from "expo-file-system";
+import { formatDateYmd, currentTimeHhMm, defaultAddressFromUser } from "@/utils/orderDefaults";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
@@ -100,6 +101,8 @@ export default function NewOrderScreen() {
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
   const [visitTimePicker, setVisitTimePicker] = useState(false);
+  const [visitDatePicker, setVisitDatePicker] = useState(false);
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
 
   const navigation = useNavigation();
 
@@ -161,6 +164,26 @@ export default function NewOrderScreen() {
   const [photosMissingToast, setPhotosMissingToast] = useState<{ visible: boolean; key: number }>({ visible: false, key: 0 });
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+  const todayMin = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  // Default visit date/time/address from profile (once per new order flow).
+  useEffect(() => {
+    if (defaultsApplied || draftRestoredRef.current || authLoading) return;
+    if (!isAuthenticated) return;
+    setVisitDate(formatDateYmd(new Date()));
+    setVisitTime(currentTimeHhMm());
+    if (user) {
+      setAddrVal((prev) => {
+        const hasAny = prev.governorateId || prev.areaId || prev.latitude != null;
+        return hasAny ? prev : defaultAddressFromUser(user, isRTL);
+      });
+    }
+    setDefaultsApplied(true);
+  }, [authLoading, isAuthenticated, user, isRTL, defaultsApplied]);
 
   const stepLabels = [t("order.describe"), t("order.schedule"), t("order.confirm")];
 
@@ -481,10 +504,31 @@ export default function NewOrderScreen() {
   };
 
   const handleNext = () => {
+    if (step === 1 && !problemDesc.trim()) {
+      Alert.alert(
+        isRTL ? "وصف المشكلة مطلوب" : "Description required",
+        isRTL ? "يرجى وصف المشكلة قبل المتابعة." : "Please describe the problem before continuing.",
+      );
+      return;
+    }
     if (step === 2) {
       const errors = validateLocation();
       if (errors.governorate || errors.area) {
         setLocationError(errors);
+        return;
+      }
+      if (!visitDate.trim()) {
+        Alert.alert(
+          isRTL ? "تاريخ الزيارة مطلوب" : "Visit date required",
+          isRTL ? "يرجى اختيار تاريخ الزيارة." : "Please pick a visit date.",
+        );
+        return;
+      }
+      if (!visitTime.trim()) {
+        Alert.alert(
+          isRTL ? "وقت الزيارة مطلوب" : "Visit time required",
+          isRTL ? "يرجى اختيار وقت الزيارة." : "Please pick a visit time.",
+        );
         return;
       }
       setLocationError({});
@@ -770,15 +814,30 @@ export default function NewOrderScreen() {
         </Text>
       </View>
 
+      <Text style={{ color: colors.mutedForeground, fontSize: 12, marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
+        {isRTL
+          ? "التاريخ والوقت الافتراضيان من اليوم والآن — يمكنك تعديلهما. العنوان من ملفك الشخصي."
+          : "Date and time default to today and now — you can change them. Address comes from your profile."}
+      </Text>
+
       <View style={[styles.row, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <FanniInput
-          label={t("order.visitDate")} value={visitDate} onChangeText={setVisitDate}
-          placeholder="2025-01-25"
-          style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
-        />
+        <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+            {t("order.visitDate")} <Text style={{ color: colors.destructive }}>*</Text>
+          </Text>
+          <TouchableOpacity
+            onPress={() => setVisitDatePicker(true)}
+            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <Text style={{ color: visitDate ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15 }}>
+              {visitDate || (isRTL ? "اختر التاريخ" : "Pick date")}
+            </Text>
+            <VectorIcon name="calendar" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-            {t("order.visitTime")}
+            {t("order.visitTime")} <Text style={{ color: colors.destructive }}>*</Text>
           </Text>
           <TouchableOpacity
             onPress={() => setVisitTimePicker(true)}
@@ -791,6 +850,43 @@ export default function NewOrderScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {Platform.OS === "android" && visitDatePicker && (
+        <DateTimePicker
+          mode="date"
+          value={visitDate ? new Date(`${visitDate}T12:00:00`) : new Date()}
+          minimumDate={todayMin}
+          onChange={(event: DateTimePickerEvent, date?: Date) => {
+            setVisitDatePicker(false);
+            if (event.type === "set" && date) {
+              setVisitDate(formatDateYmd(date));
+            }
+          }}
+        />
+      )}
+
+      {Platform.OS === "ios" && visitDatePicker && (
+        <Modal transparent animationType="slide">
+          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} activeOpacity={1} onPress={() => setVisitDatePicker(false)} />
+          <View style={{ backgroundColor: colors.card, paddingBottom: 20 }}>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 12 }}>
+              <TouchableOpacity onPress={() => setVisitDatePicker(false)}>
+                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{isRTL ? "تم" : "Done"}</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              mode="date"
+              display="spinner"
+              minimumDate={todayMin}
+              value={visitDate ? new Date(`${visitDate}T12:00:00`) : new Date()}
+              onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                if (date) setVisitDate(formatDateYmd(date));
+              }}
+              style={{ width: "100%" }}
+            />
+          </View>
+        </Modal>
+      )}
 
       {/* Android time picker */}
       {Platform.OS === "android" && visitTimePicker && (

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { AppState, Platform } from "react-native";
 import * as Location from "expo-location";
+import { shouldShowDailyPrompt, markDailyPromptShown } from "@/utils/dailyPrompt";
 import { useOrders, Order } from "@/context/OrderContext";
 import { User } from "@/context/AppContext";
 import { professionToCategory } from "@/utils/serviceCategories";
@@ -15,7 +16,9 @@ import { getWsUrl } from "@/utils/api";
 
 const WS_RECONNECT_DELAY_MS = 3000;
 
-async function getCurrentCoords(): Promise<{ lat: number; lon: number } | null> {
+const LOCATION_PROMPT_KEY = "fanni.tech.location_prompt";
+
+async function getCurrentCoords(requestPermission: boolean): Promise<{ lat: number; lon: number } | null> {
   try {
     if (Platform.OS === "web") {
       return await new Promise((resolve) => {
@@ -27,8 +30,13 @@ async function getCurrentCoords(): Promise<{ lat: number; lon: number } | null> 
         );
       });
     }
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") return null;
+    if (requestPermission) {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return null;
+    } else {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status !== "granted") return null;
+    }
     const pos = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
     });
@@ -36,6 +44,18 @@ async function getCurrentCoords(): Promise<{ lat: number; lon: number } | null> 
   } catch {
     return null;
   }
+}
+
+async function getCoordsForWsRegister(): Promise<{ lat: number; lon: number } | null> {
+  const mayPrompt = await shouldShowDailyPrompt(LOCATION_PROMPT_KEY);
+  const coords = await getCurrentCoords(mayPrompt);
+  if (mayPrompt) await markDailyPromptShown(LOCATION_PROMPT_KEY);
+  if (coords) return coords;
+  if (!mayPrompt) {
+    const last = await Location.getLastKnownPositionAsync();
+    if (last) return { lat: last.coords.latitude, lon: last.coords.longitude };
+  }
+  return null;
 }
 
 function buildRegisterMessage(
@@ -157,7 +177,7 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
         }
         hasConnectedRef.current = true;
         if (mountedRef.current) setIsWsConnected(true);
-        getCurrentCoords().then((coords) => {
+        getCoordsForWsRegister().then((coords) => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(buildRegisterMessage(userRef.current, sessionTokenRef.current, isOnlineRef.current, coords));
           }
@@ -247,7 +267,7 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     authRejectedRef.current = false;
-    getCurrentCoords().then((coords) => {
+    getCoordsForWsRegister().then((coords) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(buildRegisterMessage(user, sessionTokenRef.current, isOnline, coords));
       }

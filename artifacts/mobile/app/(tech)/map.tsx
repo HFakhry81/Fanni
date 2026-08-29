@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import VectorIcon from "@/components/VectorIcon";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -11,6 +11,11 @@ import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+import OsmMapView from "@/components/OsmMapView";
+import { shouldShowDailyPrompt, markDailyPromptShown } from "@/utils/dailyPrompt";
+
+const ALEXANDRIA = { latitude: 31.2001, longitude: 29.9187 };
+const LOCATION_BANNER_KEY = "fanni.tech.map.location_banner";
 
 
 export default function TechMapScreen() {
@@ -50,15 +55,37 @@ export default function TechMapScreen() {
   const hasServiceArea = !!(govLabel && areaLabel);
   const serviceAreaDisplay = [govLabel, areaLabel].filter(Boolean).join(" — ");
 
+  const [locationBannerVisible, setLocationBannerVisible] = useState(false);
+
+  const mapCenter = useMemo(() => {
+    const extended = user as typeof user & { latitude?: number | null; longitude?: number | null };
+    if (extended?.latitude != null && extended?.longitude != null) {
+      return { latitude: extended.latitude, longitude: extended.longitude };
+    }
+    return ALEXANDRIA;
+  }, [user]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        if (!user || hasServiceArea) return;
+        const show = await shouldShowDailyPrompt(`${LOCATION_BANNER_KEY}:${user.id}`);
+        if (!cancelled && show) {
+          setLocationBannerVisible(true);
+          await markDailyPromptShown(`${LOCATION_BANNER_KEY}:${user.id}`);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [user, hasServiceArea]),
+  );
+
   const fetchServerPendingOrders = async () => {
     const apiBase = getApiBase();
     if (!apiBase || !sessionToken) return;
     setIsFetchingOrders(true);
     try {
-      const params = new URLSearchParams();
-      if (user?.governorate) params.set("governorate", user.governorate);
-      if (user?.area) params.set("area", user.area);
-      const res = await fetch(`${apiBase}/api/orders/pending?${params.toString()}`, {
+      const res = await fetch(`${apiBase}/api/technician/pending-orders?limit=20`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       if (res.ok) {
@@ -235,81 +262,50 @@ export default function TechMapScreen() {
         }
       />
 
-      {/* Map placeholder – Egypt / Alexandria focused */}
-      <View style={[styles.mapPlaceholder, { backgroundColor: colors.accentBlue }]}>
-        {/* Street grid overlay simulating a city map */}
-        <View style={styles.mapGrid}>
-          {[0, 1, 2, 3].map((row) =>
-            [0, 1, 2, 3, 4].map((col) => (
-              <View key={`${row}-${col}`} style={[styles.mapCell, { borderColor: colors.secondary + "25" }]} />
-            ))
-          )}
-        </View>
-
-        {/* "Sea" band at the top to simulate Mediterranean */}
-        <View style={[styles.seaBand, { backgroundColor: colors.secondary + "40" }]}>
-          <Text style={{ color: colors.secondary, fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1 }}>
-            {isRTL ? "البحر الأبيض المتوسط" : "MEDITERRANEAN SEA"}
-          </Text>
-        </View>
-
-        {/* Alexandria label */}
-        <View style={styles.cityLabel}>
-          <View style={[styles.cityDot, { backgroundColor: colors.primary }]} />
-          <Text style={{ color: colors.dark, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-            {isRTL ? "الإسكندرية" : "Alexandria"}
-          </Text>
-          <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 10, marginTop: 1 }}>
-            31.2001° N, 29.9187° E
-          </Text>
-        </View>
-
-        {/* District labels */}
-        {[
-          { label: isRTL ? "سيدي بشر" : "Sidi Bishr", top: 90, left: "60%" },
-          { label: isRTL ? "المنتزه" : "Montaza",    top: 60,  left: "72%" },
-          { label: isRTL ? "فلمنج"   : "Fleming",    top: 100, left: "40%" },
-          { label: isRTL ? "الجمرك"  : "Gomrok",     top: 85,  left: "15%" },
-        ].map((d) => (
-          <View key={d.label} style={[styles.districtTag, { top: d.top, left: d.left as any, backgroundColor: colors.card + "DD" }]}>
-            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 9 }}>{d.label}</Text>
-          </View>
-        ))}
-
-        {/* Order pins */}
-        {pendingOrders.slice(0, 4).map((order, i) => {
-          const isNew = newPendingOrders.some((o) => o.id === order.id);
-          return (
-            <TouchableOpacity
-              key={order.id}
-              style={[styles.mapPin, {
-                backgroundColor: isNew ? "#EF4444" : colors.primary,
-                top: 55 + (i % 2) * 60,
-                left: 40 + i * 65,
-              }]}
-              onPress={() => handleOpenOrder(order)}
-            >
-              <VectorIcon name="map-pin" size={14} color="#FFF" />
-              <View style={[styles.pinBadge, { backgroundColor: isNew ? "#7F1D1D" : colors.dark }]}>
-                <Text style={{ color: "#FFF", fontSize: 9, fontFamily: "Inter_700Bold" }}>{i + 1}</Text>
-              </View>
-              {isNew && <View style={styles.pinPulse} />}
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* My location dot */}
-        <View style={[styles.myLocation, { borderColor: colors.primary, backgroundColor: "#FFF" }]}>
-          <View style={[styles.myLocationInner, { backgroundColor: colors.primary }]} />
-        </View>
-
-        {/* Order count badge */}
+      {/* Live service-area map */}
+      <View style={[styles.mapLive, { borderColor: colors.border }]}>
+        <OsmMapView
+          style={StyleSheet.absoluteFill}
+          initialCoords={mapCenter}
+          markerCoords={mapCenter}
+          zoom={13}
+          pinColor={colors.primary}
+        />
         <View style={[styles.mapBadge, { backgroundColor: colors.primary }]}>
           <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 11 }}>
             {pendingOrders.length} {isRTL ? "طلبات" : "orders"}
           </Text>
         </View>
       </View>
+
+      <Modal visible={locationBannerVisible} transparent animationType="fade" onRequestClose={() => setLocationBannerVisible(false)}>
+        <View style={styles.locationModalOverlay}>
+          <View style={[styles.locationModalCard, { backgroundColor: colors.card }]}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: "center", marginBottom: 8 }}>
+              {isRTL ? "الرجاء تحديد مكانك" : "Set your location"}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, textAlign: "center", marginBottom: 16 }}>
+              {isRTL
+                ? "حدد منطقة خدمتك لتصبح متاحاً لاستقبال الطلبات في منطقتك."
+                : "Set your service area so you can receive orders in your zone."}
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 20 }}
+              onPress={() => {
+                setLocationBannerVisible(false);
+                router.push("/(tech)/profile?openServiceArea=1");
+              }}
+            >
+              <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", textAlign: "center" }}>
+                {isRTL ? "تحديد المنطقة" : "Set service area"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setLocationBannerVisible(false)} style={{ marginTop: 12 }}>
+              <Text style={{ color: colors.mutedForeground, textAlign: "center" }}>{isRTL ? "لاحقاً" : "Later"}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Service Area Banner */}
       {hasServiceArea ? (
@@ -547,7 +543,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   onlineBadge: { flexDirection: "row", alignItems: "center", paddingVertical: 5, paddingHorizontal: 10, borderRadius: 14, gap: 5 },
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FFF" },
-  mapPlaceholder: { height: 210, position: "relative", overflow: "hidden" },
+  mapLive: { height: 210, marginHorizontal: 16, marginTop: 8, borderRadius: 12, overflow: "hidden", borderWidth: 1, position: "relative" },
+  locationModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
+  locationModalCard: { width: "100%", maxWidth: 340, borderRadius: 14, padding: 20 },
   mapGrid: { ...StyleSheet.absoluteFillObject, flexDirection: "row", flexWrap: "wrap" },
   mapCell: { width: "20%", height: "25%", borderWidth: 0.5 },
   seaBand: { position: "absolute", top: 0, left: 0, right: 0, height: 38, alignItems: "center", justifyContent: "center" },

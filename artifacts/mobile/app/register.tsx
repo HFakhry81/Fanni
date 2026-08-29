@@ -313,6 +313,7 @@ export default function RegisterScreen() {
     serviceStart?: string;
     serviceEnd?: string;
     terms?: string;
+    idPhotos?: string;
   }>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -352,6 +353,14 @@ export default function RegisterScreen() {
         newErrors.nationalId = isRTL ? "الرقم القومي مطلوب" : "National ID is required";
       } else if (regType === "technician" && !/^\d{14}$/.test(nationalId.trim())) {
         newErrors.nationalId = isRTL ? "الرقم القومي يجب أن يكون 14 رقمًا" : "National ID must be exactly 14 digits";
+      }
+
+      if (regType === "technician") {
+        if (!nationalIdFrontUri || !nationalIdBackUri) {
+          newErrors.idPhotos = isRTL
+            ? "صور البطاقة (الوجه والظهر) إجبارية"
+            : "National ID photos (front and back) are required";
+        }
       }
 
       if (!password) {
@@ -799,7 +808,7 @@ export default function RegisterScreen() {
           <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }]}>
             {/* Front */}
             <TouchableOpacity
-              style={[styles.uploadBox, { borderColor: nationalIdFrontUri ? colors.primary : colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, flex: 1 }]}
+              style={[styles.uploadBox, { borderColor: errors.idPhotos && !nationalIdFrontUri ? colors.destructive : nationalIdFrontUri ? colors.primary : colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, flex: 1 }]}
               onPress={() => showPhotoPicker("front", isRTL ? "وجه البطاقة" : "ID Front")}
             >
               {nationalIdFrontUri ? (
@@ -816,7 +825,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
             {/* Back */}
             <TouchableOpacity
-              style={[styles.uploadBox, { borderColor: nationalIdBackUri ? colors.primary : colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, flex: 1 }]}
+              style={[styles.uploadBox, { borderColor: errors.idPhotos && !nationalIdBackUri ? colors.destructive : nationalIdBackUri ? colors.primary : colors.border, borderRadius: colors.radius, backgroundColor: colors.muted, flex: 1 }]}
               onPress={() => showPhotoPicker("back", isRTL ? "ظهر البطاقة" : "ID Back")}
             >
               {nationalIdBackUri ? (
@@ -832,6 +841,9 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
           </View>
+          {errors.idPhotos ? (
+            <Text style={{ color: colors.destructive, fontSize: 12, textAlign: isRTL ? "right" : "left" }}>{errors.idPhotos}</Text>
+          ) : null}
         </View>
       )}
     </View>

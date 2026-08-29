@@ -31,6 +31,7 @@ export default function TechOrdersScreen() {
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
 
+  const [assignedFromApi, setAssignedFromApi] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [solutionDesc, setSolutionDesc] = useState("");
   const [satisfaction, setSatisfaction] = useState<"satisfied" | "neutral" | "unsatisfied" | null>(null);
@@ -96,6 +97,7 @@ export default function TechOrdersScreen() {
 
         prevStatusMapRef.current = new Map(fetched.map((o) => [o.id, o.status]));
         syncOrders(fetched as Parameters<typeof syncOrders>[0]);
+        setAssignedFromApi(fetched);
       }
     } catch (err) {
       console.warn("[Fanni] Failed to re-fetch tech orders:", err);
@@ -129,7 +131,9 @@ export default function TechOrdersScreen() {
     }, [fetchOrdersFromApi, markCompletedOrdersSeen, ordersTabFocusedRef])
   );
 
-  const orders = getOrdersByTech(user?.id ?? "tech1");
+  const orders = assignedFromApi.length > 0
+    ? assignedFromApi
+    : getOrdersByTech(user?.id ?? "");
   const activeOrders = orders.filter((o) => ["accepted", "inProgress"].includes(o.status));
   const historyOrders = orders.filter((o) => ["completed", "cancelled"].includes(o.status));
 

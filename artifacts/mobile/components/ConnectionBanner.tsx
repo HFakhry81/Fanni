@@ -6,7 +6,7 @@ import VectorIcon from "@/components/VectorIcon";
 interface ConnectionBannerProps {
   connected: boolean;
   reconnectingLabel?: string;
-  /** Delay before showing after disconnect (avoids flicker). Default 2500ms. */
+  /** Delay before showing after disconnect (avoids flicker). Default 8000ms. */
   showDelayMs?: number;
 }
 
@@ -17,7 +17,7 @@ interface ConnectionBannerProps {
 export default function ConnectionBanner({
   connected,
   reconnectingLabel = "Reconnecting…",
-  showDelayMs = 2500,
+  showDelayMs = 8000,
 }: ConnectionBannerProps) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;

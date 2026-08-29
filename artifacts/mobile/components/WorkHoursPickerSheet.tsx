@@ -12,6 +12,7 @@ import DateTimePicker, { type DateTimePickerEvent } from "@react-native-communit
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { timePeriodLabel } from "@/utils/orderDefaults";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -98,7 +99,9 @@ export default function WorkHoursPickerSheet({
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.preview, { color: colors.primary }]}>{draft}</Text>
+          <Text style={[styles.preview, { color: colors.primary }]}>
+            {draft} · {timePeriodLabel(draft, isRTL)}
+          </Text>
 
           <View style={[styles.stepRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Stepper
