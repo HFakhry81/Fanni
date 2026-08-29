@@ -2,13 +2,13 @@
   "expo": {
     "name": "Fanni",
     "slug": "mobile",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "description": "Fanni — home maintenance by UpNexa (upnexa-eg.com). Support: Info@upnexa-eg.com. Version 1.0.8",
+    "description": "Fanni — home maintenance by UpNexa (upnexa-eg.com). Support: Info@upnexa-eg.com. Version 1.0.9",
     "owner": "haithamfakhry",
     "githubUrl": "https://github.com/HFakhry81/Fanni",
     "splash": {
@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.fanni.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "CFBundleDisplayName": "Fanni",
         "CFBundleURLTypes": [
@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.fanni.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
