@@ -1,7 +1,8 @@
 /** Sentry org/project for dashboards, EAS, and Cursor MCP (not secrets). */
-export const SENTRY_ORG = "upnexa-yb";
-export const SENTRY_PROJECT_API = "fanni-api";
-export const SENTRY_PROJECT_MOBILE = "fanni-app";
+export const SENTRY_ORG = "upnexa-hb";
+export const SENTRY_PROJECT_API = "node";
+export const SENTRY_PROJECT_MOBILE = "fanni";
+export const SENTRY_REGION_URL = "https://de.sentry.io";
 
 const DEFAULT_API_DSN =
   "https://c93888a5e789afb024acdd57559c888b@o4511786733207552.ingest.de.sentry.io/4511798704865360";

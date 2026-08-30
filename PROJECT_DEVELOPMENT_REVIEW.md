@@ -272,7 +272,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | تخزين الملفات | **يعمل** — VPS يستقبل الصور المرفوعة (KYC/uploads) |
 | migrate إنتاج | **023** مطبَّق (`working_hours`) |
 | الناشر | **UpNexa** — `Info@upnexa-eg.com` · https://upnexa-eg.com |
-| Sentry (APK) | DSN `fanni-app`؛ wrap + ErrorBoundary؛ `enableNative: false` حتى smoke أوسع |
+| Sentry | org **`upnexa-hb`** — مشروع موبايل **`fanni`** + API **`node`**؛ Cursor MCP متصل |
 | Google Sign-In | واجهة مربوطة؛ يحتاج OAuth Client IDs على EAS + `OIDC_CLIENT_ID` على API |
 
 ---

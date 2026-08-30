@@ -4,8 +4,10 @@
 
 | الخدمة | Org | Project | DSN env |
 |--------|-----|---------|---------|
-| API (`fanni-api`) | `upnexa-yb` | `fanni-api` | `SENTRY_DSN` (اختياري على VPS) |
-| Mobile APK | `upnexa-yb` | `fanni-app` | `EXPO_PUBLIC_SENTRY_DSN` (في EAS) |
+| API (`fanni-api` على PM2) | `upnexa-hb` | `node` | `SENTRY_DSN` (اختياري على VPS) |
+| Mobile APK | `upnexa-hb` | `fanni` | `EXPO_PUBLIC_SENTRY_DSN` (في EAS) |
+
+لوحة Sentry: https://upnexa-hb.sentry.io
 
 الإصدارات:
 
@@ -19,7 +21,7 @@
 1. تأكد أن إضافة **Sentry** مفعّلة: Cursor → **Settings → Plugins → Sentry**
 2. افتح **Settings → MCP** وابحث عن **sentry**
 3. اضغط **Connect** / **Sign in** — سيفتح OAuth على `https://mcp.sentry.dev`
-4. سجّل الدخول بحساب Sentry الذي يملك org **`upnexa-yb`**
+4. سجّل الدخول بحساب Sentry الذي يملك org **`upnexa-hb`**
 5. أعد تحميل نافذة Cursor (**Developer: Reload Window**) إن لم يظهر MCP
 
 ملف المشروع `.cursor/mcp.json` يشير إلى:
@@ -30,7 +32,7 @@
 
 بعد الربط يمكنك في المحادثة:
 
-- «اعرض آخر issues في fanni-app»
+- «اعرض آخر issues في fanni» (موبايل) أو `node` (API)
 - `/sentry-debug-issue` مع رابط خطأ
 - `/sentry-create-alert` لتنبيه Slack أو بريد
 
@@ -42,12 +44,12 @@
 
 ```bash
 curl -sS https://api.upnexa-eg.com/healthz
-# ثم راقب Sentry → fanni-api → Issues
+# ثم راقب Sentry → node → Issues
 ```
 
 ### Mobile
 
-افتح التطبيق، سجّل دخولاً، ثم راقب **fanni-app** في Sentry (JS errors فقط؛ `enableNative: false`).
+افتح التطبيق، سجّل دخولاً، ثم راقب **fanni** في Sentry (JS errors فقط؛ `enableNative: false`).
 
 ---
 

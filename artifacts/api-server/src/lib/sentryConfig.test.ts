@@ -9,8 +9,8 @@ import {
 
 describe("sentryConfig", () => {
   it("exposes org and project slugs", () => {
-    expect(SENTRY_ORG).toBe("upnexa-yb");
-    expect(SENTRY_PROJECT_API).toBe("fanni-api");
+    expect(SENTRY_ORG).toBe("upnexa-hb");
+    expect(SENTRY_PROJECT_API).toBe("node");
   });
 
   it("returns DSN by default", () => {

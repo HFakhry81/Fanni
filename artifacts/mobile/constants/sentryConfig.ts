@@ -1,5 +1,5 @@
 const DEFAULT_MOBILE_DSN =
-  "https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656";
+  "https://f65a29e74485fd160dc1d53e3b2a3a73@o4511786733207552.ingest.de.sentry.io/4511786758045776";
 
 /** Public DSN — safe in client bundles; override via EAS env for other environments. */
 export function getMobileSentryDsn(): string | undefined {
@@ -7,5 +7,5 @@ export function getMobileSentryDsn(): string | undefined {
   return fromEnv || DEFAULT_MOBILE_DSN;
 }
 
-export const SENTRY_ORG = "upnexa-yb";
-export const SENTRY_PROJECT = "fanni-app";
+export const SENTRY_ORG = "upnexa-hb";
+export const SENTRY_PROJECT = "fanni";

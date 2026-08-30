@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
+import * as Sentry from "@sentry/node";
 import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable, adminAuditLogsTable } from "@workspace/db";
 import { invalidateLocationCache } from "../lib/locationNormalizer";
 
@@ -443,6 +444,20 @@ router.get("/admin/dashboard/stats", authMiddleware, requireAuth, requireAdmin, 
     _req.log.error({ err }, "GET /admin/dashboard/stats failed");
     res.status(500).json({ error: "Failed to load dashboard stats" });
   }
+});
+
+/** POST /admin/sentry-test — send a manual test error to Sentry (admin only). */
+router.post("/admin/sentry-test", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const stamp = new Date().toISOString();
+  const message = `[Fanni API production test] Sentry monitoring check — ${stamp}`;
+  const err = new Error(message);
+  const eventId = Sentry.captureException(err, {
+    tags: { source: "admin-sentry-test", service: "fanni-api" },
+    extra: { adminId: req.user?.id, triggeredAt: stamp },
+  });
+  await Sentry.flush(2000);
+  req.log.info({ adminId: req.user?.id, eventId }, "Sentry API test event sent");
+  res.json({ ok: true, eventId, message });
 });
 
 router.get("/admin/orders", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
