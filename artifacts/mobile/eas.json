@@ -9,6 +9,7 @@
       "pnpm": "10.15.1",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.upnexa-eg.com",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656",
         "EXPO_ROUTER_APP_ROOT": "./app",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "SENTRY_ALLOW_FAILURE": "true",
@@ -24,6 +25,7 @@
       "pnpm": "10.15.1",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.upnexa-eg.com",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656",
         "EXPO_ROUTER_APP_ROOT": "./app",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "SENTRY_ALLOW_FAILURE": "true",

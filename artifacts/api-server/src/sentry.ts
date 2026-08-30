@@ -1,9 +1,20 @@
 import * as Sentry from "@sentry/node";
+import {
+  getApiSentryDsn,
+  getApiSentryEnvironment,
+  getApiSentryRelease,
+  SENTRY_ORG,
+  SENTRY_PROJECT_API,
+} from "./lib/sentryConfig";
 
 const isProduction = process.env.NODE_ENV === "production";
+const dsn = getApiSentryDsn();
 
 Sentry.init({
-  dsn: "https://c93888a5e789afb024acdd57559c888b@o4511786733207552.ingest.de.sentry.io/4511798704865360",
+  dsn,
+  enabled: Boolean(dsn),
+  environment: getApiSentryEnvironment(),
+  release: getApiSentryRelease(),
   tracesSampleRate: isProduction ? 0.2 : 1.0,
   enableLogs: true,
   integrations: [
@@ -12,4 +23,11 @@ Sentry.init({
       levels: isProduction ? ["warn", "error"] : ["log", "info", "warn", "error"],
     }),
   ],
+  initialScope: {
+    tags: {
+      "sentry.org": SENTRY_ORG,
+      "sentry.project": SENTRY_PROJECT_API,
+      service: "fanni-api",
+    },
+  },
 });

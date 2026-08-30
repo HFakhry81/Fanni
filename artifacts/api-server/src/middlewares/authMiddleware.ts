@@ -1,4 +1,5 @@
 import * as oidc from "openid-client";
+import * as Sentry from "@sentry/node";
 import { type Request, type Response, type NextFunction } from "express";
 import type { AuthUser } from "@workspace/api-zod";
 import {
@@ -65,6 +66,7 @@ export async function authMiddleware(
 
   const sid = getSessionId(req);
   if (!sid) {
+    Sentry.setUser(null);
     next();
     return;
   }
@@ -72,6 +74,7 @@ export async function authMiddleware(
   const session = await getSession(sid);
   if (!session?.user?.id) {
     await clearSession(res, sid);
+    Sentry.setUser(null);
     next();
     return;
   }
@@ -79,11 +82,17 @@ export async function authMiddleware(
   const refreshed = await refreshIfExpired(sid, session);
   if (!refreshed) {
     await clearSession(res, sid);
+    Sentry.setUser(null);
     next();
     return;
   }
 
   req.user = refreshed.user;
   req.sessionSource = refreshed.source;
+  Sentry.setUser({
+    id: refreshed.user.id,
+    segment: refreshed.user.role,
+  });
+  Sentry.setTag("user.role", refreshed.user.role);
   next();
 }

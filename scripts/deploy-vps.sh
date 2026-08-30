@@ -66,6 +66,13 @@ export FANNI_APP_DIR="$ROOT"
 export NODE_ENV=production
 export PORT="${PORT:-5000}"
 
+# Tie API errors to deploy version in Sentry (override in .env if needed)
+if [ -z "${SENTRY_RELEASE:-}" ] && command -v node >/dev/null 2>&1; then
+  APP_VER="$(node -e "const j=require('./artifacts/mobile/app.json'); process.stdout.write(j.expo.version||'unknown')")"
+  export SENTRY_RELEASE="fanni-api@${APP_VER}"
+  echo "[deploy] SENTRY_RELEASE=${SENTRY_RELEASE}"
+fi
+
 if command -v pnpm >/dev/null 2>&1; then
   PNPM=pnpm
 elif [ -f "$HOME/.local/share/pnpm/pnpm" ]; then

@@ -26,14 +26,17 @@ import { sweepExpiredRouteCache } from "@/utils/routeCache";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { getAppBuildNumber, getAppReleaseId } from "@/constants/appIdentity";
+import { getMobileSentryDsn, SENTRY_ORG, SENTRY_PROJECT } from "@/constants/sentryConfig";
 
 const APP_RELEASE = getAppReleaseId();
 
 // Single init only — do not double-init (wizard + lazy). enableNative stays false
 // until a monitored APK smoke-tests clean; JS errors/unhandled still report to Sentry.
 try {
+  const sentryDsn = getMobileSentryDsn();
   Sentry.init({
-    dsn: "https://ceed89f638fa2993b74cc4ebdfb3bf52@o4511974134382592.ingest.de.sentry.io/4511974147096656",
+    dsn: sentryDsn,
+    enabled: Boolean(sentryDsn),
     debug: __DEV__,
     tracesSampleRate: 0.2,
     enableNative: false,
@@ -45,6 +48,8 @@ try {
   Sentry.setTag("app.platform", Platform.OS);
   Sentry.setTag("app.channel", "eas-preview-apk");
   Sentry.setTag("app.publisher", "UpNexa");
+  Sentry.setTag("sentry.org", SENTRY_ORG);
+  Sentry.setTag("sentry.project", SENTRY_PROJECT);
   Sentry.addBreadcrumb({
     category: "app.lifecycle",
     message: "Sentry initialized for Fanni APK (UpNexa)",
