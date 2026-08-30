@@ -4,7 +4,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -16,8 +15,8 @@ import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordS
 import Toast from "@/components/Toast";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
+import { getAuthToken } from "@/utils/authTokenStorage";
 
-const AUTH_TOKEN_KEY = "fanni_auth_token";
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
 
@@ -216,7 +215,7 @@ export default function AddAdminScreen() {
     setLoading(true);
     try {
       const apiBase = getApiBase();
-      const authToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+      const authToken = await getAuthToken();
       const res = await fetch(`${apiBase}/api/admin/create-admin`, {
         method: "POST",
         headers: {

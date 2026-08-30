@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -19,9 +18,8 @@ import FanniInput from "@/components/FanniInput";
 import AppHeader from "@/components/AppHeader";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
+import { setAuthToken } from "@/utils/authTokenStorage";
 import { APP_IDENTITY, getAppVersionLabel } from "@/constants/appIdentity";
-
-const AUTH_TOKEN_KEY = "fanni_auth_token";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -90,7 +88,7 @@ export default function LoginScreen() {
       }
       if (data.token) {
         try {
-          await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+          await setAuthToken(data.token);
         } catch {
           setLocalError(
             isRTL

@@ -6,13 +6,14 @@ import React, {
   useCallback,
   type ReactNode,
 } from "react";
-import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { getApiBase } from "@/utils/api";
-
-const AUTH_TOKEN_KEY = "fanni_auth_token";
+import {
+  deleteAuthToken,
+  getAuthToken,
+} from "@/utils/authTokenStorage";
 
 export interface AuthUser {
   id: string;
@@ -64,8 +65,7 @@ function getApiBaseUrl(): string {
 
 /**
  * Session auth only (email/mobile + password via API).
- * Replit and Google OAuth are intentionally not used — they broke Expo web builds
- * when client IDs were missing.
+ * Token storage: SecureStore on native, AsyncStorage (localStorage) on web.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = useCallback(async (token?: string) => {
     try {
-      const storedToken = token ?? (await SecureStore.getItemAsync(AUTH_TOKEN_KEY));
+      const storedToken = token ?? (await getAuthToken());
       if (!storedToken) {
         setUser(null);
         setSessionToken(null);
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user as AuthUser);
         setSessionToken(storedToken);
       } else {
-        await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+        await deleteAuthToken();
         setUser(null);
         setSessionToken(null);
       }
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+      const token = await getAuthToken();
       if (token) {
         const apiBase = getApiBaseUrl();
         await fetch(`${apiBase}/api/mobile-auth/logout`, {
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {
     } finally {
-      await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+      await deleteAuthToken();
       await AsyncStorage.removeItem("catBannerDismissed");
       setUser(null);
       setSessionToken(null);
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setRole = useCallback(async (role: "client" | "technician" | "admin") => {
-    const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+    const token = await getAuthToken();
     if (!token) return;
     const apiBase = getApiBaseUrl();
     const res = await fetch(`${apiBase}/api/auth/role`, {
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+    const token = await getAuthToken();
     if (token) await fetchUser(token);
   }, [fetchUser]);
 
@@ -178,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const expoPushToken = tokenData.data;
         if (!expoPushToken) return;
 
-        const storedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+        const storedToken = await getAuthToken();
         if (!storedToken) return;
 
         await fetch(`${apiBase}/api/auth/push-token`, {

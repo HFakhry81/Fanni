@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -29,8 +28,7 @@ import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewC
 import AppIdentityCard from "@/components/AppIdentityCard";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
-
-const AUTH_TOKEN_KEY = "fanni_auth_token";
+import { getAuthToken } from "@/utils/authTokenStorage";
 
 // ─── Payment Manager Picker ───────────────────────────────────────────────────
 interface AdminOption { id: string; firstName: string | null; lastName: string | null; mobile: string | null }
@@ -340,7 +338,7 @@ export default function AdminProfileScreen() {
     setChangingPw(true);
     try {
       const apiBase = getApiBase();
-      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+      const token = await getAuthToken();
       if (!apiBase || !token) throw new Error(t("profile.noServer"));
       const res = await fetch(`${apiBase}/api/auth/change-password`, {
         method: "POST",
@@ -386,7 +384,7 @@ export default function AdminProfileScreen() {
             setRevokingOtherSessions(true);
             try {
               const apiBase = getApiBase();
-              const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+              const token = await getAuthToken();
               if (!apiBase || !token) throw new Error(t("profile.noServer"));
               const res = await fetch(`${apiBase}/api/auth/revoke-other-sessions`, {
                 method: "POST",

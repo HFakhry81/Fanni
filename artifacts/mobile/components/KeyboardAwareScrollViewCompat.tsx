@@ -86,6 +86,20 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
     }, []);
 
     const scrollToInput = useCallback((target: Parameters<typeof findNodeHandle>[0]) => {
+      // findNodeHandle throws on web — use DOM/measure fallback only there.
+      if (Platform.OS === "web") {
+        try {
+          const el = target as unknown as { focus?: () => void };
+          el?.focus?.();
+          const node = target as unknown as HTMLElement | null;
+          if (node && typeof (node as HTMLElement).scrollIntoView === "function") {
+            (node as HTMLElement).scrollIntoView({ block: "center", behavior: "smooth" });
+          }
+        } catch {
+          // ignore web scroll helpers
+        }
+        return;
+      }
       const scrollNode = findNodeHandle(innerRef.current);
       const inputNode = findNodeHandle(target);
       if (!scrollNode || !inputNode || !innerRef.current) return;

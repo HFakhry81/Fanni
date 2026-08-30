@@ -5,7 +5,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
@@ -22,11 +21,10 @@ import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
 import { appendImageToFormData } from "@/utils/appendImageToFormData";
 import { getTechnicianIdPhotosError } from "@/utils/technicianRegisterValidation";
+import { setAuthToken } from "@/utils/authTokenStorage";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
-
-const AUTH_TOKEN_KEY = "fanni_auth_token";
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
@@ -582,7 +580,7 @@ export default function RegisterScreen() {
         }
         if (data.token) {
           try {
-            await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.token);
+            await setAuthToken(data.token);
           } catch {
             setApiError(isRTL ? "تم إنشاء الحساب لكن تعذّر حفظ الجلسة على الجهاز" : "Account created but session could not be saved on device");
             return;
