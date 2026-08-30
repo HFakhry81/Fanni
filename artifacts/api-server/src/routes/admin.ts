@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
 import * as Sentry from "@sentry/node";
+import { captureMobileSentryException } from "../lib/mobileSentryRelay.js";
 import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable, adminAuditLogsTable } from "@workspace/db";
 import { invalidateLocationCache } from "../lib/locationNormalizer";
 
@@ -538,6 +539,25 @@ router.post("/admin/sentry-test", authMiddleware, requireAuth, requireAdmin, asy
   req.log.info({ adminId: req.user?.id, eventId }, "Sentry API test event sent");
   res.json({ ok: true, eventId, message });
 });
+
+/** POST /admin/sentry-test-mobile — relay test error to the fanni (mobile) Sentry project. */
+router.post(
+  "/admin/sentry-test-mobile",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const stamp = new Date().toISOString();
+    const message = `[Fanni mobile production test] Sentry monitoring check — ${stamp}`;
+    const err = new Error(message);
+    const eventId = await captureMobileSentryException(err, {
+      tags: { source: "admin-sentry-test", channel: "mobile-js", relay: "api" },
+      extra: { adminId: req.user?.id, triggeredAt: stamp },
+    });
+    req.log.info({ adminId: req.user?.id, eventId }, "Sentry mobile test event sent");
+    res.json({ ok: true, eventId, message });
+  },
+);
 
 router.get("/admin/orders", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const limit = Math.min(50, Math.max(1, queryInt(req.query.limit, 10)));

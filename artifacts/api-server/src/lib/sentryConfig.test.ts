@@ -3,18 +3,22 @@ import {
   getApiSentryDsn,
   getApiSentryEnvironment,
   getApiSentryRelease,
+  getMobileSentryDsn,
   SENTRY_ORG,
   SENTRY_PROJECT_API,
+  SENTRY_PROJECT_MOBILE,
 } from "./sentryConfig";
 
 describe("sentryConfig", () => {
   it("exposes org and project slugs", () => {
     expect(SENTRY_ORG).toBe("upnexa-hb");
     expect(SENTRY_PROJECT_API).toBe("node");
+    expect(SENTRY_PROJECT_MOBILE).toBe("fanni");
   });
 
   it("returns DSN by default", () => {
     expect(getApiSentryDsn()).toMatch(/^https:\/\//);
+    expect(getMobileSentryDsn()).toMatch(/^https:\/\//);
   });
 
   it("reads release and environment from env when set", () => {

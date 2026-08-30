@@ -41,6 +41,7 @@ export default function AdminDashboardScreen() {
 
   const [isRegeocoding, setIsRegeocoding] = useState(false);
   const [isSentryTesting, setIsSentryTesting] = useState(false);
+  const [sentryTestTarget, setSentryTestTarget] = useState<"mobile" | "api" | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
 
@@ -154,18 +155,74 @@ export default function AdminDashboardScreen() {
   }
 
   async function handleSentryMobileTest() {
-    const stamp = new Date().toISOString();
-    const message = `[Fanni mobile production test] Sentry monitoring check — ${stamp}`;
-    const eventId = Sentry.captureException(new Error(message), {
-      tags: { source: "admin-dashboard", channel: "mobile-js" },
-    });
-    await Sentry.flush();
-    Alert.alert(
-      isRTL ? "اختبار Sentry (التطبيق)" : "Sentry Test (App)",
-      isRTL
-        ? `أُرسلت رسالة خطأ تجريبية للموبايل.\nمعرّف الحدث: ${eventId ?? "—"}`
-        : `Test error sent from the mobile app.\nEvent ID: ${eventId ?? "—"}`,
-    );
+    if (Platform.OS === "web") {
+      await handleSentryMobileTestViaApi();
+      return;
+    }
+
+    setIsSentryTesting(true);
+    setSentryTestTarget("mobile");
+    try {
+      const stamp = new Date().toISOString();
+      const message = `[Fanni mobile production test] Sentry monitoring check — ${stamp}`;
+      const eventId = Sentry.captureException(new Error(message), {
+        tags: { source: "admin-dashboard", channel: "mobile-js" },
+      });
+      await Sentry.flush();
+      Alert.alert(
+        isRTL ? "اختبار Sentry (التطبيق)" : "Sentry Test (App)",
+        isRTL
+          ? `أُرسلت رسالة خطأ تجريبية للموبايل.\nمعرّف الحدث: ${eventId ?? "—"}`
+          : `Test error sent from the mobile app.\nEvent ID: ${eventId ?? "—"}`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert(isRTL ? "فشل اختبار التطبيق" : "App test failed", msg);
+    } finally {
+      setIsSentryTesting(false);
+      setSentryTestTarget(null);
+    }
+  }
+
+  async function handleSentryMobileTestViaApi() {
+    if (!sessionToken) {
+      Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "يجب تسجيل الدخول كمسئول" : "Admin session required");
+      return;
+    }
+    const base = getApiBase();
+    if (!base) {
+      Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "عنوان الخادم غير مضبوط" : "API base URL is not configured");
+      return;
+    }
+    setIsSentryTesting(true);
+    setSentryTestTarget("mobile");
+    try {
+      const resp = await fetch(`${base}/api/admin/sentry-test-mobile`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      const data = await resp.json() as { ok?: boolean; eventId?: string; message?: string; error?: string };
+      if (!resp.ok) {
+        Alert.alert(isRTL ? "فشل اختبار التطبيق" : "App test failed", data.error ?? `HTTP ${resp.status}`);
+        return;
+      }
+      Alert.alert(
+        isRTL ? "اختبار Sentry (التطبيق)" : "Sentry Test (App)",
+        isRTL
+          ? `أُرسلت رسالة خطأ تجريبية لمشروع fanni.\nمعرّف الحدث: ${data.eventId ?? "—"}`
+          : `Test error sent to the fanni project.\nEvent ID: ${data.eventId ?? "—"}`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert(isRTL ? "فشل اختبار التطبيق" : "App test failed", msg);
+    } finally {
+      setIsSentryTesting(false);
+      setSentryTestTarget(null);
+    }
   }
 
   async function handleSentryApiTest() {
@@ -179,6 +236,7 @@ export default function AdminDashboardScreen() {
       return;
     }
     setIsSentryTesting(true);
+    setSentryTestTarget("api");
     try {
       const resp = await fetch(`${base}/api/admin/sentry-test`, {
         method: "POST",
@@ -203,6 +261,7 @@ export default function AdminDashboardScreen() {
       Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "تعذر الاتصال بالخادم" : "Could not reach the server");
     } finally {
       setIsSentryTesting(false);
+      setSentryTestTarget(null);
     }
   }
 
@@ -425,10 +484,13 @@ export default function AdminDashboardScreen() {
         <TouchableOpacity
           style={[styles.toolRow, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
           onPress={handleSentryMobileTest}
+          disabled={isSentryTesting}
           activeOpacity={0.85}
         >
           <View style={[styles.toolIcon, { backgroundColor: "#E74C3C18", borderRadius: 12 }]}>
-            <VectorIcon name="smartphone" size={22} color="#E74C3C" />
+            {isSentryTesting && sentryTestTarget === "mobile"
+              ? <ActivityIndicator size="small" color="#E74C3C" />
+              : <VectorIcon name="smartphone" size={22} color="#E74C3C" />}
           </View>
           <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
             <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
@@ -446,7 +508,7 @@ export default function AdminDashboardScreen() {
           activeOpacity={0.85}
         >
           <View style={[styles.toolIcon, { backgroundColor: "#3498DB18", borderRadius: 12 }]}>
-            {isSentryTesting
+            {isSentryTesting && sentryTestTarget === "api"
               ? <ActivityIndicator size="small" color="#3498DB" />
               : <VectorIcon name="monitor" size={22} color="#3498DB" />
             }

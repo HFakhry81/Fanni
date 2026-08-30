@@ -47,7 +47,7 @@ try {
     enableAutoSessionTracking: true,
   });
   Sentry.setTag("app.platform", Platform.OS);
-  Sentry.setTag("app.channel", "eas-preview-apk");
+  Sentry.setTag("app.channel", Platform.OS === "web" ? "expo-web" : "eas-preview-apk");
   Sentry.setTag("app.publisher", "UpNexa");
   Sentry.setTag("sentry.org", SENTRY_ORG);
   Sentry.setTag("sentry.project", SENTRY_PROJECT);
