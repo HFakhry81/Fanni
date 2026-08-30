@@ -71,6 +71,12 @@ uploads/
 # Chat / dump attachments (not part of the product)
 attached_assets/
 
+# Playwright E2E
+e2e/playwright-report/
+e2e/test-results/
+playwright-report/
+test-results/
+
 # Local DB dumps (never commit)
 backup.sql
 backup_new.sql
