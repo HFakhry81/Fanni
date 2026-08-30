@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
+import { saveSuspensionNotice, clearSuspensionNotice } from "@/utils/suspensionNotice";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import FanniButton from "@/components/FanniButton";
@@ -75,7 +76,7 @@ export default function LoginScreen() {
         body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
       const raw = await res.text();
-      let data: { token?: string; error?: string } = {};
+      let data: { token?: string; error?: string; suspensionReason?: string | null } = {};
       try {
         data = raw ? (JSON.parse(raw) as typeof data) : {};
       } catch {
@@ -97,6 +98,7 @@ export default function LoginScreen() {
           );
           return;
         }
+        await clearSuspensionNotice();
         await refreshUser();
       } else if (data.error === "Invalid credentials") {
         setLocalError(
@@ -105,10 +107,16 @@ export default function LoginScreen() {
             : "Invalid email/mobile or password",
         );
       } else if (data.error === "Account is suspended") {
+        const reason = typeof data.suspensionReason === "string" ? data.suspensionReason.trim() : "";
+        if (reason) await saveSuspensionNotice(reason);
         setLocalError(
-          isRTL
-            ? "هذا الحساب موقوف. يرجى التواصل مع الدعم."
-            : "Your account has been suspended. Please contact support.",
+          reason
+            ? (isRTL
+              ? `هذا الحساب موقوف.\n\nالسبب: ${reason}`
+              : `Your account has been suspended.\n\nReason: ${reason}`)
+            : (isRTL
+              ? "هذا الحساب موقوف. يرجى التواصل مع الدعم."
+              : "Your account has been suspended. Please contact support."),
         );
       } else {
         setLocalError(

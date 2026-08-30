@@ -1066,7 +1066,10 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
 
   if (!user.isActive) {
     await logLoginAttempt({ userId: user.id, role: user.role ?? "client", success: false, failureReason: "account_suspended" });
-    res.status(403).json({ error: "Account is suspended" });
+    res.status(403).json({
+      error: "Account is suspended",
+      suspensionReason: user.suspensionReason ?? null,
+    });
     return;
   }
 

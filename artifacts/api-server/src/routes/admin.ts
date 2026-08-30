@@ -317,6 +317,14 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
         profession: usersTable.profession,
         approvalStatus: usersTable.approvalStatus,
         createdAt: usersTable.createdAt,
+        suspensionReason: usersTable.suspensionReason,
+        suspendedAt: usersTable.suspendedAt,
+        suspendedByAdminId: usersTable.suspendedByAdminId,
+        suspendedByAdminName: sql<string | null>`(
+          select nullif(trim(concat(a.first_name, ' ', coalesce(a.last_name, ''))), '')
+          from admins a
+          where a.id = ${usersTable.suspendedByAdminId}
+        )`,
         toggleCount24h: sql<number>`(
           select count(*)::int
           from availability_audit_logs
@@ -350,7 +358,12 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
 
 router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_users"), async (req: Request<{ id: string }>, res: Response) => {
   const id = req.params.id;
-  const { role, isActive } = req.body as { role?: string; isActive?: boolean };
+  const { role, isActive, suspensionReason } = req.body as {
+    role?: string;
+    isActive?: boolean;
+    suspensionReason?: string;
+  };
+  const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
 
   if (!id) {
     res.status(400).json({ error: "User ID is required" });
@@ -375,7 +388,14 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requ
     return;
   }
 
-  const updates: Partial<{ role: "client" | "technician"; isActive: boolean }> = {};
+  const updates: Partial<{
+    role: "client" | "technician";
+    isActive: boolean;
+    suspensionReason: string | null;
+    suspendedAt: Date | null;
+    suspendedByAdminId: string | null;
+    updatedAt: Date;
+  }> = {};
 
   if (role !== undefined) {
     if (!["client", "technician"].includes(role)) {
@@ -390,7 +410,24 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requ
       res.status(400).json({ error: "isActive must be a boolean" });
       return;
     }
-    updates.isActive = isActive;
+
+    if (isActive === false) {
+      const reason = suspensionReason?.trim();
+      if (!reason) {
+        res.status(400).json({ error: "Suspension reason is required" });
+        return;
+      }
+      updates.isActive = false;
+      updates.suspensionReason = reason;
+      updates.suspendedAt = new Date();
+      updates.suspendedByAdminId = req.user!.id;
+    } else {
+      updates.isActive = true;
+      updates.suspensionReason = null;
+      updates.suspendedAt = null;
+      updates.suspendedByAdminId = null;
+    }
+    updates.updatedAt = new Date();
   }
 
   if (Object.keys(updates).length === 0) {
@@ -398,24 +435,59 @@ router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requ
     return;
   }
 
+  const adminId = req.user!.id;
+  const targetType = existing.role === "technician" ? "technician" : "client";
+
   const [updated] = await db.transaction(async (tx) => {
     const result = await tx
       .update(usersTable)
       .set(updates)
       .where(eq(usersTable.id, id))
-      .returning({ id: usersTable.id, role: usersTable.role, isActive: usersTable.isActive });
+      .returning({
+        id: usersTable.id,
+        role: usersTable.role,
+        isActive: usersTable.isActive,
+        suspensionReason: usersTable.suspensionReason,
+        suspendedAt: usersTable.suspendedAt,
+        suspendedByAdminId: usersTable.suspendedByAdminId,
+      });
 
     if (updates.isActive === false) {
       await tx.delete(sessionsTable).where(
         sql`${sessionsTable.sess}->'user'->>'id' = ${id}`,
       );
-      req.log.info({ userId: id, adminId: req.user?.id }, "Deleted all sessions for suspended user");
+      await tx.insert(adminAuditLogsTable).values({
+        adminId,
+        action: "suspend_user",
+        targetType,
+        targetId: id,
+        previousStatus: existing.isActive ? "active" : "suspended",
+        newStatus: "suspended",
+        reason: updates.suspensionReason ?? undefined,
+        metadata: {
+          userMobile: existing.mobile,
+          userEmail: existing.email,
+          userName: [existing.firstName, existing.lastName].filter(Boolean).join(" "),
+        },
+        ipAddress: ip,
+      });
+      req.log.info({ userId: id, adminId }, "Deleted all sessions for suspended user");
+    } else if (updates.isActive === true) {
+      await tx.insert(adminAuditLogsTable).values({
+        adminId,
+        action: "reactivate_user",
+        targetType,
+        targetId: id,
+        previousStatus: "suspended",
+        newStatus: "active",
+        ipAddress: ip,
+      });
     }
 
     return result;
   });
 
-  req.log.info({ userId: id, updates, adminId: req.user?.id }, "Admin updated user");
+  req.log.info({ userId: id, updates, adminId }, "Admin updated user");
   res.json({ success: true, user: updated });
 });
 

@@ -11,6 +11,8 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  Modal,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +22,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
+import { confirmDialog } from "@/utils/confirmDialog";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type MainView = "hub" | "clients" | "technicians" | "collection";
@@ -43,6 +46,10 @@ interface ApiUser {
   approvalStatus?: string | null;
   createdAt: string;
   toggleCount24h?: number | null;
+  suspensionReason?: string | null;
+  suspendedAt?: string | null;
+  suspendedByAdminId?: string | null;
+  suspendedByAdminName?: string | null;
 }
 
 interface LedgerEntry {
@@ -246,6 +253,21 @@ function UserRow({
             {isRTL ? "بانتظار الموافقة" : "Pending approval"}
           </Text>
         ) : null}
+        {!isActive && user.suspensionReason ? (
+          <Text style={[styles.userMeta, { color: "#E74C3C", marginTop: 4 }]} numberOfLines={2}>
+            {isRTL ? "سبب الإيقاف: " : "Reason: "}{user.suspensionReason}
+          </Text>
+        ) : null}
+        {!isActive && (user.suspendedByAdminName || user.suspendedAt) ? (
+          <Text style={[styles.userMeta, { color: colors.mutedForeground, marginTop: 2 }]} numberOfLines={1}>
+            {user.suspendedByAdminName
+              ? (isRTL ? `بواسطة ${user.suspendedByAdminName}` : `By ${user.suspendedByAdminName}`)
+              : ""}
+            {user.suspendedAt
+              ? `${user.suspendedByAdminName ? " · " : ""}${formatDate(user.suspendedAt)}`
+              : ""}
+          </Text>
+        ) : null}
       </View>
       <View style={styles.userActions}>
         <View
@@ -284,6 +306,90 @@ function UserRow({
   );
 }
 
+// ─── Suspend user modal ─────────────────────────────────────────────────────────
+function SuspendUserModal({
+  visible,
+  user,
+  reason,
+  onChangeReason,
+  onClose,
+  onConfirm,
+  submitting,
+  isRTL,
+  colors,
+}: {
+  visible: boolean;
+  user: ApiUser | null;
+  reason: string;
+  onChangeReason: (v: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+  submitting: boolean;
+  isRTL: boolean;
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (!user) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.modalOverlay}
+      >
+        <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.modalTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
+            {isRTL ? "تعليق الحساب" : "Suspend account"}
+          </Text>
+          <Text style={[styles.modalSub, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+            {isRTL
+              ? `أدخل سبب إيقاف حساب ${userName(user)}. سيظهر هذا السبب للمستخدم عند محاولة الدخول.`
+              : `Enter a reason to suspend ${userName(user)}. The user will see this when signing in.`}
+          </Text>
+          <TextInput
+            value={reason}
+            onChangeText={onChangeReason}
+            placeholder={isRTL ? "سبب الإيقاف..." : "Suspension reason..."}
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            numberOfLines={4}
+            style={[
+              styles.modalInput,
+              {
+                color: colors.foreground,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+          />
+          <View style={[styles.modalActions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <TouchableOpacity
+              style={[styles.modalBtn, { borderColor: colors.border }]}
+              onPress={onClose}
+              disabled={submitting}
+            >
+              <Text style={{ color: colors.foreground }}>{isRTL ? "إلغاء" : "Cancel"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: "#E74C3C", borderColor: "#E74C3C" }]}
+              onPress={onConfirm}
+              disabled={submitting || !reason.trim()}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold" }}>
+                  {isRTL ? "تأكيد التعليق" : "Confirm suspend"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 // ─── Users list view (clients or technicians) ─────────────────────────────────────
 function UserListView({
   role, isRTL, colors, t, sessionToken,
@@ -299,6 +405,8 @@ function UserListView({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<ApiUser | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -358,49 +466,101 @@ function UserListView({
     debounceRef.current = setTimeout(() => setDebouncedSearch(search), 400);
   }, [search]);
 
-  const toggleUser = useCallback(
-    async (user: ApiUser) => {
-      if (!sessionToken) return;
-      Alert.alert(
+  const patchUserStatus = useCallback(
+    async (user: ApiUser, nextActive: boolean, reason?: string) => {
+      if (!sessionToken) return false;
+      setUpdatingId(user.id);
+      try {
+        const base = getApiBase();
+        const res = await fetch(`${base}/api/admin/users/${user.id}`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${sessionToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            isActive: nextActive,
+            ...(nextActive ? {} : { suspensionReason: reason?.trim() }),
+          }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json() as {
+          user: {
+            isActive: boolean;
+            suspensionReason?: string | null;
+            suspendedAt?: string | null;
+            suspendedByAdminId?: string | null;
+          };
+        };
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === user.id
+              ? {
+                  ...u,
+                  isActive: data.user.isActive,
+                  suspensionReason: data.user.suspensionReason ?? null,
+                  suspendedAt: data.user.suspendedAt ?? null,
+                  suspendedByAdminId: data.user.suspendedByAdminId ?? null,
+                }
+              : u
+          )
+        );
+        return true;
+      } catch {
+        return false;
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [sessionToken]
+  );
+
+  const handleTogglePress = useCallback(
+    (user: ApiUser) => {
+      if (user.isActive) {
+        setSuspendReason("");
+        setSuspendTarget(user);
+        return;
+      }
+      confirmDialog(
+        isRTL ? "تفعيل الحساب؟" : "Reactivate account?",
         isRTL
-          ? user.isActive ? "تعليق الحساب؟" : "تفعيل الحساب؟"
-          : user.isActive ? "Suspend Account?" : "Reactivate Account?",
-        isRTL
-          ? `هل تريد ${user.isActive ? "تعليق" : "تفعيل"} حساب ${userName(user)}؟`
-          : `${user.isActive ? "Suspend" : "Reactivate"} ${userName(user)}'s account?`,
+          ? `هل تريد إعادة تفعيل حساب ${userName(user)}؟`
+          : `Reactivate ${userName(user)}'s account?`,
         [
           { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
           {
             text: isRTL ? "تأكيد" : "Confirm",
-            style: user.isActive ? "destructive" : "default",
             onPress: async () => {
-              setUpdatingId(user.id);
-              try {
-                const base = getApiBase();
-                const res = await fetch(`${base}/api/admin/users/${user.id}`, {
-                  method: "PATCH",
-                  headers: {
-                    Authorization: `Bearer ${sessionToken}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ isActive: !user.isActive }),
-                });
-                if (res.ok) {
-                  setUsers((prev) =>
-                    prev.map((u) =>
-                      u.id === user.id ? { ...u, isActive: !u.isActive } : u
-                    )
-                  );
-                }
-              } catch { /* ignore */ }
-              finally { setUpdatingId(null); }
+              const ok = await patchUserStatus(user, true);
+              if (!ok) {
+                Alert.alert(
+                  isRTL ? "فشل التفعيل" : "Reactivation failed",
+                  isRTL ? "تعذّر تفعيل الحساب" : "Could not reactivate account"
+                );
+              }
             },
           },
         ]
       );
     },
-    [sessionToken, isRTL]
+    [isRTL, patchUserStatus]
   );
+
+  const confirmSuspend = useCallback(async () => {
+    if (!suspendTarget || !suspendReason.trim()) return;
+    const ok = await patchUserStatus(suspendTarget, false, suspendReason);
+    if (ok) {
+      setSuspendTarget(null);
+      setSuspendReason("");
+      await fetchUsers(true);
+    } else {
+      Alert.alert(
+        isRTL ? "فشل التعليق" : "Suspend failed",
+        isRTL ? "تعذّر تعليق الحساب" : "Could not suspend account"
+      );
+    }
+  }, [suspendTarget, suspendReason, patchUserStatus, fetchUsers, isRTL]);
 
   const filters: { label: string; value: StatusFilter }[] = [
     { label: isRTL ? "الكل" : "All", value: "all" },
@@ -421,6 +581,21 @@ function UserListView({
 
   return (
     <View style={{ flex: 1 }}>
+      <SuspendUserModal
+        visible={!!suspendTarget}
+        user={suspendTarget}
+        reason={suspendReason}
+        onChangeReason={setSuspendReason}
+        onClose={() => {
+          if (updatingId) return;
+          setSuspendTarget(null);
+          setSuspendReason("");
+        }}
+        onConfirm={() => { void confirmSuspend(); }}
+        submitting={!!suspendTarget && updatingId === suspendTarget.id}
+        isRTL={isRTL}
+        colors={colors}
+      />
       <View
         style={[
           styles.searchRow,
@@ -490,7 +665,7 @@ function UserListView({
         renderItem={({ item }) => (
           <UserRow
             user={item}
-            onToggle={toggleUser}
+            onToggle={handleTogglePress}
             updating={updatingId === item.id}
             isTech={role === "technician"}
             isRTL={isRTL}
@@ -1454,5 +1629,48 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     marginTop: 8,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  modalTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+  },
+  modalSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  modalInput: {
+    minHeight: 100,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    textAlignVertical: "top",
+  },
+  modalActions: {
+    gap: 10,
+    justifyContent: "flex-end",
+  },
+  modalBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

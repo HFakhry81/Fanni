@@ -11,7 +11,7 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import Constants from "expo-constants";
 import React, { useEffect, useRef, useState } from "react";
-import { AppState, Platform, View } from "react-native";
+import { AppState, Platform, View, Alert } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import NetInfo from "@react-native-community/netinfo";
@@ -27,6 +27,7 @@ import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { getAppBuildNumber, getAppReleaseId } from "@/constants/appIdentity";
 import { getMobileSentryDsn, SENTRY_ORG, SENTRY_PROJECT } from "@/constants/sentryConfig";
+import { getSuspensionNotice } from "@/utils/suspensionNotice";
 
 const APP_RELEASE = getAppReleaseId();
 
@@ -398,6 +399,35 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SuspensionNoticeGate() {
+  const { isLoading, user } = useAuth();
+  const { isRTL } = useApp();
+
+  useEffect(() => {
+    if (isLoading || user) return;
+
+    const showNotice = async () => {
+      const reason = await getSuspensionNotice();
+      if (!reason) return;
+      Alert.alert(
+        isRTL ? "حساب موقوف" : "Account suspended",
+        isRTL
+          ? `تم إيقاف حسابك للسبب التالي:\n\n${reason}`
+          : `Your account was suspended for the following reason:\n\n${reason}`,
+        [{ text: isRTL ? "حسناً" : "OK" }],
+      );
+    };
+
+    void showNotice();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void showNotice();
+    });
+    return () => sub.remove();
+  }, [isLoading, user, isRTL]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -482,6 +512,7 @@ function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <AppProvider>
               <AuthProvider>
+                <SuspensionNoticeGate />
                 <AuthUserBridge>
                   <OrderProvider>
                     <RootLayoutNav />
