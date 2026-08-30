@@ -1,13 +1,17 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import app from "./app";
+import { logger } from "./lib/logger";
 import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { startArrivalTimeoutWorker } from "./lib/orderLifecycle";
-import { logger } from "./lib/logger";
 import { db, adminsTable, serviceDomainsTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import adminGeoRouter from "./routes/admin-geo";
 app.use(adminGeoRouter);
+
+pool.on("error", (err) => {
+  logger.error({ err }, "Unexpected PostgreSQL pool error on idle client");
+});
 
 const rawPort = process.env["PORT"];
 

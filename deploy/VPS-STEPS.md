@@ -102,6 +102,25 @@ ls -la /var/www/fanni-web/fanni.apk
 
 ---
 
+## صيانة سجلات PM2 (fanni-api)
+
+| الملاحظة | التفسير | الإجراء |
+|----------|---------|---------|
+| `level:30` في `fanni-api-out.log` | معلومات عادية (Pino info) وليست خطأ 500 | طبيعي |
+| طلبات `404` لـ `/`, `/robots.txt`, `/.env` | مسح آلي من الإنترنت أو متصفح | بعد التحديث: `/` يرد 200؛ المسارات الحساسة لا تُسجَّل في out |
+| كائن PostgreSQL في `fanni-api-error.log` | غالباً `console.*` أو تسلسل `err` يتضمن `client` | أُزيل `console.log` من `/ping`؛ Sentry لا يلتقط `log/info` في الإنتاج؛ serializer آمن للأخطاء |
+| تنظيف السجلات القديمة | `pm2 flush` يفرغ الملفات الحالية | `pm2 flush fanni-api` ثم `pm2 reload fanni-api` بعد نشر التحديث |
+
+تحقق بعد النشر:
+
+```bash
+curl -sS https://api.upnexa-eg.com/ | head
+curl -sS https://api.upnexa-eg.com/healthz
+pm2 logs fanni-api --lines 30
+```
+
+---
+
 # نشر الإنتاج عبر GitHub (المسار المعتمد)
 
 المستودع: `https://github.com/HFakhry81/Fanni`.
