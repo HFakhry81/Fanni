@@ -6,8 +6,6 @@ import { handleUpgrade, recoverPendingOrders } from "./lib/orderBroadcaster";
 import { startArrivalTimeoutWorker } from "./lib/orderLifecycle";
 import { db, adminsTable, serviceDomainsTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import adminGeoRouter from "./routes/admin-geo";
-app.use(adminGeoRouter);
 
 pool.on("error", (err) => {
   logger.error({ err }, "Unexpected PostgreSQL pool error on idle client");

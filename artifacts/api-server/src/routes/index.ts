@@ -14,6 +14,7 @@ import disputesRouter from "./disputes";
 import paymentsRouter from "./payments";
 import notificationsRouter from "./notifications";
 import voiceRouter from "./voice";
+import adminGeoRouter from "./admin-geo";
 
 const router: IRouter = Router();
 
@@ -22,6 +23,7 @@ router.use(ordersRouter);
 router.use(authRouter);
 router.use(techniciansRouter);
 router.use(adminRouter);
+router.use(adminGeoRouter);
 router.use(invoicesRouter);
 router.use(locationsRouter);
 router.use(geoRouter);

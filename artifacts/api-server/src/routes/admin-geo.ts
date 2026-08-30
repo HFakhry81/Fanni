@@ -15,7 +15,7 @@ const router = Router();
  * Live / monitoring map data for admin dashboards.
  * Query: availableOnly=true (technicians map), includeOrders=false
  */
-router.get("/api/admin/map-data", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/map-data", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const availableOnly = queryString(req.query.availableOnly) === "true";
     const includeOrders = queryString(req.query.includeOrders) !== "false";
@@ -79,7 +79,7 @@ router.get("/api/admin/map-data", authMiddleware, requireAuth, requireAdmin, asy
   }
 });
 
-router.get("/api/admin/location-miss-log", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/location-miss-log", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const logs = await db
       .select()
@@ -92,7 +92,7 @@ router.get("/api/admin/location-miss-log", authMiddleware, requireAuth, requireA
   }
 });
 
-router.post("/api/admin/location-aliases", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/location-aliases", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const { logId, governorateId, areaId, aliasAr, aliasEn } = req.body;
 
   if (!governorateId || !areaId || !aliasAr || !aliasEn) {

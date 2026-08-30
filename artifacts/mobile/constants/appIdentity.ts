@@ -22,27 +22,32 @@ export const APP_IDENTITY = {
   termsClientUrl: "https://upnexa-eg.com/terms-client.html",
   termsTechUrl: "https://upnexa-eg.com/terms-tech.html",
   apiUrl: "https://api.upnexa-eg.com",
-  appDownloadUrl: "https://app.upnexa-eg.com/fanni.apk",
+  /** Marketing site APK path on VPS: /var/www/upnexa-eg.com/fanni.apk */
+  appDownloadUrl: "https://upnexa-eg.com/fanni.apk",
   appWebHost: "app.upnexa-eg.com",
   copyrightEn: "© UpNexa. All rights reserved.",
   copyrightAr: "© أب نكسا (UpNexa). جميع الحقوق محفوظة.",
   /** Android applicationId / iOS bundle id — changing this installs as a new app. */
   packageId: "com.fanni.app",
   publisherDomain: "upnexa-eg.com",
+  /** Fallback when Expo Constants.expoConfig is missing (common on static web export). */
+  version: "1.0.10",
+  androidVersionCode: 10,
+  iosBuildNumber: "10",
 } as const;
 
 /** Welcome points granted on technician approval (must match server WELCOME_BONUS_POINTS). */
 export const WELCOME_BONUS_POINTS = 60;
 
 export function getAppVersion(): string {
-  return Constants.expoConfig?.version ?? "0.0.0";
+  return Constants.expoConfig?.version ?? APP_IDENTITY.version;
 }
 
 export function getAppBuildNumber(): string {
   if (Platform.OS === "ios") {
-    return String(Constants.expoConfig?.ios?.buildNumber ?? "0");
+    return String(Constants.expoConfig?.ios?.buildNumber ?? APP_IDENTITY.iosBuildNumber);
   }
-  return String(Constants.expoConfig?.android?.versionCode ?? 0);
+  return String(Constants.expoConfig?.android?.versionCode ?? APP_IDENTITY.androidVersionCode);
 }
 
 /** Marketing version only — e.g. "1.0.8" (no build parentheses). */
