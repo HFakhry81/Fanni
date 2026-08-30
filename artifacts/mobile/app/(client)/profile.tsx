@@ -335,7 +335,11 @@ export default function ClientProfileScreen() {
   };
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+    } catch {
+      // still leave the screen
+    }
     router.replace("/welcome");
   };
 

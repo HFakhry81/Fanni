@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity, Alert,
+  View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,6 +9,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppIdentityCard from "@/components/AppIdentityCard";
 import VectorIcon from "@/components/VectorIcon";
+import { confirmDialog } from "@/utils/confirmDialog";
 
 export default function TechPendingScreen() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function TechPendingScreen() {
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? "";
 
   const handleLogout = () => {
-    Alert.alert(
+    confirmDialog(
       isRTL ? "تسجيل الخروج" : "Sign Out",
       isRTL ? "هل أنت متأكد أنك تريد تسجيل الخروج؟" : "Are you sure you want to sign out?",
       [
@@ -39,7 +40,7 @@ export default function TechPendingScreen() {
             router.replace("/welcome");
           },
         },
-      ]
+      ],
     );
   };
 

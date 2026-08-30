@@ -121,9 +121,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }).catch(() => undefined);
       }
     } catch {
+      // still clear local session
     } finally {
-      await deleteAuthToken();
-      await AsyncStorage.removeItem("catBannerDismissed");
+      try {
+        await deleteAuthToken();
+      } catch {
+        // ignore storage errors — still clear React state
+      }
+      try {
+        await AsyncStorage.removeItem("catBannerDismissed");
+        await AsyncStorage.removeItem("user");
+      } catch {
+        // ignore
+      }
       setUser(null);
       setSessionToken(null);
     }

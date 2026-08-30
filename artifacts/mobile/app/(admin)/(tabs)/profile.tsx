@@ -29,6 +29,7 @@ import AppIdentityCard from "@/components/AppIdentityCard";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { getAuthToken } from "@/utils/authTokenStorage";
+import { confirmDialog } from "@/utils/confirmDialog";
 
 // ─── Payment Manager Picker ───────────────────────────────────────────────────
 interface AdminOption { id: string; firstName: string | null; lastName: string | null; mobile: string | null }
@@ -415,7 +416,7 @@ export default function AdminProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    confirmDialog(
       t("profile.logout"),
       t("profile.logoutConfirm"),
       [
@@ -428,7 +429,7 @@ export default function AdminProfileScreen() {
             router.replace("/welcome");
           },
         },
-      ]
+      ],
     );
   };
 

@@ -496,7 +496,11 @@ export default function TechProfileScreen() {
   };
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+    } catch {
+      // still leave the screen
+    }
     router.replace("/welcome");
   };
 
