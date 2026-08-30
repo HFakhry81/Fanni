@@ -54,11 +54,9 @@ mkdir -p /var/www/fanni-web
 rm -rf /tmp/fanni-web-unpack
 mkdir -p /tmp/fanni-web-unpack
 unzip -o /root/fanni-dist-web.zip -d /tmp/fanni-web-unpack
-# احتفظ بـ APK إن وُجد
-if [ -f /var/www/fanni-web/fanni.apk ]; then cp /var/www/fanni-web/fanni.apk /root/fanni.apk.bak; fi
 rsync -a --delete /tmp/fanni-web-unpack/ /var/www/fanni-web/
-if [ -f /root/fanni.apk.bak ]; then cp /root/fanni.apk.bak /var/www/fanni-web/fanni.apk; chmod 644 /var/www/fanni-web/fanni.apk; fi
 chown -R www-data:www-data /var/www/fanni-web
+# APK منفصل على /var/www/upnexa-eg.com/fanni.apk — لا يُمس هنا
 ```
 
 تحقق:
@@ -102,7 +100,7 @@ API يبقى منفصلًا:
 
 1. افتح https://app.upnexa-eg.com/ — يجب شاشة الترحيب/الدخول وليس «No routes found»
 2. https://app.upnexa-eg.com/welcome
-3. https://app.upnexa-eg.com/fanni.apk (إن رُفع APK)
+3. https://upnexa-eg.com/fanni.apk (APK على `/var/www/upnexa-eg.com/fanni.apk`)
 4. DevTools → Network: ملف `entry-d1e629…js` بحجم ~3.8MB
 
 ---
@@ -112,7 +110,7 @@ API يبقى منفصلًا:
 صفحة التسويق (upnexa-eg.com) منفصلة عن تطبيق الويب. طالما الروابط تشير إلى:
 
 - التطبيق: `https://app.upnexa-eg.com/`
-- APK: `https://app.upnexa-eg.com/fanni.apk`
+- APK: `https://upnexa-eg.com/fanni.apk` (ملف: `/var/www/upnexa-eg.com/fanni.apk`)
 - API: `https://api.upnexa-eg.com`
 
 فلا حاجة لتعديل التسويق بعد استبدال `/var/www/fanni-web`.

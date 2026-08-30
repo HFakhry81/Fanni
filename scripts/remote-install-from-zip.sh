@@ -24,9 +24,10 @@ if [ -d /var/www/fanni/artifacts/mobile/dist-web ]; then
 fi
 
 if [ -f /root/fanni.apk ]; then
-  install -d /var/www/fanni-web
-  cp /root/fanni.apk /var/www/fanni-web/fanni.apk
-  chmod 644 /var/www/fanni-web/fanni.apk
+  # Marketing site document root (not fanni-web)
+  install -d /var/www/upnexa-eg.com
+  cp /root/fanni.apk /var/www/upnexa-eg.com/fanni.apk
+  chmod 644 /var/www/upnexa-eg.com/fanni.apk
 fi
 
 pm2 delete fanni-backend 2>/dev/null || true

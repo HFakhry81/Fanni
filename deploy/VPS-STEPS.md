@@ -5,13 +5,15 @@
 | البيئة | مسار الكود | Web App | APK |
 |--------|------------|---------|-----|
 | **محلي (ويندوز)** | `C:\Fanni` | `C:\Fanni\artifacts\mobile\dist-web` | EAS من ويندوز فقط |
-| **إنتاج (VPS)** | `/var/www/fanni` | `/var/www/fanni-web` | `/var/www/fanni-web/fanni.apk` |
+| **إنتاج (VPS)** | `/var/www/fanni` | `/var/www/fanni-web` | **`/var/www/upnexa-eg.com/fanni.apk`** |
 
 | URL | الخدمة |
 |-----|--------|
 | https://api.upnexa-eg.com | API (PM2 `fanni-api` :5000) |
 | https://app.upnexa-eg.com | Web App (Expo export) |
-| https://app.upnexa-eg.com/fanni.apk | تحميل APK |
+| https://upnexa-eg.com/fanni.apk | تحميل APK |
+
+> دليل مفصّل بنفس الترقيم (DB / API / Front / APK): [`deploy/UPDATE-REPORT.md`](UPDATE-REPORT.md).
 
 الإصدار الحالي: **`1.0.10`** / `versionCode` **10**. آخر commit متوقّع: `2247438` أو أحدث.
 
@@ -27,7 +29,7 @@
 | تصدير Web App محلياً | ويندوز | `pnpm run export:web` |
 | بناء APK | ويندوز | `powershell -File scripts\eas-apk.ps1` |
 | نشر API + DB + Web | VPS | `git pull` + `bash scripts/deploy-vps.sh` |
-| رفع APK | WinSCP → VPS | `cp /root/fanni.apk /var/www/fanni-web/` |
+| رفع APK | WinSCP → VPS | `cp /root/fanni.apk /var/www/upnexa-eg.com/fanni.apk` |
 | Web فقط (بدون deploy كامل) | ويندوز → VPS | `export-web.ps1 -Zip` ثم رفع `dist-web.zip` |
 
 ---
@@ -237,12 +239,11 @@ pm2 save
 
 ```bash
 mkdir -p /var/www/fanni-web
-if [ -f /var/www/fanni-web/fanni.apk ]; then cp /var/www/fanni-web/fanni.apk /root/fanni.apk.bak; fi
 rm -rf /tmp/fanni-web-unpack && mkdir /tmp/fanni-web-unpack
 unzip -o /root/fanni-dist-web.zip -d /tmp/fanni-web-unpack
 rsync -a --delete /tmp/fanni-web-unpack/ /var/www/fanni-web/
-if [ -f /root/fanni.apk.bak ]; then cp /root/fanni.apk.bak /var/www/fanni-web/fanni.apk; chmod 644 /var/www/fanni-web/fanni.apk; fi
 ls -la /var/www/fanni-web/index.html
+# APK منفصل: /var/www/upnexa-eg.com/fanni.apk (انظر 3.4)
 ```
 
 تفاصيل Nginx/SPA: [`deploy/WEB-APP-UPNEXA.md`](WEB-APP-UPNEXA.md).
@@ -251,14 +252,16 @@ ls -la /var/www/fanni-web/index.html
 
 WinSCP: `fanni.apk` → `/root/fanni.apk`
 
+**المسار الرسمي على السيرفر:** `/var/www/upnexa-eg.com/fanni.apk`
+
 ```bash
-install -d /var/www/fanni-web
-cp /root/fanni.apk /var/www/fanni-web/fanni.apk
-chmod 644 /var/www/fanni-web/fanni.apk
-ls -lh /var/www/fanni-web/fanni.apk
+install -d /var/www/upnexa-eg.com
+cp /root/fanni.apk /var/www/upnexa-eg.com/fanni.apk
+chmod 644 /var/www/upnexa-eg.com/fanni.apk
+ls -lh /var/www/upnexa-eg.com/fanni.apk
 ```
 
-رابط التحميل: https://app.upnexa-eg.com/fanni.apk
+رابط التحميل: https://upnexa-eg.com/fanni.apk
 
 على الهاتف: أزل النسخة القديمة إن لزم، ثبّت، وتحقق من الإصدار **1.0.10**.
 
