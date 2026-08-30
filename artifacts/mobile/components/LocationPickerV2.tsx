@@ -341,6 +341,8 @@ export function LocationPickerV2({
   // ── Notify parent on every meaningful change ─────────────
   useEffect(() => {
     onChange(sync.location);
+    // Parent onChange often inline — including it causes update loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [sync.location]);
 
   // ── Fetch Governorates (Arabic names from API) ────────────

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import VectorIcon, { type IconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -13,7 +13,7 @@ import { getApiBase } from "@/utils/api";
 interface Permission { id: string; group: string; groupAr: string; label: string; labelAr: string; enabled: boolean; }
 interface AdminEntry { id: string; name: string; email: string | null; isSuperAdmin: boolean; isActive: boolean; }
 
-const ADMIN_HOME = "/(admin)/(tabs)/dashboard";
+const ADMIN_HOME = "/(admin)/(tabs)/dashboard" as const;
 
 const ALL_PERMISSIONS: Omit<Permission, "enabled">[] = [
   { id: "p1",               group: "Clients",      groupAr: "العملاء",    label: "View all clients",          labelAr: "عرض جميع العملاء"           },
@@ -95,7 +95,7 @@ export default function AdminPermissionsScreen() {
             }
           }
         }
-      } catch {}
+      } catch { /* ignore */ }
       setInitLoading(false);
     })();
   }, [authHeaders]);
@@ -110,7 +110,7 @@ export default function AdminPermissionsScreen() {
         const saved = data.permissions ?? [];
         setPerms(ALL_PERMISSIONS.map((p) => ({ ...p, enabled: saved.includes(p.id) })));
       }
-    } catch {}
+    } catch { /* ignore */ }
     setPermsLoading(false);
   }, [authHeaders]);
 
@@ -143,7 +143,7 @@ export default function AdminPermissionsScreen() {
     }
   };
 
-  const hubLinks: { icon: IconName; label: string; color: string; route: string }[] = [
+  const hubLinks: { icon: IconName; label: string; color: string; route: Href }[] = [
     { icon: "user", label: isRTL ? "ملفي الشخصي" : "My Profile", color: "#4DADD9", route: "/(admin)/(tabs)/profile" },
     { icon: "clock", label: isRTL ? "سجل الدخول" : "Login Logs", color: "#7C5CBF", route: "/(admin)/(tabs)/login-logs" },
     { icon: "user-plus", label: isRTL ? "إضافة مسئول" : "Add Admin", color: "#22A36B", route: "/(admin)/add-admin" },
@@ -158,9 +158,9 @@ export default function AdminPermissionsScreen() {
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 10 }}>
         {hubLinks.map((item) => (
           <TouchableOpacity
-            key={item.route}
+            key={item.label}
             style={[styles.hubCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
-            onPress={() => router.push(item.route as any)}
+            onPress={() => router.push(item.route)}
             activeOpacity={0.85}
           >
             <View style={[styles.groupIcon, { backgroundColor: item.color + "18", borderRadius: 10 }]}>

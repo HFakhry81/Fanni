@@ -52,7 +52,7 @@ export default function Toast({ visible, message, duration = 2000, onHide, onPre
         }
       });
     }
-  }, [visible, duration]);
+  }, [visible, duration, opacity]);
 
   if (!visible) return null;
 

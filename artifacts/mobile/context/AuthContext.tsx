@@ -203,6 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // expo-notifications not supported in this environment
       }
     })();
+    // Register push when identity/session changes — full `user` would re-POST too often
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [user?.id, user?.role, sessionToken]);
 
   return (

@@ -27,7 +27,7 @@ export default function IndexScreen() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, isLoading, user, router]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import VectorIcon from "@/components/VectorIcon";
@@ -80,7 +80,7 @@ export default function TechMapScreen() {
     }, [user, hasServiceArea]),
   );
 
-  const fetchServerPendingOrders = async () => {
+  const fetchServerPendingOrders = useCallback(async () => {
     const apiBase = getApiBase();
     if (!apiBase || !sessionToken) return;
     setIsFetchingOrders(true);
@@ -101,7 +101,7 @@ export default function TechMapScreen() {
     } finally {
       setIsFetchingOrders(false);
     }
-  };
+  }, [sessionToken]);
 
   useEffect(() => {
     if (!isOnline) {
@@ -113,7 +113,7 @@ export default function TechMapScreen() {
       fetchServerPendingOrders();
     }, 30_000);
     return () => clearInterval(intervalId);
-  }, [isOnline, sessionToken, user?.governorate, user?.area]);
+  }, [isOnline, sessionToken, user?.governorate, user?.area, fetchServerPendingOrders]);
 
   const localPendingOrders = allOrders.filter((o) => o.status === "pending");
   const localFilteredOrders = hasServiceArea
@@ -146,7 +146,7 @@ export default function TechMapScreen() {
       setModalVisible(false);
       setSelectedOrder(null);
     }
-  }, [isOnline]);
+  }, [isOnline, modalVisible]);
 
   useEffect(() => {
     if (!isOnline) return;

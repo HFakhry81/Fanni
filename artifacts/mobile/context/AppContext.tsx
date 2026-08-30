@@ -15,6 +15,12 @@ export interface User {
   email: string;
   password?: string;
   address?: string;
+  street?: string;
+  buildingNo?: string;
+  floorNo?: string;
+  aptNo?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   profession?: string;
   specialty?: string;
   experience?: number;
@@ -580,7 +586,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLanguageState(lang);
     try {
       await AsyncStorage.setItem("language", lang);
-    } catch (_) {}
+    } catch(_) { /* ignore */ }
   };
 
   const setUser = async (u: User | null) => {
@@ -594,7 +600,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.removeItem(PENDING_TOGGLE_KEY);
         setHasPendingToggle(false);
       }
-    } catch (_) {}
+    } catch(_) { /* ignore */ }
   };
 
   const syncAvailabilityFromServer = async (sessionToken: string): Promise<boolean> => {
@@ -616,7 +622,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsOnlineState(resolvedValue);
       try {
         await AsyncStorage.setItem("techIsOnline", String(resolvedValue));
-      } catch (_) {}
+      } catch(_) { /* ignore */ }
       return true;
     } catch (_) {
       return false;
@@ -627,7 +633,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsOnlineState(value);
     try {
       await AsyncStorage.setItem("techIsOnline", String(value));
-    } catch (_) {}
+    } catch(_) { /* ignore */ }
     if (user?.id && sessionToken) {
       const apiBase = getApiBase();
       if (apiBase) {
@@ -645,7 +651,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
           if (res.ok) {
             setHasPendingToggle(false);
-            try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
+            try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch(_) { /* ignore */ }
           }
         } catch (_networkErr) {
           setHasPendingToggle(true);
@@ -654,7 +660,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               PENDING_TOGGLE_KEY,
               JSON.stringify({ value, sessionToken, userId: user.id })
             );
-          } catch (_) {}
+          } catch(_) { /* ignore */ }
         }
       }
     }
@@ -671,7 +677,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       if (!user?.id || user.id !== userId) {
         setHasPendingToggle(false);
-        try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
+        try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch(_) { /* ignore */ }
         return false;
       }
       const apiBase = getApiBase();
@@ -689,7 +695,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
       if (res.ok) {
         setHasPendingToggle(false);
-        try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch (_) {}
+        try { await AsyncStorage.removeItem(PENDING_TOGGLE_KEY); } catch(_) { /* ignore */ }
         return true;
       }
       return false;

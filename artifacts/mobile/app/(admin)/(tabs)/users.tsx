@@ -330,7 +330,7 @@ function UserListView({
           const data = await res.json() as { users: ApiUser[] };
           setUsers(data.users ?? []);
         }
-      } catch {}
+      } catch { /* ignore */ }
       finally {
         setLoading(false);
         setRefreshing(false);
@@ -380,7 +380,7 @@ function UserListView({
                     )
                   );
                 }
-              } catch {}
+              } catch { /* ignore */ }
               finally { setUpdatingId(null); }
             },
           },
@@ -609,7 +609,7 @@ function ReceivedView({
           const data = await res.json() as { entries: LedgerEntry[] };
           setEntries(data.entries ?? []);
         }
-      } catch {}
+      } catch { /* ignore */ }
       finally { setLoading(false); }
     })();
   }, [sessionToken]);
@@ -694,7 +694,7 @@ function TechBalancesView({
           const data = await res.json() as { users: ApiUser[] };
           setTechs(data.users ?? []);
         }
-      } catch {}
+      } catch { /* ignore */ }
       finally { setLoading(false); }
     })();
   }, [sessionToken]);
@@ -754,7 +754,7 @@ function CommissionView({
           const data = await res.json() as { entries: LedgerEntry[] };
           setEntries(data.entries ?? []);
         }
-      } catch {}
+      } catch { /* ignore */ }
       finally { setLoading(false); }
     })();
   }, [sessionToken]);

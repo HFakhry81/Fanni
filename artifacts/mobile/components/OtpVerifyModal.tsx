@@ -46,6 +46,8 @@ export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified, 
       setLoading(false);
       sendOtp();
     }
+    // Intentionally omit sendOtp: including it re-sends OTP when `sending` flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   useEffect(() => {

@@ -83,8 +83,7 @@ export default function ClientOrdersScreen() {
         setApiOrders(fetched);
         syncOrders(fetched);
       }
-    } catch {
-    } finally {
+    } catch { /* ignore */ } finally {
       setLoadingApi(false);
     }
   }, [isAuthenticated, sessionToken, syncOrders, flashUpdatedBadges]);

@@ -216,7 +216,7 @@ export default function WalletScreen() {
         headers: apiHeaders(),
       });
       setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const dismissAllNotifications = async () => {
@@ -229,7 +229,7 @@ export default function WalletScreen() {
       });
       setNotifications([]);
       setNotifVisible(false);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   // ─── Open buy modal ────────────────────────────────────────────────────────

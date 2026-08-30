@@ -32,8 +32,7 @@ export async function writePersistedRoute(key: string, data: RouteData): Promise
       JSON.stringify({ data, cachedAt: Date.now() })
     );
     await evictOldestRouteEntries();
-  } catch {
-  }
+  } catch { /* ignore */ }
 }
 
 async function evictOldestRouteEntries(): Promise<void> {
@@ -61,8 +60,7 @@ async function evictOldestRouteEntries(): Promise<void> {
     if (toRemove.length > 0) {
       await AsyncStorage.multiRemove(toRemove);
     }
-  } catch {
-  }
+  } catch { /* ignore */ }
 }
 
 let _routeCacheSweptThisSession = false;

@@ -124,7 +124,7 @@ export function useClientOrderUpdates(
               });
             }
           }
-        } catch (_) {}
+        } catch(_) { /* ignore */ }
       };
 
       ws.onclose = () => {

@@ -48,7 +48,7 @@ export default function LoginScreen() {
         router.replace("/(admin)/(tabs)/dashboard");
       }
     }
-  }, [isLoading, isAuthenticated, user]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   const handleLocalLogin = async () => {
     if (!identifier.trim() || !password) {

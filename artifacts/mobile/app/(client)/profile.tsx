@@ -76,7 +76,7 @@ export default function ClientProfileScreen() {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [editVisible, verificationToken, verificationExpiresAt]);
+  }, [editVisible, verificationToken, verificationExpiresAt, isRTL]);
   
   const [addrVal, setAddrVal] = useState<AddressValue>(EMPTY_ADDRESS);
 
@@ -110,12 +110,12 @@ export default function ClientProfileScreen() {
       governorateName: (isRTL ? user.governorateNameAr : user.governorateNameEn) ?? "",
       areaId: user.area ?? "",
       areaName: (isRTL ? user.areaNameAr : user.areaNameEn) ?? "",
-      street: (user as any).street ?? detailed.street ?? "",
-      buildingNo: (user as any).buildingNo ?? detailed.building ?? "",
-      floorNo: (user as any).floorNo ?? detailed.floor ?? "",
-      aptNo: (user as any).aptNo ?? detailed.apartment ?? "",
-      latitude: (user as any).latitude ?? null,
-      longitude: (user as any).longitude ?? null,
+      street: user.street ?? detailed.street ?? "",
+      buildingNo: user.buildingNo ?? detailed.building ?? "",
+      floorNo: user.floorNo ?? detailed.floor ?? "",
+      aptNo: user.aptNo ?? detailed.apartment ?? "",
+      latitude: user.latitude ?? null,
+      longitude: user.longitude ?? null,
     });
     setErrors({});
     setVerificationToken(undefined);
@@ -222,9 +222,14 @@ export default function ClientProfileScreen() {
     mobile: verificationToken ? normalizedMobile : user.mobile,
     governorate: addrVal.governorateId,
     area: addrVal.areaId,
-    address: [addrVal.street, addrVal.buildingNo, addrVal.floorNo, addrVal.aptNo].filter(Boolean).join(", ") || null,
-    ...(addrVal as any),
-  } as any);
+    address: [addrVal.street, addrVal.buildingNo, addrVal.floorNo, addrVal.aptNo].filter(Boolean).join(", ") || undefined,
+    street: addrVal.street,
+    buildingNo: addrVal.buildingNo,
+    floorNo: addrVal.floorNo,
+    aptNo: addrVal.aptNo,
+    latitude: addrVal.latitude,
+    longitude: addrVal.longitude,
+  });
 
   setVerificationToken(undefined);
   setVerificationExpiresAt(0);

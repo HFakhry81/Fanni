@@ -104,7 +104,7 @@ export default function AdminCategoriesScreen() {
       const res = await fetch(`${getApiBase()}/api/admin/categories/specializations?domainId=${domainId}`, { headers: authHeaders() });
       const data = await res.json() as { specializations?: Specialization[] };
       if (res.ok) setSpecializations((prev) => ({ ...prev, [domainId]: data.specializations ?? [] }));
-    } catch {}
+    } catch { /* ignore */ }
   }, [authHeaders]);
 
   useEffect(() => {
@@ -241,7 +241,7 @@ export default function AdminCategoriesScreen() {
         body: JSON.stringify({ isActive: !domain.isActive }),
       });
       loadDomains();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const toggleSpecActive = async (spec: Specialization) => {
@@ -252,7 +252,7 @@ export default function AdminCategoriesScreen() {
         body: JSON.stringify({ isActive: !spec.isActive }),
       });
       loadSpecializations(spec.domainId);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const deleteDomain = async (domain: Domain) => {
@@ -269,7 +269,7 @@ export default function AdminCategoriesScreen() {
               await fetch(`${getApiBase()}/api/admin/categories/domains/${domain.id}`, { method: "DELETE", headers: authHeaders() });
               loadDomains();
               if (expandedDomain === domain.id) setExpandedDomain(null);
-            } catch {}
+            } catch { /* ignore */ }
           },
         },
       ]
@@ -289,7 +289,7 @@ export default function AdminCategoriesScreen() {
               await fetch(`${getApiBase()}/api/admin/categories/specializations/${spec.id}`, { method: "DELETE", headers: authHeaders() });
               loadSpecializations(spec.domainId);
               loadDomains();
-            } catch {}
+            } catch { /* ignore */ }
           },
         },
       ]

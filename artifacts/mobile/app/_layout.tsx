@@ -139,7 +139,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
             areaCacheRef.current.set(key, label);
           }
         }
-      } catch {}
+      } catch { /* ignore */ }
       setLocCacheHydrated(true);
     })();
   }, []);
@@ -239,7 +239,7 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
           areaNameAr: areaLabel?.ar,
           areaNameEn: areaLabel?.en,
         });
-      } catch {}
+      } catch { /* ignore */ }
     })();
   }, [authUser?.governorate, authUser?.area, locCacheHydrated]);
 
@@ -289,6 +289,8 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       needsRetry.current = false;
       lastForegroundSyncRef.current = 0;
     }
+    // appUser/setUser omitted: reading appUser for label fallbacks + setUser would loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [authUser, isAvailabilityHydrated, locationLabels, sessionToken]);
 
   useEffect(() => {
@@ -306,6 +308,8 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
           needsRetry.current = true;
         });
     }
+    // Mount/hydrate sync once — syncAvailabilityFromServer identity changes would re-fire
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [isAvailabilityHydrated, authUser, sessionToken]);
 
   useEffect(() => {
@@ -339,6 +343,8 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       }
     });
     return () => unsubscribe();
+    // Subscribe once; handlers use refs for latest auth/token
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, []);
 
   useEffect(() => {
@@ -368,6 +374,8 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
       }
     });
     return () => subscription.remove();
+    // Subscribe once; handlers use refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, []);
 
   return (

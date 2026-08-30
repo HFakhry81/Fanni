@@ -91,7 +91,7 @@ export default function TechProfileScreen() {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [editVisible, verificationToken, verificationExpiresAt]);
+  }, [editVisible, verificationToken, verificationExpiresAt, isRTL]);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -120,18 +120,18 @@ export default function TechProfileScreen() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!user?.profession || apiDomains.length === 0) return;
-    const dom = apiDomains.find((d) => d.nameEn === user.profession || d.id === user.profession);
-    if (dom) loadProfileSpecs(dom.id);
-  }, [user?.profession, apiDomains]);
-
   const loadProfileSpecs = useCallback((domainId: string) => {
     fetch(`${getApiBase()}/api/categories/specializations?domainId=${domainId}`)
       .then((r) => r.json())
       .then((d: { specializations?: ApiSpec[] }) => { if (d.specializations) setApiSpecs(d.specializations); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user?.profession || apiDomains.length === 0) return;
+    const dom = apiDomains.find((d) => d.nameEn === user.profession || d.id === user.profession);
+    if (dom) loadProfileSpecs(dom.id);
+  }, [user?.profession, apiDomains, loadProfileSpecs]);
 
   const [editCategories, setEditCategories] = useState<string[]>([]);
 
@@ -164,6 +164,8 @@ export default function TechProfileScreen() {
         editScrollRef.current?.scrollTo({ y: categoriesYRef.current, animated: true });
       }, 400);
     }
+    // Deep-link open once per openCategories param — openEdit/user would re-trigger loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [openCategories]);
 
   useEffect(() => {
@@ -174,6 +176,8 @@ export default function TechProfileScreen() {
         editScrollRef.current?.scrollTo({ y: serviceAreaYRef.current, animated: true });
       }, 400);
     }
+    // Same deep-link pattern as openCategories
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [openServiceArea, user, editVisible]);
 
   useEffect(() => {
@@ -209,8 +213,8 @@ export default function TechProfileScreen() {
 
   // جلب الإحداثيات الحالية من الجلسة
   // استبدل السطرين 222 و 223 في كلا الملفين بهذا التعديل:
-  setEditLat((user as any).latitude ?? null);
-  setEditLng((user as any).longitude ?? null);
+  setEditLat(user.latitude ?? null);
+  setEditLng(user.longitude ?? null);
   // تفكيك العنوان النصي الكامل
   const detailed = deserializeAddress(user.address ?? "");
   setEditStreet(detailed.street);
@@ -356,8 +360,8 @@ export default function TechProfileScreen() {
       longitude: editLng,
       serviceCategories: editCategories,
       serviceStart: editServiceStart.trim(),
-      serviceEnd: (editServiceEnd as any).trim(),
-      } as any); // تم إضافة as any هنا لحل مشكلة تعارض نوع بيانات الـ User
+      serviceEnd: editServiceEnd.trim(),
+      });
       } else {
       setToastMessage(result.error ?? (isRTL ? "فشل الحفظ" : "Save failed"));
       setToastVisible(true);
@@ -377,8 +381,8 @@ export default function TechProfileScreen() {
       longitude: editLng,
       serviceCategories: editCategories,
       serviceStart: editServiceStart.trim(),
-      serviceEnd: editServiceEnd.trim()
-    } as any); // تم إضافة as any لحل المشكلة
+      serviceEnd: editServiceEnd.trim(),
+    });
 
   setVerificationToken(undefined);
   setVerificationExpiresAt(0);

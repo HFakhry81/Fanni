@@ -108,8 +108,7 @@ export default function LoginLogsScreen() {
         if (filterRole === "all" && filterSuccess === "all") {
           setBaselineTotal(data.pagination.total);
         }
-      } catch {
-      } finally {
+      } catch { /* ignore */ } finally {
         setLoading(false);
         setLoadingMore(false);
         setRefreshing(false);

@@ -5,7 +5,7 @@ import {
   ImageSourcePropType,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import VectorIcon, { type IconName, toIconName } from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -260,13 +260,13 @@ export default function ClientHomeScreen() {
         </Text>
         <View style={[styles.quickRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {([
-            { icon: "list", label: t("nav.orders"), route: "/(client)/orders", color: colors.primary },
-            { icon: "user", label: t("nav.profile"), route: "/(client)/profile", color: "#22A36B" },
-          ] satisfies { icon: IconName; label: string; route: string; color: string }[]).map((item) => (
+            { icon: "list", label: t("nav.orders"), route: "/(client)/orders" as const, color: colors.primary },
+            { icon: "user", label: t("nav.profile"), route: "/(client)/profile" as const, color: "#22A36B" },
+          ] satisfies { icon: IconName; label: string; route: Href; color: string }[]).map((item) => (
             <TouchableOpacity
               key={item.label}
               style={[styles.quickCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border, borderWidth: 1.5 }]}
-              onPress={() => router.push(item.route as any)}
+              onPress={() => router.push(item.route)}
               activeOpacity={0.8}
             >
               <View style={[styles.quickIcon, { backgroundColor: item.color + "15", borderRadius: 10 }]}>

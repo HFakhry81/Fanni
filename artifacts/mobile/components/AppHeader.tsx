@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -15,7 +15,7 @@ interface AppHeaderProps {
   showLangToggle?: boolean;
   showProfile?: boolean;
   /** Override home navigation target (default: /welcome) */
-  homeHref?: string;
+  homeHref?: Href;
   rightElement?: React.ReactNode;
   onBack?: () => void;
 }
@@ -50,13 +50,13 @@ export default function AppHeader({
   };
 
   const handleHome = () => {
-    router.replace(homeHref as any);
+    router.replace(homeHref);
   };
 
   const handleBack = () => {
     if (onBack) onBack();
     else if (router.canGoBack()) router.back();
-    else router.replace(homeHref as any);
+    else router.replace(homeHref);
   };
 
   const handleProfile = () => {

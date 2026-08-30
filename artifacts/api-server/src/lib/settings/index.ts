@@ -26,7 +26,7 @@ export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
   }
 }
 
-export async function setSetting(key: string, value: any, adminId?: string) {
+export async function setSetting(key: string, value: unknown, adminId?: string) {
   await db
     .insert(systemSettingsTable)
     .values({

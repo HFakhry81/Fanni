@@ -143,8 +143,8 @@ function stripNoise(s: string): string {
 }
 
 function scoreMatch(raw: string, loc: LocationRow): number {
-  const rawLower = raw.toLowerCase().trim().replace(/[_\-]/g, " ");
-  const slugLower = loc.slug.toLowerCase().replace(/[_\-]/g, " ");
+  const rawLower = raw.toLowerCase().trim().replace(/[_-]/g, " ");
+  const slugLower = loc.slug.toLowerCase().replace(/[_-]/g, " ");
   const nameEnLower = loc.nameEn.toLowerCase().trim();
   const nameArTrimmed = loc.nameAr.trim();
 

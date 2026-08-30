@@ -25,6 +25,7 @@ import { setAuthToken } from "@/utils/authTokenStorage";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
+const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
@@ -323,8 +324,6 @@ export default function RegisterScreen() {
     idPhotos?: string;
   }>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-
-  const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
   const totalSteps = regType === "technician" ? 4 : 3;

@@ -79,6 +79,8 @@ export default function OrderDetailsScreen() {
         }
       })
       .catch(() => {});
+  // Fetch by order id/status only — full `order` object churn would spam the API
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [order?.id, order?.status, sessionToken]);
 
   const { slugToName } = useLocationLabels();
@@ -92,20 +94,20 @@ export default function OrderDetailsScreen() {
         try {
           await navigator.share({ title: t("order.shareTracking"), text: message, url });
           return;
-        } catch {}
+        } catch { /* ignore */ }
       }
       if (typeof navigator !== "undefined" && navigator.clipboard) {
         try {
           await navigator.clipboard.writeText(url);
           Alert.alert(t("order.shareTrackingCopied"), url);
           return;
-        } catch {}
+        } catch { /* ignore */ }
       }
       Alert.alert(t("order.shareTracking"), url);
     } else {
       try {
         await Share.share({ message: `${message}\n${deepLink}`, url: deepLink, title: t("order.shareTracking") });
-      } catch {}
+      } catch { /* ignore */ }
     }
   }, [orderId, t]);
 

@@ -305,7 +305,7 @@ wss.on("connection", (ws: WebSocket) => {
           }
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
   });
 
   ws.on("close", () => {
@@ -404,8 +404,7 @@ async function resolveOrderCoordinates(
       } finally {
         client.release();
       }
-    } catch {
-    }
+    } catch { /* ignore */ }
   }
   const validPayload =
     !isNaN(payloadLat) && !isNaN(payloadLon) &&

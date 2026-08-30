@@ -178,7 +178,7 @@ export default function AddAdminScreen() {
     if (!isLoading && (!user || user.role !== "admin")) {
       router.replace("/(admin)/(tabs)/dashboard");
     }
-  }, [isLoading, user]);
+  }, [isLoading, user, router]);
 
   const validate = (): boolean => {
     const newErrors: typeof errors = {};

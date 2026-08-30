@@ -419,14 +419,14 @@ export default function OrderTrackingScreen() {
         try {
           await navigator.share({ title: t("order.shareTracking"), text: message, url });
           return;
-        } catch {}
+        } catch { /* ignore */ }
       }
       if (typeof navigator !== "undefined" && navigator.clipboard) {
         try {
           await navigator.clipboard.writeText(url);
           Alert.alert(t("order.shareTrackingCopied"), url);
           return;
-        } catch {}
+        } catch { /* ignore */ }
       }
       Alert.alert(t("order.shareTracking"), url);
     } else {
@@ -435,7 +435,7 @@ export default function OrderTrackingScreen() {
         : `${message}\n${deepLink}`;
       try {
         await Share.share({ message: shareText, url: deepLink, title: t("order.shareTracking") });
-      } catch {}
+      } catch { /* ignore */ }
     }
   }, [orderId, t]);
 
@@ -889,7 +889,7 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
 
   useEffect(() => {
     startRouteRaf();
-  }, [techLat, techLng]);
+  }, [techLat, techLng, startRouteRaf]);
 
   useEffect(() => {
     return () => {
@@ -950,6 +950,8 @@ function WebMapView({ order, techLat, techLng, clientLat, clientLng, routeCoords
     return () => {
       if (webInteractionTimerRef.current) clearTimeout(webInteractionTimerRef.current);
     };
+    // Run once on mount for initial savedWeb camera restore
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, []);
 
   const clampCenter = useCallback((cx: number, cy: number, zoom: number) => {

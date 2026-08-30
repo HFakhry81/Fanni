@@ -120,7 +120,7 @@ export default function AvailableOrdersScreen() {
       if (didSetLoading) setLoading(false);
       if (didSetRefreshing) setRefreshing(false);
     }
-  }, [sessionToken, isRTL]);
+  }, [sessionToken, isRTL, setAvailablePendingCount]);
 
   useFocusEffect(
     useCallback(() => {
@@ -141,7 +141,7 @@ export default function AvailableOrdersScreen() {
           pollTimerRef.current = null;
         }
       };
-    }, [fetchOrders, availableOrdersTabFocusedRef])
+    }, [fetchOrders, availableOrdersTabFocusedRef, setAvailablePendingCount])
   );
 
   const silentFetchRef = useRef<() => void>(() => {});

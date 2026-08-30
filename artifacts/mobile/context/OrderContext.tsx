@@ -402,7 +402,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
             parsed.forEach((o) => seenIdsRef.current.add(o.id));
           }
         }
-      } catch (_) {}
+      } catch(_) { /* ignore */ }
     })();
   }, []);
 
@@ -412,7 +412,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     );
     try {
       await AsyncStorage.setItem("orders", JSON.stringify(userOrders));
-    } catch (_) {}
+    } catch(_) { /* ignore */ }
   };
 
   const addOrder = async (order: Order) => {

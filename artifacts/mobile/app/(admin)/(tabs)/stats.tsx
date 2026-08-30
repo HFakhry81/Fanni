@@ -255,7 +255,7 @@ export default function AdminStatsScreen() {
         setBalanceData(data);
         setBalanceCacheTs(ts);
       }
-    } catch {}
+    } catch { /* ignore */ }
     setBalanceLoading(false);
     setBalanceRefreshing(false);
   }, [balanceYear, authHeaders]);
@@ -287,7 +287,7 @@ export default function AdminStatsScreen() {
         setAnnualData(data);
         setAnnualCacheTs(ts);
       }
-    } catch {}
+    } catch { /* ignore */ }
     setAnnualLoading(false);
     setAnnualRefreshing(false);
   }, [annualFocusYear, authHeaders]);

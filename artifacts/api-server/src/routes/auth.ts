@@ -956,7 +956,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   } catch (err) {
     req.log.error({ err }, "Registration failed");
     const msg = err instanceof Error ? err.message : "Registration failed";
-    if (/postgis|geography|ST_MakePoint|type \"geography\"/i.test(msg)) {
+    if (/postgis|geography|ST_MakePoint|type "geography"/i.test(msg)) {
       res.status(500).json({
         error: "Location storage is not available on the server (PostGIS). Please contact support.",
       });

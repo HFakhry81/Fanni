@@ -241,7 +241,7 @@ function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => v
             deduplicatedCallback(n.payload.isAvailable);
           }
         }
-      } catch (_) {}
+      } catch(_) { /* ignore */ }
     }
 
     fetchPending();
@@ -249,7 +249,7 @@ function useAdminAvailabilityNotification(onChanged: (isAvailable: boolean) => v
       if (state === "active") fetchPending();
     });
     return () => sub.remove();
-  }, [sessionToken]);
+  }, [sessionToken, deduplicatedCallback]);
 }
 
 const DEMO_ORDER_DELAY_MS = 8000;
@@ -301,7 +301,7 @@ function usePendingCountSync() {
           setAvailablePendingCount(count);
         }
       }
-    } catch (_) {}
+    } catch(_) { /* ignore */ }
   }, [sessionToken, setAvailablePendingCount, availableOrdersTabFocusedRef]);
 
   useEffect(() => {
@@ -327,7 +327,7 @@ function useNotificationUnreadCount() {
         const json = await res.json() as { count?: number };
         setUnreadCount(json.count ?? 0);
       }
-    } catch (_) {}
+    } catch(_) { /* ignore */ }
   }, [sessionToken]);
 
   useEffect(() => {

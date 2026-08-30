@@ -223,7 +223,7 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
           if (data.type === "availability_changed_by_admin" && typeof data.isAvailable === "boolean") {
             availabilitySubs.current.forEach((cb) => cb(data.isAvailable as boolean));
           }
-        } catch (_) {}
+        } catch(_) { /* ignore */ }
       };
 
       ws.onclose = () => {
@@ -272,6 +272,8 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
         ws.send(buildRegisterMessage(user, sessionTokenRef.current, isOnline, coords));
       }
     });
+    // Re-register on fields that affect routing — full `user` object identity churn
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [user?.id, user?.profession, user?.serviceCategories, user?.governorate, user?.area, isOnline]);
 
   const subscribeNewOrder = useCallback((cb: NewOrderSubscriber) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -49,21 +49,22 @@ function PaymentManagerPicker({ sessionToken, isRTL, colors }: {
   const apiBase = getApiBase();
   const headers = { "Content-Type": "application/json", ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!apiBase || !sessionToken) return;
+    const reqHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` };
     setLoading(true);
     try {
       const [cfgRes, listRes] = await Promise.all([
-        fetch(`${apiBase}/api/admin/payment-config`, { headers }),
-        fetch(`${apiBase}/api/admin/admins-list`, { headers }),
+        fetch(`${apiBase}/api/admin/payment-config`, { headers: reqHeaders }),
+        fetch(`${apiBase}/api/admin/admins-list`, { headers: reqHeaders }),
       ]);
       const cfg = cfgRes.ok ? await cfgRes.json() as { config: { paymentManagerId?: string | null } } : null;
       const list = listRes.ok ? await listRes.json() as { admins: AdminOption[] } : null;
       if (cfg?.config) setCurrentManagerId(cfg.config.paymentManagerId ?? null);
       if (list?.admins) setAdmins(list.admins);
-    } catch (_) {}
+    } catch(_) { /* ignore */ }
     finally { setLoading(false); }
-  };
+  }, [apiBase, sessionToken]);
 
   const pick = async (adminId: string | null) => {
     if (!apiBase || !sessionToken) return;
@@ -84,7 +85,7 @@ function PaymentManagerPicker({ sessionToken, isRTL, colors }: {
     finally { setSaving(false); setTimeout(() => setToastMsg(""), 3000); }
   };
 
-  useEffect(() => { if (expanded) load(); }, [expanded]);
+  useEffect(() => { if (expanded) load(); }, [expanded, load]);
 
   const managerName = (id: string | null) => {
     if (!id) return isRTL ? "غير محدد" : "Not set";
@@ -210,6 +211,8 @@ export default function AdminProfileScreen() {
       setChangePwErrors({});
       setChangePwMode(true);
     }
+    // Only react to mode entry — including changePwMode would clear fields while typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [mode]);
 
   const [firstName, setFirstName] = useState("");
