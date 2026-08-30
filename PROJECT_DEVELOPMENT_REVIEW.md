@@ -266,11 +266,11 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 | البند | الحالة |
 |---|---|
 | كود الخرائط | **OSM/Leaflet WebView** — بدون Google API key؛ شاشات: تسجيل العنوان، تتبع الطلب، خريطة الأدمن |
-| إصدار التطبيق | **1.0.8** / `versionCode` 8 (عرض الواجهة: `1.0.8` بلا أقواس) |
-| بناء EAS / APK | **منشور** على `https://app.upnexa-eg.com/fanni.apk` — مثبت على هاتف حقيقي 27 أغسطس |
+| إصدار التطبيق | **1.0.10** / `versionCode` 10 |
+| بناء EAS / APK | **منشور** على `https://app.upnexa-eg.com/fanni.apk` — يُحدَّث بعد رفع APK 1.0.10 |
 | تسجيل حي | **نجح** — حساب جديد من الجهاز ضد الإنتاج |
 | تخزين الملفات | **يعمل** — VPS يستقبل الصور المرفوعة (KYC/uploads) |
-| migrate إنتاج | **023** مطبَّق (`working_hours`) |
+| migrate إنتاج | **024** مطبَّق (`icon` للمجالات/التخصصات) |
 | الناشر | **UpNexa** — `Info@upnexa-eg.com` · https://upnexa-eg.com |
 | Sentry | org **`upnexa-hb`** — مشروع موبايل **`fanni`** + API **`node`**؛ Cursor MCP متصل |
 | Google Sign-In | واجهة مربوطة؛ يحتاج OAuth Client IDs على EAS + `OIDC_CLIENT_ID` على API |
@@ -339,7 +339,8 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 29 أغسطس 2026 | إطلاق 1.0.9 | رفع الإصدار `1.0.9`/`versionCode` 9؛ تصدير ويب `dist-web`؛ EAS APK؛ خطوات تحديث VPS كاملة في `deploy/VPS-STEPS.md` (migrate **024** + ويب + APK) | إنهاء EAS → رفع APK؛ `git pull` + `deploy-vps.sh` على السيرفر |
+| 30 أغسطس 2026 | إطلاق 1.0.10 + Sentry | محاذاة org **`upnexa-hb`** (`fanni`/`node`)؛ أزرار اختبار Sentry في لوحة الأدمن؛ `POST /api/admin/sentry-test`؛ سكربت `sentry:test`؛ تحديث `deploy/VPS-STEPS.md` | EAS APK 1.0.10 → رفع VPS؛ `git pull` + `deploy-vps.sh` |
+| 29 أغسطس 2026 | إطلاق 1.0.9 | رفع الإصدار `1.0.9`/`versionCode` 9؛ تصدير ويب `dist-web`؛ EAS APK؛ خطوات تحديث VPS كاملة في `deploy/VPS-STEPS.md` (migrate **024** + ويب + APK) | (استُبدِل بـ 1.0.10) |
 | 29 أغسطس 2026 | جلسة UX + أدمن | quality-loop؛ إصلاحات ميدان 29-08؛ رفض تخطي صور البطاقة؛ أدمن API/خرائط/كتالوج؛ سكربت extract-docx (`77a9574`→`e4e12fd`) | migrate **024**؛ APK جديد؛ صورة عميل؛ ملف شخصي؛ OPay؛ طلبات أدمن من API |
 | 27 أغسطس 2026 | تشغيل حي — بوابة جزئية | migrate **023** على VPS؛ APK **1.0.8** منشور ومثبت؛ تسجيل حساب جديد نجح؛ تخزين الصور يستقبل الرفع | إكمال Live-pass (طلب→Lead→أدمن)؛ ضبط Google OAuth؛ Twilio/OPay مؤجّل |
 | 27 أغسطس 2026 | Google + إصدار | دخول عبر Google بدل Replit؛ عرض الإصدار `1.0.8` بلا أقواس؛ ملكية UpNexa على شاشة الدخول (`62ca586`) | Client IDs في EAS + VPS |

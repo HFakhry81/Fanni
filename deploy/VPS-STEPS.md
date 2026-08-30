@@ -1,24 +1,33 @@
-# تحديث كامل للـ VPS — v1.0.9 (29 أغسطس 2026)
+# تحديث كامل للـ VPS — v1.0.10 (30 أغسطس 2026)
 
-يشمل: **كود API + migrate 024 + واجهة ويب + APK 1.0.9**.
+يشمل: **كود API + واجهة ويب + APK 1.0.10 + Sentry (اختبار يدوي)**.
 
 | المكوّن | ماذا يتغيّر |
 |--------|-------------|
-| API / DB | `git pull` ثم `deploy-vps.sh` → install + **migrate (024)** + seed + PM2 reload + تصدير ويب على السيرفر |
+| API / DB | `git pull` ثم `deploy-vps.sh` → install + migrate (حتى **024** إن لم تُطبَّق) + seed + PM2 reload + تصدير ويب |
+| Sentry | org **`upnexa-hb`** — API → مشروع **`node`**، موبايل → **`fanni`**؛ endpoint `POST /api/admin/sentry-test` |
 | ويب | `https://app.upnexa-eg.com` من `/var/www/fanni-web` |
 | APK | بناء EAS من ويندوز ثم رفع `fanni.apk` إلى `/var/www/fanni-web/fanni.apk` |
 
-> الـ VPS **لا يبني** Android. الويب يمكن بناؤه على السيرفر داخل `deploy-vps.sh` أو رفعه جاهزًا من ويندوز.
+> **لا migrate جديد** بعد 024 في هذا الإصدار. الـ VPS **لا يبني** Android.
+
+آخر commit متوقّع على `main`: `5e16d0e` أو أحدث (*Add Sentry test hooks…*).
 
 ---
 
 ## أ) على ويندوز — قبل/أثناء النشر
 
-1. تأكد أن `main` محدّث (الإصدار `1.0.9` / `versionCode` 9).
-2. بناء APK (إن لم يكن قيد التشغيل):
+1. تأكد أن `main` محدّث (الإصدار **`1.0.10`** / `versionCode` **10**).
 
 ```powershell
 cd C:\Fanni
+git pull origin main
+git log -1 --oneline
+```
+
+2. بناء APK:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
 ```
 
@@ -26,7 +35,6 @@ powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
 4. (اختياري) حزمة WinSCP تحتوي الكود + ويب جاهز:
 
 ```powershell
-cd C:\Fanni
 powershell -ExecutionPolicy Bypass -File scripts\pack-vps-upload.ps1
 ```
 
@@ -42,6 +50,8 @@ git fetch origin
 git checkout main
 git pull --ff-only origin main
 
+git log -1 --oneline
+
 # مهم إن وُجدت نهايات سطر ويندوز:
 sed -i 's/\r$//' scripts/deploy-vps.sh
 
@@ -55,7 +65,7 @@ bash scripts/deploy-vps.sh
 1. `pnpm install --frozen-lockfile`
 2. `pnpm --filter @workspace/db run migrate` ← يطبّق **024** (`icon` للمجالات/التخصصات) إن لم تُطبَّق
 3. `seed`
-4. بناء API + إعادة تحميل PM2
+4. بناء API + إعادة تحميل PM2 (`SENTRY_RELEASE=fanni-api@1.0.10` تلقائيًا من `app.json`)
 5. `expo export --platform web` → مزامنة إلى `/var/www/fanni-web`
 
 تحقق:
@@ -63,8 +73,7 @@ bash scripts/deploy-vps.sh
 ```bash
 curl -sS http://127.0.0.1:5000/api/healthz
 curl -sS https://api.upnexa-eg.com/api/healthz
-# تأكد أن migrate وصلت (مثال):
-# psql "$DATABASE_URL" -c "\d service_specializations" | grep icon
+pm2 logs fanni-api --lines 30
 ```
 
 ### migrate يدوي فقط (إن احتجت)
@@ -79,7 +88,55 @@ pnpm --filter @workspace/db run migrate
 
 ---
 
-## ج) رفع APK 1.0.9 على الـ VPS
+## ج) Sentry على الـ VPS (اختياري لكن مُوصى به)
+
+الـ API يعمل بدون `SENTRY_DSN` (قيمة افتراضية في الكود)، لكن يُفضّل ضبطها صراحة في `.env`:
+
+```bash
+nano /var/www/fanni/.env
+```
+
+```env
+SENTRY_DSN=https://c93888a5e789afb024acdd57559c888b@o4511786733207552.ingest.de.sentry.io/4511798704865360
+SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=fanni-api@1.0.10
+```
+
+ثم:
+
+```bash
+cd /var/www/fanni
+export FANNI_APP_DIR=/var/www/fanni
+pm2 reload fanni-api --update-env
+pm2 save
+```
+
+### اختبار Sentry بعد النشر
+
+**من السيرفر (سكربت — يرسل حدثين: API + mobile DSN):**
+
+```bash
+cd /var/www/fanni
+pnpm --filter @workspace/api-server run sentry:test
+```
+
+**من API (يتطلب جلسة مسئول):**
+
+```bash
+curl -sS -X POST https://api.upnexa-eg.com/api/admin/sentry-test \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+**من التطبيق (بعد تثبيت APK 1.0.10):** لوحة الأدمن → **مراقبة Sentry** → زرّا Front / Back.
+
+لوحة Sentry: https://upnexa-hb.sentry.io — مشاريع **`node`** (API) و **`fanni`** (موبايل).
+
+تفاصيل MCP: [`deploy/SENTRY-MCP.md`](SENTRY-MCP.md).
+
+---
+
+## د) رفع APK 1.0.10 على الـ VPS
 
 بعد تنزيل APK من EAS (WinSCP → `/root/fanni.apk`):
 
@@ -87,18 +144,18 @@ pnpm --filter @workspace/db run migrate
 install -d /var/www/fanni-web
 cp /root/fanni.apk /var/www/fanni-web/fanni.apk
 chmod 644 /var/www/fanni-web/fanni.apk
-ls -la /var/www/fanni-web/fanni.apk
+ls -lh /var/www/fanni-web/fanni.apk
 ```
 
 رابط التحميل: `https://app.upnexa-eg.com/fanni.apk`
 
-على الهاتف: أزل النسخة القديمة إن لزم، ثبّت من الرابط، وتحقق أن الإصدار المعروض **1.0.9**.
+على الهاتف: أزل النسخة القديمة إن لزم، ثبّت من الرابط، وتحقق أن الإصدار المعروض **1.0.10**.
 
 ---
 
-## د) مسار WinSCP (احتياطي بدون git pull)
+## هـ) مسار WinSCP (احتياطي بدون git pull)
 
-اتبع القسم «رفع الباك اند + الفرونت عبر WinSCP» أدناه بعد تشغيل `pack-vps-upload.ps1`، ثم نفّذ `deploy-vps.sh`، ثم ارفع الـ APK كما في (ج).
+اتبع القسم «رفع الباك اند + الفرونت عبر WinSCP» أدناه بعد تشغيل `pack-vps-upload.ps1`، ثم نفّذ `deploy-vps.sh`، ثم ارفع الـ APK كما في (د).
 
 ---
 
@@ -108,8 +165,8 @@ ls -la /var/www/fanni-web/fanni.apk
 |----------|---------|---------|
 | `level:30` في `fanni-api-out.log` | معلومات عادية (Pino info) وليست خطأ 500 | طبيعي |
 | طلبات `404` لـ `/`, `/robots.txt`, `/.env` | مسح آلي من الإنترنت أو متصفح | بعد التحديث: `/` يرد 200؛ المسارات الحساسة لا تُسجَّل في out |
-| كائن PostgreSQL في `fanni-api-error.log` | غالباً `console.*` أو تسلسل `err` يتضمن `client` | أُزيل `console.log` من `/ping`؛ Sentry لا يلتقط `log/info` في الإنتاج؛ serializer آمن للأخطاء |
-| تنظيف السجلات القديمة | `pm2 flush` يفرغ الملفات الحالية | `pm2 flush fanni-api` ثم `pm2 reload fanni-api` بعد نشر التحديث |
+| كائن PostgreSQL في `fanni-api-error.log` | غالباً `console.*` أو تسلسل `err` يتضمن `client` | serializer آمن للأخطاء؛ Sentry لا يلتقط `log/info` في الإنتاج |
+| تنظيف السجلات القديمة | `pm2 flush` يفرغ الملفات الحالية | `pm2 flush fanni-api` ثم `pm2 reload fanni-api` بعد النشر |
 
 تحقق بعد النشر:
 
@@ -206,9 +263,12 @@ PRIVATE_OBJECT_DIR_ID=/var/www/storage/fanni/id
 PRIVATE_OBJECT_DIR_CARNEHAT=/var/www/storage/fanni/carnehat
 DISPUTE_AUTO_DAILY_CAP=2
 PAYMENT_PROVIDER=manual
+SENTRY_DSN=https://c93888a5e789afb024acdd57559c888b@o4511786733207552.ingest.de.sentry.io/4511798704865360
+SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=fanni-api@1.0.10
 ```
 
-لا تضف `TWILIO_*`. الموبايل الأصلي يستخدم `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` بعد بناء الويب محلياً داخل سكربت الحزمة.
+لا تضف `TWILIO_*`. الموبايل الأصلي يستخدم `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` و`EXPO_PUBLIC_SENTRY_DSN` (مضبوط في EAS `preview`/`production`).
 
 ---
 
@@ -231,16 +291,14 @@ npx --yes eas-cli@16 build -p android --profile preview
 
 خطأ `Run this command inside a project directory` يعني أن `eas-cli` لم يرَ `app.json` في المجلد الحالي (غالباً الأمر اشتغل قبل `cd` أو عبر `npx` من مجلد النظام). لا تستخدم `C:\Windows\system32` كبداية بدون `cd`.
 
-
 أو من جذر المشروع: `pnpm --filter @workspace/mobile run eas:apk`
 
-البروفايل `preview` يضبط `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` ويخرج **APK** (توزيع داخلي). بعد نجاح البناء نزّل الملف من صفحة Expo ثم ارفعه إلى مجلد الويب، مثلاً:
+البروفايل `preview` يضبط `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com` و`EXPO_PUBLIC_SENTRY_DSN` (مشروع **`fanni`**) ويخرج **APK** (توزيع داخلي). بعد نجاح البناء نزّل الملف من صفحة Expo ثم ارفعه إلى مجلد الويب:
 
 ```bash
-# على الـ VPS
 install -d /var/www/fanni-web
-# بعد نسخ fanni.apk من جهازك إلى السيرفر:
 cp /root/fanni.apk /var/www/fanni-web/fanni.apk
+chmod 644 /var/www/fanni-web/fanni.apk
 ```
 
 رابط التحميل المتوقع: `https://app.upnexa-eg.com/fanni.apk` (Apache يخدم `/var/www/fanni-web`).

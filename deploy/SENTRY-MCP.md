@@ -11,8 +11,8 @@
 
 الإصدارات:
 
-- **API release:** `SENTRY_RELEASE=fanni-api@<version>` في `.env` على VPS (مثال بعد نشر: `fanni-api@1.0.9`)
-- **Mobile release:** `com.fanni.app@1.0.9+9` (تلقائي من `app.json`)
+- **API release:** `SENTRY_RELEASE=fanni-api@<version>` في `.env` على VPS (مثال بعد نشر: `fanni-api@1.0.10`)
+- **Mobile release:** `com.fanni.app@1.0.10+10` (تلقائي من `app.json`)
 
 ---
 
@@ -50,6 +50,19 @@ curl -sS https://api.upnexa-eg.com/healthz
 ### Mobile
 
 افتح التطبيق، سجّل دخولاً، ثم راقب **fanni** في Sentry (JS errors فقط؛ `enableNative: false`).
+
+### اختبار يدوي (بعد v1.0.10)
+
+| القناة | الطريقة |
+|--------|---------|
+| API | `POST /api/admin/sentry-test` (مسئول) أو `pnpm --filter @workspace/api-server run sentry:test` على VPS |
+| Mobile | لوحة الأدمن → **مراقبة Sentry** → **Test App Error (Front)** |
+| API من التطبيق | لوحة الأدمن → **Test API Error (Back)** |
+
+رسائل الاختبار المتوقعة:
+
+- `[Fanni API production test] Sentry monitoring check — <ISO timestamp>`
+- `[Fanni mobile production test] Sentry monitoring check — <ISO timestamp>`
 
 ---
 
