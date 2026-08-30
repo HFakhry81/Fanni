@@ -339,7 +339,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
-| 30 أغسطس 2026 | إطلاق 1.0.10 + Sentry | محاذاة org **`upnexa-hb`** (`fanni`/`node`)؛ أزرار اختبار Sentry في لوحة الأدمن؛ `POST /api/admin/sentry-test`؛ سكربت `sentry:test`؛ تحديث `deploy/VPS-STEPS.md` | EAS APK 1.0.10 → رفع VPS؛ `git pull` + `deploy-vps.sh` |
+| 30 أغسطس 2026 | توثيق نشر 1.0.10 | `deploy/VPS-STEPS.md` شامل (محلي `C:\Fanni` + VPS)؛ سكربتات `local-update.ps1` و `export-web.ps1`؛ أوامر `pnpm run local:update` / `export:web` | EAS APK → VPS؛ `deploy-vps.sh` على السيرفر |
 | 29 أغسطس 2026 | إطلاق 1.0.9 | رفع الإصدار `1.0.9`/`versionCode` 9؛ تصدير ويب `dist-web`؛ EAS APK؛ خطوات تحديث VPS كاملة في `deploy/VPS-STEPS.md` (migrate **024** + ويب + APK) | (استُبدِل بـ 1.0.10) |
 | 29 أغسطس 2026 | جلسة UX + أدمن | quality-loop؛ إصلاحات ميدان 29-08؛ رفض تخطي صور البطاقة؛ أدمن API/خرائط/كتالوج؛ سكربت extract-docx (`77a9574`→`e4e12fd`) | migrate **024**؛ APK جديد؛ صورة عميل؛ ملف شخصي؛ OPay؛ طلبات أدمن من API |
 | 27 أغسطس 2026 | تشغيل حي — بوابة جزئية | migrate **023** على VPS؛ APK **1.0.8** منشور ومثبت؛ تسجيل حساب جديد نجح؛ تخزين الصور يستقبل الرفع | إكمال Live-pass (طلب→Lead→أدمن)؛ ضبط Google OAuth؛ Twilio/OPay مؤجّل |

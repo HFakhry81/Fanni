@@ -16,6 +16,7 @@ robocopy $Root $Stage /E /NFL /NDL /NJH /NJS /nc /ns /np `
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
 
 $env:EXPO_PUBLIC_API_URL = "https://api.upnexa-eg.com"
+$env:EXPO_ROUTER_APP_ROOT = "./app"
 Push-Location (Join-Path $Root "artifacts\mobile")
 try {
   Write-Host "[pack] expo export web (API = https://api.upnexa-eg.com)"
@@ -35,4 +36,4 @@ try {
 if (Test-Path $Zip) { Remove-Item $Zip -Force }
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $Zip -CompressionLevel Optimal
 Write-Host "[pack] ready: $Zip"
-Write-Host "[pack] upload this zip with WinSCP to /root/ then follow deploy/VPS-STEPS.md"
+Write-Host "[pack] upload zip to VPS /root/ then follow deploy/VPS-STEPS.md"

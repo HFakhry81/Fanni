@@ -1,6 +1,8 @@
 # نشر واجهة الويب — https://app.upnexa-eg.com/
 
-## التشخيص (27 أغسطس 2026)
+> **الدليل الكامل:** [`deploy/VPS-STEPS.md`](VPS-STEPS.md) — يشمل التحديث المحلي (`C:\Fanni`) والنشر على VPS.
+
+## التشخيص الشائع
 
 الصفحة تفتح لكنها تظهر **No routes found** لأن نسخة `/var/www/fanni-web` قديمة/ناقصة:
 
@@ -13,13 +15,26 @@
 
 ---
 
-## 1) البناء المحلي (تم في المستودع)
+## 1) البناء المحلي (`C:\Fanni`)
+
+```powershell
+cd C:\Fanni
+pnpm run export:web
+```
+
+أو مع zip للرفع:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\export-web.ps1 -Zip
+```
+
+يدوياً (نفس ما يفعله السكربت):
 
 ```powershell
 cd C:\Fanni\artifacts\mobile
-$env:NODE_OPTIONS="--use-system-ca"
-$env:EXPO_PUBLIC_API_URL="https://api.upnexa-eg.com"
-$env:EXPO_ROUTER_APP_ROOT="./app"
+$env:NODE_OPTIONS = "--use-system-ca"
+$env:EXPO_PUBLIC_API_URL = "https://api.upnexa-eg.com"
+$env:EXPO_ROUTER_APP_ROOT = "./app"
 pnpm exec expo export --platform web --output-dir dist-web
 ```
 

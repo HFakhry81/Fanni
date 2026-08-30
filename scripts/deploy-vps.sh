@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Run on the Ubuntu origin (not through Cloudflare DNS).
+# Local dev (Windows): C:\Fanni — see deploy/VPS-STEPS.md
+# Production app root (VPS): /var/www/fanni
 # If this file has Windows CRLF: sed -i 's/\r$//' scripts/deploy-vps.sh
 #
 #   cd /path/to/Fanni
@@ -109,6 +111,7 @@ WEB_DIR="${FANNI_WEB_DIR:-/var/www/fanni-web}"
 if [ "${FANNI_SKIP_WEB:-}" != "1" ]; then
   echo "[deploy] Expo web export → $WEB_DIR"
   export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-${PUBLIC_API_URL:-https://api.upnexa-eg.com}}"
+  export EXPO_ROUTER_APP_ROOT="${EXPO_ROUTER_APP_ROOT:-./app}"
   if "$PNPM" --filter @workspace/mobile exec expo export --platform web --output-dir dist-web; then
     mkdir -p "$WEB_DIR"
     rsync -a --delete "$ROOT/artifacts/mobile/dist-web/" "$WEB_DIR/"
