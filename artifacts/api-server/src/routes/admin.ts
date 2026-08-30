@@ -203,142 +203,149 @@ router.get("/admin/users/counts", authMiddleware, requireAuth, requireAdmin, asy
 });
 
 router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const page = Math.max(1, queryInt(req.query.page, 1));
-  const limit = Math.min(100, Math.max(1, queryInt(req.query.limit, 20)));
-  const role = queryString(req.query.role);
-  const search = queryString(req.query.search)?.trim();
-  const isActiveParam = queryString(req.query.isActive);
-  const approvalStatusParam = queryString(req.query.approvalStatus);
-  const offset = (page - 1) * limit;
+  try {
+    const page = Math.max(1, queryInt(req.query.page, 1));
+    const limit = Math.min(100, Math.max(1, queryInt(req.query.limit, 20)));
+    const role = queryString(req.query.role);
+    const search = queryString(req.query.search)?.trim();
+    const isActiveParam = queryString(req.query.isActive);
+    const approvalStatusParam = queryString(req.query.approvalStatus);
+    const offset = (page - 1) * limit;
 
-  // Admins are now in a separate table; only list clients and technicians here.
-  // If caller explicitly requests role=admin, return admin list from admins table instead.
-  if (role === "admin") {
-    const adminConditions = [];
+    // Admins are now in a separate table; only list clients and technicians here.
+    // If caller explicitly requests role=admin, return admin list from admins table instead.
+    if (role === "admin") {
+      const adminConditions = [];
+      if (isActiveParam === "true") {
+        adminConditions.push(eq(adminsTable.isActive, true));
+      } else if (isActiveParam === "false") {
+        adminConditions.push(eq(adminsTable.isActive, false));
+      }
+      if (search) {
+        const pattern = `%${search}%`;
+        adminConditions.push(
+          or(
+            ilike(adminsTable.firstName, pattern),
+            ilike(adminsTable.lastName, pattern),
+            ilike(adminsTable.email, pattern),
+            ilike(adminsTable.mobile, pattern),
+            sql`concat(${adminsTable.firstName}, ' ', coalesce(${adminsTable.lastName}, '')) ilike ${pattern}`
+          )
+        );
+      }
+
+      const adminWhere = adminConditions.length > 0 ? and(...adminConditions) : undefined;
+
+      const [admins, [countResult]] = await Promise.all([
+        db
+          .select({
+            id: adminsTable.id,
+            firstName: adminsTable.firstName,
+            lastName: adminsTable.lastName,
+            email: adminsTable.email,
+            mobile: adminsTable.mobile,
+            role: sql<string>`'admin'`,
+            isActive: adminsTable.isActive,
+            mustChangePassword: adminsTable.mustChangePassword,
+            area: sql<null>`null`,
+            governorate: sql<null>`null`,
+            specialty: sql<null>`null`,
+            profession: sql<null>`null`,
+            createdAt: adminsTable.createdAt,
+          })
+          .from(adminsTable)
+          .where(adminWhere)
+          .orderBy(desc(adminsTable.createdAt))
+          .limit(limit)
+          .offset(offset),
+        db.select({ count: sql<number>`count(*)::int` }).from(adminsTable).where(adminWhere),
+      ]);
+
+      const total = countResult?.count ?? 0;
+
+      return res.json({
+        users: admins,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    }
+
+    const conditions = [];
+    if (role && ["client", "technician"].includes(role)) {
+      conditions.push(eq(usersTable.role, role as "client" | "technician"));
+    }
     if (isActiveParam === "true") {
-      adminConditions.push(eq(adminsTable.isActive, true));
+      conditions.push(eq(usersTable.isActive, true));
     } else if (isActiveParam === "false") {
-      adminConditions.push(eq(adminsTable.isActive, false));
+      conditions.push(eq(usersTable.isActive, false));
+    }
+    if (approvalStatusParam === "pending_review") {
+      conditions.push(eq(usersTable.approvalStatus, "pending_review"));
+      conditions.push(eq(usersTable.isActive, true));
     }
     if (search) {
       const pattern = `%${search}%`;
-      adminConditions.push(
+      conditions.push(
         or(
-          ilike(adminsTable.firstName, pattern),
-          ilike(adminsTable.lastName, pattern),
-          ilike(adminsTable.email, pattern),
-          ilike(adminsTable.mobile, pattern),
-          sql`concat(${adminsTable.firstName}, ' ', coalesce(${adminsTable.lastName}, '')) ilike ${pattern}`
+          ilike(usersTable.firstName, pattern),
+          ilike(usersTable.lastName, pattern),
+          ilike(usersTable.email, pattern),
+          ilike(usersTable.mobile, pattern),
+          ilike(usersTable.area, pattern),
+          ilike(usersTable.governorate, pattern),
+          sql`concat(${usersTable.firstName}, ' ', coalesce(${usersTable.lastName}, '')) ilike ${pattern}`
         )
       );
     }
 
-    const adminWhere = adminConditions.length > 0 ? and(...adminConditions) : undefined;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [admins, [countResult]] = await Promise.all([
-      db
-        .select({
-          id: adminsTable.id,
-          firstName: adminsTable.firstName,
-          lastName: adminsTable.lastName,
-          email: adminsTable.email,
-          mobile: adminsTable.mobile,
-          role: sql<string>`'admin'`,
-          isActive: adminsTable.isActive,
-          mustChangePassword: adminsTable.mustChangePassword,
-          area: sql<null>`null`,
-          governorate: sql<null>`null`,
-          specialty: sql<null>`null`,
-          profession: sql<null>`null`,
-          createdAt: adminsTable.createdAt,
-        })
-        .from(adminsTable)
-        .where(adminWhere)
-        .orderBy(desc(adminsTable.createdAt))
-        .limit(limit)
-        .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` }).from(adminsTable).where(adminWhere),
+    // Qualify columns explicitly: bare "id" inside the subquery resolves to
+    // availability_audit_logs.id (int) and causes varchar = integer (NODE-9).
+    const baseQuery = db
+      .select({
+        id: usersTable.id,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        email: usersTable.email,
+        mobile: usersTable.mobile,
+        role: usersTable.role,
+        isActive: usersTable.isActive,
+        isAvailable: usersTable.isAvailable,
+        area: usersTable.area,
+        governorate: usersTable.governorate,
+        specialty: usersTable.specialty,
+        profession: usersTable.profession,
+        approvalStatus: usersTable.approvalStatus,
+        createdAt: usersTable.createdAt,
+        toggleCount24h: sql<number>`(
+          select count(*)::int
+          from availability_audit_logs
+          where availability_audit_logs.technician_id = users.id
+            and availability_audit_logs.created_at >= now() - interval '24 hours'
+        )`,
+      })
+      .from(usersTable);
+
+    const [rows, countResult] = await Promise.all([
+      baseQuery.where(whereClause).orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(whereClause),
     ]);
 
-    const total = countResult?.count ?? 0;
+    const total = countResult[0]?.count ?? 0;
 
     return res.json({
-      users: admins,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      users: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
+  } catch (err) {
+    Sentry.captureException(err);
+    return res.status(500).json({ error: "Failed to list users" });
   }
-
-  const conditions = [];
-  if (role && ["client", "technician"].includes(role)) {
-    conditions.push(eq(usersTable.role, role as "client" | "technician"));
-  }
-  if (isActiveParam === "true") {
-    conditions.push(eq(usersTable.isActive, true));
-  } else if (isActiveParam === "false") {
-    conditions.push(eq(usersTable.isActive, false));
-  }
-  if (approvalStatusParam === "pending_review") {
-    conditions.push(eq(usersTable.approvalStatus, "pending_review"));
-    conditions.push(eq(usersTable.isActive, true));
-  }
-  if (search) {
-    const pattern = `%${search}%`;
-    conditions.push(
-      or(
-        ilike(usersTable.firstName, pattern),
-        ilike(usersTable.lastName, pattern),
-        ilike(usersTable.email, pattern),
-        ilike(usersTable.mobile, pattern),
-        ilike(usersTable.area, pattern),
-        ilike(usersTable.governorate, pattern),
-        sql`concat(${usersTable.firstName}, ' ', coalesce(${usersTable.lastName}, '')) ilike ${pattern}`
-      )
-    );
-  }
-
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const baseQuery = db
-    .select({
-      id: usersTable.id,
-      firstName: usersTable.firstName,
-      lastName: usersTable.lastName,
-      email: usersTable.email,
-      mobile: usersTable.mobile,
-      role: usersTable.role,
-      isActive: usersTable.isActive,
-      isAvailable: usersTable.isAvailable,
-      area: usersTable.area,
-      governorate: usersTable.governorate,
-      specialty: usersTable.specialty,
-      profession: usersTable.profession,
-      approvalStatus: usersTable.approvalStatus,
-      createdAt: usersTable.createdAt,
-      toggleCount24h: sql<number>`(
-        select count(*)::int
-        from ${availabilityAuditLogsTable}
-        where ${availabilityAuditLogsTable.technicianId} = ${usersTable.id}
-          and ${availabilityAuditLogsTable.createdAt} >= now() - interval '24 hours'
-      )`,
-    })
-    .from(usersTable);
-
-  const [rows, countResult] = await Promise.all([
-    baseQuery.where(whereClause).orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
-    db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(whereClause),
-  ]);
-
-  const total = countResult[0]?.count ?? 0;
-
-  return res.json({
-    users: rows,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
 });
 
 router.patch("/admin/users/:id", authMiddleware, requireAuth, requireAdmin, requirePermission("manage_users"), async (req: Request<{ id: string }>, res: Response) => {

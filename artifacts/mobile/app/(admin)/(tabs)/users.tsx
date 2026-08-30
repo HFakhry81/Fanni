@@ -297,6 +297,7 @@ function UserListView({
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
@@ -311,8 +312,14 @@ function UserListView({
       } else {
         setLoading(true);
       }
+      setError(null);
       try {
         const base = getApiBase();
+        if (!base) {
+          setError(isRTL ? "عنوان الخادم غير متاح" : "API base URL unavailable");
+          setUsers([]);
+          return;
+        }
         const params = new URLSearchParams({
           role,
           limit: "50",
@@ -326,17 +333,22 @@ function UserListView({
         const res = await fetch(`${base}/api/admin/users?${params}`, {
           headers: { Authorization: `Bearer ${sessionToken}` },
         });
-        if (res.ok) {
-          const data = await res.json() as { users: ApiUser[] };
-          setUsers(data.users ?? []);
+        if (!res.ok) {
+          setUsers([]);
+          setError(isRTL ? "تعذّر تحميل القائمة" : "Could not load users");
+          return;
         }
-      } catch { /* ignore */ }
-      finally {
+        const data = await res.json() as { users: ApiUser[] };
+        setUsers(data.users ?? []);
+      } catch {
+        setUsers([]);
+        setError(isRTL ? "خطأ في الاتصال" : "Connection error");
+      } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [sessionToken, role, filter, debouncedSearch]
+    [sessionToken, role, filter, debouncedSearch, isRTL]
   );
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
@@ -460,6 +472,18 @@ function UserListView({
           />
         ))}
       </View>
+      {error ? (
+        <TouchableOpacity
+          style={[styles.center, { paddingVertical: 24 }]}
+          onPress={() => fetchUsers()}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.emptyText, { color: "#DC2626" }]}>{error}</Text>
+          <Text style={{ color: colors.primary, marginTop: 8, fontFamily: "Inter_500Medium" }}>
+            {isRTL ? "إعادة المحاولة" : "Retry"}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
       <FlatList
         data={users}
         keyExtractor={(u) => u.id}
@@ -479,12 +503,14 @@ function UserListView({
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchUsers(true)} />
         }
         ListEmptyComponent={
-          <View style={styles.center}>
-            <VectorIcon name="users" size={40} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              {t("common.noData")}
-            </Text>
-          </View>
+          error ? null : (
+            <View style={styles.center}>
+              <VectorIcon name="users" size={40} color={colors.mutedForeground} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                {t("common.noData")}
+              </Text>
+            </View>
+          )
         }
       />
     </View>
@@ -493,17 +519,43 @@ function UserListView({
 
 // ─── Tech sub-hub cards ────────────────────────────────────────────────────────
 function TechHubView({
-  isRTL, colors, t, onShowList, router,
+  isRTL, colors, t, onShowList, router, sessionToken,
 }: {
   isRTL: boolean;
   colors: ReturnType<typeof useColors>;
   t: (k: string) => string;
   onShowList: () => void;
   router: ReturnType<typeof useRouter>;
+  sessionToken: string | null;
 }) {
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [techCount, setTechCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!sessionToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const base = getApiBase();
+        if (!base) return;
+        const res = await fetch(`${base}/api/admin/users/counts?role=technician`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json() as { all?: number; pending?: number };
+        if (!cancelled) {
+          setTechCount(data.all ?? 0);
+          setPendingCount(data.pending ?? 0);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionToken]);
+
   const items: {
     icon: IconName; iconColor: string; iconBg: string;
     title: string; subtitle: string; onPress: () => void;
+    badge?: string | number; badgeColor?: string;
   }[] = [
     {
       icon: "tool",
@@ -512,6 +564,8 @@ function TechHubView({
       title: t("admin.tech.list"),
       subtitle: t("admin.tech.listDesc"),
       onPress: onShowList,
+      badge: techCount ?? undefined,
+      badgeColor: "#F5A623",
     },
     {
       icon: "map",
@@ -536,6 +590,8 @@ function TechHubView({
       title: t("admin.tech.pendingApproval"),
       subtitle: t("admin.tech.pendingApprovalDesc"),
       onPress: () => router.push("/(admin)/(tabs)/pending"),
+      badge: pendingCount ?? undefined,
+      badgeColor: "#7C5CBF",
     },
   ];
 
@@ -549,6 +605,8 @@ function TechHubView({
           iconBg={item.iconBg}
           title={item.title}
           subtitle={item.subtitle}
+          badge={item.badge}
+          badgeColor={item.badgeColor}
           onPress={item.onPress}
           isRTL={isRTL}
           colors={colors}
@@ -681,23 +739,38 @@ function TechBalancesView({
 }) {
   const [techs, setTechs] = useState<ApiUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!sessionToken) return;
-    (async () => {
-      try {
-        const base = getApiBase();
-        const res = await fetch(`${base}/api/admin/users?role=technician&limit=50&isActive=true`, {
-          headers: { Authorization: `Bearer ${sessionToken}` },
-        });
-        if (res.ok) {
-          const data = await res.json() as { users: ApiUser[] };
-          setTechs(data.users ?? []);
-        }
-      } catch { /* ignore */ }
-      finally { setLoading(false); }
-    })();
-  }, [sessionToken]);
+    setLoading(true);
+    setError(null);
+    try {
+      const base = getApiBase();
+      if (!base) {
+        setError(isRTL ? "عنوان الخادم غير متاح" : "API base URL unavailable");
+        setTechs([]);
+        return;
+      }
+      const res = await fetch(`${base}/api/admin/users?role=technician&limit=50&isActive=true`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) {
+        setTechs([]);
+        setError(isRTL ? "تعذّر تحميل أرصدة الفنيين" : "Could not load technician balances");
+        return;
+      }
+      const data = await res.json() as { users: ApiUser[] };
+      setTechs(data.users ?? []);
+    } catch {
+      setTechs([]);
+      setError(isRTL ? "خطأ في الاتصال" : "Connection error");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionToken, isRTL]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
 
@@ -711,7 +784,13 @@ function TechBalancesView({
             : "Point balance is used to grant technicians access to client data when receiving orders"}
         </Text>
       </View>
-      {techs.map((tech) => (
+      {error ? (
+        <TouchableOpacity style={styles.center} onPress={load} activeOpacity={0.7}>
+          <Text style={{ color: "#DC2626", textAlign: "center" }}>{error}</Text>
+          <Text style={{ color: colors.primary, marginTop: 8 }}>{isRTL ? "إعادة المحاولة" : "Retry"}</Text>
+        </TouchableOpacity>
+      ) : null}
+      {!error && techs.map((tech) => (
         <CollectionEntry
           key={tech.id}
           label={userName(tech)}
@@ -721,7 +800,7 @@ function TechBalancesView({
           colors={colors}
         />
       ))}
-      {techs.length === 0 && (
+      {!error && techs.length === 0 && (
         <View style={styles.center}>
           <Text style={{ color: colors.mutedForeground }}>{t("common.noData")}</Text>
         </View>
@@ -882,11 +961,37 @@ export default function AdminUsersScreen() {
   const [mainView, setMainView] = useState<MainView>("hub");
   const [techSubView, setTechSubView] = useState<TechSubView>("hub");
   const [collSubView, setCollSubView] = useState<CollSubView>("hub");
+  const [clientCount, setClientCount] = useState<number | null>(null);
+  const [techCount, setTechCount] = useState<number | null>(null);
+
+  const loadHubCounts = useCallback(async () => {
+    if (!sessionToken) return;
+    const base = getApiBase();
+    if (!base) return;
+    const headers = { Authorization: `Bearer ${sessionToken}` };
+    try {
+      const [clientsRes, techsRes] = await Promise.all([
+        fetch(`${base}/api/admin/users/counts?role=client`, { headers }),
+        fetch(`${base}/api/admin/users/counts?role=technician`, { headers }),
+      ]);
+      if (clientsRes.ok) {
+        const data = await clientsRes.json() as { all?: number };
+        setClientCount(data.all ?? 0);
+      }
+      if (techsRes.ok) {
+        const data = await techsRes.json() as { all?: number };
+        setTechCount(data.all ?? 0);
+      }
+    } catch { /* ignore */ }
+  }, [sessionToken]);
 
   useFocusEffect(
     useCallback(() => {
+      if (mainView === "hub") {
+        loadHubCounts();
+      }
       return () => {};
-    }, [])
+    }, [mainView, loadHubCounts])
   );
 
   function goBack() {
@@ -954,6 +1059,7 @@ export default function AdminUsersScreen() {
       const cards: {
         icon: IconName; iconColor: string; iconBg: string;
         title: string; subtitle: string; view: MainView;
+        badge?: string | number; badgeColor?: string;
       }[] = [
         {
           icon: "user",
@@ -961,6 +1067,8 @@ export default function AdminUsersScreen() {
           title: t("admin.users.clients"),
           subtitle: t("admin.users.clientsDesc"),
           view: "clients",
+          badge: clientCount ?? undefined,
+          badgeColor: "#4DADD9",
         },
         {
           icon: "tool",
@@ -968,6 +1076,8 @@ export default function AdminUsersScreen() {
           title: t("admin.users.technicians"),
           subtitle: t("admin.users.techniciansDesc"),
           view: "technicians",
+          badge: techCount ?? undefined,
+          badgeColor: "#F5A623",
         },
         {
           icon: "clipboard",
@@ -998,6 +1108,8 @@ export default function AdminUsersScreen() {
                 iconBg={card.iconBg}
                 title={card.title}
                 subtitle={card.subtitle}
+                badge={card.badge}
+                badgeColor={card.badgeColor}
                 onPress={() => {
                   if (card.title === t("admin.users.loginLogs")) {
                     router.push("/(admin)/(tabs)/login-logs");
@@ -1035,6 +1147,7 @@ export default function AdminUsersScreen() {
             t={t}
             onShowList={() => setTechSubView("list")}
             router={router}
+            sessionToken={sessionToken}
           />
         );
       }
