@@ -47,7 +47,7 @@ export default function TechBonusGrantsPanel({
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
 }) {
   const [loading, setLoading] = useState(true);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [canGrantBonus, setCanGrantBonus] = useState(false);
   const [wallets, setWallets] = useState<WalletStatRow[]>([]);
   const [grants, setGrants] = useState<BonusGrant[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -73,13 +73,17 @@ export default function TechBonusGrantsPanel({
     setError(null);
     try {
       const [permRes, statsRes, grantsRes] = await Promise.all([
-        fetch(`${base}/api/admin/me/permissions`, { headers }),
+        fetch(`${base}/api/admin/my-permissions`, { headers }),
         fetch(`${base}/api/admin/wallet-stats`, { headers }),
         fetch(`${base}/api/admin/wallet/bonus-grants`, { headers }),
       ]);
       if (permRes.ok) {
-        const perm = await permRes.json() as { isSuperAdmin?: boolean };
-        setIsSuperAdmin(!!perm.isSuperAdmin);
+        const perm = await permRes.json() as { isSuperAdmin?: boolean; permissions?: string[] };
+        const superAdmin = !!perm.isSuperAdmin;
+        const manageWallet = perm.permissions?.includes("manage_wallet") ?? false;
+        setCanGrantBonus(superAdmin || manageWallet);
+      } else {
+        setCanGrantBonus(false);
       }
       if (statsRes.ok) {
         const stats = await statsRes.json() as { wallets: WalletStatRow[] };
@@ -166,9 +170,16 @@ export default function TechBonusGrantsPanel({
       <View style={{ backgroundColor: "#E8F5E9", borderColor: "#2E7D32", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 }}>
         <Text style={{ color: "#1B5E20", fontFamily: "Inter_500Medium", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
           {isRTL
-            ? "مكافأة يدوية (Super Admin): تُرسل للفني مع رسالة — يُضاف الرصيد بعد أن يضغط الفني «استلام المكافأة»."
-            : "Manual bonus (Super Admin): sent with a message — points credit after the technician taps «Receive bonus»."}
+            ? "مكافأة يدوية: تُرسل للفني مع رسالة — يُضاف الرصيد بعد أن يضغط الفني «استلام المكافأة»."
+            : "Manual bonus: sent with a message — points credit after the technician taps «Receive bonus»."}
         </Text>
+        {!canGrantBonus ? (
+          <Text style={{ color: "#B45309", fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left" }}>
+            {isRTL
+              ? "زر «مكافأة» يظهر لـ Super Admin أو من لديه صلاحية manage_wallet."
+              : "The Bonus button appears for Super Admin or manage_wallet permission."}
+          </Text>
+        ) : null}
       </View>
 
       {error ? (
@@ -202,11 +213,12 @@ export default function TechBonusGrantsPanel({
               {row.points_balance} {isRTL ? "نقطة" : "pts"}
             </Text>
           </View>
-          {isSuperAdmin ? (
+          {canGrantBonus ? (
             <TouchableOpacity
               onPress={() => openGrantModal(row)}
               style={{ backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }}
               activeOpacity={0.85}
+              testID="admin-bonus-grant-btn"
             >
               <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
                 {isRTL ? "مكافأة" : "Bonus"}
@@ -216,7 +228,7 @@ export default function TechBonusGrantsPanel({
         </View>
       ))}
 
-      {isSuperAdmin && grants.length > 0 ? (
+      {canGrantBonus && grants.length > 0 ? (
         <View style={{ marginTop: 16 }}>
           <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
             {isRTL ? "سجل المكافآت المرسلة" : "Sent bonus grants"}

@@ -3,7 +3,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { db, walletsTable, walletTransactionsTable, pointPackagesTable, unlockCostsTable, operationalExpensesTable, leadPricingRulesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
-import { requireAdmin, requirePermission, requireSuperAdmin } from "../middlewares/requireAdmin";
+import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
 import { resolveLeadCost } from "../lib/leadPricing";
 import { listAdminAuditLogs, logAdminAudit } from "../lib/adminAudit";
@@ -147,7 +147,7 @@ router.post(
   authMiddleware,
   requireAuth,
   requireAdmin,
-  requireSuperAdmin,
+  requirePermission("manage_wallet"),
   async (req, res) => {
     const user = req.user!;
     const { technicianId, pointsAmount, message } = req.body as {
@@ -196,7 +196,7 @@ router.get(
   authMiddleware,
   requireAuth,
   requireAdmin,
-  requireSuperAdmin,
+  requirePermission("manage_wallet"),
   async (req, res) => {
     const user = req.user!;
     try {
