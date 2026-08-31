@@ -22,6 +22,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
+import TechBonusGrantsPanel from "@/components/admin/TechBonusGrantsPanel";
 import { confirmDialog } from "@/utils/confirmDialog";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -906,84 +907,6 @@ function RefundedView({
   );
 }
 
-function TechBalancesView({
-  sessionToken, isRTL, colors, t,
-}: {
-  sessionToken: string | null; isRTL: boolean;
-  colors: ReturnType<typeof useColors>; t: (k: string) => string;
-}) {
-  const [techs, setTechs] = useState<ApiUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!sessionToken) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const base = getApiBase();
-      if (!base) {
-        setError(isRTL ? "عنوان الخادم غير متاح" : "API base URL unavailable");
-        setTechs([]);
-        return;
-      }
-      const res = await fetch(`${base}/api/admin/users?role=technician&limit=50&isActive=true`, {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      });
-      if (!res.ok) {
-        setTechs([]);
-        setError(isRTL ? "تعذّر تحميل أرصدة الفنيين" : "Could not load technician balances");
-        return;
-      }
-      const data = await res.json() as { users: ApiUser[] };
-      setTechs(data.users ?? []);
-    } catch {
-      setTechs([]);
-      setError(isRTL ? "خطأ في الاتصال" : "Connection error");
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionToken, isRTL]);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
-
-  return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}>
-      <View style={[styles.infoCard, { backgroundColor: "#E3F2FD", borderColor: "#4DADD9" }]}>
-        <VectorIcon name="info" size={16} color="#4DADD9" />
-        <Text style={[styles.infoText, { color: "#1565C0" }]}>
-          {isRTL
-            ? "رصيد النقاط يُستخدم لإتاحة بيانات العميل للفني عند استلام طلب جديد"
-            : "Point balance is used to grant technicians access to client data when receiving orders"}
-        </Text>
-      </View>
-      {error ? (
-        <TouchableOpacity style={styles.center} onPress={load} activeOpacity={0.7}>
-          <Text style={{ color: "#DC2626", textAlign: "center" }}>{error}</Text>
-          <Text style={{ color: colors.primary, marginTop: 8 }}>{isRTL ? "إعادة المحاولة" : "Retry"}</Text>
-        </TouchableOpacity>
-      ) : null}
-      {!error && techs.map((tech) => (
-        <CollectionEntry
-          key={tech.id}
-          label={userName(tech)}
-          value={isRTL ? "— نقطة" : "— pts"}
-          sub={[tech.specialty ?? tech.profession, tech.area].filter(Boolean).join(" · ")}
-          isRTL={isRTL}
-          colors={colors}
-        />
-      ))}
-      {!error && techs.length === 0 && (
-        <View style={styles.center}>
-          <Text style={{ color: colors.mutedForeground }}>{t("common.noData")}</Text>
-        </View>
-      )}
-    </ScrollView>
-  );
-}
-
 function CommissionView({
   sessionToken, isRTL, colors, t,
 }: {
@@ -1355,7 +1278,7 @@ export default function AdminUsersScreen() {
         return <RefundedView isRTL={isRTL} colors={colors} t={t} />;
       }
       if (collSubView === "tech_balances") {
-        return <TechBalancesView sessionToken={sessionToken} isRTL={isRTL} colors={colors} t={t} />;
+        return <TechBonusGrantsPanel sessionToken={sessionToken} isRTL={isRTL} colors={colors} />;
       }
       if (collSubView === "commission") {
         return <CommissionView sessionToken={sessionToken} isRTL={isRTL} colors={colors} t={t} />;

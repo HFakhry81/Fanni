@@ -301,6 +301,7 @@ export default function AvailableOrdersScreen() {
     const unlockCost = item.unlockCost ?? 20;
     return (
       <View
+        testID="incoming-order-card"
         style={[
           styles.card,
           {
@@ -416,6 +417,7 @@ export default function AvailableOrdersScreen() {
             onPress={() => handleAccept(item)}
             loading={isAccepting}
             style={{ marginTop: 10 }}
+            testID="accept-order-btn"
           />
         </View>
       </View>

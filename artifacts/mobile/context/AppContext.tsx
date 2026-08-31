@@ -530,6 +530,7 @@ const translations: Record<string, Record<Language, string>> = {
   "wallet.type.dispute_refund": { ar: "استرداد نزاع", en: "Dispute Refund" },
   "wallet.type.admin_adjustment": { ar: "تعديل إداري", en: "Admin Adjustment" },
   "wallet.type.welcome_bonus": { ar: "مكافأة ترحيبية", en: "Welcome Bonus" },
+  "wallet.type.bonus_grant": { ar: "مكافأة إدارية", en: "Admin Bonus" },
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);

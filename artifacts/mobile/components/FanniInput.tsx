@@ -30,6 +30,7 @@ interface FanniInputProps {
   required?: boolean;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   maxLength?: number;
+  testID?: string;
 }
 
 export default function FanniInput({
@@ -48,6 +49,7 @@ export default function FanniInput({
   required = false,
   autoCapitalize = "sentences",
   maxLength,
+  testID,
 }: FanniInputProps) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -91,6 +93,7 @@ export default function FanniInput({
       >
         <TextInput
           ref={inputRef}
+          testID={testID}
           style={[
             styles.input,
             {

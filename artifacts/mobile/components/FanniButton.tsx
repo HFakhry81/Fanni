@@ -20,6 +20,7 @@ interface FanniButtonProps {
   textStyle?: TextStyle;
   size?: "sm" | "md" | "lg";
   fullWidth?: boolean;
+  testID?: string;
 }
 
 export default function FanniButton({
@@ -32,6 +33,7 @@ export default function FanniButton({
   textStyle,
   size = "md",
   fullWidth = false,
+  testID,
 }: FanniButtonProps) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -99,6 +101,7 @@ export default function FanniButton({
 
   return (
     <TouchableOpacity
+      testID={testID}
       style={[getContainerStyle(), style]}
       onPress={handlePress}
       disabled={disabled || loading}

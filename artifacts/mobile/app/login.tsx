@@ -213,6 +213,7 @@ export default function LoginScreen() {
             }
             keyboardType="email-address"
             autoCapitalize="none"
+            testID="login-identifier"
           />
 
           <View style={{ position: "relative" }}>
@@ -225,6 +226,7 @@ export default function LoginScreen() {
               }}
               placeholder="••••••••"
               secureTextEntry={!showPassword}
+              testID="login-password"
             />
             <TouchableOpacity
               style={[
@@ -257,6 +259,7 @@ export default function LoginScreen() {
             onPress={handleLocalLogin}
             loading={localLoading}
             fullWidth
+            testID="login-submit"
           />
 
           <TouchableOpacity

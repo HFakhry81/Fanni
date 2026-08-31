@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useOrders, buildSimulatedOrder } from "@/context/OrderContext";
 import { TechWsProvider, useTechWs } from "@/context/TechWsContext";
 import Toast from "@/components/Toast";
+import BonusGrantGate from "@/components/BonusGrantGate";
 import ConnectionBanner, { CONNECTION_BANNER_HEIGHT } from "@/components/ConnectionBanner";
 import SyncingBanner from "@/components/SyncingBanner";
 import { getApiBase } from "@/utils/api";
@@ -425,6 +426,7 @@ function TechLayoutInner() {
         variant="error"
         onHide={hideCancelledNotification}
       />
+      <BonusGrantGate />
     </>
   );
 }

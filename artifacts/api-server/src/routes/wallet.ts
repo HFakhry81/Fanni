@@ -3,12 +3,18 @@ import { eq, desc, sql } from "drizzle-orm";
 import { db, walletsTable, walletTransactionsTable, pointPackagesTable, unlockCostsTable, operationalExpensesTable, leadPricingRulesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
-import { requireAdmin, requirePermission } from "../middlewares/requireAdmin";
+import { requireAdmin, requirePermission, requireSuperAdmin } from "../middlewares/requireAdmin";
 import { logger } from "../lib/logger";
 import { resolveLeadCost } from "../lib/leadPricing";
 import { listAdminAuditLogs, logAdminAudit } from "../lib/adminAudit";
 import { creditPurchased, debitPromoFirst } from "../lib/walletBuckets";
 import { getTrialBalance, listJournals, postOperatingExpense } from "../lib/generalLedger";
+import {
+  acknowledgeBonusGrant,
+  createBonusGrant,
+  listBonusGrantsForAdmin,
+  listPendingBonusGrantsForTechnician,
+} from "../lib/bonusGrants";
 
 const router: IRouter = Router();
 
@@ -134,6 +140,114 @@ router.post("/admin/wallet/adjust", authMiddleware, requireAuth, requireAdmin, r
     res.status(500).json({ error: "Failed to adjust wallet" });
   }
 });
+
+/** Super Admin: send a promotional bonus grant — credited after technician acknowledges. */
+router.post(
+  "/admin/wallet/bonus-grant",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  async (req, res) => {
+    const user = req.user!;
+    const { technicianId, pointsAmount, message } = req.body as {
+      technicianId?: string;
+      pointsAmount?: number;
+      message?: string;
+    };
+    if (!technicianId || typeof pointsAmount !== "number" || !message?.trim()) {
+      res.status(400).json({ error: "technicianId, pointsAmount, and message are required" });
+      return;
+    }
+    try {
+      const grant = await createBonusGrant({
+        technicianId,
+        adminId: user.id,
+        pointsAmount,
+        message: message.trim(),
+      });
+      await logAdminAudit(req, {
+        action: "bonus_grant_send",
+        targetType: "wallet_bonus_grant",
+        targetId: grant.id,
+        newStatus: "pending_ack",
+        reason: message.trim(),
+        metadata: {
+          technicianId,
+          pointsAmount: Math.round(pointsAmount),
+          message: message.trim(),
+        },
+      });
+      res.status(201).json({
+        ok: true,
+        grant,
+        message: "Bonus sent — awaiting technician confirmation",
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create bonus grant";
+      logger.error({ err }, "Failed to create bonus grant");
+      res.status(400).json({ error: msg });
+    }
+  },
+);
+
+router.get(
+  "/admin/wallet/bonus-grants",
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  async (req, res) => {
+    const user = req.user!;
+    try {
+      const grants = await listBonusGrantsForAdmin(user.id);
+      res.json({ grants });
+    } catch (err) {
+      logger.error({ err }, "Failed to list bonus grants");
+      res.status(500).json({ error: "Failed to list bonus grants" });
+    }
+  },
+);
+
+router.get("/wallet/bonus-grants/pending", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can view bonus grants" });
+    return;
+  }
+  try {
+    const grants = await listPendingBonusGrantsForTechnician(user.id);
+    res.json({ grants });
+  } catch (err) {
+    logger.error({ err }, "Failed to list pending bonus grants");
+    res.status(500).json({ error: "Failed to list pending bonus grants" });
+  }
+});
+
+router.post(
+  "/wallet/bonus-grants/:id/acknowledge",
+  authMiddleware,
+  requireAuth,
+  async (req: Request<{ id: string }>, res) => {
+    const user = req.user!;
+    if (user.role !== "technician") {
+      res.status(403).json({ error: "Only technicians can acknowledge bonus grants" });
+      return;
+    }
+    try {
+      const result = await acknowledgeBonusGrant(user.id, req.params.id);
+      res.json({
+        ok: true,
+        grant: result.grant,
+        newBalance: result.newBalance,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to acknowledge bonus";
+      logger.error({ err, grantId: req.params.id }, "Failed to acknowledge bonus grant");
+      res.status(400).json({ error: msg });
+    }
+  },
+);
 
 // Admin: manage point packages
 router.get("/admin/point-packages", authMiddleware, requireAuth, requireAdmin, async (_req, res) => {

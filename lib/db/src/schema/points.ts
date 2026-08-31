@@ -25,6 +25,7 @@ export const pointTransactionTypeEnum = pgEnum("point_transaction_type", [
   "dispute_refund",
   "admin_adjustment",
   "welcome_bonus",
+  "bonus_grant",
 ]);
 
 export const pointPaymentStatusEnum = pgEnum("point_payment_status", [
@@ -141,5 +142,25 @@ export const operationalExpensesTable = pgTable("operational_expenses", {
   amountEgp: numeric("amount_egp", { precision: 10, scale: 2 }).notNull(),
   invoiceUrl: text("invoice_url"),
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const walletBonusGrantStatusEnum = pgEnum("wallet_bonus_grant_status", [
+  "pending_ack",
+  "credited",
+  "cancelled",
+]);
+
+export const walletBonusGrantsTable = pgTable("wallet_bonus_grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  technicianId: varchar("technician_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull(),
+  adminId: varchar("admin_id").notNull(),
+  pointsAmount: integer("points_amount").notNull(),
+  message: text("message").notNull(),
+  status: walletBonusGrantStatusEnum("status").notNull().default("pending_ack"),
+  notificationId: varchar("notification_id"),
+  walletTxId: varchar("wallet_tx_id").references(() => walletTransactionsTable.id, { onDelete: "set null" }),
+  techAcknowledgedAt: timestamp("tech_acknowledged_at"),
+  creditedAt: timestamp("credited_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

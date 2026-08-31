@@ -275,6 +275,7 @@ export default function ClientOrdersScreen() {
         )}
         {item.status === "pending" && (
           <TouchableOpacity
+            testID="cancel-order-btn"
             style={[styles.cancelBtn, { borderColor: colors.destructive ?? "#EF4444", borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
             onPress={(e) => { e.stopPropagation(); handleCancelOrder(item.id); }}
             activeOpacity={0.8}
