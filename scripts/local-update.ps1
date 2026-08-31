@@ -1,6 +1,6 @@
-# Local update: install deps, migrate DB, typecheck, build API.
+﻿# Local update: install deps, migrate DB, typecheck, build API.
 # Usage:
-#   cd C:\Fanni
+#   cd E:\UpNexa.com\Fanni
 #   powershell -ExecutionPolicy Bypass -File scripts\local-update.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\local-update.ps1 -Seed
 param(
@@ -48,3 +48,4 @@ Write-Host "[local-update] done." -ForegroundColor Green
 Write-Host "  API dev:  pnpm run dev:api"
 Write-Host "  Mobile:   pnpm run dev:mobile"
 Write-Host "  Web exp:  pnpm run export:web"
+

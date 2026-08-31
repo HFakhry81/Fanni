@@ -81,3 +81,8 @@ test-results/
 backup.sql
 backup_new.sql
 *.sql.bak
+
+# Production draft on local machine only (export sanitized copy to deploy/)
+.env.production
+.env.local
+

@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Run on the Ubuntu origin (not through Cloudflare DNS).
-# Local dev (Windows): C:\Fanni — see deploy/VPS-STEPS.md
+# Local dev (Windows): E:\UpNexa.com\Fanni â€” see deploy/VPS-STEPS.md
 # Production app root (VPS): /var/www/fanni
 # If this file has Windows CRLF: sed -i 's/\r$//' scripts/deploy-vps.sh
 #
@@ -33,13 +33,13 @@ fi
 ENV_FILE="$ROOT/.env"
 EXAMPLE="$ROOT/deploy/env.production.example"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "[deploy] no .env — copying keys from deploy/env.production.example (fill DATABASE_URL and SESSION_SECRET then re-run)"
+  echo "[deploy] no .env â€” copying keys from deploy/env.production.example (fill DATABASE_URL and SESSION_SECRET then re-run)"
   cp "$EXAMPLE" "$ENV_FILE"
   echo "[deploy] ERROR: edit $ENV_FILE then run this script again"
   exit 1
 fi
 
-echo "[deploy] .env exists — appending missing non-Twilio keys only"
+echo "[deploy] .env exists â€” appending missing non-Twilio keys only"
 while IFS= read -r line || [ -n "$line" ]; do
   case "$line" in
     ""|\#*) continue ;;
@@ -96,7 +96,7 @@ if command -v pm2 >/dev/null 2>&1; then
   FANNI_APP_DIR="$ROOT" pm2 startOrReload "$ROOT/deploy/ecosystem.config.cjs" --update-env --only "$PM2_NAME"
   pm2 save || true
 else
-  echo "[deploy] PM2 not found — start with: PORT=5000 NODE_ENV=production $PNPM --filter @workspace/api-server run start"
+  echo "[deploy] PM2 not found â€” start with: PORT=5000 NODE_ENV=production $PNPM --filter @workspace/api-server run start"
 fi
 
 echo "[deploy] local health check"
@@ -104,12 +104,12 @@ sleep 2
 if curl -sf "http://127.0.0.1:${PORT}/api/healthz" >/dev/null || curl -sf "http://127.0.0.1:${PORT}/healthz" >/dev/null; then
   echo "[deploy] local API healthy"
 else
-  echo "[deploy] WARN: local healthz failed — pm2 logs $PM2_NAME"
+  echo "[deploy] WARN: local healthz failed â€” pm2 logs $PM2_NAME"
 fi
 
 WEB_DIR="${FANNI_WEB_DIR:-/var/www/fanni-web}"
 if [ "${FANNI_SKIP_WEB:-}" != "1" ]; then
-  echo "[deploy] Expo web export → $WEB_DIR"
+  echo "[deploy] Expo web export â†’ $WEB_DIR"
   export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-${PUBLIC_API_URL:-https://api.upnexa-eg.com}}"
   export EXPO_ROUTER_APP_ROOT="${EXPO_ROUTER_APP_ROOT:-./app}"
   if "$PNPM" --filter @workspace/mobile exec expo export --platform web --output-dir dist-web; then
@@ -117,6 +117,7 @@ if [ "${FANNI_SKIP_WEB:-}" != "1" ]; then
     rsync -a --delete "$ROOT/artifacts/mobile/dist-web/" "$WEB_DIR/"
     echo "[deploy] web synced"
   else
-    echo "[deploy] WARN: web export failed — API still deployed. Set FANNI_SKIP_WEB=1 to skip."
+    echo "[deploy] WARN: web export failed â€” API still deployed. Set FANNI_SKIP_WEB=1 to skip."
   fi
 fi
+

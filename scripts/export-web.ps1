@@ -1,6 +1,6 @@
-# Export Expo web app for app.upnexa-eg.com (or local preview).
+﻿# Export Expo web app for app.upnexa-eg.com (or local preview).
 # Usage:
-#   cd C:\Fanni
+#   cd E:\UpNexa.com\Fanni
 #   powershell -ExecutionPolicy Bypass -File scripts\export-web.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\export-web.ps1 -Zip
 param(
@@ -42,3 +42,4 @@ if ($Zip) {
     Compress-Archive -Path (Join-Path $OutDir "*") -DestinationPath $ZipPath -CompressionLevel Optimal
     Write-Host "[export-web] zip:    $ZipPath" -ForegroundColor Green
 }
+

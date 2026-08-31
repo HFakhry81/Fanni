@@ -1,81 +1,81 @@
-# تقرير تحديث Fanni — محلي (`C:\Fanni`) وإنتاج (VPS)
+﻿# طھظ‚ط±ظٹط± طھط­ط¯ظٹط« Fanni â€” ظ…ط­ظ„ظٹ (`E:\UpNexa.com\Fanni`) ظˆط¥ظ†طھط§ط¬ (VPS)
 
-**الإصدار:** 1.0.10 / `versionCode` 10  
-**التاريخ:** 30 أغسطس 2026  
-**بعد إصلاحات:** سكربت `local-update.ps1`، تشغيل API عبر `scripts/dev.mjs` (بدون `cross-env`)، وإعادة تثبيت `node_modules`
+**ط§ظ„ط¥طµط¯ط§ط±:** 1.0.10 / `versionCode` 10  
+**ط§ظ„طھط§ط±ظٹط®:** 30 ط£ط؛ط³ط·ط³ 2026  
+**ط¨ط¹ط¯ ط¥طµظ„ط§ط­ط§طھ:** ط³ظƒط±ط¨طھ `local-update.ps1`طŒ طھط´ط؛ظٹظ„ API ط¹ط¨ط± `scripts/dev.mjs` (ط¨ط¯ظˆظ† `cross-env`)طŒ ظˆط¥ط¹ط§ط¯ط© طھط«ط¨ظٹطھ `node_modules`
 
 ---
 
-## خريطة المسارات
+## ط®ط±ظٹط·ط© ط§ظ„ظ…ط³ط§ط±ط§طھ
 
-| المكوّن | محلي (ويندوز) | إنتاج (VPS) | رابط عام |
+| ط§ظ„ظ…ظƒظˆظ‘ظ† | ظ…ط­ظ„ظٹ (ظˆظٹظ†ط¯ظˆط²) | ط¥ظ†طھط§ط¬ (VPS) | ط±ط§ط¨ط· ط¹ط§ظ… |
 |---------|---------------|-------------|----------|
-| كود المشروع | `C:\Fanni` | `/var/www/fanni` | — |
-| قاعدة البيانات | PostgreSQL محلي (`DATABASE_URL` في `.env`) | PostgreSQL على السيرفر (`DATABASE_URL` في `/var/www/fanni/.env`) | — |
-| الباك اند (API) | `http://localhost:3000` | PM2 `fanni-api` على `:5000` | https://api.upnexa-eg.com |
-| الفرونت — Web App | `C:\Fanni\artifacts\mobile\dist-web` | `/var/www/fanni-web` | https://app.upnexa-eg.com |
-| الفرونت — موبايل | Expo dev / APK | APK على السيرفر | تثبيت من الرابط أدناه |
-| ملف APK | نزّل من EAS → احفظ `fanni.apk` | **`/var/www/upnexa-eg.com/fanni.apk`** | https://upnexa-eg.com/fanni.apk |
-| صور/ملفات | محلي حسب `.env` | `/var/www/storage/fanni` | — |
+| ظƒظˆط¯ ط§ظ„ظ…ط´ط±ظˆط¹ | `E:\UpNexa.com\Fanni` | `/var/www/fanni` | â€” |
+| ظ‚ط§ط¹ط¯ط© ط§ظ„ط¨ظٹط§ظ†ط§طھ | PostgreSQL ظ…ط­ظ„ظٹ (`DATABASE_URL` ظپظٹ `.env`) | PostgreSQL ط¹ظ„ظ‰ ط§ظ„ط³ظٹط±ظپط± (`DATABASE_URL` ظپظٹ `/var/www/fanni/.env`) | â€” |
+| ط§ظ„ط¨ط§ظƒ ط§ظ†ط¯ (API) | `http://localhost:3000` | PM2 `fanni-api` ط¹ظ„ظ‰ `:5000` | https://api.upnexa-eg.com |
+| ط§ظ„ظپط±ظˆظ†طھ â€” Web App | `E:\UpNexa.com\Fanni\artifacts\mobile\dist-web` | `/var/www/fanni-web` | https://app.upnexa-eg.com |
+| ط§ظ„ظپط±ظˆظ†طھ â€” ظ…ظˆط¨ط§ظٹظ„ | Expo dev / APK | APK ط¹ظ„ظ‰ ط§ظ„ط³ظٹط±ظپط± | طھط«ط¨ظٹطھ ظ…ظ† ط§ظ„ط±ط§ط¨ط· ط£ط¯ظ†ط§ظ‡ |
+| ظ…ظ„ظپ APK | ظ†ط²ظ‘ظ„ ظ…ظ† EAS â†’ ط§ط­ظپط¸ `fanni.apk` | **`/var/www/upnexa-eg.com/fanni.apk`** | https://upnexa-eg.com/fanni.apk |
+| طµظˆط±/ظ…ظ„ظپط§طھ | ظ…ط­ظ„ظٹ ط­ط³ط¨ `.env` | `/var/www/storage/fanni` | â€” |
 
-> **مهم:** مسار الـ APK على السيرفر هو موقع الموقع التسويقي:  
+> **ظ…ظ‡ظ…:** ظ…ط³ط§ط± ط§ظ„ظ€ APK ط¹ظ„ظ‰ ط§ظ„ط³ظٹط±ظپط± ظ‡ظˆ ظ…ظˆظ‚ط¹ ط§ظ„ظ…ظˆظ‚ط¹ ط§ظ„طھط³ظˆظٹظ‚ظٹ:  
 > `/var/www/upnexa-eg.com/fanni.apk`  
-> وليس `/var/www/fanni-web/`.
+> ظˆظ„ظٹط³ `/var/www/fanni-web/`.
 
-> **migrate الحالي:** حتى الملف **024**. لا migrate جديد بعدها في هذا الإصدار.
+> **migrate ط§ظ„ط­ط§ظ„ظٹ:** ط­طھظ‰ ط§ظ„ظ…ظ„ظپ **024**. ظ„ط§ migrate ط¬ط¯ظٹط¯ ط¨ط¹ط¯ظ‡ط§ ظپظٹ ظ‡ط°ط§ ط§ظ„ط¥طµط¯ط§ط±.
 
 ---
 
-## 1. تحديث قاعدة البيانات
+## 1. طھط­ط¯ظٹط« ظ‚ط§ط¹ط¯ط© ط§ظ„ط¨ظٹط§ظ†ط§طھ
 
-Migrations موجودة في `lib/db/migrations/` وتُطبَّق عبر:
+Migrations ظ…ظˆط¬ظˆط¯ط© ظپظٹ `lib/db/migrations/` ظˆطھظڈط·ط¨ظ‘ظژظ‚ ط¹ط¨ط±:
 
 ```text
 pnpm --filter @workspace/db run migrate
 ```
 
-### 1.1 تحديث قاعدة البيانات محلياً
+### 1.1 طھط­ط¯ظٹط« ظ‚ط§ط¹ط¯ط© ط§ظ„ط¨ظٹط§ظ†ط§طھ ظ…ط­ظ„ظٹط§ظ‹
 
-**المتطلبات**
+**ط§ظ„ظ…طھط·ظ„ط¨ط§طھ**
 
-1. PostgreSQL يعمل محلياً.
-2. قاعدة مثل `fanni_db` موجودة.
-3. ملف `C:\Fanni\.env` فيه `DATABASE_URL` صحيح.
+1. PostgreSQL ظٹط¹ظ…ظ„ ظ…ط­ظ„ظٹط§ظ‹.
+2. ظ‚ط§ط¹ط¯ط© ظ…ط«ظ„ `fanni_db` ظ…ظˆط¬ظˆط¯ط©.
+3. ظ…ظ„ظپ `E:\UpNexa.com\Fanni\.env` ظپظٹظ‡ `DATABASE_URL` طµط­ظٹط­.
 
-**الأوامر (cmd — أمر واحد ثم Enter)**
+**ط§ظ„ط£ظˆط§ظ…ط± (cmd â€” ط£ظ…ط± ظˆط§ط­ط¯ ط«ظ… Enter)**
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 git pull origin main
 pnpm install
 pnpm --filter @workspace/db run migrate
 ```
 
-**أو سكربت التحديث المحلي الكامل** (install + migrate + typecheck + build API):
+**ط£ظˆ ط³ظƒط±ط¨طھ ط§ظ„طھط­ط¯ظٹط« ط§ظ„ظ…ط­ظ„ظٹ ط§ظ„ظƒط§ظ…ظ„** (install + migrate + typecheck + build API):
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 pnpm run local:update
 ```
 
-**بذور بيانات تطوير (اختياري فقط — لا تستخدمه على الإنتاج إلا بوعي)**
+**ط¨ط°ظˆط± ط¨ظٹط§ظ†ط§طھ طھط·ظˆظٹط± (ط§ط®طھظٹط§ط±ظٹ ظپظ‚ط· â€” ظ„ط§ طھط³طھط®ط¯ظ…ظ‡ ط¹ظ„ظ‰ ط§ظ„ط¥ظ†طھط§ط¬ ط¥ظ„ط§ ط¨ظˆط¹ظٹ)**
 
 ```cmd
 pnpm --filter @workspace/db run seed
 ```
 
-**تحقق**
+**طھط­ظ‚ظ‚**
 
-- الأمر ينتهي بدون خطأ.
-- إن فشل الاتصال: راجع `DATABASE_URL` في `.env`.
+- ط§ظ„ط£ظ…ط± ظٹظ†طھظ‡ظٹ ط¨ط¯ظˆظ† ط®ط·ط£.
+- ط¥ظ† ظپط´ظ„ ط§ظ„ط§طھطµط§ظ„: ط±ط§ط¬ط¹ `DATABASE_URL` ظپظٹ `.env`.
 
 ---
 
-### 1.2 تحديث قاعدة البيانات في بيئة الإنتاج
+### 1.2 طھط­ط¯ظٹط« ظ‚ط§ط¹ط¯ط© ط§ظ„ط¨ظٹط§ظ†ط§طھ ظپظٹ ط¨ظٹط¦ط© ط§ظ„ط¥ظ†طھط§ط¬
 
-على VPS، الـ migrate جزء من `deploy-vps.sh`. يُفضَّل المسار الكامل (قسم 2.2).
+ط¹ظ„ظ‰ VPSطŒ ط§ظ„ظ€ migrate ط¬ط²ط، ظ…ظ† `deploy-vps.sh`. ظٹظڈظپط¶ظ‘ظژظ„ ط§ظ„ظ…ط³ط§ط± ط§ظ„ظƒط§ظ…ظ„ (ظ‚ط³ظ… 2.2).
 
-**مسار Git فقط لقاعدة البيانات**
+**ظ…ط³ط§ط± Git ظپظ‚ط· ظ„ظ‚ط§ط¹ط¯ط© ط§ظ„ط¨ظٹط§ظ†ط§طھ**
 
 ```bash
 cd /var/www/fanni
@@ -84,7 +84,7 @@ set -a && . ./.env && set +a
 pnpm --filter @workspace/db run migrate
 ```
 
-**أو ضمن النشر الكامل**
+**ط£ظˆ ط¶ظ…ظ† ط§ظ„ظ†ط´ط± ط§ظ„ظƒط§ظ…ظ„**
 
 ```bash
 cd /var/www/fanni
@@ -94,59 +94,59 @@ export FANNI_APP_DIR=/var/www/fanni
 bash scripts/deploy-vps.sh
 ```
 
-السكربت يشغّل تلقائياً: `pnpm install` → **migrate** → seed → build API → PM2 → تصدير الويب.
+ط§ظ„ط³ظƒط±ط¨طھ ظٹط´ط؛ظ‘ظ„ طھظ„ظ‚ط§ط¦ظٹط§ظ‹: `pnpm install` â†’ **migrate** â†’ seed â†’ build API â†’ PM2 â†’ طھطµط¯ظٹط± ط§ظ„ظˆظٹط¨.
 
-**تحذير**
+**طھط­ط°ظٹط±**
 
-- لا تستبدل `DATABASE_URL` على الإنتاج بقيمة محلية.
-- لا تشغّل `seed` على بيانات حية إلا إذا كنت تعرف أنه آمن.
+- ظ„ط§ طھط³طھط¨ط¯ظ„ `DATABASE_URL` ط¹ظ„ظ‰ ط§ظ„ط¥ظ†طھط§ط¬ ط¨ظ‚ظٹظ…ط© ظ…ط­ظ„ظٹط©.
+- ظ„ط§ طھط´ط؛ظ‘ظ„ `seed` ط¹ظ„ظ‰ ط¨ظٹط§ظ†ط§طھ ط­ظٹط© ط¥ظ„ط§ ط¥ط°ط§ ظƒظ†طھ طھط¹ط±ظپ ط£ظ†ظ‡ ط¢ظ…ظ†.
 
 ---
 
-## 2. تحديث الباك اند
+## 2. طھط­ط¯ظٹط« ط§ظ„ط¨ط§ظƒ ط§ظ†ط¯
 
-الكود: `artifacts/api-server`  
-عملية الإنتاج: PM2 اسمها عادة `fanni-api`.
+ط§ظ„ظƒظˆط¯: `artifacts/api-server`  
+ط¹ظ…ظ„ظٹط© ط§ظ„ط¥ظ†طھط§ط¬: PM2 ط§ط³ظ…ظ‡ط§ ط¹ط§ط¯ط© `fanni-api`.
 
-### 2.1 تحديث الباك اند محلياً
+### 2.1 طھط­ط¯ظٹط« ط§ظ„ط¨ط§ظƒ ط§ظ†ط¯ ظ…ط­ظ„ظٹط§ظ‹
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 git pull origin main
 pnpm install
 pnpm run local:update
 ```
 
-**تشغيل API للتطوير**
+**طھط´ط؛ظٹظ„ API ظ„ظ„طھط·ظˆظٹط±**
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 pnpm run dev:api
 ```
 
-اترك النافذة مفتوحة. من نافذة ثانية:
+ط§طھط±ظƒ ط§ظ„ظ†ط§ظپط°ط© ظ…ظپطھظˆط­ط©. ظ…ظ† ظ†ط§ظپط°ط© ط«ط§ظ†ظٹط©:
 
 ```cmd
 curl http://localhost:3000/api/healthz
 ```
 
-المتوقع: JSON فيه `"status":"ok"` أو ما يعادله.
+ط§ظ„ظ…طھظˆظ‚ط¹: JSON ظپظٹظ‡ `"status":"ok"` ط£ظˆ ظ…ط§ ظٹط¹ط§ط¯ظ„ظ‡.
 
-> المنفذ المحلي **3000**. منفذ الإنتاج **5000**.
+> ط§ظ„ظ…ظ†ظپط° ط§ظ„ظ…ط­ظ„ظٹ **3000**. ظ…ظ†ظپط° ط§ظ„ط¥ظ†طھط§ط¬ **5000**.
 
-**إن ظهر خطأ حزم (مثل `cross-env` ناقص)**
+**ط¥ظ† ط¸ظ‡ط± ط®ط·ط£ ط­ط²ظ… (ظ…ط«ظ„ `cross-env` ظ†ط§ظ‚طµ)**
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 pnpm install --force
 pnpm run dev:api
 ```
 
-سكربت التشغيل المحلي: `artifacts/api-server/scripts/dev.mjs` (يضبط `NODE_ENV=development` ثم build + start).
+ط³ظƒط±ط¨طھ ط§ظ„طھط´ط؛ظٹظ„ ط§ظ„ظ…ط­ظ„ظٹ: `artifacts/api-server/scripts/dev.mjs` (ظٹط¶ط¨ط· `NODE_ENV=development` ط«ظ… build + start).
 
 ---
 
-### 2.2 تحديث الباك اند في بيئة الإنتاج
+### 2.2 طھط­ط¯ظٹط« ط§ظ„ط¨ط§ظƒ ط§ظ†ط¯ ظپظٹ ط¨ظٹط¦ط© ط§ظ„ط¥ظ†طھط§ط¬
 
 ```bash
 cd /var/www/fanni
@@ -160,7 +160,7 @@ export FANNI_APP_DIR=/var/www/fanni
 bash scripts/deploy-vps.sh
 ```
 
-**Sentry (مُوصى به في `.env`)**
+**Sentry (ظ…ظڈظˆطµظ‰ ط¨ظ‡ ظپظٹ `.env`)**
 
 ```bash
 nano /var/www/fanni/.env
@@ -177,7 +177,7 @@ pm2 reload fanni-api --update-env
 pm2 save
 ```
 
-**تحقق**
+**طھط­ظ‚ظ‚**
 
 ```bash
 curl -sS http://127.0.0.1:5000/api/healthz
@@ -185,55 +185,55 @@ curl -sS https://api.upnexa-eg.com/api/healthz
 pm2 logs fanni-api --lines 30
 ```
 
-**اختبار Sentry للباك**
+**ط§ط®طھط¨ط§ط± Sentry ظ„ظ„ط¨ط§ظƒ**
 
 ```bash
 cd /var/www/fanni
 pnpm --filter @workspace/api-server run sentry:test
 ```
 
-أو من لوحة الأدمن بعد تحديث التطبيق: **مراقبة Sentry → اختبار خطأ الخادم (Back)**.
+ط£ظˆ ظ…ظ† ظ„ظˆط­ط© ط§ظ„ط£ط¯ظ…ظ† ط¨ط¹ط¯ طھط­ط¯ظٹط« ط§ظ„طھط·ط¨ظٹظ‚: **ظ…ط±ط§ظ‚ط¨ط© Sentry â†’ ط§ط®طھط¨ط§ط± ط®ط·ط£ ط§ظ„ط®ط§ط¯ظ… (Back)**.
 
 ---
 
-## 3. تحديث الفرونت اند
+## 3. طھط­ط¯ظٹط« ط§ظ„ظپط±ظˆظ†طھ ط§ظ†ط¯
 
-يشمل:
+ظٹط´ظ…ظ„:
 
-1. **Web App** — `app.upnexa-eg.com`
-2. **تطبيق الموبايل** — تطوير عبر Expo، وإنتاج عبر APK (القسم 4)
+1. **Web App** â€” `app.upnexa-eg.com`
+2. **طھط·ط¨ظٹظ‚ ط§ظ„ظ…ظˆط¨ط§ظٹظ„** â€” طھط·ظˆظٹط± ط¹ط¨ط± ExpoطŒ ظˆط¥ظ†طھط§ط¬ ط¹ط¨ط± APK (ط§ظ„ظ‚ط³ظ… 4)
 
-### 3.1 تحديث الفرونت اند محلياً
+### 3.1 طھط­ط¯ظٹط« ط§ظ„ظپط±ظˆظ†طھ ط§ظ†ط¯ ظ…ط­ظ„ظٹط§ظ‹
 
-#### أ) Web App — تصدير
+#### ط£) Web App â€” طھطµط¯ظٹط±
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 git pull origin main
 pnpm install
 pnpm run export:web
 ```
 
-المخرجات: `C:\Fanni\artifacts\mobile\dist-web\`
+ط§ظ„ظ…ط®ط±ط¬ط§طھ: `E:\UpNexa.com\Fanni\artifacts\mobile\dist-web\`
 
-مع أرشيف للرفع:
+ظ…ط¹ ط£ط±ط´ظٹظپ ظ„ظ„ط±ظپط¹:
 
 ```powershell
-cd C:\Fanni
+cd E:\UpNexa.com\Fanni
 powershell -ExecutionPolicy Bypass -File scripts\export-web.ps1 -Zip
 ```
 
-ينتج أيضاً: `artifacts\mobile\dist-web.zip`
+ظٹظ†طھط¬ ط£ظٹط¶ط§ظ‹: `artifacts\mobile\dist-web.zip`
 
-#### ب) موبايل — وضع التطوير
+#### ط¨) ظ…ظˆط¨ط§ظٹظ„ â€” ظˆط¶ط¹ ط§ظ„طھط·ظˆظٹط±
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 set NODE_OPTIONS=--use-system-ca
 pnpm run dev:mobile
 ```
 
-للاختبار ضد API الإنتاج:
+ظ„ظ„ط§ط®طھط¨ط§ط± ط¶ط¯ API ط§ظ„ط¥ظ†طھط§ط¬:
 
 ```cmd
 set EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com
@@ -242,23 +242,23 @@ pnpm run dev:mobile
 
 ---
 
-### 3.2 تحديث الفرونت اند في بيئة الإنتاج
+### 3.2 طھط­ط¯ظٹط« ط§ظ„ظپط±ظˆظ†طھ ط§ظ†ط¯ ظپظٹ ط¨ظٹط¦ط© ط§ظ„ط¥ظ†طھط§ط¬
 
-#### أ) Web App عبر `deploy-vps.sh` (مع الباك)
+#### ط£) Web App ط¹ط¨ط± `deploy-vps.sh` (ظ…ط¹ ط§ظ„ط¨ط§ظƒ)
 
-عند تشغيل `bash scripts/deploy-vps.sh` يُصدَّر الويب تلقائياً إلى `/var/www/fanni-web`.
+ط¹ظ†ط¯ طھط´ط؛ظٹظ„ `bash scripts/deploy-vps.sh` ظٹظڈطµط¯ظ‘ظژط± ط§ظ„ظˆظٹط¨ طھظ„ظ‚ط§ط¦ظٹط§ظ‹ ط¥ظ„ظ‰ `/var/www/fanni-web`.
 
-تخطي تصدير الويب على السيرفر (إن رفعت `dist-web` من ويندوز):
+طھط®ط·ظٹ طھطµط¯ظٹط± ط§ظ„ظˆظٹط¨ ط¹ظ„ظ‰ ط§ظ„ط³ظٹط±ظپط± (ط¥ظ† ط±ظپط¹طھ `dist-web` ظ…ظ† ظˆظٹظ†ط¯ظˆط²):
 
 ```bash
 FANNI_SKIP_WEB=1 bash scripts/deploy-vps.sh
 ```
 
-#### ب) Web App فقط من ويندوز
+#### ط¨) Web App ظپظ‚ط· ظ…ظ† ظˆظٹظ†ط¯ظˆط²
 
-1. على ويندوز: `pnpm run export:web` أو `export-web.ps1 -Zip`
-2. WinSCP: ارفع `dist-web.zip` → `/root/fanni-dist-web.zip`
-3. على VPS:
+1. ط¹ظ„ظ‰ ظˆظٹظ†ط¯ظˆط²: `pnpm run export:web` ط£ظˆ `export-web.ps1 -Zip`
+2. WinSCP: ط§ط±ظپط¹ `dist-web.zip` â†’ `/root/fanni-dist-web.zip`
+3. ط¹ظ„ظ‰ VPS:
 
 ```bash
 mkdir -p /var/www/fanni-web
@@ -268,54 +268,54 @@ rsync -a --delete /tmp/fanni-web-unpack/ /var/www/fanni-web/
 ls -la /var/www/fanni-web/index.html
 ```
 
-**تحقق**
+**طھط­ظ‚ظ‚**
 
 ```bash
 curl -sS -o /dev/null -w "%{http_code}\n" https://app.upnexa-eg.com/
 ```
 
-افتح المتصفح: https://app.upnexa-eg.com/ — يجب شاشة الدخول وليس «No routes found».
+ط§ظپطھط­ ط§ظ„ظ…طھطµظپط­: https://app.upnexa-eg.com/ â€” ظٹط¬ط¨ ط´ط§ط´ط© ط§ظ„ط¯ط®ظˆظ„ ظˆظ„ظٹط³ آ«No routes foundآ».
 
-#### ج) موبايل إنتاج
+#### ط¬) ظ…ظˆط¨ط§ظٹظ„ ط¥ظ†طھط§ط¬
 
-الفرونت الأصلي للموبايل = **APK** (القسم 4). بعد الرفع ثبّت من الرابط وتحقق من الإصدار **1.0.10**.
+ط§ظ„ظپط±ظˆظ†طھ ط§ظ„ط£طµظ„ظٹ ظ„ظ„ظ…ظˆط¨ط§ظٹظ„ = **APK** (ط§ظ„ظ‚ط³ظ… 4). ط¨ط¹ط¯ ط§ظ„ط±ظپط¹ ط«ط¨ظ‘طھ ظ…ظ† ط§ظ„ط±ط§ط¨ط· ظˆطھط­ظ‚ظ‚ ظ…ظ† ط§ظ„ط¥طµط¯ط§ط± **1.0.10**.
 
 ---
 
-## 4. إنتاج نسخة APK
+## 4. ط¥ظ†طھط§ط¬ ظ†ط³ط®ط© APK
 
-الـ VPS **لا يبني** Android. البناء دائماً من ويندوز عبر EAS.
+ط§ظ„ظ€ VPS **ظ„ط§ ظٹط¨ظ†ظٹ** Android. ط§ظ„ط¨ظ†ط§ط، ط¯ط§ط¦ظ…ط§ظ‹ ظ…ظ† ظˆظٹظ†ط¯ظˆط² ط¹ط¨ط± EAS.
 
-### 4.1 البناء على ويندوز
+### 4.1 ط§ظ„ط¨ظ†ط§ط، ط¹ظ„ظ‰ ظˆظٹظ†ط¯ظˆط²
 
 ```powershell
-cd C:\Fanni
+cd E:\UpNexa.com\Fanni
 git pull origin main
 powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
 ```
 
-السكربت يدخل `artifacts\mobile` ويبني بروفايل `preview` مع:
+ط§ظ„ط³ظƒط±ط¨طھ ظٹط¯ط®ظ„ `artifacts\mobile` ظˆظٹط¨ظ†ظٹ ط¨ط±ظˆظپط§ظٹظ„ `preview` ظ…ط¹:
 
 - `EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com`
-- Sentry مشروع `fanni` (org `upnexa-hb`)
+- Sentry ظ…ط´ط±ظˆط¹ `fanni` (org `upnexa-hb`)
 
-بعد انتهاء البناء على [expo.dev](https://expo.dev):
+ط¨ط¹ط¯ ط§ظ†طھظ‡ط§ط، ط§ظ„ط¨ظ†ط§ط، ط¹ظ„ظ‰ [expo.dev](https://expo.dev):
 
-1. نزّل ملف الـ APK
-2. احفظه محلياً باسم **`fanni.apk`**
+1. ظ†ط²ظ‘ظ„ ظ…ظ„ظپ ط§ظ„ظ€ APK
+2. ط§ط­ظپط¸ظ‡ ظ…ط­ظ„ظٹط§ظ‹ ط¨ط§ط³ظ… **`fanni.apk`**
 
-### 4.2 رفع APK إلى السيرفر
+### 4.2 ط±ظپط¹ APK ط¥ظ„ظ‰ ط§ظ„ط³ظٹط±ظپط±
 
-**المسار الرسمي على السيرفر:**
+**ط§ظ„ظ…ط³ط§ط± ط§ظ„ط±ط³ظ…ظٹ ط¹ظ„ظ‰ ط§ظ„ط³ظٹط±ظپط±:**
 
 ```text
 /var/www/upnexa-eg.com/fanni.apk
 ```
 
-**الخطوات**
+**ط§ظ„ط®ط·ظˆط§طھ**
 
-1. WinSCP: ارفع `fanni.apk` إلى `/root/fanni.apk`
-2. على VPS:
+1. WinSCP: ط§ط±ظپط¹ `fanni.apk` ط¥ظ„ظ‰ `/root/fanni.apk`
+2. ط¹ظ„ظ‰ VPS:
 
 ```bash
 install -d /var/www/upnexa-eg.com
@@ -324,53 +324,53 @@ chmod 644 /var/www/upnexa-eg.com/fanni.apk
 ls -lh /var/www/upnexa-eg.com/fanni.apk
 ```
 
-**رابط التحميل المتوقع:** https://upnexa-eg.com/fanni.apk
+**ط±ط§ط¨ط· ط§ظ„طھط­ظ…ظٹظ„ ط§ظ„ظ…طھظˆظ‚ط¹:** https://upnexa-eg.com/fanni.apk
 
-على الهاتف: أزل النسخة القديمة إن لزم → ثبّت من الرابط → تأكد أن الإصدار **1.0.10**.
+ط¹ظ„ظ‰ ط§ظ„ظ‡ط§طھظپ: ط£ط²ظ„ ط§ظ„ظ†ط³ط®ط© ط§ظ„ظ‚ط¯ظٹظ…ط© ط¥ظ† ظ„ط²ظ… â†’ ط«ط¨ظ‘طھ ظ…ظ† ط§ظ„ط±ط§ط¨ط· â†’ طھط£ظƒط¯ ط£ظ† ط§ظ„ط¥طµط¯ط§ط± **1.0.10**.
 
-### 4.3 اختبار Sentry من التطبيق
+### 4.3 ط§ط®طھط¨ط§ط± Sentry ظ…ظ† ط§ظ„طھط·ط¨ظٹظ‚
 
-لوحة الأدمن → **مراقبة Sentry**:
+ظ„ظˆط­ط© ط§ظ„ط£ط¯ظ…ظ† â†’ **ظ…ط±ط§ظ‚ط¨ط© Sentry**:
 
-| الزر | المشروع في Sentry |
+| ط§ظ„ط²ط± | ط§ظ„ظ…ط´ط±ظˆط¹ ظپظٹ Sentry |
 |------|-------------------|
-| اختبار خطأ التطبيق (Front) | `fanni` |
-| اختبار خطأ الخادم (Back) | `node` (يحتاج API محدّث) |
+| ط§ط®طھط¨ط§ط± ط®ط·ط£ ط§ظ„طھط·ط¨ظٹظ‚ (Front) | `fanni` |
+| ط§ط®طھط¨ط§ط± ط®ط·ط£ ط§ظ„ط®ط§ط¯ظ… (Back) | `node` (ظٹط­طھط§ط¬ API ظ…ط­ط¯ظ‘ط«) |
 
-لوحة: https://upnexa-hb.sentry.io
+ظ„ظˆط­ط©: https://upnexa-hb.sentry.io
 
 ---
 
-## ترتيب مقترح لجلسة نشر كاملة
+## طھط±طھظٹط¨ ظ…ظ‚طھط±ط­ ظ„ط¬ظ„ط³ط© ظ†ط´ط± ظƒط§ظ…ظ„ط©
 
-| الترتيب | أين | ماذا |
+| ط§ظ„طھط±طھظٹط¨ | ط£ظٹظ† | ظ…ط§ط°ط§ |
 |---------|-----|------|
-| 1 | ويندوز | `git pull` + `pnpm run local:update` |
-| 2 | ويندوز | `pnpm run export:web` (اختياري إن بُني الويب على VPS) |
-| 3 | ويندوز | `scripts\eas-apk.ps1` → نزّل `fanni.apk` |
+| 1 | ظˆظٹظ†ط¯ظˆط² | `git pull` + `pnpm run local:update` |
+| 2 | ظˆظٹظ†ط¯ظˆط² | `pnpm run export:web` (ط§ط®طھظٹط§ط±ظٹ ط¥ظ† ط¨ظڈظ†ظٹ ط§ظ„ظˆظٹط¨ ط¹ظ„ظ‰ VPS) |
+| 3 | ظˆظٹظ†ط¯ظˆط² | `scripts\eas-apk.ps1` â†’ ظ†ط²ظ‘ظ„ `fanni.apk` |
 | 4 | VPS | `git pull` + `bash scripts/deploy-vps.sh` (DB + API + Web) |
 | 5 | VPS | `cp /root/fanni.apk /var/www/upnexa-eg.com/fanni.apk` |
-| 6 | تحقق | healthz + app.upnexa-eg.com + تثبيت APK |
+| 6 | طھط­ظ‚ظ‚ | healthz + app.upnexa-eg.com + طھط«ط¨ظٹطھ APK |
 
 ---
 
-## أوامر سريعة — نسخ ولصق
+## ط£ظˆط§ظ…ط± ط³ط±ظٹط¹ط© â€” ظ†ط³ط® ظˆظ„طµظ‚
 
-### محلي (`C:\Fanni`)
+### ظ…ط­ظ„ظٹ (`E:\UpNexa.com\Fanni`)
 
 ```cmd
-cd /d C:\Fanni
+cd /d E:\UpNexa.com\Fanni
 git pull origin main
 pnpm run local:update
 pnpm run export:web
 ```
 
 ```powershell
-cd C:\Fanni
+cd E:\UpNexa.com\Fanni
 powershell -ExecutionPolicy Bypass -File scripts\eas-apk.ps1
 ```
 
-### إنتاج (VPS)
+### ط¥ظ†طھط§ط¬ (VPS)
 
 ```bash
 cd /var/www/fanni
@@ -390,17 +390,17 @@ ls -lh /var/www/upnexa-eg.com/fanni.apk
 
 ---
 
-## سكربتات مساعدة
+## ط³ظƒط±ط¨طھط§طھ ظ…ط³ط§ط¹ط¯ط©
 
-| السكربت | الغرض |
+| ط§ظ„ط³ظƒط±ط¨طھ | ط§ظ„ط؛ط±ط¶ |
 |---------|--------|
-| `scripts\local-update.ps1` | migrate + typecheck + build API محلياً |
-| `scripts\export-web.ps1` | تصدير Web App (+ `-Zip`) |
-| `scripts\eas-apk.ps1` | بناء APK عبر EAS |
-| `scripts\deploy-vps.sh` | نشر كامل على Ubuntu |
-| `artifacts\api-server\scripts\dev.mjs` | تشغيل API محلياً بدون `cross-env` |
+| `scripts\local-update.ps1` | migrate + typecheck + build API ظ…ط­ظ„ظٹط§ظ‹ |
+| `scripts\export-web.ps1` | طھطµط¯ظٹط± Web App (+ `-Zip`) |
+| `scripts\eas-apk.ps1` | ط¨ظ†ط§ط، APK ط¹ط¨ط± EAS |
+| `scripts\deploy-vps.sh` | ظ†ط´ط± ظƒط§ظ…ظ„ ط¹ظ„ظ‰ Ubuntu |
+| `artifacts\api-server\scripts\dev.mjs` | طھط´ط؛ظٹظ„ API ظ…ط­ظ„ظٹط§ظ‹ ط¨ط¯ظˆظ† `cross-env` |
 
-أوامر pnpm من الجذر:
+ط£ظˆط§ظ…ط± pnpm ظ…ظ† ط§ظ„ط¬ط°ط±:
 
 ```text
 pnpm run local:update
@@ -412,9 +412,10 @@ pnpm run migrate
 
 ---
 
-## ملاحظات بعد إصلاحات 30 أغسطس
+## ظ…ظ„ط§ط­ط¸ط§طھ ط¨ط¹ط¯ ط¥طµظ„ط§ط­ط§طھ 30 ط£ط؛ط³ط·ط³
 
-1. لا تلصق عدة أوامر مع تعليقات `#` في سطر واحد داخل **cmd**.
-2. إن فشل `local:update.ps1`: تأكد أن الملف محدّث (`git pull`) — أُزيل حرف `—` الذي كان يكسر PowerShell.
-3. إن فشل `dev:api` بخطأ `cross-env`: شغّل `pnpm install --force` ثم أعد المحاولة (السكربت لم يعد يعتمد على `cross-env`).
-4. مسار APK الإنتاجي الصحيح: **`/var/www/upnexa-eg.com/fanni.apk`**.
+1. ظ„ط§ طھظ„طµظ‚ ط¹ط¯ط© ط£ظˆط§ظ…ط± ظ…ط¹ طھط¹ظ„ظٹظ‚ط§طھ `#` ظپظٹ ط³ط·ط± ظˆط§ط­ط¯ ط¯ط§ط®ظ„ **cmd**.
+2. ط¥ظ† ظپط´ظ„ `local:update.ps1`: طھط£ظƒط¯ ط£ظ† ط§ظ„ظ…ظ„ظپ ظ…ط­ط¯ظ‘ط« (`git pull`) â€” ط£ظڈط²ظٹظ„ ط­ط±ظپ `â€”` ط§ظ„ط°ظٹ ظƒط§ظ† ظٹظƒط³ط± PowerShell.
+3. ط¥ظ† ظپط´ظ„ `dev:api` ط¨ط®ط·ط£ `cross-env`: ط´ط؛ظ‘ظ„ `pnpm install --force` ط«ظ… ط£ط¹ط¯ ط§ظ„ظ…ط­ط§ظˆظ„ط© (ط§ظ„ط³ظƒط±ط¨طھ ظ„ظ… ظٹط¹ط¯ ظٹط¹طھظ…ط¯ ط¹ظ„ظ‰ `cross-env`).
+4. ظ…ط³ط§ط± APK ط§ظ„ط¥ظ†طھط§ط¬ظٹ ط§ظ„طµط­ظٹط­: **`/var/www/upnexa-eg.com/fanni.apk`**.
+
