@@ -1,13 +1,23 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  preset: "jest-expo",
+  testEnvironment: "node",
+  setupFiles: ["<rootDir>/jest.env.js"],
   testMatch: [
     "**/__tests__/**/*.(test|spec).(ts|tsx)",
     "**/*.(test|spec).(ts|tsx)",
   ],
-  transformIgnorePatterns: [
-    "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg)",
-  ],
+  transform: {
+    "^.+\\.(js|jsx|ts|tsx)$": [
+      "babel-jest",
+      { presets: ["babel-preset-expo"] },
+    ],
+  },
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/$1",
+    "^react-native$": "<rootDir>/jest.mocks/react-native.js",
+    "^expo-constants$": "<rootDir>/jest.mocks/expo-constants.js",
+    "^expo/virtual/env$": "<rootDir>/jest.mocks/expo-virtual-env.js",
+  },
   collectCoverageFrom: [
     "utils/**/*.{ts,tsx}",
     "context/**/*.{ts,tsx}",

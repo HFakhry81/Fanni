@@ -66,6 +66,10 @@ The Desktop runners and `scripts/local-update.ps1` set this automatically.
 
 If pnpm refuses `packageManager` pin (signature fetch), this repo uses `pnpm@11.23.0` with `pmOnFail=ignore` in `.npmrc`.
 
+### Mobile Jest on Windows + pnpm
+
+`artifacts/mobile` uses a lightweight Node Jest config (`jest.env.js` + `jest.mocks/`) instead of the full `jest-expo` RN setup file, which fails under pnpm on Windows. Run `pnpm --filter @workspace/mobile test` — all utils tests should pass.
+
 ## Git remote
 
 `origin` → `https://github.com/HFakhry81/Fanni` (VPS pulls this).

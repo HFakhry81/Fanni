@@ -11,33 +11,21 @@ echo ======================================================================
 echo.
 
 set ROOT=E:\UpNexa.com\Fanni
-
 set NODE_OPTIONS=--use-system-ca
 cd /d "%ROOT%"
 
-:: Load .env if present (simple KEY=VAL lines) via PowerShell helper for reliability
-if exist "%ROOT%\.env" (
-  for /f "usebackq tokens=1,* delims==" %%A in (`powershell -NoProfile -Command "Get-Content '%ROOT%\.env' | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' -and $_ -notmatch '^\s*#' } | ForEach-Object { $_ }"`) do (
-    set "%%A=%%B"
-  )
+if not exist "%ROOT%\.env" (
+  echo [WARN] .env missing — copy .env.local.example to .env
+  echo.
 )
 
-:: Local defaults (override .env if missing)
-if not defined PORT set PORT=3000
-if not defined NODE_ENV set NODE_ENV=development
-if not defined DATABASE_URL set DATABASE_URL=postgresql://postgres:123456@localhost:5432/fanni_db
-
-echo [INFO] PORT         : %PORT%
-echo [INFO] NODE_ENV     : %NODE_ENV%
-echo [INFO] DATABASE_URL : (from .env or local default)
-echo [INFO] Target       : %ROOT%\artifacts\api-server
+echo [INFO] Target : %ROOT%
+echo [INFO] Command: pnpm run dev:api
 echo.
 echo ----------------------------------------------------------------------
-echo [ACTION] Starting API (pnpm run dev)...
+echo [ACTION] Starting API...
 echo ----------------------------------------------------------------------
 echo.
 
-cd /d "%ROOT%\artifacts\api-server"
-call pnpm run dev
+call pnpm run dev:api
 pause
-

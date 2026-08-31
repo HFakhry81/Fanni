@@ -27,6 +27,8 @@ if (-not (Test-Path -LiteralPath ".\.env")) {
 pnpm install
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+powershell -ExecutionPolicy Bypass -File ./scripts/fix-windows-deps.ps1
+
 pnpm --filter @workspace/db run migrate
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

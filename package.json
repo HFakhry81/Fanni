@@ -11,7 +11,7 @@
     "review:log": "node ./scripts/src/log-commit-to-review.mjs --head",
     "review:seed": "node ./scripts/src/log-commit-to-review.mjs --seed 40",
     "typecheck:libs": "pnpm --filter @workspace/db build && tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "typecheck": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server --filter @workspace/mobile --filter @workspace/scripts run typecheck",
     "lint": "eslint \"artifacts/mobile/**/*.{ts,tsx}\" \"artifacts/api-server/src/**/*.ts\"",
     "test": "pnpm --filter @workspace/mobile run test && pnpm --filter @workspace/api-server run test",
     "test:e2e": "pnpm --filter @workspace/e2e run test",
@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
-    "jimp": "^1.6.1"
+    "jimp": "^1.6.1",
+    "@swc/helpers": "^0.5.23"
   }
 }

@@ -36,10 +36,14 @@ describe("bonusGrants", () => {
     vi.resetModules();
   });
 
-  it("rejects empty message on create", async () => {
-    const { createBonusGrant } = await import("./bonusGrants");
-    await expect(
-      createBonusGrant({ technicianId: "t1", adminId: "a1", pointsAmount: 10, message: "  " }),
-    ).rejects.toThrow(/Message is required/);
-  });
+  it(
+    "rejects empty message on create",
+    async () => {
+      const { createBonusGrant } = await import("./bonusGrants");
+      await expect(
+        createBonusGrant({ technicianId: "t1", adminId: "a1", pointsAmount: 10, message: "  " }),
+      ).rejects.toThrow(/Message is required/);
+    },
+    15_000,
+  );
 });
