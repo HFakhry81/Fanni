@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db, walletsTable, walletTransactionsTable, pointPackagesTable, unlockCostsTable, operationalExpensesTable, leadPricingRulesTable } from "@workspace/db";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -15,6 +15,11 @@ import {
   listBonusGrantsForAdmin,
   listPendingBonusGrantsForTechnician,
 } from "../lib/bonusGrants";
+import {
+  listAdminWalletStats,
+  sumPendingBonusForTechnician,
+  toWalletSummaryView,
+} from "../lib/walletSummary";
 
 const router: IRouter = Router();
 
@@ -33,16 +38,35 @@ router.get("/wallet", authMiddleware, requireAuth, async (req, res) => {
   }
   try {
     const wallet = await getOrCreateWallet(user.id);
+    const pendingBonusPoints = await sumPendingBonusForTechnician(user.id);
+    const summary = toWalletSummaryView(wallet, pendingBonusPoints);
     const transactions = await db
       .select()
       .from(walletTransactionsTable)
       .where(eq(walletTransactionsTable.walletId, wallet.id))
       .orderBy(desc(walletTransactionsTable.createdAt))
       .limit(50);
-    res.json({ wallet, transactions });
+    res.json({ wallet: { ...wallet, ...summary }, summary, transactions });
   } catch (err) {
     logger.error({ err }, "Failed to fetch wallet");
     res.status(500).json({ error: "Failed to fetch wallet" });
+  }
+});
+
+/** Lightweight balance refresh for mobile screens after credits/debits. */
+router.get("/wallet/summary", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians have a wallet" });
+    return;
+  }
+  try {
+    const wallet = await getOrCreateWallet(user.id);
+    const pendingBonusPoints = await sumPendingBonusForTechnician(user.id);
+    res.json({ summary: toWalletSummaryView(wallet, pendingBonusPoints) });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch wallet summary");
+    res.status(500).json({ error: "Failed to fetch wallet summary" });
   }
 });
 
@@ -75,14 +99,8 @@ router.get("/wallet/unlock-cost", authMiddleware, async (req, res) => {
 // Admin: get all wallets with balances (for points liability)
 router.get("/admin/wallet-stats", authMiddleware, requireAuth, requireAdmin, requirePermission("view_reports"), async (_req, res) => {
   try {
-    const rows = await db.execute(sql`
-      SELECT w.id, w.user_id, w.points_balance, u.first_name, u.last_name, u.mobile
-      FROM wallets w
-      JOIN users u ON u.id = w.user_id
-      ORDER BY w.points_balance DESC
-    `);
-    const totalLiability = (rows.rows as Array<{ points_balance: number }>).reduce((sum, r) => sum + (r.points_balance ?? 0), 0);
-    res.json({ wallets: rows.rows, totalLiabilityPoints: totalLiability });
+    const stats = await listAdminWalletStats();
+    res.json(stats);
   } catch (err) {
     logger.error({ err }, "Failed to fetch wallet stats");
     res.status(500).json({ error: "Failed to fetch wallet stats" });

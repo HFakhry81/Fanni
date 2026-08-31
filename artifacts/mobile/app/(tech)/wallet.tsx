@@ -22,6 +22,7 @@ import KeyboardAwareScrollViewCompat, { KeyboardAvoidingSheet } from "@/componen
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useWallet } from "@/context/WalletContext";
 import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
 import { WELCOME_BONUS_POINTS } from "@/constants/appIdentity";
@@ -99,6 +100,7 @@ export default function WalletScreen() {
   const colors = useColors();
   const { isRTL, t, user } = useApp();
   const { sessionToken, refreshUser } = useAuth();
+  const { summary, refreshWallet } = useWallet();
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTx[]>([]);
@@ -145,6 +147,7 @@ export default function WalletScreen() {
         setWallet(json.wallet);
         setTransactions(json.transactions ?? []);
       }
+      await refreshWallet();
       if (pkgRes.ok) {
         const json = await pkgRes.json() as { packages: PointPackage[] };
         setPackages(json.packages ?? []);
@@ -168,7 +171,7 @@ export default function WalletScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [sessionToken, apiHeaders]);
+  }, [sessionToken, apiHeaders, refreshWallet]);
 
   useFocusEffect(useCallback(() => { void fetchData(); void refreshUser?.(); }, [fetchData, refreshUser]));
 
@@ -356,7 +359,8 @@ export default function WalletScreen() {
     );
   }
 
-  const balance = wallet?.pointsBalance ?? 0;
+  const balance = summary?.pointsBalance ?? wallet?.pointsBalance ?? 0;
+  const pendingBonus = summary?.pendingBonusPoints ?? 0;
   const unreadCount = notifications.length;
 
   return (
@@ -399,6 +403,13 @@ export default function WalletScreen() {
             <Text style={styles.balanceAmount}>{balance.toLocaleString()}</Text>
             <Text style={styles.balancePtsLabel}>{isRTL ? "نقطة" : "pts"}</Text>
           </View>
+          {pendingBonus > 0 ? (
+            <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12, marginTop: 8, textAlign: "center" }}>
+              {isRTL
+                ? `+${pendingBonus} نقطة مكافأة بانتظار تأكيد الاستلام`
+                : `+${pendingBonus} bonus pts awaiting your confirmation`}
+            </Text>
+          ) : null}
         </View>
 
         {isPendingApproval && (

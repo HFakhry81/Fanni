@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -8,16 +8,21 @@ import {
   Modal,
   TextInput,
   Alert,
+  RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import FanniButton from "@/components/FanniButton";
 import { getApiBase } from "@/utils/api";
 
 interface WalletStatRow {
   id: string;
-  user_id: string;
-  points_balance: number;
-  first_name: string | null;
-  last_name: string | null;
+  userId: string;
+  pointsBalance: number;
+  promotionalBalance: number;
+  purchasedBalance: number;
+  pendingBonusPoints: number;
+  firstName: string | null;
+  lastName: string | null;
   mobile: string | null;
 }
 
@@ -33,8 +38,26 @@ interface BonusGrant {
 }
 
 function techLabel(row: WalletStatRow): string {
-  const name = [row.first_name, row.last_name].filter(Boolean).join(" ");
-  return name || row.mobile || row.user_id;
+  const name = [row.firstName, row.lastName].filter(Boolean).join(" ");
+  return name || row.mobile || row.userId;
+}
+
+function normalizeWalletRow(raw: Record<string, unknown>): WalletStatRow {
+  const num = (v: unknown) => {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  };
+  return {
+    id: String(raw.id),
+    userId: String(raw.userId ?? raw.user_id),
+    pointsBalance: num(raw.pointsBalance ?? raw.points_balance),
+    promotionalBalance: num(raw.promotionalBalance ?? raw.promotional_balance),
+    purchasedBalance: num(raw.purchasedBalance ?? raw.purchased_balance),
+    pendingBonusPoints: num(raw.pendingBonusPoints ?? raw.pending_bonus),
+    firstName: raw.firstName != null ? String(raw.firstName) : raw.first_name != null ? String(raw.first_name) : null,
+    lastName: raw.lastName != null ? String(raw.lastName) : raw.last_name != null ? String(raw.last_name) : null,
+    mobile: raw.mobile != null ? String(raw.mobile) : null,
+  };
 }
 
 export default function TechBonusGrantsPanel({
@@ -47,6 +70,7 @@ export default function TechBonusGrantsPanel({
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
 }) {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [canGrantBonus, setCanGrantBonus] = useState(false);
   const [wallets, setWallets] = useState<WalletStatRow[]>([]);
   const [grants, setGrants] = useState<BonusGrant[]>([]);
@@ -59,9 +83,7 @@ export default function TechBonusGrantsPanel({
   const [confirmStep, setConfirmStep] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : undefined;
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (isRefresh = false) => {
     if (!sessionToken) return;
     const base = getApiBase();
     if (!base) {
@@ -69,13 +91,15 @@ export default function TechBonusGrantsPanel({
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const authHeaders = { Authorization: `Bearer ${sessionToken}` };
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     try {
       const [permRes, statsRes, grantsRes] = await Promise.all([
-        fetch(`${base}/api/admin/my-permissions`, { headers }),
-        fetch(`${base}/api/admin/wallet-stats`, { headers }),
-        fetch(`${base}/api/admin/wallet/bonus-grants`, { headers }),
+        fetch(`${base}/api/admin/my-permissions`, { headers: authHeaders }),
+        fetch(`${base}/api/admin/wallet-stats`, { headers: authHeaders }),
+        fetch(`${base}/api/admin/wallet/bonus-grants`, { headers: authHeaders }),
       ]);
       if (permRes.ok) {
         const perm = await permRes.json() as { isSuperAdmin?: boolean; permissions?: string[] };
@@ -86,8 +110,8 @@ export default function TechBonusGrantsPanel({
         setCanGrantBonus(false);
       }
       if (statsRes.ok) {
-        const stats = await statsRes.json() as { wallets: WalletStatRow[] };
-        setWallets(stats.wallets ?? []);
+        const stats = await statsRes.json() as { wallets: Record<string, unknown>[] };
+        setWallets((stats.wallets ?? []).map(normalizeWalletRow));
       } else {
         setWallets([]);
         setError(isRTL ? "تعذّر تحميل الأرصدة" : "Could not load balances");
@@ -100,10 +124,13 @@ export default function TechBonusGrantsPanel({
       setError(isRTL ? "خطأ في الاتصال" : "Connection error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [sessionToken, isRTL]);
 
-  useEffect(() => { void load(); }, [load]);
+  useFocusEffect(useCallback(() => {
+    void load();
+  }, [load]));
 
   const openGrantModal = (tech: WalletStatRow) => {
     setSelectedTech(tech);
@@ -130,9 +157,9 @@ export default function TechBonusGrantsPanel({
     try {
       const res = await fetch(`${base}/api/admin/wallet/bonus-grant`, {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${sessionToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          technicianId: selectedTech.user_id,
+          technicianId: selectedTech.userId,
           pointsAmount: Math.round(points),
           message: messageInput.trim(),
         }),
@@ -149,7 +176,7 @@ export default function TechBonusGrantsPanel({
           : `Bonus of ${Math.round(points)} pts sent to ${techLabel(selectedTech)}.\nAwaiting technician confirmation.`,
       );
       setModalOpen(false);
-      void load();
+      void load(true);
     } catch {
       Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "تعذر الاتصال بالخادم" : "Could not reach server");
     } finally {
@@ -157,7 +184,7 @@ export default function TechBonusGrantsPanel({
     }
   };
 
-  if (loading) {
+  if (loading && wallets.length === 0) {
     return (
       <View style={{ padding: 32, alignItems: "center" }}>
         <ActivityIndicator color={colors.primary} />
@@ -166,12 +193,21 @@ export default function TechBonusGrantsPanel({
   }
 
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}>
+    <ScrollView
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void load(true)}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <View style={{ backgroundColor: "#E8F5E9", borderColor: "#2E7D32", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 }}>
         <Text style={{ color: "#1B5E20", fontFamily: "Inter_500Medium", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
           {isRTL
-            ? "مكافأة يدوية: تُرسل للفني مع رسالة — يُضاف الرصيد بعد أن يضغط الفني «استلام المكافأة»."
-            : "Manual bonus: sent with a message — points credit after the technician taps «Receive bonus»."}
+            ? "الأرصدة تتحدّث تلقائياً عند فتح الشاشة أو السحب للتحديث. المكافآت المعلّقة تُضاف بعد تأكيد الفني."
+            : "Balances refresh when you open this screen or pull to refresh. Pending bonuses credit after technician confirmation."}
         </Text>
         {!canGrantBonus ? (
           <Text style={{ color: "#B45309", fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 8, textAlign: isRTL ? "right" : "left" }}>
@@ -210,8 +246,20 @@ export default function TechBonusGrantsPanel({
               {row.mobile ?? ""}
             </Text>
             <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 16, marginTop: 6, textAlign: isRTL ? "right" : "left" }}>
-              {row.points_balance} {isRTL ? "نقطة" : "pts"}
+              {row.pointsBalance} {isRTL ? "نقطة" : "pts"}
             </Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
+              {isRTL
+                ? `ترويجي ${row.promotionalBalance} · مشترى ${row.purchasedBalance}`
+                : `Promo ${row.promotionalBalance} · Purchased ${row.purchasedBalance}`}
+            </Text>
+            {row.pendingBonusPoints > 0 ? (
+              <Text style={{ color: "#B45309", fontFamily: "Inter_600SemiBold", fontSize: 11, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
+                {isRTL
+                  ? `+${row.pendingBonusPoints} نقطة بانتظار تأكيد الفني`
+                  : `+${row.pendingBonusPoints} pts pending technician ack`}
+              </Text>
+            ) : null}
           </View>
           {canGrantBonus ? (
             <TouchableOpacity

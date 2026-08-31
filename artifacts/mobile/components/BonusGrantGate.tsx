@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { Modal, View, Text, ActivityIndicator } from "react-native";
+import { Modal, View, Text, ActivityIndicator, Alert } from "react-native";
 import { useFocusEffect } from "expo-router";
 import FanniButton from "@/components/FanniButton";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useWallet } from "@/context/WalletContext";
 import { getApiBase } from "@/utils/api";
 
 interface PendingGrant {
@@ -18,6 +19,7 @@ export default function BonusGrantGate() {
   const colors = useColors();
   const { isRTL } = useApp();
   const { sessionToken, user, refreshUser } = useAuth();
+  const { refreshWallet } = useWallet();
   const [grant, setGrant] = useState<PendingGrant | null>(null);
   const [loading, setLoading] = useState(false);
   const [ackLoading, setAckLoading] = useState(false);
@@ -61,13 +63,24 @@ export default function BonusGrantGate() {
         method: "POST",
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
+      const data = await res.json().catch(() => ({})) as { error?: string; newBalance?: number };
       if (!res.ok) {
-        setGrant(null);
+        Alert.alert(
+          isRTL ? "تعذّر الاستلام" : "Could not receive",
+          data.error ?? (isRTL ? "حاول مرة أخرى" : "Please try again"),
+        );
         return;
       }
-      await res.json();
       setGrant(null);
       await refreshUser?.();
+      const updated = await refreshWallet();
+      const balance = updated?.pointsBalance ?? data.newBalance;
+      Alert.alert(
+        isRTL ? "تمت إضافة المكافأة" : "Bonus credited",
+        isRTL
+          ? `تم إضافة ${grant.pointsAmount} نقطة. رصيدك الحالي: ${balance ?? "—"} نقطة.`
+          : `${grant.pointsAmount} points added. Your balance is now ${balance ?? "—"} pts.`,
+      );
       void loadPending();
     } finally {
       setAckLoading(false);

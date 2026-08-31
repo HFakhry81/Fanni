@@ -17,6 +17,7 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 import { useTechWs } from "@/context/TechWsContext";
+import { useWallet } from "@/context/WalletContext";
 import AppHeader from "@/components/AppHeader";
 import FanniButton from "@/components/FanniButton";
 import Toast from "@/components/Toast";
@@ -60,6 +61,7 @@ export default function AvailableOrdersScreen() {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { sessionToken } = useAuth();
+  const { summary, refreshWallet } = useWallet();
   const { updateOrder, setAvailablePendingCount, wsOrderStatusSignal, availableOrdersTabFocusedRef } = useOrders();
   const router = useRouter();
 
@@ -236,6 +238,7 @@ export default function AvailableOrdersScreen() {
         balance?: number;
       };
       if (res.ok) {
+        await refreshWallet();
         await updateOrder(order.id, {
           status: "accepted",
           technicianId: user?.id ?? "",
@@ -254,12 +257,13 @@ export default function AvailableOrdersScreen() {
         return;
       }
       if (res.status === 402) {
+        const currentBalance = json.balance ?? summary?.pointsBalance ?? 0;
         Alert.alert(
           isRTL ? "رصيدك الحالي مش كافي" : "Insufficient points",
           json.message
             ?? (isRTL
-              ? `محتاج ${json.required ?? order.unlockCost ?? 20} نقطة، ورصيدك الحالي ${json.balance ?? 0} نقاط.`
-              : `You need ${json.required ?? order.unlockCost ?? 20} points. Current balance: ${json.balance ?? 0}.`),
+              ? `محتاج ${json.required ?? order.unlockCost ?? 20} نقطة، ورصيدك الحالي ${currentBalance} نقاط.`
+              : `You need ${json.required ?? order.unlockCost ?? 20} points. Current balance: ${currentBalance}.`),
           [
             { text: isRTL ? "العودة" : "Back", style: "cancel" },
             { text: isRTL ? "شحن الرصيد" : "Top up", onPress: () => router.push("/(tech)/wallet") },
