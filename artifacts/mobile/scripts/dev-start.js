@@ -31,7 +31,6 @@ const args = [
   port,
   "--host",
   "lan",
-  "--offline",
 ];
 
 console.log(`[start] pnpm ${args.join(" ")}\n`);
