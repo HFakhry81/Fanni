@@ -4,6 +4,7 @@ import * as Location from "expo-location";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useTechWs } from "@/context/TechWsContext";
 import { getApiBase } from "@/utils/api";
 import VectorIcon from "@/components/VectorIcon";
 
@@ -20,6 +21,7 @@ export default function ServiceLocationDailyModal() {
   const colors = useColors();
   const { user, isRTL } = useApp();
   const { sessionToken } = useAuth();
+  const { refreshRoutingRegistration } = useTechWs();
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState<ServiceLocationState | null>(null);
@@ -69,6 +71,7 @@ export default function ServiceLocationDailyModal() {
         body: JSON.stringify({ mode, latitude, longitude }),
       });
       if (!res.ok) throw new Error("save failed");
+      refreshRoutingRegistration();
       setVisible(false);
     } catch {
       Alert.alert(

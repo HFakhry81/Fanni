@@ -202,3 +202,47 @@ export async function recordLastWorkLocation(
     [technicianId, longitude, latitude],
   );
 }
+
+/** Apply resolved daily service location to in-memory WS routing metadata. */
+export function applyResolvedServiceLocationToRouting(
+  meta: {
+    governorate?: string;
+    area?: string;
+    serviceLocationMode?: ServiceLocationMode | null;
+    serviceLat?: number;
+    serviceLon?: number;
+  },
+  resolved: ResolvedServiceLocation,
+): void {
+  if (resolved.governorate) {
+    meta.governorate = resolved.governorate.trim().toLowerCase();
+  }
+  if (resolved.area) {
+    meta.area = resolved.area.trim().toLowerCase();
+  }
+  meta.serviceLocationMode = resolved.mode;
+  if (resolved.latitude != null && resolved.longitude != null) {
+    meta.serviceLat = resolved.latitude;
+    meta.serviceLon = resolved.longitude;
+  }
+}
+
+export async function hydrateTechnicianRoutingMeta(
+  technicianId: string,
+  meta: {
+    governorate?: string;
+    area?: string;
+    serviceLocationMode?: ServiceLocationMode | null;
+    serviceLat?: number;
+    serviceLon?: number;
+  },
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const row = await loadTechnicianServiceLocation(client, technicianId);
+    if (!row) return;
+    applyResolvedServiceLocationToRouting(meta, resolveTechnicianServiceLocation(row));
+  } finally {
+    client.release();
+  }
+}

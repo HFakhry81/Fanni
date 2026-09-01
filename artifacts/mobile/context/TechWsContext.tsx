@@ -104,6 +104,7 @@ interface TechWsContextValue {
   subscribeOrderCancelled: (cb: OrderCancelledSubscriber) => () => void;
   subscribeAvailabilityChanged: (cb: AvailabilitySubscriber) => () => void;
   isWsConnected: boolean;
+  refreshRoutingRegistration: () => void;
 }
 
 const TechWsContext = createContext<TechWsContextValue | null>(null);
@@ -291,11 +292,20 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
     return () => { availabilitySubs.current.delete(cb); };
   }, []);
 
+  const refreshRoutingRegistration = useCallback(() => {
+    const ws = wsRef.current;
+    const token = sessionTokenRef.current;
+    if (ws?.readyState === WebSocket.OPEN && token) {
+      ws.send(JSON.stringify({ type: "refresh_routing", token }));
+    }
+  }, []);
+
   const value: TechWsContextValue = {
     subscribeNewOrder,
     subscribeOrderCancelled,
     subscribeAvailabilityChanged,
     isWsConnected,
+    refreshRoutingRegistration,
   };
 
   return <TechWsContext.Provider value={value}>{children}</TechWsContext.Provider>;

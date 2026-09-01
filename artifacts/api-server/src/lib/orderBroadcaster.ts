@@ -5,6 +5,10 @@ import { db, ordersTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "./auth";
 import { locationsMatchSync, warmLocationCache } from "./locationNormalizer";
+import {
+  hydrateTechnicianRoutingMeta,
+  type ServiceLocationMode,
+} from "./serviceLocation";
 
 interface TechnicianMeta {
   registered: boolean;
@@ -15,6 +19,24 @@ interface TechnicianMeta {
   area?: string;
   currentLat?: number;
   currentLon?: number;
+  serviceLocationMode?: ServiceLocationMode | null;
+  serviceLat?: number;
+  serviceLon?: number;
+}
+
+function getRoutingCoords(meta: TechnicianMeta | undefined): { lat: number; lon: number } | null {
+  if (!meta) return null;
+  if (meta.serviceLat != null && meta.serviceLon != null) {
+    return { lat: meta.serviceLat, lon: meta.serviceLon };
+  }
+  if (
+    meta.serviceLocationMode === "current" &&
+    meta.currentLat != null &&
+    meta.currentLon != null
+  ) {
+    return { lat: meta.currentLat, lon: meta.currentLon };
+  }
+  return null;
 }
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -205,6 +227,27 @@ wss.on("connection", (ws: WebSocket) => {
         return;
       }
 
+      if (msg.type === "refresh_routing") {
+        const token = typeof msg.token === "string" ? msg.token.trim() : "";
+        if (!token) return;
+        const session = await getSession(token);
+        const meta = clients.get(ws);
+        if (!session || session.user.role !== "technician" || !meta?.technicianId) return;
+        if (meta.technicianId !== session.user.id) return;
+        await hydrateTechnicianRoutingMeta(meta.technicianId, meta);
+        clients.set(ws, meta);
+        logger.info(
+          {
+            technicianId: meta.technicianId,
+            governorate: meta.governorate,
+            area: meta.area,
+            serviceLocationMode: meta.serviceLocationMode,
+          },
+          "Technician routing metadata refreshed from daily service location",
+        );
+        return;
+      }
+
       if (msg.type === "register") {
         const token = typeof msg.token === "string" ? msg.token.trim() : "";
         if (!token) {
@@ -261,6 +304,8 @@ wss.on("connection", (ws: WebSocket) => {
           meta.currentLon = parsedLon;
         }
 
+        await hydrateTechnicianRoutingMeta(session.user.id, meta);
+
         clients.set(ws, meta);
 
         const techId = session.user.id;
@@ -276,6 +321,8 @@ wss.on("connection", (ws: WebSocket) => {
             area: meta.area,
             hasConstraints,
             hasLiveCoords: meta.currentLat != null,
+            serviceLocationMode: meta.serviceLocationMode,
+            hasServiceCoords: meta.serviceLat != null,
           },
           "Technician registered with metadata",
         );
@@ -428,14 +475,12 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
   if (coords) {
     const { lat, lon } = coords;
     try {
-      const orderCategory = (o["category"] as string | undefined)?.toLowerCase();
-
-      const techsWithLiveCoords = new Set<string>();
+      const techsWithRoutingCoords = new Set<string>();
       for (const [techId, sockets] of technicianSockets) {
         for (const ws of sockets) {
           const m = clients.get(ws);
-          if (m?.currentLat != null && m.currentLon != null) {
-            techsWithLiveCoords.add(techId);
+          if (getRoutingCoords(m)) {
+            techsWithRoutingCoords.add(techId);
             break;
           }
         }
@@ -453,15 +498,16 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
           const { rows } = await client.query<{ id: string; distance_m: number }>(
             `SELECT u.id,
                     ST_Distance(
-                      u.location,
+                      COALESCE(u.active_location, u.location),
                       ST_SetSRID(ST_MakePoint($1,$2),4326)::geography
                     ) AS distance_m
              FROM users u
              WHERE u.role = 'technician'
                AND u.is_available = true
-               AND u.location IS NOT NULL
+               AND u.is_approved = true
+               AND COALESCE(u.active_location, u.location) IS NOT NULL
                AND ST_DWithin(
-                 u.location,
+                 COALESCE(u.active_location, u.location),
                  ST_SetSRID(ST_MakePoint($1,$2),4326)::geography,
                  $3
                )
@@ -480,23 +526,21 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
         const dbTechIds = new Set(spatialRows.map((r) => r.id));
 
         for (const [techId, sockets] of technicianSockets) {
-          if (!techsWithLiveCoords.has(techId)) continue;
+          if (!techsWithRoutingCoords.has(techId)) continue;
           for (const ws of sockets) {
             if (ws.readyState !== WebSocket.OPEN) continue;
             const meta = clients.get(ws);
             if (!meta?.registered || !meta.isAvailable) continue;
             if (!hasRoutingConstraints(meta)) continue;
-            if (meta.currentLat == null || meta.currentLon == null) continue;
+            const routingCoords = getRoutingCoords(meta);
+            if (!routingCoords) continue;
 
-            const distM = haversineMeters(lat, lon, meta.currentLat, meta.currentLon);
+            const distM = haversineMeters(lat, lon, routingCoords.lat, routingCoords.lon);
             if (distM > radiusM) continue;
 
-            if (meta.categories && meta.categories.length > 0) {
-              const orderData = (o["data"] as Record<string, unknown> | undefined);
-              if (!categoryMatches(orderCategory ?? orderData?.category, meta.categories)) {
-                skipped++;
-                continue;
-              }
+            if (!orderMatchesTech(o, meta)) {
+              skipped++;
+              continue;
             }
 
             ws.send(payload);
@@ -507,7 +551,7 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
 
         for (const row of spatialRows) {
           if (notifiedTechIds.has(row.id)) continue;
-          if (techsWithLiveCoords.has(row.id)) {
+          if (techsWithRoutingCoords.has(row.id)) {
             skipped++;
             continue;
           }
@@ -526,12 +570,9 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
               skipped++;
               continue;
             }
-            if (meta.categories && meta.categories.length > 0) {
-              const orderData = (o["data"] as Record<string, unknown> | undefined);
-              if (!categoryMatches(orderCategory ?? orderData?.category, meta.categories)) {
-                skipped++;
-                continue;
-              }
+            if (!orderMatchesTech(o, meta)) {
+              skipped++;
+              continue;
             }
             ws.send(payload);
             notifiedTechIds.add(row.id);
@@ -539,10 +580,10 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
           }
         }
 
-        const liveCoordCount = [...technicianSockets.values()].reduce((acc, socks) => {
+        const routingCoordCount = [...technicianSockets.values()].reduce((acc, socks) => {
           for (const ws of socks) {
             const m = clients.get(ws);
-            if (m?.currentLat != null) return acc + 1;
+            if (getRoutingCoords(m)) return acc + 1;
           }
           return acc;
         }, 0);
@@ -551,7 +592,7 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
           {
             connectedClients: clients.size,
             dbSpatialCandidates: dbTechIds.size,
-            liveCoordCandidates: liveCoordCount,
+            routingCoordCandidates: routingCoordCount,
             sent,
             skipped,
             lat,
@@ -572,9 +613,9 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
           break;
         }
 
-        if (dbTechIds.size > 0 || liveCoordCount > 0) {
+        if (dbTechIds.size > 0 || routingCoordCount > 0) {
           logger.info(
-            { dbSpatialCandidates: dbTechIds.size, liveCoordCandidates: liveCoordCount, lat, lon, radiusKm: tierKm },
+            { dbSpatialCandidates: dbTechIds.size, routingCoordCandidates: routingCoordCount, lat, lon, radiusKm: tierKm },
             `Spatial candidates found at ${tierKm} km but none were connected/matched — trying next tier`
           );
         } else {
