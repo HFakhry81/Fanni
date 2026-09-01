@@ -1,5 +1,13 @@
 const apiBase = process.env.E2E_API_URL ?? "https://api.upnexa-eg.com";
 
+function normalizeLoginIdentifierValue(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.includes("@")) return trimmed.toLowerCase();
+  const mobileDigits = trimmed.replace(/\s|-/g, "");
+  const match = mobileDigits.match(/^(\+?20|0)(1[0125][0-9]{8})$/);
+  return match ? `0${match[2]}` : mobileDigits;
+}
+
 export interface LoginResult {
   token: string;
   role?: string;
@@ -12,7 +20,7 @@ export async function loginWithPassword(
   const res = await fetch(`${apiBase}/api/auth/login-with-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier, password }),
+    body: JSON.stringify({ identifier: normalizeLoginIdentifierValue(identifier), password }),
   });
   const data = (await res.json()) as { token?: string; error?: string; role?: string };
   if (!res.ok || !data.token) {

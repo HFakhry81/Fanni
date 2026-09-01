@@ -16,12 +16,11 @@ import Toast from "@/components/Toast";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
 import { getAuthToken } from "@/utils/authTokenStorage";
+import { isValidEgyptMobile, normalizeEmailForStorage, normalizeEgyptMobileForStorage } from "@/utils/phone";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
 
-
-const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AddAdminScreen() {
@@ -81,11 +80,7 @@ export default function AddAdminScreen() {
     }
   }, [otpRequired, otpMode]);
 
-  const normalizedMobile = useCallback((): string => {
-    const d = mobile.trim().replace(/\s|-/g, "");
-    const m = d.match(EGYPT_MOBILE_RE);
-    return m ? `0${m[2]}` : d;
-  }, [mobile]);
+  const normalizedMobile = useCallback((): string => normalizeEgyptMobileForStorage(mobile), [mobile]);
 
   const sendOtp = useCallback(async () => {
     // Re-fetch config so the OTP requirement reflects any mid-session server change
@@ -190,10 +185,9 @@ export default function AddAdminScreen() {
     } else if (!EMAIL_RE.test(email.trim())) {
       newErrors.email = isRTL ? "بريد إلكتروني غير صحيح" : "Invalid email format";
     }
-    const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-    if (!mobileDigits) {
+    if (!mobile.trim()) {
       newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
-    } else if (!mobileDigits.match(EGYPT_MOBILE_RE)) {
+    } else if (!isValidEgyptMobile(mobile)) {
       newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
     }
     if (!password) {
@@ -224,7 +218,7 @@ export default function AddAdminScreen() {
         },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          email: normalizeEmailForStorage(email),
           mobile: normalizedMobile(),
           password,
           verificationToken: token || verificationToken || undefined,

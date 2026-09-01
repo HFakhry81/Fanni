@@ -13,10 +13,9 @@ import { verifyOtpToken } from "../lib/otp";
 import { queryInt, queryString } from "../lib/queryParams";
 import { backfillTechnicianLocations } from "../lib/backfillLocations";
 import { grantWelcomeBonusIfNeeded } from "../lib/welcomeBonus";
+import { isValidEgyptMobile, normalizeEmailForStorage, normalizeEgyptMobileForStorage } from "../lib/phone";
 
 const router: IRouter = Router();
-
-const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
 function hashPassword(password: string, salt: string): string {
   return crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
@@ -51,7 +50,7 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
     res.status(400).json({ error: "Mobile number is required" });
     return;
   }
-  if (!EGYPT_MOBILE_RE.test(mobile.trim().replace(/\s|-/g, ""))) {
+  if (!isValidEgyptMobile(mobile)) {
     res.status(400).json({ error: "Invalid Egyptian mobile number" });
     return;
   }
@@ -70,9 +69,7 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
     return;
   }
 
-  const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-  const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-  const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+  const normalizedMobile = normalizeEgyptMobileForStorage(mobile);
 
   // Gate on OTP verification when enabled
   if (process.env.ENABLE_OTP === "true") {
@@ -95,7 +92,7 @@ router.post("/admin/create-admin", authMiddleware, requireAuth, requireAdmin, as
     return;
   }
 
-  const normalizedEmail = email ? email.trim().toLowerCase() : null;
+  const normalizedEmail = email ? normalizeEmailForStorage(email) : null;
   if (normalizedEmail) {
     const [existingAdminEmail] = await db.select().from(adminsTable).where(eq(adminsTable.email, normalizedEmail));
     const [existingUserEmail] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));

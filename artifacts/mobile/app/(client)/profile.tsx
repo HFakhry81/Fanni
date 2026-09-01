@@ -23,6 +23,7 @@ import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import AppIdentityCard from "@/components/AppIdentityCard";
 import { openTermsOfUse } from "@/utils/terms";
+import { isValidEgyptMobile, normalizeEgyptMobileForStorage } from "@/utils/phone";
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -97,8 +98,6 @@ export default function ClientProfileScreen() {
   // Validation errors
   const [errors, setErrors] = useState<{ name?: string; mobile?: string; email?: string; gov?: string; area?: string }>({});
 
-  const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
-
   const openEdit = () => {
     if (!user) return;
     setEditName(user.name ?? "");
@@ -132,11 +131,9 @@ export default function ClientProfileScreen() {
       newErrors.name = isRTL ? "الاسم مطلوب" : "Name is required";
     }
 
-    const mobileDigits = editMobile.trim().replace(/\s|-/g, "");
-    const mobileMatch = mobileDigits ? mobileDigits.match(EGYPT_MOBILE_RE) : null;
-    if (!mobileDigits) {
+    if (!editMobile.trim()) {
       newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
-    } else if (!mobileMatch) {
+    } else if (!isValidEgyptMobile(editMobile)) {
       newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
     }
 
@@ -162,7 +159,7 @@ export default function ClientProfileScreen() {
       return;
     }
 
-    const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+    const normalizedMobile = normalizeEgyptMobileForStorage(editMobile);
     setErrors({});
 
     if (normalizedMobile !== (user.mobile ?? "")) {

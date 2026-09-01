@@ -9,6 +9,7 @@ import VectorIcon from "@/components/VectorIcon";
 import FanniButton from "@/components/FanniButton";
 import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
+import { normalizeEgyptMobileForStorage } from "@/utils/phone";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -33,11 +34,7 @@ export default function OtpVerifyModal({ visible, mobile, onCancel, onVerified, 
   const [countdown, setCountdown] = useState(0);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  const normalizeMobile = (m: string) => {
-    const digits = m.trim().replace(/\s|-/g, "");
-    const match = digits.match(/^(\+?20|0)(1[0125][0-9]{8})$/);
-    return match ? `0${match[2]}` : digits;
-  };
+  const normalizeMobile = (m: string) => normalizeEgyptMobileForStorage(m);
 
   useEffect(() => {
     if (visible) {

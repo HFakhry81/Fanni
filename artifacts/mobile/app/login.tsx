@@ -21,6 +21,7 @@ import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewC
 import { getApiBase } from "@/utils/api";
 import { setAuthToken } from "@/utils/authTokenStorage";
 import { APP_IDENTITY, getAppVersionLabel } from "@/constants/appIdentity";
+import { normalizeLoginIdentifierValue } from "@/utils/phone";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -52,7 +53,8 @@ export default function LoginScreen() {
   }, [isLoading, isAuthenticated, user, router]);
 
   const handleLocalLogin = async () => {
-    if (!identifier.trim() || !password) {
+    const rawIdentifier = identifier.trim();
+    if (!rawIdentifier || !password) {
       setLocalError(
         isRTL
           ? "يرجى إدخال البريد الإلكتروني/الهاتف وكلمة المرور"
@@ -70,10 +72,11 @@ export default function LoginScreen() {
         );
         return;
       }
+      const loginIdentifier = normalizeLoginIdentifierValue(rawIdentifier);
       const res = await fetch(`${apiBase}/api/auth/login-with-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: identifier.trim(), password }),
+        body: JSON.stringify({ identifier: loginIdentifier, password }),
       });
       const raw = await res.text();
       let data: { token?: string; error?: string; suspensionReason?: string | null } = {};

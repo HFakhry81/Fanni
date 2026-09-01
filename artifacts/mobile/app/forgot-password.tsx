@@ -16,6 +16,7 @@ import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { getApiBase } from "@/utils/api";
+import { normalizeLoginIdentifierValue } from "@/utils/phone";
 
 type Step = "request" | "reset" | "success";
 
@@ -50,7 +51,7 @@ export default function ForgotPasswordScreen() {
       const res = await fetch(`${apiBase}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: identifier.trim() }),
+        body: JSON.stringify({ identifier: normalizeLoginIdentifierValue(identifier) }),
       });
       const data = await res.json();
       if (data.success) {
@@ -89,7 +90,7 @@ export default function ForgotPasswordScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          identifier: identifier.trim(),
+          identifier: normalizeLoginIdentifierValue(identifier),
           code: code.trim(),
           newPassword,
         }),

@@ -22,10 +22,10 @@ import { openTermsOfUse } from "@/utils/terms";
 import { appendImageToFormData } from "@/utils/appendImageToFormData";
 import { getTechnicianIdPhotosError } from "@/utils/technicianRegisterValidation";
 import { setAuthToken } from "@/utils/authTokenStorage";
+import { isValidEgyptMobile, normalizeEmailForStorage, normalizeEgyptMobileForStorage } from "@/utils/phone";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
-const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
 interface ApiDomain { id: string; nameEn: string; nameAr: string; icon: string | null; }
 interface ApiSpec { id: string; domainId: string; nameEn: string; nameAr: string; }
@@ -112,11 +112,7 @@ export default function RegisterScreen() {
     }
   }, [otpRequired, otpMode]);
 
-  const normalizedMobile = useCallback((): string => {
-    const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-    const m = mobileDigits.match(EGYPT_MOBILE_RE);
-    return m ? `0${m[2]}` : mobileDigits;
-  }, [mobile]);
+  const normalizedMobile = useCallback((): string => normalizeEgyptMobileForStorage(mobile), [mobile]);
 
   const sendOtp = useCallback(async () => {
     // Re-fetch config so the OTP requirement reflects any mid-session server change
@@ -348,10 +344,9 @@ export default function RegisterScreen() {
         newErrors.email = isRTL ? "صيغة البريد الإلكتروني غير صحيحة" : "Invalid email format";
       }
 
-      const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-      if (!mobileDigits) {
+      if (!mobile.trim()) {
         newErrors.mobile = isRTL ? "رقم الهاتف مطلوب" : "Mobile number is required";
-      } else if (!mobileDigits.match(EGYPT_MOBILE_RE)) {
+      } else if (!isValidEgyptMobile(mobile)) {
         newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
       }
 
@@ -454,7 +449,7 @@ export default function RegisterScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             mobile: nm,
-            email: email.trim() || undefined,
+            email: email.trim() ? normalizeEmailForStorage(email) : undefined,
           }),
         });
         const data = await res.json() as { mobileTaken?: boolean; emailTaken?: boolean };
@@ -527,7 +522,7 @@ export default function RegisterScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: name.trim(),
-            email: email.trim() || undefined,
+            email: email.trim() ? normalizeEmailForStorage(email) : undefined,
             mobile: normalizedMobile(),
             password,
             role: regType,

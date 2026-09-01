@@ -14,6 +14,7 @@ import { db, pool, usersTable, adminsTable, passwordResetTokensTable, phoneVerif
 import { eq, and, gt, isNull, desc, sql } from "drizzle-orm";
 import { geocodeArea } from "../lib/geocode";
 import { isAddressComplete } from "../lib/addressCompleteness";
+import { isValidEgyptMobile, normalizeEmailForStorage, normalizeEgyptMobileForStorage, normalizeLoginIdentifier } from "../lib/phone";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import { sendWelcomeSms, sendSms } from "../lib/sms";
 import {
@@ -429,8 +430,12 @@ function generateSalt(): string {
 function verifyPassword(password: string, storedHash: string): boolean {
   const [salt, hash] = storedHash.split(":");
   if (!salt || !hash) return false;
-  const derived = hashPassword(password, salt);
-  return crypto.timingSafeEqual(Buffer.from(derived, "hex"), Buffer.from(hash, "hex"));
+  try {
+    const derived = hashPassword(password, salt);
+    return crypto.timingSafeEqual(Buffer.from(derived, "hex"), Buffer.from(hash, "hex"));
+  } catch {
+    return false;
+  }
 }
 
 function hashResetCode(code: string): string {
@@ -449,13 +454,11 @@ router.get("/config", (_req: Request, res: Response) => {
 // PUBLIC: Sends a 6-digit OTP to a mobile number. No auth required.
 router.post("/auth/send-otp", async (req: Request, res: Response) => {
   const { mobile } = req.body as { mobile?: string };
-  if (!mobile || !EGYPT_MOBILE_RE.test(mobile.trim().replace(/\s|-/g, ""))) {
+  if (!mobile || !isValidEgyptMobile(mobile)) {
     res.status(400).json({ error: "Valid Egyptian mobile number is required" });
     return;
   }
-  const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-  const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-  const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+  const normalizedMobile = normalizeEgyptMobileForStorage(mobile);
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
   if (!await checkRateLimit(`otp-send:ip:${ip}`, 5, 10 * 60 * 1000) || !await checkRateLimit(`otp-send:mobile:${normalizedMobile}`, 3, 10 * 60 * 1000)) {
@@ -480,9 +483,7 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
     res.status(400).json({ error: "mobile and code are required" });
     return;
   }
-  const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-  const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-  const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+  const normalizedMobile = normalizeEgyptMobileForStorage(mobile);
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
   if (!await checkRateLimit(`otp-verify:ip:${ip}`, 10, 10 * 60 * 1000) || !await checkRateLimit(`otp-verify:mobile:${normalizedMobile}`, 5, 10 * 60 * 1000)) {
@@ -530,7 +531,8 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
     return;
   }
 
-  const needle = identifier.trim().toLowerCase();
+  const loginId = normalizeLoginIdentifier(identifier);
+  const needle = loginId.value;
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
   if (!await checkRateLimit(`forgot:ip:${ip}`, 5, 60 * 60 * 1000) || !await checkRateLimit(`forgot:id:${needle}`, 3, 60 * 60 * 1000)) {
@@ -542,7 +544,7 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
     .select()
     .from(usersTable)
     .where(
-      needle.includes("@") ? eq(usersTable.email, needle) : eq(usersTable.mobile, needle),
+      loginId.kind === "email" ? eq(usersTable.email, loginId.value) : eq(usersTable.mobile, loginId.value),
     );
 
   if (!user) {
@@ -591,7 +593,8 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
     return;
   }
 
-  const needle = identifier.trim().toLowerCase();
+  const loginId = normalizeLoginIdentifier(identifier);
+  const needle = loginId.value;
 
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
   if (!await checkRateLimit(`reset:ip:${ip}`, 10, 60 * 60 * 1000) || !await checkRateLimit(`reset:id:${needle}`, 5, 60 * 60 * 1000)) {
@@ -602,7 +605,7 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
     .select()
     .from(usersTable)
     .where(
-      needle.includes("@") ? eq(usersTable.email, needle) : eq(usersTable.mobile, needle),
+      loginId.kind === "email" ? eq(usersTable.email, loginId.value) : eq(usersTable.mobile, loginId.value),
     );
 
   if (!user) {
@@ -647,7 +650,6 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
 
 // PUBLIC: Checks whether a mobile number or email is already registered. No auth required.
 router.post("/auth/check-availability", async (req: Request, res: Response) => {
@@ -665,9 +667,7 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
   };
 
   if (mobile && mobile.trim()) {
-    const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-    const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-    const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+    const normalizedMobile = normalizeEgyptMobileForStorage(mobile);
     const [[existingUser], [existingAdmin]] = await Promise.all([
       db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.mobile, normalizedMobile)),
       db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.mobile, normalizedMobile)),
@@ -676,7 +676,7 @@ router.post("/auth/check-availability", async (req: Request, res: Response) => {
   }
 
   if (email && email.trim()) {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmailForStorage(email);
     const [[existingUser], [existingAdmin]] = await Promise.all([
       db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, normalizedEmail)),
       db.select({ id: adminsTable.id }).from(adminsTable).where(eq(adminsTable.email, normalizedEmail)),
@@ -713,11 +713,9 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Phone verification is required. Please verify your mobile number first." });
       return;
     }
-    const mobileForOtp = mobile.trim().replace(/\s|-/g, "");
-    const mobileMatchOtp = mobileForOtp.match(EGYPT_MOBILE_RE);
-    const normalizedForOtp = mobileMatchOtp ? `0${mobileMatchOtp[2]}` : mobileForOtp;
+    const mobileForOtp = normalizeEgyptMobileForStorage(mobile);
     const tokenMobile = verifyOtpToken(verificationToken);
-    if (!tokenMobile || tokenMobile !== normalizedForOtp) {
+    if (!tokenMobile || tokenMobile !== mobileForOtp) {
       res.status(400).json({ error: "Phone verification failed. Please verify your mobile number and try again." });
       return;
     }
@@ -729,9 +727,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return;
   }
 
-  const mobileDigits = mobile.trim().replace(/\s|-/g, "");
-  const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-  const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : mobileDigits;
+  const normalizedMobile = normalizeEgyptMobileForStorage(mobile);
 
   const [[existingUserMobile], [existingAdminMobile]] = await Promise.all([
     db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.mobile, normalizedMobile)),
@@ -764,7 +760,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
   const hasCoords = latitude != null && longitude != null;
   const emailValue =
-    typeof email === "string" && email.trim() ? email.trim().toLowerCase() : null;
+    typeof email === "string" && email.trim() ? normalizeEmailForStorage(email) : null;
   // users.email is NOT NULL + UNIQUE — synthesize a stable placeholder when omitted
   const emailForInsert = emailValue ?? `${normalizedMobile}@noreply.fanni.app`;
 
@@ -987,7 +983,8 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     return;
   }
 
-  const needle = identifier.trim().toLowerCase();
+  const loginId = normalizeLoginIdentifier(identifier);
+  const needle = loginId.value;
   const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
   const userAgent = String(req.headers["user-agent"] ?? "");
 
@@ -1022,7 +1019,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     .select()
     .from(adminsTable)
     .where(
-      needle.includes("@") ? eq(adminsTable.email, needle) : eq(adminsTable.mobile, needle),
+      loginId.kind === "email" ? eq(adminsTable.email, loginId.value) : eq(adminsTable.mobile, loginId.value),
     );
 
   if (admin) {
@@ -1056,7 +1053,7 @@ router.post("/auth/login-with-password", async (req: Request, res: Response) => 
     .select()
     .from(usersTable)
     .where(
-      needle.includes("@") ? eq(usersTable.email, needle) : eq(usersTable.mobile, needle),
+      loginId.kind === "email" ? eq(usersTable.email, loginId.value) : eq(usersTable.mobile, loginId.value),
     );
 
   if (!user || !user.passwordHash) {
@@ -1148,7 +1145,7 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
     if (email === null || email === "") {
       emailVal = null;
     } else {
-      const normalizedEmail = String(email).trim().toLowerCase();
+      const normalizedEmail = normalizeEmailForStorage(String(email));
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
         res.status(400).json({ error: "Invalid email address" });
         return;
@@ -1167,13 +1164,11 @@ router.patch("/auth/me", authMiddleware, requireAuth, async (req: Request, res: 
   // Validate and verify mobile change
   let mobileVal: string | undefined;
   if (mobile !== undefined && mobile !== null && String(mobile).trim() !== "") {
-    const mobileDigits = String(mobile).trim().replace(/\s|-/g, "");
-    const mobileMatch = mobileDigits.match(EGYPT_MOBILE_RE);
-    if (!mobileMatch) {
+    if (!isValidEgyptMobile(String(mobile))) {
       res.status(400).json({ error: "Invalid Egyptian mobile number" });
       return;
     }
-    mobileVal = `0${mobileMatch[2]}`;
+    mobileVal = normalizeEgyptMobileForStorage(String(mobile));
 
     // Require OTP verification token when changing mobile
     if (!verificationToken) {

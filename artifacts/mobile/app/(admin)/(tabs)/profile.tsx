@@ -30,6 +30,7 @@ import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { getAuthToken } from "@/utils/authTokenStorage";
 import { confirmDialog } from "@/utils/confirmDialog";
+import { isValidEgyptMobile, normalizeEgyptMobileForStorage } from "@/utils/phone";
 
 // ─── Payment Manager Picker ───────────────────────────────────────────────────
 interface AdminOption { id: string; firstName: string | null; lastName: string | null; mobile: string | null }
@@ -238,8 +239,6 @@ export default function AdminProfileScreen() {
     setErrors({});
   };
 
-  const EGYPT_MOBILE_RE = /^(\+?20|0)(1[0125][0-9]{8})$/;
-
   const applyAdminSave = async (verTok: string | undefined) => {
     if (!user) return;
     setSaving(true);
@@ -249,9 +248,7 @@ export default function AdminProfileScreen() {
         lastName: lastName.trim() || null,
         email: email.trim() || null,
       };
-      const mobileDigits = editMobile.trim().replace(/\s|-/g, "");
-      const mobileMatch = mobileDigits ? mobileDigits.match(EGYPT_MOBILE_RE) : null;
-      const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+      const normalizedMobile = normalizeEgyptMobileForStorage(editMobile);
       if (normalizedMobile !== (user.mobile ?? "") && verTok) {
         body.mobile = normalizedMobile;
         body.verificationToken = verTok;
@@ -286,9 +283,7 @@ export default function AdminProfileScreen() {
       newErrors.email = isRTL ? "البريد الإلكتروني غير صحيح" : "Invalid email address";
     }
 
-    const mobileDigits = editMobile.trim().replace(/\s|-/g, "");
-    const mobileMatch = mobileDigits ? mobileDigits.match(EGYPT_MOBILE_RE) : null;
-    if (mobileDigits && !mobileMatch) {
+    if (editMobile.trim() && !isValidEgyptMobile(editMobile)) {
       newErrors.mobile = isRTL ? "صيغة غير صحيحة — مثال: 01XXXXXXXXX" : "Invalid format — e.g. 01XXXXXXXXX";
     }
 
@@ -297,7 +292,7 @@ export default function AdminProfileScreen() {
       return;
     }
 
-    const normalizedMobile = mobileMatch ? `0${mobileMatch[2]}` : editMobile.trim();
+    const normalizedMobile = normalizeEgyptMobileForStorage(editMobile);
     const mobileChanged = normalizedMobile !== (user.mobile ?? "");
 
     if (mobileChanged) {
