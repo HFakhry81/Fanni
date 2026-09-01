@@ -12,6 +12,7 @@ echo.
 
 set ROOT=E:\UpNexa.com\Fanni
 set NODE_OPTIONS=--use-system-ca
+set EXPO_OFFLINE=1
 
 :: LAN IP for phone on same Wi-Fi (update if your IP changes)
 set MY_IP=192.168.1.17

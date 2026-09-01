@@ -17,11 +17,11 @@ set EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com
 set EXPO_PUBLIC_REPL_ID=production
 
 set ROOT=E:\UpNexa.com\Fanni
-
 set NODE_OPTIONS=--use-system-ca
+set EXPO_OFFLINE=1
+
 echo [INFO] Live Backend : https://api.upnexa-eg.com
 echo [INFO] Metro IP     : %MY_IP%
-cd /d "%ROOT%\artifacts\mobile"
-call npx expo start --host lan -c
+cd /d "%ROOT%"
+call pnpm run dev:mobile
 pause
-

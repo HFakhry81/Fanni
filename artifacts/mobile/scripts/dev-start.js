@@ -10,7 +10,11 @@ const path = require("path");
 const projectRoot = path.resolve(__dirname, "..");
 const port = process.env.EXPO_PORT || process.env.METRO_PORT || "8081";
 
-const env = { ...process.env, EXPO_OFFLINE: "1" };
+const env = {
+  ...process.env,
+  EXPO_OFFLINE: "1",
+  NODE_OPTIONS: process.env.NODE_OPTIONS || "--use-system-ca",
+};
 
 console.log("[Local] Using local network IP for QR code");
 if (!env.EXPO_PUBLIC_API_URL && !env.EXPO_PUBLIC_DOMAIN) {
@@ -23,11 +27,11 @@ const args = [
   "exec",
   "expo",
   "start",
-  "--web",
   "--port",
   port,
   "--host",
   "lan",
+  "--offline",
 ];
 
 console.log(`[start] pnpm ${args.join(" ")}\n`);
