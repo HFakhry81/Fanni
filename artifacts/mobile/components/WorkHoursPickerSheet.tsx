@@ -1,47 +1,23 @@
 import React, { useEffect, useState } from "react";
 import {
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { timePeriodLabel } from "@/utils/orderDefaults";
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-export function timeStringToDate(hhmm: string): Date {
-  const [h, m] = (hhmm || "08:00").split(":").map((x) => Number(x) || 0);
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  return d;
-}
-
-export function dateToTimeString(date: Date): string {
-  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
-}
-
-function clampTime(hhmm: string): string {
-  const [hRaw, mRaw] = hhmm.split(":");
-  const h = Math.min(23, Math.max(0, Number(hRaw) || 0));
-  const m = Math.min(59, Math.max(0, Number(mRaw) || 0));
-  return `${pad2(h)}:${pad2(m)}`;
-}
-
-function addMinutes(hhmm: string, delta: number): string {
-  const [h, m] = clampTime(hhmm).split(":").map(Number);
-  let total = h * 60 + m + delta;
-  total = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
-  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
-}
+import {
+  addMinutes,
+  clampTime,
+  pad2,
+  setHour,
+  setMinute,
+} from "@/utils/workHours";
 
 type Props = {
   visible: boolean;
@@ -53,8 +29,8 @@ type Props = {
 };
 
 /**
- * Reliable work-hours sheet: steppers + optional spinner + Confirm.
- * Avoids Android DateTimePicker dialog OK quirks and accidental auto-close.
+ * Bottom sheet for picking work hours — presets + hour/minute steppers only.
+ * No native DateTimePicker (avoids duplicate spinners and web overlap).
  */
 export default function WorkHoursPickerSheet({
   visible,
@@ -75,6 +51,8 @@ export default function WorkHoursPickerSheet({
 
   if (!visible) return null;
 
+  const [hour, minute] = draft.split(":").map(Number);
+
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
       <View style={styles.root}>
@@ -87,7 +65,6 @@ export default function WorkHoursPickerSheet({
               paddingBottom: Math.max(insets.bottom, 16),
             },
           ]}
-          // Keep touches inside the sheet from dismissing it
           onStartShouldSetResponder={() => true}
         >
           <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -100,34 +77,49 @@ export default function WorkHoursPickerSheet({
           </View>
 
           <Text style={[styles.preview, { color: colors.primary }]}>
-            {draft} · {timePeriodLabel(draft, isRTL)}
+            {draft}
+          </Text>
+          <Text style={[styles.period, { color: colors.mutedForeground }]}>
+            {timePeriodLabel(draft, isRTL)}
           </Text>
 
-          <View style={[styles.stepRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Stepper
-              label={isRTL ? "ساعة" : "Hour"}
-              onMinus={() => setDraft((t) => addMinutes(t, -60))}
-              onPlus={() => setDraft((t) => addMinutes(t, 60))}
+          <View style={[styles.columns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <TimeColumn
+              label={isRTL ? "الساعة" : "Hour"}
+              value={pad2(hour)}
+              onMinus={() => setDraft((t) => setHour(t, hour - 1))}
+              onPlus={() => setDraft((t) => setHour(t, hour + 1))}
               colors={colors}
             />
-            <Stepper
-              label={isRTL ? "دقيقة" : "Min"}
+            <Text style={[styles.colon, { color: colors.foreground }]}>:</Text>
+            <TimeColumn
+              label={isRTL ? "الدقيقة" : "Minute"}
+              value={pad2(minute)}
               onMinus={() => setDraft((t) => addMinutes(t, -15))}
               onPlus={() => setDraft((t) => addMinutes(t, 15))}
               colors={colors}
             />
           </View>
 
-          <DateTimePicker
-            mode="time"
-            is24Hour
-            display="spinner"
-            value={timeStringToDate(draft)}
-            onChange={(_e: DateTimePickerEvent, date?: Date) => {
-              if (date) setDraft(dateToTimeString(date));
-            }}
-            style={{ width: "100%", height: Platform.OS === "ios" ? 160 : 140 }}
-          />
+          <View style={[styles.minuteQuick, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            {[0, 15, 30, 45].map((m) => (
+              <TouchableOpacity
+                key={m}
+                onPress={() => setDraft((t) => setMinute(t, m))}
+                style={[
+                  styles.minuteChip,
+                  {
+                    borderColor: minute === m ? colors.primary : colors.border,
+                    backgroundColor: minute === m ? colors.accent : colors.muted,
+                  },
+                ]}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                  :{pad2(m)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <View style={[styles.presets, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             {presets.map((p) => (
@@ -151,6 +143,7 @@ export default function WorkHoursPickerSheet({
             onPress={() => onConfirm(draft)}
             style={[styles.confirm, { backgroundColor: colors.primary }]}
             activeOpacity={0.85}
+            accessibilityRole="button"
           >
             <Text style={styles.confirmText}>
               {isRTL ? `تأكيد ${draft}` : `Confirm ${draft}`}
@@ -162,32 +155,39 @@ export default function WorkHoursPickerSheet({
   );
 }
 
-function Stepper({
+function TimeColumn({
   label,
+  value,
   onMinus,
   onPlus,
   colors,
 }: {
   label: string;
+  value: string;
   onMinus: () => void;
   onPlus: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
   return (
-    <View style={styles.stepper}>
-      <Text style={[styles.stepperLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      <View style={styles.stepperBtns}>
+    <View style={styles.column}>
+      <Text style={[styles.columnLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      <View style={styles.columnControls}>
         <TouchableOpacity
           onPress={onMinus}
           style={[styles.stepBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} minus`}
         >
           <Text style={[styles.stepBtnText, { color: colors.foreground }]}>−</Text>
         </TouchableOpacity>
+        <Text style={[styles.columnValue, { color: colors.foreground }]}>{value}</Text>
         <TouchableOpacity
           onPress={onPlus}
           style={[styles.stepBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} plus`}
         >
           <Text style={[styles.stepBtnText, { color: colors.foreground }]}>+</Text>
         </TouchableOpacity>
@@ -214,24 +214,45 @@ const styles = StyleSheet.create({
   cancel: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   preview: {
     fontFamily: "Inter_700Bold",
-    fontSize: 36,
+    fontSize: 42,
     textAlign: "center",
-    marginVertical: 8,
+    marginTop: 4,
+    letterSpacing: 2,
   },
-  stepRow: { gap: 16, justifyContent: "center", marginBottom: 4 },
-  stepper: { alignItems: "center", gap: 6 },
-  stepperLabel: { fontFamily: "Inter_500Medium", fontSize: 12 },
-  stepperBtns: { flexDirection: "row", gap: 10 },
+  period: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  columns: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  colon: { fontFamily: "Inter_700Bold", fontSize: 36, marginTop: 18 },
+  column: { alignItems: "center", gap: 8, minWidth: 120 },
+  columnLabel: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  columnControls: { flexDirection: "row", alignItems: "center", gap: 12 },
+  columnValue: { fontFamily: "Inter_700Bold", fontSize: 28, minWidth: 44, textAlign: "center" },
   stepBtn: {
-    width: 52,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   stepBtnText: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  presets: { flexWrap: "wrap", gap: 8, marginTop: 8, marginBottom: 12 },
+  minuteQuick: { flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 10 },
+  minuteChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  presets: { flexWrap: "wrap", gap: 8, marginBottom: 12, justifyContent: "center" },
   preset: {
     paddingHorizontal: 12,
     paddingVertical: 8,

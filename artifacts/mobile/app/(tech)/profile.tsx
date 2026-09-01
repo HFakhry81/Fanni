@@ -16,7 +16,8 @@ import LocationPicker from "@/components/LocationPicker";
 import Toast from "@/components/Toast";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import OtpVerifyModal from "@/components/OtpVerifyModal";
-import WorkHoursPickerSheet from "@/components/WorkHoursPickerSheet";
+import WorkHoursFieldGroup from "@/components/WorkHoursFieldGroup";
+import { isEndAfterStart, isValidHhMm } from "@/utils/workHours";
 import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { KeyboardAwareScrollViewCompat, KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSaveProfile } from "@/hooks/useSaveProfile";
@@ -148,12 +149,10 @@ export default function TechProfileScreen() {
   // Work hours edit state
   const [editServiceStart, setEditServiceStart] = useState("08:00");
   const [editServiceEnd, setEditServiceEnd] = useState("22:00");
-  const [activeTimePicker, setActiveTimePicker] = useState<"start" | "end" | null>(null);
 
   // Validation errors
   const [errors, setErrors] = useState<{ name?: string; mobile?: string; email?: string; gov?: string; area?: string; serviceStart?: string; serviceEnd?: string; categories?: string }>({});
 
-  const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
   useEffect(() => {
     if (openCategories === "1" && user && !editVisible) {
@@ -258,8 +257,8 @@ export default function TechProfileScreen() {
       newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
     }
 
-    const startValid = TIME_RE.test(editServiceStart.trim());
-    const endValid = TIME_RE.test(editServiceEnd.trim());
+    const startValid = isValidHhMm(editServiceStart);
+    const endValid = isValidHhMm(editServiceEnd);
     if (!startValid) {
       newErrors.serviceStart = isRTL ? "صيغة غير صحيحة — مثال: 08:00" : "Invalid format — e.g. 08:00";
     }
@@ -267,8 +266,7 @@ export default function TechProfileScreen() {
       newErrors.serviceEnd = isRTL ? "صيغة غير صحيحة — مثال: 22:00" : "Invalid format — e.g. 22:00";
     }
     if (startValid && endValid) {
-      const toMinutes = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-      if (toMinutes(editServiceEnd.trim()) <= toMinutes(editServiceStart.trim())) {
+      if (!isEndAfterStart(editServiceStart.trim(), editServiceEnd.trim())) {
         newErrors.serviceEnd = isRTL ? "وقت الانتهاء يجب أن يكون بعد وقت البدء" : "Work End must be later than Work Start";
       }
     }
@@ -1302,59 +1300,25 @@ export default function TechProfileScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Work Hours */}
-                <View style={styles.fieldWrap}>
-                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-                    {t("register.serviceStart")}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setActiveTimePicker("start")}
-                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceStart ? colors.destructive : colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
-                  >
-                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{editServiceStart}</Text>
-                    <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
-                  </TouchableOpacity>
-                  {errors.serviceStart ? (
-                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.serviceStart}</Text>
-                  ) : null}
-                </View>
-
-                <View style={styles.fieldWrap}>
-                  <Text style={[styles.fieldLabel, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-                    {t("register.serviceEnd")}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setActiveTimePicker("end")}
-                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceEnd ? colors.destructive : colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
-                  >
-                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{editServiceEnd}</Text>
-                    <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
-                  </TouchableOpacity>
-                  {errors.serviceEnd ? (
-                    <Text style={[styles.errorText, { textAlign: isRTL ? "right" : "left" }]}>{errors.serviceEnd}</Text>
-                  ) : null}
-                </View>
-
-                <WorkHoursPickerSheet
-                  visible={activeTimePicker !== null}
-                  title={
-                    activeTimePicker === "start"
-                      ? (isRTL ? "اختر بداية العمل" : "Pick work start")
-                      : (isRTL ? "اختر نهاية العمل" : "Pick work end")
-                  }
-                  value={activeTimePicker === "start" ? editServiceStart : editServiceEnd}
-                  presets={activeTimePicker === "start" ? ["08:00", "09:00", "10:00"] : ["16:00", "18:00", "22:00"]}
-                  onCancel={() => setActiveTimePicker(null)}
-                  onConfirm={(hhmm) => {
-                    if (activeTimePicker === "start") {
-                      setEditServiceStart(hhmm);
+                <WorkHoursFieldGroup
+                  start={editServiceStart}
+                  end={editServiceEnd}
+                  onChangeStart={setEditServiceStart}
+                  onChangeEnd={setEditServiceEnd}
+                  isRTL={isRTL}
+                  startLabel={t("register.serviceStart")}
+                  endLabel={t("register.serviceEnd")}
+                  errors={{ start: errors.serviceStart, end: errors.serviceEnd }}
+                  onClearErrors={(field) => {
+                    if (field === "both") {
                       setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
-                    } else {
-                      setEditServiceEnd(hhmm);
+                    } else if (field === "end") {
                       setErrors((e) => ({ ...e, serviceEnd: undefined }));
+                    } else {
+                      setErrors((e) => ({ ...e, serviceStart: undefined }));
                     }
-                    setActiveTimePicker(null);
                   }}
+                  style={styles.fieldWrap}
                 />
 
                 {/* Service Categories */}

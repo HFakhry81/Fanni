@@ -31,6 +31,9 @@ interface FanniInputProps {
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   maxLength?: number;
   testID?: string;
+  returnKeyType?: "done" | "go" | "next" | "search" | "send";
+  onSubmitEditing?: () => void;
+  blurOnSubmit?: boolean;
 }
 
 export default function FanniInput({
@@ -50,6 +53,9 @@ export default function FanniInput({
   autoCapitalize = "sentences",
   maxLength,
   testID,
+  returnKeyType,
+  onSubmitEditing,
+  blurOnSubmit,
 }: FanniInputProps) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -94,6 +100,10 @@ export default function FanniInput({
         <TextInput
           ref={inputRef}
           testID={testID}
+          {...(Platform.OS === "web" ? { tabIndex: 0 as const } : {})}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
+          blurOnSubmit={blurOnSubmit}
           style={[
             styles.input,
             {
@@ -116,15 +126,20 @@ export default function FanniInput({
           maxLength={maxLength}
           onFocus={() => {
             setFocused(true);
-            const delay = Platform.OS === "ios" ? 80 : 280;
+            if (Platform.OS === "web") {
+              requestAnimationFrame(() => {
+                if (inputRef.current) kbScroll?.scrollToInput(inputRef.current);
+              });
+              return;
+            }
+            const delay = Platform.OS === "ios" ? 100 : 320;
             setTimeout(() => {
               if (inputRef.current) kbScroll?.scrollToInput(inputRef.current);
             }, delay);
-            // Second pass after keyboard fully open (Android resize)
             if (Platform.OS === "android") {
               setTimeout(() => {
                 if (inputRef.current) kbScroll?.scrollToInput(inputRef.current);
-              }, 520);
+              }, 480);
             }
           }}
           onBlur={() => setFocused(false)}

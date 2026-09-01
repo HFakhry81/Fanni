@@ -16,7 +16,8 @@ import AddressBlock, { AddressValue, EMPTY_ADDRESS } from "@/components/AddressB
 import AppHeader from "@/components/AppHeader";
 import PasswordStrengthBar, { getPasswordStrength } from "@/components/PasswordStrengthBar";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
-import WorkHoursPickerSheet from "@/components/WorkHoursPickerSheet";
+import WorkHoursFieldGroup from "@/components/WorkHoursFieldGroup";
+import { isEndAfterStart, isValidHhMm } from "@/utils/workHours";
 import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
 import { appendImageToFormData } from "@/utils/appendImageToFormData";
@@ -75,7 +76,6 @@ export default function RegisterScreen() {
   // ── Technician service hours ───────────────────────────────────────────────
   const [serviceStart, setServiceStart] = useState("08:00");
   const [serviceEnd, setServiceEnd] = useState("22:00");
-  const [activePicker, setActivePicker] = useState<"start" | "end" | null>(null);
 
   // ── OTP verification state ─────────────────────────────────────────────────
   const [otpMode, setOtpMode] = useState(false);
@@ -390,9 +390,8 @@ export default function RegisterScreen() {
         newErrors.experience = isRTL ? "الحد الأقصى لسنوات الخبرة 70" : "Experience cannot exceed 70 years";
       }
 
-      const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
-      const startValid = TIME_RE.test(serviceStart.trim());
-      const endValid = TIME_RE.test(serviceEnd.trim());
+      const startValid = isValidHhMm(serviceStart);
+      const endValid = isValidHhMm(serviceEnd);
 
       if (!startValid) {
         newErrors.serviceStart = isRTL ? "صيغة غير صحيحة — مثال: 08:00" : "Invalid format — e.g. 08:00";
@@ -401,8 +400,7 @@ export default function RegisterScreen() {
         newErrors.serviceEnd = isRTL ? "صيغة غير صحيحة — مثال: 22:00" : "Invalid format — e.g. 22:00";
       }
       if (startValid && endValid) {
-        const toMinutes = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-        if (toMinutes(serviceEnd.trim()) <= toMinutes(serviceStart.trim())) {
+        if (!isEndAfterStart(serviceStart.trim(), serviceEnd.trim())) {
           newErrors.serviceEnd = isRTL ? "وقت الانتهاء يجب أن يكون بعد وقت البدء" : "Work End must be later than Work Start";
         }
       }
@@ -1082,65 +1080,30 @@ export default function RegisterScreen() {
         </Text>
       )}
 
-      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
-        {isRTL ? "ساعات العمل الافتراضية" : "Default work hours"} <Text style={{ color: colors.destructive }}>*</Text>
-      </Text>
-      <Text style={{ color: colors.mutedForeground, fontSize: 11, marginBottom: 10, textAlign: isRTL ? "right" : "left", lineHeight: 16 }}>
-        {isRTL
-          ? "تُحفظ في ملفك الشخصي كوقت العمل الافتراضي (بداية – نهاية)."
-          : "Saved on your profile as your default daily work window (start – end)."}
-      </Text>
-      <View style={[styles.timeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
-          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-            {isRTL ? "بداية العمل" : "Work Start"}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setActivePicker("start")}
-            delayPressIn={0}
-            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceStart ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
-          >
-            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceStart}</Text>
-            <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          {errors.serviceStart ? <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>{errors.serviceStart}</Text> : null}
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-            {isRTL ? "نهاية العمل" : "Work End"}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setActivePicker("end")}
-            delayPressIn={0}
-            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: errors.serviceEnd ? colors.destructive : colors.border, borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 13, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
-          >
-            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 15 }}>{serviceEnd}</Text>
-            <VectorIcon name="clock" size={16} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          {errors.serviceEnd ? <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>{errors.serviceEnd}</Text> : null}
-        </View>
-      </View>
-
-      <WorkHoursPickerSheet
-        visible={activePicker !== null}
-        title={
-          activePicker === "start"
-            ? (isRTL ? "اختر بداية العمل" : "Pick work start")
-            : (isRTL ? "اختر نهاية العمل" : "Pick work end")
+      <WorkHoursFieldGroup
+        start={serviceStart}
+        end={serviceEnd}
+        onChangeStart={setServiceStart}
+        onChangeEnd={setServiceEnd}
+        isRTL={isRTL}
+        title={isRTL ? "ساعات العمل الافتراضية" : "Default work hours"}
+        required
+        description={
+          isRTL
+            ? "تُحفظ في ملفك الشخصي كوقت العمل الافتراضي (بداية – نهاية)."
+            : "Saved on your profile as your default daily work window (start – end)."
         }
-        value={activePicker === "start" ? serviceStart : serviceEnd}
-        presets={activePicker === "start" ? ["08:00", "09:00", "10:00"] : ["16:00", "18:00", "22:00"]}
-        onCancel={() => setActivePicker(null)}
-        onConfirm={(hhmm) => {
-          if (activePicker === "start") {
-            setServiceStart(hhmm);
+        errors={{ start: errors.serviceStart, end: errors.serviceEnd }}
+        onClearErrors={(field) => {
+          if (field === "both") {
             setErrors((e) => ({ ...e, serviceStart: undefined, serviceEnd: undefined }));
-          } else {
-            setServiceEnd(hhmm);
+          } else if (field === "end") {
             setErrors((e) => ({ ...e, serviceEnd: undefined }));
+          } else {
+            setErrors((e) => ({ ...e, serviceStart: undefined }));
           }
-          setActivePicker(null);
         }}
+        style={{ marginBottom: 8 }}
       />
 
       <FanniInput

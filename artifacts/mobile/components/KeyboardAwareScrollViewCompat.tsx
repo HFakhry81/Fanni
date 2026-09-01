@@ -86,14 +86,17 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
     }, []);
 
     const scrollToInput = useCallback((target: Parameters<typeof findNodeHandle>[0]) => {
-      // findNodeHandle throws on web — use DOM/measure fallback only there.
+      // findNodeHandle throws on web — scroll only if the field would be clipped.
       if (Platform.OS === "web") {
         try {
-          const el = target as unknown as { focus?: () => void };
-          el?.focus?.();
           const node = target as unknown as HTMLElement | null;
-          if (node && typeof (node as HTMLElement).scrollIntoView === "function") {
-            (node as HTMLElement).scrollIntoView({ block: "center", behavior: "smooth" });
+          if (!node || typeof node.getBoundingClientRect !== "function") return;
+          const rect = node.getBoundingClientRect();
+          const viewportH = window.innerHeight || document.documentElement.clientHeight;
+          const margin = 24;
+          const obscured = rect.top < margin || rect.bottom > viewportH - margin;
+          if (obscured && typeof node.scrollIntoView === "function") {
+            node.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
           }
         } catch {
           // ignore web scroll helpers
@@ -135,7 +138,7 @@ export const KeyboardAwareScrollViewCompat = forwardRef<ScrollView, Props>(
     const basePad = readPaddingBottom(contentContainerStyle);
     // Reserve a full keyboard-height footer so the last field scrolls above the keys.
     const extraPad = useMemo(() => {
-      if (keyboardHeight <= 0) return 0;
+      if (Platform.OS === "web" || keyboardHeight <= 0) return 0;
       const footer = keyboardHeight + (Platform.OS === "ios" ? 24 : 16);
       return Math.min(footer, 420);
     }, [keyboardHeight]);
