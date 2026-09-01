@@ -12,6 +12,7 @@ import { sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
 import { InsufficientPointsError, maskSensitiveOrderFields, refundEligibleUnlocksForCancelledOrder, unlockLeadAtomically } from "../lib/leadUnlock";
 import { maskPhoneDisplay } from "../lib/phone";
 import { markTechnicianBusy, markTechnicianAvailable } from "../lib/orderLifecycle";
+import { recordLastWorkLocation } from "../lib/serviceLocation";
 
 const router: IRouter = Router();
 
@@ -813,6 +814,8 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
     let finalClientId: string | null = null;
     let finalTechnicianId: string | null = null;
     let finalOrderNumber: string | null = null;
+    let completedOrderLat: number | null = null;
+    let completedOrderLon: number | null = null;
 
     await db.transaction(async (tx) => {
       const [orderRow] = await tx
@@ -836,6 +839,9 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
       finalClientId = orderRow.clientId;
       finalTechnicianId = user.role === "technician" ? user.id : orderRow.technicianId;
       finalOrderNumber = orderRow.orderNumber;
+      const orderData = orderRow.data as Record<string, unknown>;
+      completedOrderLat = typeof orderData.latitude === "number" ? orderData.latitude : null;
+      completedOrderLon = typeof orderData.longitude === "number" ? orderData.longitude : null;
 
       await tx
         .update(ordersTable)
@@ -851,6 +857,14 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
     logger.info({ orderId: id, technicianId: user.id }, "Order completed (commission-only; no job invoices)");
     if (finalTechnicianId) {
       await markTechnicianAvailable(finalTechnicianId);
+      if (completedOrderLat != null && completedOrderLon != null) {
+        const locClient = await pool.connect();
+        try {
+          await recordLastWorkLocation(locClient, finalTechnicianId, completedOrderLat, completedOrderLon);
+        } finally {
+          locClient.release();
+        }
+      }
     }
 
     if (finalClientId) {

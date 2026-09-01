@@ -13,6 +13,7 @@ import {
 import { db, pool, usersTable, adminsTable, passwordResetTokensTable, phoneVerificationsTable, loginLogsTable } from "@workspace/db";
 import { eq, and, gt, isNull, desc, sql } from "drizzle-orm";
 import { geocodeArea } from "../lib/geocode";
+import { isAddressComplete } from "../lib/addressCompleteness";
 import { sendPasswordResetCode, sendWelcomeEmail } from "../lib/email";
 import { sendWelcomeSms, sendSms } from "../lib/sms";
 import {
@@ -180,6 +181,13 @@ function buildAuthUser(
     rating: dbUser.rating ? Number(dbUser.rating) : 0,
     ratingCount: dbUser.ratingCount ?? 0,
     approvalStatus: dbUser.approvalStatus ?? null,
+    addressComplete: isAddressComplete({
+      governorate: dbUser.governorate,
+      area: dbUser.area,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+    }),
+    serviceLocationMode: dbUser.serviceLocationMode ?? null,
   };
 }
 

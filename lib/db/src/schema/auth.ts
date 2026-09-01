@@ -51,6 +51,10 @@ export const usersTable = pgTable("users", {
   locationSource: varchar("location_source", { length: 50 }), // 'gps', 'network', 'manual', 'map_picker'
   locationCapturedAt: timestamp("location_captured_at", { withTimezone: true }),
   activeLocation: geography("active_location"), // The location used for matching
+  previousActiveLocation: geography("previous_active_location"),
+  lastWorkLocation: geography("last_work_location"),
+  serviceLocationMode: varchar("service_location_mode", { length: 32 }),
+  serviceLocationDay: timestamp("service_location_day", { mode: "date" }),
   serviceCategories: jsonb("service_categories").$type<string[]>(),
 
   serviceStart: varchar("service_start", { length: 5 }),

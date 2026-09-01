@@ -11,6 +11,8 @@ import { useOrders, buildSimulatedOrder } from "@/context/OrderContext";
 import { TechWsProvider, useTechWs } from "@/context/TechWsContext";
 import Toast from "@/components/Toast";
 import BonusGrantGate from "@/components/BonusGrantGate";
+import AddressIncompleteBanner from "@/components/AddressIncompleteBanner";
+import ServiceLocationDailyModal from "@/components/ServiceLocationDailyModal";
 import { WalletProvider } from "@/context/WalletContext";
 import ConnectionBanner, { CONNECTION_BANNER_HEIGHT } from "@/components/ConnectionBanner";
 import SyncingBanner from "@/components/SyncingBanner";
@@ -428,6 +430,8 @@ function TechLayoutInner() {
         onHide={hideCancelledNotification}
       />
       <BonusGrantGate />
+      <AddressIncompleteBanner />
+      <ServiceLocationDailyModal />
     </>
   );
 }

@@ -282,6 +282,9 @@ function AuthUserBridge({ children }: { children: React.ReactNode }) {
         serviceEnd: authUser.serviceEnd ?? undefined,
         isApproved: (authUser as { isApproved?: boolean }).isApproved ?? undefined,
         approvalStatus: (authUser as { approvalStatus?: User["approvalStatus"] }).approvalStatus ?? undefined,
+        latitude: (authUser as { latitude?: number | null }).latitude ?? null,
+        longitude: (authUser as { longitude?: number | null }).longitude ?? null,
+        addressComplete: (authUser as { addressComplete?: boolean }).addressComplete ?? undefined,
         experience: (authUser as { yearsOfExperience?: number | null }).yearsOfExperience ?? appUser?.experience,
       });
     } else {

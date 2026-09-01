@@ -70,6 +70,18 @@ If pnpm refuses `packageManager` pin (signature fetch), this repo uses `pnpm@11.
 
 `artifacts/mobile` uses a lightweight Node Jest config (`jest.env.js` + `jest.mocks/`) instead of the full `jest-expo` RN setup file, which fails under pnpm on Windows. Run `pnpm --filter @workspace/mobile test` — all utils tests should pass.
 
+### Android Studio / local APK (Windows path length)
+
+pnpm + `E:\UpNexa.com\Fanni` can exceed CMake’s **250-character** path limit (`CMAKE_OBJECT_PATH_MAX`). Symptoms: CMake warnings, Gradle hangs on `buildCMakeDebug` / `expo-modules-core`.
+
+1. Run `scripts\android-short-path.cmd` — maps repo to **`W:\`**
+2. In Android Studio, open **`W:\artifacts\mobile\android`** (not the `E:\...` path)
+3. First native build may take **15–30 minutes** (normal)
+4. `gradle.properties` builds **arm64-v8a only** for faster local debug; use **EAS** for release APK with all ABIs
+5. Optional (Admin PowerShell): enable long paths — `Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1` then reboot
+
+When done: `subst W: /d`
+
 ## Git remote
 
 `origin` → `https://github.com/HFakhry81/Fanni` (VPS pulls this).

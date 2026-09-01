@@ -15,7 +15,7 @@ export default function TechPendingScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user } = useApp();
-  const { logout } = useAuth();
+  const { logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
@@ -45,6 +45,7 @@ export default function TechPendingScreen() {
   };
 
   const handleRefresh = async () => {
+    await refreshUser();
     router.replace("/(tech)/map");
   };
 

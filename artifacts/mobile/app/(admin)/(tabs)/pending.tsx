@@ -27,6 +27,7 @@ interface PendingTech {
   bio: string | null;
   yearsOfExperience: number | null;
   createdAt: string;
+  hasMapCoords?: boolean;
 }
 
 async function fetchPending(token: string): Promise<PendingTech[]> {
@@ -135,6 +136,7 @@ export default function PendingTechniciansScreen() {
             {item.governorate && (
               <Text style={[styles.meta, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
                 📍 {item.governorate}{item.area ? ` · ${item.area}` : ""}
+                {item.hasMapCoords === false ? (isRTL ? " · بدون إحداثيات" : " · no map coords") : ""}
               </Text>
             )}
           </View>

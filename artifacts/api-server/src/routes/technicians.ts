@@ -9,6 +9,13 @@ import { locationsMatch } from "../lib/locationNormalizer";
 import { queryFloat, queryInt, queryString } from "../lib/queryParams";
 import { broadcastAvailabilityChangedToTechnician } from "../lib/orderBroadcaster";
 import { DEFAULT_LEAD_COST, loadActiveLeadPricingRules, pickLeadCostFromRules } from "../lib/leadPricing";
+import {
+  loadTechnicianServiceLocation,
+  needsDailyServiceLocationPrompt,
+  resolveTechnicianServiceLocation,
+  setTechnicianServiceLocation,
+  type ServiceLocationMode,
+} from "../lib/serviceLocation";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -325,31 +332,19 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
       techLon: number | null;
     } | null = null;
     try {
-      const { rows } = await client.query<{
-        service_categories: unknown;
-        governorate: string | null;
-        area: string | null;
-        tech_lat: number | null;
-        tech_lon: number | null;
-      }>(
-        `SELECT
-           service_categories,
-           governorate,
-           area,
-           ST_Y(location::geometry) AS tech_lat,
-           ST_X(location::geometry) AS tech_lon
-         FROM users
-         WHERE id = $1
-         LIMIT 1`,
-        [user.id],
-      );
-      if (rows[0]) {
+      const serviceRow = await loadTechnicianServiceLocation(client, user.id);
+      if (serviceRow) {
+        const { rows } = await client.query<{ service_categories: unknown }>(
+          `SELECT service_categories FROM users WHERE id = $1 LIMIT 1`,
+          [user.id],
+        );
+        const resolved = resolveTechnicianServiceLocation(serviceRow);
         techRow = {
-          serviceCategories: rows[0].service_categories,
-          governorate: rows[0].governorate,
-          area: rows[0].area,
-          techLat: rows[0].tech_lat,
-          techLon: rows[0].tech_lon,
+          serviceCategories: rows[0]?.service_categories,
+          governorate: resolved.governorate,
+          area: resolved.area,
+          techLat: resolved.latitude,
+          techLon: resolved.longitude,
         };
       }
     } finally {
@@ -570,6 +565,75 @@ router.get("/technician/orders", authMiddleware, requireAuth, async (req, res) =
   } catch (err) {
     logger.error({ err, techId: user.id }, "Failed to fetch assigned orders for technician");
     res.status(500).json({ error: "Failed to fetch assigned orders" });
+  }
+});
+
+router.get("/technician/service-location", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can access this endpoint" });
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    const row = await loadTechnicianServiceLocation(client, user.id);
+    if (!row) {
+      res.status(404).json({ error: "Technician not found" });
+      return;
+    }
+    const resolved = resolveTechnicianServiceLocation(row);
+    res.json({
+      needsDailyPrompt: needsDailyServiceLocationPrompt(row),
+      mode: row.serviceLocationMode,
+      resolved,
+      hasRegisteredCoords: row.registeredLat != null && row.registeredLon != null,
+      hasLastWorkCoords: row.lastWorkLat != null && row.lastWorkLon != null,
+    });
+  } catch (err) {
+    logger.error({ err, techId: user.id }, "Failed to load service location");
+    res.status(500).json({ error: "Failed to load service location" });
+  } finally {
+    client.release();
+  }
+});
+
+router.put("/technician/service-location", authMiddleware, requireAuth, async (req, res) => {
+  const user = req.user!;
+  if (user.role !== "technician") {
+    res.status(403).json({ error: "Only technicians can access this endpoint" });
+    return;
+  }
+  const { mode, latitude, longitude } = req.body as {
+    mode?: ServiceLocationMode;
+    latitude?: number;
+    longitude?: number;
+  };
+  if (mode !== "registered" && mode !== "last_work" && mode !== "current") {
+    res.status(400).json({ error: "Invalid mode" });
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await setTechnicianServiceLocation(
+      client,
+      user.id,
+      mode,
+      mode === "current" && typeof latitude === "number" && typeof longitude === "number"
+        ? { latitude, longitude }
+        : undefined,
+    );
+    const row = await loadTechnicianServiceLocation(client, user.id);
+    const resolved = row ? resolveTechnicianServiceLocation(row) : null;
+    res.json({ success: true, resolved, needsDailyPrompt: row ? needsDailyServiceLocationPrompt(row) : false });
+  } catch (err) {
+    if (err instanceof Error && err.message === "CURRENT_COORDS_REQUIRED") {
+      res.status(400).json({ error: "Current GPS coordinates are required for mode=current" });
+      return;
+    }
+    logger.error({ err, techId: user.id }, "Failed to set service location");
+    res.status(500).json({ error: "Failed to set service location" });
+  } finally {
+    client.release();
   }
 });
 

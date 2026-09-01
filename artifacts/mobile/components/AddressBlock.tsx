@@ -34,6 +34,8 @@ export interface AddressBlockProps {
   onChange: (v: AddressValue) => void;
   error?: string;
   showDetails?: boolean;
+  /** When true (default), map pin is required. Set false for web registration. */
+  mapPinRequired?: boolean;
 }
 
 interface LocationOption { id: string; nameAr: string; nameEn: string; }
@@ -51,7 +53,7 @@ function fuzzyMatchLocation(name: string | undefined, list: LocationOption[]): L
 }
 
 export default function AddressBlock({
-  value, onChange, error, showDetails = true,
+  value, onChange, error, showDetails = true, mapPinRequired = true,
 }: AddressBlockProps) {
   const colors = useColors();
   const { isRTL } = useApp();
@@ -158,6 +160,11 @@ export default function AddressBlock({
 
   return (
     <View>
+      <Text style={[s.hint, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+        {isRTL
+          ? "① اختر المحافظة أولاً  →  ② ثم المنطقة/الحي  →  ③ ثم ثبّت الموقع على الخريطة"
+          : "① Select governorate first  →  ② then area/district  →  ③ then pin on map"}
+      </Text>
 
       {/* ── Governorate ── */}
       <View style={s.field}>
@@ -206,7 +213,9 @@ export default function AddressBlock({
       {/* ── Map Button (required) ── */}
       <View style={s.field}>
         <Text style={[s.label, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-          {isRTL ? "تثبيت الموقع على الخريطة *" : "Pin Location on Map *"}
+          {isRTL
+            ? `تثبيت الموقع على الخريطة${mapPinRequired ? " *" : " (اختياري على الويب)"}`
+            : `Pin Location on Map${mapPinRequired ? " *" : " (optional on web)"}`}
         </Text>
         <TouchableOpacity
           style={[s.mapBtn, {
@@ -380,6 +389,7 @@ export default function AddressBlock({
 }
 
 const s = StyleSheet.create({
+  hint: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 12, lineHeight: 18 },
   field: { marginBottom: 14 },
   label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
   dropdown: {

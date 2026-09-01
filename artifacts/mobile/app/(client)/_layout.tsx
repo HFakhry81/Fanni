@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useClientOrderUpdates, OrderStatusNotification } from "@/hooks/useClientOrderUpdates";
 import Toast from "@/components/Toast";
 import ConnectionBanner from "@/components/ConnectionBanner";
+import AddressIncompleteBanner from "@/components/AddressIncompleteBanner";
 
 interface QueuedNotification {
   orderId: string;
@@ -198,6 +199,7 @@ export default function ClientLayout() {
       {isLiquidGlassAvailable() ? <NativeClientTabs /> : <ClassicClientTabs />}
       
       <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
+      <AddressIncompleteBanner />
 
       <Toast
         visible={current !== null}

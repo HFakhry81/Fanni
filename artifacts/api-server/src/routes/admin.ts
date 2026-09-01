@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
 import * as Sentry from "@sentry/node";
 import { captureMobileSentryException } from "../lib/mobileSentryRelay.js";
-import { db, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable, adminAuditLogsTable } from "@workspace/db";
+import { db, pool, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable, adminAuditLogsTable } from "@workspace/db";
 import { invalidateLocationCache } from "../lib/locationNormalizer";
 
 import { eq, desc, sql, and, or, ilike, gte, lte, asc, ne } from "drizzle-orm";
@@ -1361,29 +1361,52 @@ router.get(
     const offset = Math.max(0, offsetRaw);
 
     const [rows, [{ total }]] = await Promise.all([
-      db
-        .select({
-          id: usersTable.id,
-          firstName: usersTable.firstName,
-          lastName: usersTable.lastName,
-          mobile: usersTable.mobile,
-          profession: usersTable.profession,
-          specialty: usersTable.specialty,
-          governorate: usersTable.governorate,
-          area: usersTable.area,
-          nationalIdFrontUrl: usersTable.nationalIdFrontUrl,
-          nationalIdBackUrl: usersTable.nationalIdBackUrl,
-          licenseCardUrl: usersTable.licenseCardUrl,
-          bio: usersTable.bio,
-          yearsOfExperience: usersTable.yearsOfExperience,
-          approvalStatus: usersTable.approvalStatus,
-          createdAt: usersTable.createdAt,
-      })
-      .from(usersTable)
-      .where(and(eq(usersTable.role, "technician"), eq(usersTable.approvalStatus, "pending_review"), eq(usersTable.isActive, true)))
-      .orderBy(desc(usersTable.createdAt))
-      .limit(limit)
-      .offset(offset),
+      pool.query<{
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        mobile: string | null;
+        profession: string | null;
+        specialty: string | null;
+        governorate: string | null;
+        area: string | null;
+        national_id_front_url: string | null;
+        national_id_back_url: string | null;
+        license_card_url: string | null;
+        bio: string | null;
+        years_of_experience: number | null;
+        approval_status: string | null;
+        created_at: Date;
+        has_map_coords: boolean;
+      }>(
+        `SELECT
+           id, first_name, last_name, mobile, profession, specialty,
+           governorate, area, national_id_front_url, national_id_back_url, license_card_url,
+           bio, years_of_experience, approval_status, created_at,
+           (location IS NOT NULL) AS has_map_coords
+         FROM users
+         WHERE role = 'technician' AND approval_status = 'pending_review' AND is_active = true
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset],
+      ).then((r) => r.rows.map((row) => ({
+        id: row.id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        mobile: row.mobile,
+        profession: row.profession,
+        specialty: row.specialty,
+        governorate: row.governorate,
+        area: row.area,
+        nationalIdFrontUrl: row.national_id_front_url,
+        nationalIdBackUrl: row.national_id_back_url,
+        licenseCardUrl: row.license_card_url,
+        bio: row.bio,
+        yearsOfExperience: row.years_of_experience,
+        approvalStatus: row.approval_status,
+        createdAt: row.created_at,
+        hasMapCoords: row.has_map_coords,
+      }))),
     db
       .select({ total: sql<number>`COUNT(*)::int` })
       .from(usersTable)

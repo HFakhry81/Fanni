@@ -418,8 +418,10 @@ export default function RegisterScreen() {
         newErrors.area = isRTL ? "يرجى اختيار المحافظة" : "Please select a governorate";
       } else if (!addrVal.areaId) {
         newErrors.area = isRTL ? "يرجى اختيار المنطقة" : "Please select an area";
-      } else if (addrVal.latitude == null) {
+      } else if (Platform.OS !== "web" && addrVal.latitude == null) {
         newErrors.area = isRTL ? "يرجى تثبيت الموقع على الخريطة" : "Please pin your location on the map";
+      } else if (Platform.OS === "web" && addrVal.latitude == null) {
+        // Web: map pin optional — governorate + area are enough for registration
       }
       if (!acceptedTerms) {
         newErrors.terms = t(regType === "technician" ? "terms.requiredTech" : "terms.requiredClient");
@@ -1252,10 +1254,17 @@ export default function RegisterScreen() {
         </View>
       </View>
 
+      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>
+        {isRTL
+          ? "أدخل عنوان منزلك بالترتيب: المحافظة ← المنطقة ← الخريطة. على الويب يمكنك التسجيل بدون تثبيت الخريطة وإكمالها لاحقاً."
+          : "Enter your home address in order: governorate → area → map. On web you may register without a map pin and complete it later."}
+      </Text>
+
       <AddressBlock
         value={addrVal}
         onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, area: undefined })); }}
         error={errors.area}
+        mapPinRequired={Platform.OS !== "web"}
       />
       {renderTermsAcceptance()}
     </View>
@@ -1338,10 +1347,17 @@ export default function RegisterScreen() {
         </View>
       </View>
 
+      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>
+        {isRTL
+          ? "حدد نطاق خدمتك: المحافظة والمنطقة إلزاميان. تثبيت الخريطة مطلوب على الهاتف واختياري على الويب."
+          : "Set your service area: governorate and area are required. Map pin is required on mobile, optional on web."}
+      </Text>
+
       <AddressBlock
         value={addrVal}
         onChange={(v) => { setAddrVal(v); setErrors((e) => ({ ...e, area: undefined })); }}
         error={errors.area}
+        mapPinRequired={Platform.OS !== "web"}
       />
       {renderTermsAcceptance()}
     </View>
