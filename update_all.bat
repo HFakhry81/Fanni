@@ -36,21 +36,23 @@ if errorlevel 1 (
 echo [✓] Backend built successfully.
 echo ----------------------------------------------------------------------
 
-echo [4/4] Exporting Web Frontend...
-cd artifacts\mobile
-npx expo export --platform web
+echo [4/4] Exporting Web Frontend (dist-web for app.upnexa-eg.com)...
+set EXPO_PUBLIC_API_URL=https://api.upnexa-eg.com
+set EXPO_ROUTER_APP_ROOT=./app
+powershell -ExecutionPolicy Bypass -File scripts\export-web.ps1 -Zip
 if errorlevel 1 (
     echo [X] Error: Web export failed!
-    cd ..\..
     pause
     exit /b %errorlevel%
 )
-cd ..\..
-echo [✓] Web dist exported successfully.
+echo [✓] Web dist exported: artifacts\mobile\dist-web
+echo [✓] Upload zip: artifacts\mobile\dist-web.zip -^> VPS /root/fanni-dist-web.zip
+echo      Then on VPS: unzip + rsync to /var/www/fanni-web (see deploy\WEB-APP-UPNEXA.md)
 echo ----------------------------------------------------------------------
 
 echo ======================================================================
 echo  ALL TASKS COMPLETED SUCCESSFULLY!
-echo  Web dist path: artifacts\mobile\dist
+echo  Web dist path: artifacts\mobile\dist-web
+echo  Web zip path:  artifacts\mobile\dist-web.zip
 echo ======================================================================
 pause

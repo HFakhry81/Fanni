@@ -39,7 +39,12 @@ Write-Host "[export-web] output: $OutDir" -ForegroundColor Green
 if ($Zip) {
     $ZipPath = Join-Path $Mobile "dist-web.zip"
     if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
-    Compress-Archive -Path (Join-Path $OutDir "*") -DestinationPath $ZipPath -CompressionLevel Optimal
-    Write-Host "[export-web] zip:    $ZipPath" -ForegroundColor Green
+    Push-Location -LiteralPath $OutDir
+    try {
+        Compress-Archive -Path * -DestinationPath $ZipPath -CompressionLevel Optimal
+    } finally {
+        Pop-Location
+    }
+    Write-Host "[export-web] zip:    $ZipPath (contents at zip root, not dist-web/)" -ForegroundColor Green
 }
 

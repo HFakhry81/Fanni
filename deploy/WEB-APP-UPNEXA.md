@@ -54,8 +54,8 @@ mkdir -p /var/www/fanni-web
 rm -rf /tmp/fanni-web-unpack
 mkdir -p /tmp/fanni-web-unpack
 unzip -o /root/fanni-dist-web.zip -d /tmp/fanni-web-unpack
-rsync -a --delete /tmp/fanni-web-unpack/ /var/www/fanni-web/
-chown -R www-data:www-data /var/www/fanni-web
+# Zip may contain dist-web/ subfolder — publish script resolves it automatically:
+bash /var/www/fanni/scripts/publish-fanni-web.sh /tmp/fanni-web-unpack
 # APK ظ…ظ†ظپطµظ„ ط¹ظ„ظ‰ /var/www/upnexa-eg.com/fanni.apk â€” ظ„ط§ ظٹظڈظ…ط³ ظ‡ظ†ط§
 ```
 
