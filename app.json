@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "4649acef-3a01-4a10-8bbb-40ddbd92a70f"
+      }
+    },
+    "android": {
+      "package": "com.upnexaeg.fanni"
+    }
+  }
+}
