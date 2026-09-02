@@ -113,8 +113,8 @@ if [ "${FANNI_SKIP_WEB:-}" != "1" ]; then
   export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-${PUBLIC_API_URL:-https://api.upnexa-eg.com}}"
   export EXPO_ROUTER_APP_ROOT="${EXPO_ROUTER_APP_ROOT:-./app}"
   if "$PNPM" --filter @workspace/mobile exec expo export --platform web --output-dir dist-web; then
-    mkdir -p "$WEB_DIR"
-    rsync -a --delete "$ROOT/artifacts/mobile/dist-web/" "$WEB_DIR/"
+    bash "$ROOT/scripts/stage-apk-for-web.sh" "$ROOT/artifacts/mobile/dist-web"
+    bash "$ROOT/scripts/publish-fanni-web.sh" "$ROOT/artifacts/mobile/dist-web"
     echo "[deploy] web synced"
   else
     echo "[deploy] WARN: web export failed â€” API still deployed. Set FANNI_SKIP_WEB=1 to skip."

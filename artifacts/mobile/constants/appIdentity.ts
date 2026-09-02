@@ -22,8 +22,8 @@ export const APP_IDENTITY = {
   termsClientUrl: "https://upnexa-eg.com/terms-client.html",
   termsTechUrl: "https://upnexa-eg.com/terms-tech.html",
   apiUrl: "https://api.upnexa-eg.com",
-  /** Marketing site APK path on VPS: /var/www/upnexa-eg.com/fanni.apk */
-  appDownloadUrl: "https://upnexa-eg.com/fanni.apk",
+  /** APK download served from Expo web host (nginx location = /fanni.apk). */
+  appDownloadUrl: "https://app.upnexa-eg.com/fanni.apk",
   appWebHost: "app.upnexa-eg.com",
   copyrightEn: "© UpNexa. All rights reserved.",
   copyrightAr: "© أب نكسا (UpNexa). جميع الحقوق محفوظة.",

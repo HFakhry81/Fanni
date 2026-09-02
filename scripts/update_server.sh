@@ -32,6 +32,7 @@ export EXPO_ROUTER_APP_ROOT="${EXPO_ROUTER_APP_ROOT:-./app}"
 pushd "$ROOT/artifacts/mobile" >/dev/null
 pnpm exec expo export --platform web --output-dir dist-web
 popd >/dev/null
+bash "$ROOT/scripts/stage-apk-for-web.sh" "$ROOT/artifacts/mobile/dist-web"
 
 echo "[7/7] 📂 Publishing web + restarting PM2..."
 bash "$ROOT/scripts/publish-fanni-web.sh" "$ROOT/artifacts/mobile/dist-web"

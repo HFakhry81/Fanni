@@ -20,14 +20,16 @@ if [ -n "$KEEP_ENV" ]; then
 fi
 
 if [ -d /var/www/fanni/artifacts/mobile/dist-web ]; then
-  rsync -a --delete /var/www/fanni/artifacts/mobile/dist-web/ /var/www/fanni-web/
+  bash /var/www/fanni/scripts/stage-apk-for-web.sh /var/www/fanni/artifacts/mobile/dist-web
+  bash /var/www/fanni/scripts/publish-fanni-web.sh /var/www/fanni/artifacts/mobile/dist-web
 fi
 
 if [ -f /root/fanni.apk ]; then
-  # Marketing site document root (not fanni-web)
-  install -d /var/www/upnexa-eg.com
+  install -d /var/www/upnexa-eg.com /var/www/fanni-web
   cp /root/fanni.apk /var/www/upnexa-eg.com/fanni.apk
-  chmod 644 /var/www/upnexa-eg.com/fanni.apk
+  cp /root/fanni.apk /var/www/fanni-web/fanni.apk
+  chmod 644 /var/www/upnexa-eg.com/fanni.apk /var/www/fanni-web/fanni.apk
+  echo "[remote-install] APK → /var/www/fanni-web/fanni.apk (app.upnexa-eg.com/fanni.apk)"
 fi
 
 pm2 delete fanni-backend 2>/dev/null || true

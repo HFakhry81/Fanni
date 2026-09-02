@@ -36,6 +36,25 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "[export-web] output: $OutDir" -ForegroundColor Green
 
+# Stage APK into web export so /fanni.apk survives rsync publish (not in sitemap).
+$ApkCandidates = @(
+    (Join-Path $Mobile "dist\fanni.apk"),
+    (Join-Path $Root "fanni.apk")
+)
+$ApkStaged = $false
+foreach ($apk in $ApkCandidates) {
+    if (Test-Path -LiteralPath $apk) {
+        Copy-Item -LiteralPath $apk -Destination (Join-Path $OutDir "fanni.apk") -Force
+        $sizeMb = [math]::Round((Get-Item -LiteralPath $apk).Length / 1MB, 1)
+        Write-Host "[export-web] apk:    staged fanni.apk (${sizeMb} MB) from $apk" -ForegroundColor Green
+        $ApkStaged = $true
+        break
+    }
+}
+if (-not $ApkStaged) {
+    Write-Host "[export-web] warn:   no fanni.apk found — place EAS build at artifacts\mobile\dist\fanni.apk before zip upload" -ForegroundColor Yellow
+}
+
 if ($Zip) {
     $ZipPath = Join-Path $Mobile "dist-web.zip"
     if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }

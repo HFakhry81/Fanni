@@ -39,8 +39,10 @@ pnpm exec expo export --platform web --output-dir dist-web
 ```
 
 ط§ظ„ظ…ط®ط±ط¬ط§طھ:
-- ظ…ط¬ظ„ط¯: `artifacts/mobile/dist-web/`
+- ظ…ط¬ظ„ط¯: `artifacts/mobile/dist-web/` (+ `fanni.apk` if `artifacts/mobile/dist/fanni.apk` exists)
 - ط£ط±ط´ظٹظپ ظ„ظ„ط±ظپط¹: `artifacts/mobile/dist-web.zip`
+
+**APK:** ضع ملف EAS في `artifacts/mobile/dist/fanni.apk` قبل التصدير — يُنسخ تلقائياً إلى `dist-web/fanni.apk`.
 
 ---
 
@@ -56,15 +58,16 @@ mkdir -p /tmp/fanni-web-unpack
 unzip -o /root/fanni-dist-web.zip -d /tmp/fanni-web-unpack
 # Zip may contain dist-web/ subfolder — publish script resolves it automatically:
 bash /var/www/fanni/scripts/publish-fanni-web.sh /tmp/fanni-web-unpack
-# APK ظ…ظ†ظپطµظ„ ط¹ظ„ظ‰ /var/www/upnexa-eg.com/fanni.apk â€” ظ„ط§ ظٹظڈظ…ط³ ظ‡ظ†ط§
+# أو ارفع APK منفصلاً: /root/fanni.apk ثم أعد publish (stage-apk ينسخه تلقائياً)
 ```
 
 طھط­ظ‚ظ‚:
 
 ```bash
 ls -la /var/www/fanni-web/index.html
-ls -la /var/www/fanni-web/_expo/static/js/web/
-# ظٹط¬ط¨ ط£ظ† طھط±ظ‰ entry-d1e629â€¦ ط¨ط­ط¬ظ… ~3.8MB ظˆظ„ظٹط³ ba9274â€¦
+ls -la /var/www/fanni-web/fanni.apk
+# يجب ~40MB+ و Content-Type: application/vnd.android.package-archive
+curl -sI https://app.upnexa-eg.com/fanni.apk | grep -i content-type
 ```
 
 ---
@@ -100,8 +103,8 @@ API ظٹط¨ظ‚ظ‰ ظ…ظ†ظپطµظ„ظ‹ط§:
 
 1. ط§ظپطھط­ https://app.upnexa-eg.com/ â€” ظٹط¬ط¨ ط´ط§ط´ط© ط§ظ„طھط±ط­ظٹط¨/ط§ظ„ط¯ط®ظˆظ„ ظˆظ„ظٹط³ آ«No routes foundآ»
 2. https://app.upnexa-eg.com/welcome
-3. https://upnexa-eg.com/fanni.apk (APK ط¹ظ„ظ‰ `/var/www/upnexa-eg.com/fanni.apk`)
-4. DevTools â†’ Network: ظ…ظ„ظپ `entry-d1e629â€¦js` ط¨ط­ط¬ظ… ~3.8MB
+3. https://app.upnexa-eg.com/fanni.apk (يجب تحميل APK وليس صفحة Expo)
+4. https://upnexa.com/products/fanni → زر التحميل يشير إلى الرابط أعلاه
 
 ---
 
@@ -109,9 +112,9 @@ API ظٹط¨ظ‚ظ‰ ظ…ظ†ظپطµظ„ظ‹ط§:
 
 طµظپط­ط© ط§ظ„طھط³ظˆظٹظ‚ (upnexa-eg.com) ظ…ظ†ظپطµظ„ط© ط¹ظ† طھط·ط¨ظٹظ‚ ط§ظ„ظˆظٹط¨. ط·ط§ظ„ظ…ط§ ط§ظ„ط±ظˆط§ط¨ط· طھط´ظٹط± ط¥ظ„ظ‰:
 
-- ط§ظ„طھط·ط¨ظٹظ‚: `https://app.upnexa-eg.com/`
-- APK: `https://upnexa-eg.com/fanni.apk` (ظ…ظ„ظپ: `/var/www/upnexa-eg.com/fanni.apk`)
-- API: `https://api.upnexa-eg.com`
+- التطبيق: `https://app.upnexa-eg.com/`
+- APK: `https://app.upnexa-eg.com/fanni.apk` (ملف: `/var/www/fanni-web/fanni.apk`)
+- صفحة التسويق: `https://upnexa.com/products/fanni` (Sitemap — لا يحتوي رابط APK)
 
 ظپظ„ط§ ط­ط§ط¬ط© ظ„طھط¹ط¯ظٹظ„ ط§ظ„طھط³ظˆظٹظ‚ ط¨ط¹ط¯ ط§ط³طھط¨ط¯ط§ظ„ `/var/www/fanni-web`.
 

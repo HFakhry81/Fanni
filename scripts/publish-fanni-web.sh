@@ -34,6 +34,9 @@ RESOLVED="$(resolve_src "$SRC")"
 echo "[publish-fanni-web] source: $RESOLVED"
 echo "[publish-fanni-web] target: $WEB_DIR"
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+bash "$ROOT/scripts/stage-apk-for-web.sh" "$RESOLVED"
+
 ENTRY="$(grep -o 'entry-[^"]*\.js' "$RESOLVED/index.html" | head -1 || true)"
 if [ -z "$ENTRY" ] || [ ! -f "$RESOLVED/_expo/static/js/web/$ENTRY" ]; then
   echo "ERROR: index.html references ${ENTRY:-?} but file is missing under $RESOLVED/_expo/static/js/web/" >&2
@@ -48,3 +51,9 @@ find "$WEB_DIR" -type f -exec chmod 644 {} \;
 
 ENTRY="$(grep -o 'entry-[^"]*\.js' "$WEB_DIR/index.html" | head -1)"
 echo "[publish-fanni-web] OK index.html + _expo/static/js/web/$ENTRY"
+if [ -f "$WEB_DIR/fanni.apk" ]; then
+  apk_size="$(du -h "$WEB_DIR/fanni.apk" | awk '{print $1}')"
+  echo "[publish-fanni-web] OK fanni.apk ($apk_size) — https://app.upnexa-eg.com/fanni.apk"
+else
+  echo "[publish-fanni-web] WARN: fanni.apk missing — upload EAS build to /root/fanni.apk then re-run publish" >&2
+fi
