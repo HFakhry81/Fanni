@@ -43,6 +43,7 @@
   "dependencies": {
     "drizzle-orm": "^0.45.2",
     "jimp": "^1.6.1",
-    "@swc/helpers": "^0.5.23"
+    "@swc/helpers": "^0.5.23",
+    "expo": "~54.0.37"
   }
 }
