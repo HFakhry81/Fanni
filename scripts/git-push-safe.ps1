@@ -16,18 +16,16 @@ $blocked = @(
   '\.mobileprovision$'
 )
 
-$staged = git diff --cached --name-only
-if (-not $staged) {
-  # Also block if dirty unstaged secrets would be force-added by mistake later —
-  # only enforce on staged set for push.
-  Write-Host "[git-push-safe] no staged files — pushing commits only" -ForegroundColor Cyan
+$staged = @(git diff --cached --name-only)
+if ($staged.Count -eq 0) {
+  Write-Host "[git-push-safe] no staged files - pushing commits only" -ForegroundColor Cyan
 }
 
 foreach ($file in $staged) {
   foreach ($pat in $blocked) {
     if ($file -match $pat) {
-      Write-Host "ERROR: refusing push — staged secret/env file: $file" -ForegroundColor Red
-      Write-Host "Unstage it: git restore --staged `"$file`"" -ForegroundColor Yellow
+      Write-Host "ERROR: refusing push - staged secret/env file: $file" -ForegroundColor Red
+      Write-Host ('Unstage it: git restore --staged "{0}"' -f $file) -ForegroundColor Yellow
       exit 1
     }
   }
@@ -37,10 +35,10 @@ foreach ($file in $staged) {
 $mustIgnore = @(".env", ".env.production", "artifacts/mobile/.env", "artifacts/api-server/.env")
 foreach ($f in $mustIgnore) {
   if (Test-Path -LiteralPath $f) {
-    $tracked = git ls-files --error-unmatch -- $f 2>$null
+    git ls-files --error-unmatch -- $f 1>$null 2>$null
     if ($LASTEXITCODE -eq 0) {
-      Write-Host "ERROR: $f is tracked by git — remove it from the index before push." -ForegroundColor Red
-      Write-Host "  git rm --cached `"$f`"" -ForegroundColor Yellow
+      Write-Host "ERROR: $f is tracked by git - remove it from the index before push." -ForegroundColor Red
+      Write-Host ('  git rm --cached "{0}"' -f $f) -ForegroundColor Yellow
       exit 1
     }
   }
