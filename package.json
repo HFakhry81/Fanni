@@ -45,9 +45,6 @@
   "dependencies": {
     "@swc/helpers": "^0.5.23",
     "drizzle-orm": "^0.45.2",
-    "expo": "~54.0.37",
-    "jimp": "^1.6.1",
-    "react": "catalog:",
-    "react-native": "0.81.5"
+    "jimp": "^1.6.1"
   }
 }
