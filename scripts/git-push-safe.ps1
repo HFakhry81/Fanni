@@ -31,12 +31,12 @@ foreach ($file in $staged) {
   }
 }
 
-# Ensure real env files stay untracked
+# Ensure real env files stay untracked (git ls-files prints path if tracked, else empty)
 $mustIgnore = @(".env", ".env.production", "artifacts/mobile/.env", "artifacts/api-server/.env")
 foreach ($f in $mustIgnore) {
   if (Test-Path -LiteralPath $f) {
-    git ls-files --error-unmatch -- $f 1>$null 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    $trackedName = @(git ls-files -- $f)
+    if ($trackedName.Count -gt 0) {
       Write-Host "ERROR: $f is tracked by git - remove it from the index before push." -ForegroundColor Red
       Write-Host ('  git rm --cached "{0}"' -f $f) -ForegroundColor Yellow
       exit 1
