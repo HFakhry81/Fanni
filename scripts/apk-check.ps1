@@ -1,3 +1,4 @@
+# APK preflight: Expo doctor (soft) + expo install --check + typecheck
 $ErrorActionPreference = "Stop"
 if (-not $env:NODE_OPTIONS) {
     $env:NODE_OPTIONS = "--use-system-ca"
@@ -10,7 +11,8 @@ $mobile = Join-Path $Root "artifacts\mobile"
 Set-Location -LiteralPath $mobile
 
 Write-Host "=== APK preflight (Expo doctor + deps) ===" -ForegroundColor Cyan
-Write-Host "Directory: $mobile`n"
+Write-Host "Directory: $mobile"
+Write-Host ""
 
 if (-not (Test-Path -LiteralPath ".\app.json")) {
     Write-Host "ERROR: app.json not found." -ForegroundColor Red
@@ -31,9 +33,8 @@ if ($doctorCode -ne 0) {
     Write-Host ""
     Write-Host "NOTE: In pnpm monorepos, expo-doctor often flags duplicate native modules" -ForegroundColor Yellow
     Write-Host "even when versions match (same package, different store links)." -ForegroundColor Yellow
-    Write-Host "EAS Cloud installs fresh — local duplicates do not always block APK builds." -ForegroundColor Yellow
+    Write-Host "EAS Cloud installs fresh - local duplicates do not always block APK builds." -ForegroundColor Yellow
     Write-Host "If versions differ (not just duplicate paths), fix deps before building." -ForegroundColor Yellow
-    # Soft-fail only when exit was from doctor; still fail hard on install --check / typecheck below.
     Write-Host "Continuing APK preflight after doctor warnings..." -ForegroundColor Yellow
 }
 
@@ -44,7 +45,9 @@ pnpm run typecheck
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if ($doctorCode -ne 0) {
-    Write-Host "`nOK - typecheck + expo install --check passed (doctor had warnings)." -ForegroundColor Green
+    Write-Host ""
+    Write-Host "OK - typecheck + expo install --check passed (doctor had warnings)." -ForegroundColor Green
 } else {
-    Write-Host "`nOK - project passes Expo doctor and APK preflight checks." -ForegroundColor Green
+    Write-Host ""
+    Write-Host "OK - project passes Expo doctor and APK preflight checks." -ForegroundColor Green
 }
