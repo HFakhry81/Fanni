@@ -24,7 +24,8 @@
     "migrate": "pnpm --filter @workspace/db run migrate",
     "env:export-prod": "powershell -ExecutionPolicy Bypass -File ./scripts/export-prod-env-for-git.ps1",
     "apk:check": "powershell -ExecutionPolicy Bypass -File ./scripts/apk-check.ps1",
-    "apk:build": "powershell -ExecutionPolicy Bypass -File ./scripts/eas-apk.ps1"
+    "apk:build": "powershell -ExecutionPolicy Bypass -File ./scripts/eas-apk.ps1",
+    "git:push": "powershell -ExecutionPolicy Bypass -File ./scripts/git-push-safe.ps1"
   },
   "private": true,
   "devDependencies": {

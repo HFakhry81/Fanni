@@ -33,9 +33,16 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+.env.production
+
+# Sentry / EAS secrets & noise
+.sentryclirc
+sentry.auth.token
+auth.token
+sentry-wizard-installation-error-*.log
+.eas/
 
 # typescript
 *.tsbuildinfo
 .vercel
-
-.env

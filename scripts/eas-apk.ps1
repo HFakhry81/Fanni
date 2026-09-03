@@ -16,4 +16,9 @@ $mobile = Join-Path $Root "artifacts\mobile"
 Set-Location -LiteralPath $mobile
 Write-Host "`nStarting EAS cloud build from: $mobile`n" -ForegroundColor Cyan
 
-npx --yes eas-cli@16 build --platform android --profile preview --non-interactive --wait --clear-cache
+npx --yes --use-system-ca eas-cli@16 build --platform android --profile preview --non-interactive --wait --clear-cache
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "npx eas-cli failed (often SSL). Retrying with NODE_OPTIONS=--use-system-ca via pnpm dlx..." -ForegroundColor Yellow
+    $env:NODE_OPTIONS = "--use-system-ca"
+    pnpm dlx eas-cli@16 build --platform android --profile preview --non-interactive --wait --clear-cache
+}

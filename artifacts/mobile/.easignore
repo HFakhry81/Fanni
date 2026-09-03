@@ -11,3 +11,10 @@ dist/
 *.apk
 *.log
 eas-fail*
+.sentryclirc
+sentry.auth.token
+auth.token
+sentry-wizard-installation-error-*.log
+.env
+.env.*
+!.env.example

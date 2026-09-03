@@ -86,3 +86,15 @@ backup_new.sql
 .env.production
 .env.local
 
+# Sentry auth / CLI secrets (never commit; public DSN in eas.json is OK)
+.sentryclirc
+**/.sentryclirc
+sentry.auth.token
+**/auth.token
+artifacts/mobile/sentry-wizard-installation-error-*.log
+
+# EAS / Expo local credentials
+.eas/
+**/.expo/
+artifacts/mobile/.expo/
+
