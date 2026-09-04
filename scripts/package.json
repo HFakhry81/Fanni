@@ -4,11 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "hello": "tsx ./src/hello.ts",
     "review:update": "node ./src/update-project-review.mjs",
     "review:log": "node ./src/log-commit-to-review.mjs --head",
     "review:seed": "node ./src/log-commit-to-review.mjs --seed 40",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "node -e \"const{readdirSync,existsSync}=require('fs');const{execFileSync}=require('child_process');const p='./src';if(!existsSync(p)||!readdirSync(p).some(f=>f.endsWith('.ts'))){console.log('[scripts] no .ts sources; skip typecheck');process.exit(0)}execFileSync('tsc',['-p','tsconfig.json','--noEmit'],{stdio:'inherit'})\""
   },
   "devDependencies": {
     "@types/node": "catalog:",

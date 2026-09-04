@@ -60,6 +60,7 @@ if (-not $SkipInstall) {
     if ($LASTEXITCODE -ne 0) { Fail "pnpm install failed" }
     if (Test-Path -LiteralPath ".\scripts\fix-windows-deps.ps1") {
         powershell -ExecutionPolicy Bypass -File .\scripts\fix-windows-deps.ps1
+        if ($LASTEXITCODE -ne 0) { Fail "fix-windows-deps failed" }
     }
 } else {
     Write-Host "[1/7] skip install" -ForegroundColor Yellow

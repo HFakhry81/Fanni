@@ -27,7 +27,7 @@ cd /d "%ROOT%"
 
 echo [INFO] Metro IP  : %MY_IP%
 echo [INFO] Local API : %EXPO_PUBLIC_API_URL%
-echo [INFO] Tip       : start API first via run-server-local.cmd
+echo [INFO] Tip       : start API first via run-local-server.cmd
 echo.
 echo ----------------------------------------------------------------------
 echo [ACTION] Launching Expo...

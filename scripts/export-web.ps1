@@ -52,7 +52,7 @@ foreach ($apk in $ApkCandidates) {
     }
 }
 if (-not $ApkStaged) {
-    Write-Host "[export-web] warn:   no fanni.apk found — place EAS build at artifacts\mobile\dist\fanni.apk before zip upload" -ForegroundColor Yellow
+    Write-Host "[export-web] warn:   no fanni.apk found - place EAS build at artifacts\mobile\dist\fanni.apk before zip upload" -ForegroundColor Yellow
 }
 
 if ($Zip) {

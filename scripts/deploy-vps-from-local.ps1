@@ -62,7 +62,7 @@ if (-not $SkipPack) {
 }
 
 if (-not (Test-Path -LiteralPath $Zip)) {
-  throw "Zip not found: $Zip — run without -SkipPack"
+  throw "Zip not found: $Zip - run without -SkipPack"
 }
 
 Write-Host "[deploy] uploading zip ($([math]::Round((Get-Item $Zip).Length / 1MB, 1)) MB) ..."
@@ -76,7 +76,7 @@ if (-not $SkipApk -and (Test-Path -LiteralPath $Apk)) {
   & scp.exe @scpApk
   if ($LASTEXITCODE -ne 0) { throw "scp apk failed" }
 } elseif (-not $SkipApk) {
-  Write-Host "[deploy] WARN: APK not found at $Apk — skipping"
+  Write-Host "[deploy] WARN: APK not found at $Apk - skipping"
 }
 
 $RemoteScriptLocal = Join-Path $Root "scripts\remote-install-from-zip.sh"

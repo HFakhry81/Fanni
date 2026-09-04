@@ -28,9 +28,16 @@ This reads `.env.production`, redacts secrets, and writes `deploy/env.production
 
 Desktop shortcuts (also under `scripts\`):
 
-1. `run-server-local.cmd` / `run-server.txt` — API on port 3000 + local Postgres
-2. `run-mobile-local.cmd` / `run-mobile.txt` — Expo → `http://192.168.1.17:3000`
+1. `run-local-server.cmd` — API on port 3000 + local Postgres
+2. `run-local-mobile.cmd` — Expo → LAN API (edit `MY_IP` inside the script)
 3. `run-mobile-prod-api.cmd` — Expo Metro against **live** API (QA only)
+
+Daily refresh (install + migrate + seed + typecheck + web zip + git):
+
+```bat
+cd /d E:\UpNexa.com\Fanni
+pnpm run update:all
+```
 
 Or:
 
