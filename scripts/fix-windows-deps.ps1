@@ -190,9 +190,19 @@ function Ensure-SentryCore {
     -CanaryRelativePath "build\esm\tracing\openai\index.js"
 }
 
+function Ensure-ChromeLauncher {
+  # @react-native/dev-middleware needs chrome-launcher/dist/index.js; Windows extracts often keep only .d.ts.
+  Restore-PnpmPackageFromNpm `
+    -PackageName "chrome-launcher" `
+    -Version "0.15.2" `
+    -PnpmFilter "chrome-launcher@0.15.2*" `
+    -CanaryRelativePath "dist\index.js"
+}
+
 Ensure-SwcHelpers
 Ensure-EsbuildWin32
 Ensure-ExpoFont
 Ensure-SentryReactNative
 Ensure-SentryCore
+Ensure-ChromeLauncher
 Write-Host "[fix-windows-deps] ok" -ForegroundColor Green
