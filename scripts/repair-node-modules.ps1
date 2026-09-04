@@ -99,6 +99,11 @@ if ($Full) {
     # Targeted restores for packages we already saw corrupted
     RestoreNpmPackage "react-devtools-core" "6.1.5" "react-devtools-core@6.1.5"
     RestoreNpmPackage "@egjs/hammerjs" "2.0.17" "@egjs+hammerjs@2.0.17"
+    RestoreNpmPackage "expo-font" "14.0.12" ((Get-ChildItem (Join-Path $Root "node_modules\.pnpm") -Directory -Filter "expo-font@*" | Select-Object -First 1).Name)
+    $sentryFolder = (Get-ChildItem (Join-Path $Root "node_modules\.pnpm") -Directory -Filter "@sentry+react-native@*" | Select-Object -First 1).Name
+    if ($sentryFolder) {
+        RestoreNpmPackage "@sentry/react-native" "7.2.0" $sentryFolder
+    }
     # mime-db may be 1.52 or 1.54 depending on lock
     $mime = Get-ChildItem (Join-Path $Root "node_modules\.pnpm") -Directory -Filter "mime-db@*" -ErrorAction SilentlyContinue |
         Select-Object -First 1

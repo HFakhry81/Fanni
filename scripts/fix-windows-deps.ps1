@@ -69,6 +69,75 @@ function Ensure-EsbuildWin32 {
   Write-Host "[fix-windows-deps] @esbuild/win32-x64 restored" -ForegroundColor Green
 }
 
+function Ensure-ExpoFont {
+  $plugin = Join-Path $Root "artifacts\mobile\node_modules\expo-font\app.plugin.js"
+  $build = Join-Path $Root "artifacts\mobile\node_modules\expo-font\build\index.js"
+  if ((Test-Path -LiteralPath $plugin) -and (Test-Path -LiteralPath $build)) { return }
+
+  Write-Host "[fix-windows-deps] repairing expo-font ..." -ForegroundColor Yellow
+  $folder = Get-ChildItem (Join-Path $Root "node_modules\.pnpm") -Directory -Filter "expo-font@*" |
+    Select-Object -First 1
+  if (-not $folder) {
+    throw "[fix-windows-deps] expo-font pnpm folder not found - run pnpm install"
+  }
+  $dest = Join-Path $folder.FullName "node_modules\expo-font"
+  $tmp = Join-Path $env:TEMP ("expo-font-" + [guid]::NewGuid().ToString("N"))
+  New-Item -ItemType Directory -Path $tmp | Out-Null
+  try {
+    Push-Location $tmp
+    npm pack "expo-font@14.0.12" | Out-Null
+    $tg = Get-ChildItem *.tgz | Select-Object -First 1
+    tar -xzf $tg.Name
+    if (Test-Path -LiteralPath $dest) {
+      & node -e "const fs=require('fs'); fs.rmSync(process.argv[1],{recursive:true,force:true});" $dest
+    }
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    Copy-Item -Recurse -Force ".\package\*" $dest
+  } finally {
+    Pop-Location
+    Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+  }
+  if (-not ((Test-Path -LiteralPath $plugin) -or (Test-Path -LiteralPath (Join-Path $dest "app.plugin.js")))) {
+    throw "[fix-windows-deps] expo-font still missing app.plugin.js"
+  }
+  Write-Host "[fix-windows-deps] expo-font restored" -ForegroundColor Green
+}
+
+function Ensure-SentryReactNative {
+  $index = Join-Path $Root "artifacts\mobile\node_modules\@sentry\react-native\dist\js\index.js"
+  if (Test-Path -LiteralPath $index) { return }
+
+  Write-Host "[fix-windows-deps] repairing @sentry/react-native ..." -ForegroundColor Yellow
+  $folder = Get-ChildItem (Join-Path $Root "node_modules\.pnpm") -Directory -Filter "@sentry+react-native@*" |
+    Select-Object -First 1
+  if (-not $folder) {
+    throw "[fix-windows-deps] @sentry/react-native pnpm folder not found - run pnpm install"
+  }
+  $dest = Join-Path $folder.FullName "node_modules\@sentry\react-native"
+  $tmp = Join-Path $env:TEMP ("sentry-rn-" + [guid]::NewGuid().ToString("N"))
+  New-Item -ItemType Directory -Path $tmp | Out-Null
+  try {
+    Push-Location $tmp
+    npm pack "@sentry/react-native@7.2.0" | Out-Null
+    $tg = Get-ChildItem *.tgz | Select-Object -First 1
+    tar -xzf $tg.Name
+    if (Test-Path -LiteralPath $dest) {
+      & node -e "const fs=require('fs'); fs.rmSync(process.argv[1],{recursive:true,force:true});" $dest
+    }
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    Copy-Item -Recurse -Force ".\package\*" $dest
+  } finally {
+    Pop-Location
+    Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+  }
+  if (-not (Test-Path -LiteralPath (Join-Path $dest "dist\js\index.js"))) {
+    throw "[fix-windows-deps] @sentry/react-native still missing dist/js/index.js"
+  }
+  Write-Host "[fix-windows-deps] @sentry/react-native restored" -ForegroundColor Green
+}
+
 Ensure-SwcHelpers
 Ensure-EsbuildWin32
+Ensure-ExpoFont
+Ensure-SentryReactNative
 Write-Host "[fix-windows-deps] ok" -ForegroundColor Green
