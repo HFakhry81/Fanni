@@ -136,8 +136,63 @@ function Ensure-SentryReactNative {
   Write-Host "[fix-windows-deps] @sentry/react-native restored" -ForegroundColor Green
 }
 
+function Restore-PnpmPackageFromNpm {
+  param(
+    [Parameter(Mandatory = $true)][string]$PackageName,
+    [Parameter(Mandatory = $true)][string]$Version,
+    [Parameter(Mandatory = $true)][string]$PnpmFilter,
+    [Parameter(Mandatory = $true)][string]$CanaryRelativePath
+  )
+
+  $folder = Get-ChildItem (Join-Path $Root "node_modules\.pnpm") -Directory -Filter $PnpmFilter |
+    Sort-Object Name -Descending |
+    Select-Object -First 1
+  if (-not $folder) {
+    Write-Host "[fix-windows-deps] $PackageName pnpm folder not found - run pnpm install" -ForegroundColor Yellow
+    return
+  }
+
+  $scopedPath = $PackageName -replace "/", "\"
+  $dest = Join-Path $folder.FullName "node_modules\$scopedPath"
+  $canary = Join-Path $dest $CanaryRelativePath
+  if (Test-Path -LiteralPath $canary) { return }
+
+  Write-Host "[fix-windows-deps] repairing $PackageName@$Version ..." -ForegroundColor Yellow
+  $tmp = Join-Path $env:TEMP (("pkg-" + ($PackageName -replace "[@/]", "-") + "-") + [guid]::NewGuid().ToString("N"))
+  New-Item -ItemType Directory -Path $tmp | Out-Null
+  try {
+    Push-Location $tmp
+    npm pack "${PackageName}@${Version}" | Out-Null
+    $tg = Get-ChildItem *.tgz | Select-Object -First 1
+    if (-not $tg) { throw "[fix-windows-deps] npm pack failed for $PackageName@$Version" }
+    tar -xzf $tg.Name
+    if (Test-Path -LiteralPath $dest) {
+      & node -e "const fs=require('fs'); fs.rmSync(process.argv[1],{recursive:true,force:true});" $dest
+    }
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    Copy-Item -Recurse -Force ".\package\*" $dest
+  } finally {
+    Pop-Location
+    Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+  }
+  if (-not (Test-Path -LiteralPath $canary)) {
+    throw "[fix-windows-deps] $PackageName still missing $CanaryRelativePath"
+  }
+  Write-Host "[fix-windows-deps] $PackageName restored" -ForegroundColor Green
+}
+
+function Ensure-SentryCore {
+  # Incomplete Windows extracts often drop esm tracing entrypoints (openai/index.js present as .map only).
+  Restore-PnpmPackageFromNpm `
+    -PackageName "@sentry/core" `
+    -Version "10.73.0" `
+    -PnpmFilter "@sentry+core@10.73.0" `
+    -CanaryRelativePath "build\esm\tracing\openai\index.js"
+}
+
 Ensure-SwcHelpers
 Ensure-EsbuildWin32
 Ensure-ExpoFont
 Ensure-SentryReactNative
+Ensure-SentryCore
 Write-Host "[fix-windows-deps] ok" -ForegroundColor Green
