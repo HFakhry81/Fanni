@@ -14,7 +14,6 @@ import BonusGrantGate from "@/components/BonusGrantGate";
 import AddressIncompleteBanner from "@/components/AddressIncompleteBanner";
 import ServiceLocationDailyModal from "@/components/ServiceLocationDailyModal";
 import { WalletProvider } from "@/context/WalletContext";
-import ConnectionBanner, { CONNECTION_BANNER_HEIGHT } from "@/components/ConnectionBanner";
 import SyncingBanner from "@/components/SyncingBanner";
 import { getApiBase } from "@/utils/api";
 
@@ -353,7 +352,6 @@ function TechLayoutInner() {
   const { availablePendingCount, unreadCompletedCount } = useOrders();
   const { language, user, hasPendingToggle } = useApp();
   const profileSetupIncomplete = !user?.serviceCategories || user.serviceCategories.length === 0;
-  const { isWsConnected } = useTechWs();
   const notifUnreadCount = useNotificationUnreadCount();
   const [adminNotification, setAdminNotification] = useState<{ message: string; visible: boolean }>({
     message: "",
@@ -399,22 +397,15 @@ function TechLayoutInner() {
     ? <NativeTechTabs availablePendingCount={availablePendingCount} unreadCompletedCount={unreadCompletedCount} profileSetupIncomplete={profileSetupIncomplete} notifUnreadCount={notifUnreadCount} />
     : <ClassicTechTabs notifUnreadCount={notifUnreadCount} />;
 
-  const reconnectLabel = language === "ar" ? "تعذر الاتصال — جارٍ إعادة المحاولة…" : "Connection failed — retrying…";
   const syncingLabel = language === "ar" ? "جارٍ المزامنة…" : "Syncing…";
   const cancelledMessage = language === "ar"
     ? `${ORDER_CANCELLED_MESSAGES.ar}\n${ORDER_CANCELLED_MESSAGES.en}`
     : `${ORDER_CANCELLED_MESSAGES.en}\n${ORDER_CANCELLED_MESSAGES.ar}`;
 
-  const syncingTopOffset = !isWsConnected ? CONNECTION_BANNER_HEIGHT : 0;
-
   return (
     <>
       {tabs}
-      
-      {/* 👈 تم تصحيح الكود هنا لتضمين الخصائص الفعلية وإزالة رمز النقاط الثلاث */}
-      <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
-      
-      <SyncingBanner visible={hasPendingToggle} label={syncingLabel} topOffset={syncingTopOffset} />
+      <SyncingBanner visible={hasPendingToggle} label={syncingLabel} />
       <Toast
         visible={adminNotification.visible}
         message={adminNotification.message}

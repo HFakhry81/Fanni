@@ -10,7 +10,6 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useClientOrderUpdates, OrderStatusNotification } from "@/hooks/useClientOrderUpdates";
 import Toast from "@/components/Toast";
-import ConnectionBanner from "@/components/ConnectionBanner";
 import AddressIncompleteBanner from "@/components/AddressIncompleteBanner";
 
 interface QueuedNotification {
@@ -20,14 +19,12 @@ interface QueuedNotification {
 
 function ClientOrderUpdatesListener({
   onNotification,
-  onConnectionChange,
 }: {
   onNotification: (n: OrderStatusNotification) => void;
-  onConnectionChange: (connected: boolean) => void;
 }) {
   const { user } = useApp();
   const { sessionToken } = useAuth();
-  useClientOrderUpdates(user, sessionToken, onNotification, onConnectionChange);
+  useClientOrderUpdates(user, sessionToken, onNotification);
   return null;
 }
 
@@ -134,8 +131,6 @@ export default function ClientLayout() {
   const router = useRouter();
   const { language } = useApp();
 
-  const [isWsConnected, setIsWsConnected] = useState(false);
-
   const queueRef = useRef<QueuedNotification[]>([]);
   const [current, setCurrent] = useState<QueuedNotification | null>(null);
   const currentRef = useRef<QueuedNotification | null>(null);
@@ -191,14 +186,10 @@ export default function ClientLayout() {
     }
   }, [current?.orderId, router]);
 
-  const reconnectLabel = language === "ar" ? "تعذر الاتصال — جارٍ إعادة المحاولة…" : "Connection failed — retrying…";
-
   return (
     <>
-      <ClientOrderUpdatesListener onNotification={handleNotification} onConnectionChange={setIsWsConnected} />
+      <ClientOrderUpdatesListener onNotification={handleNotification} />
       {isLiquidGlassAvailable() ? <NativeClientTabs /> : <ClassicClientTabs />}
-      
-      <ConnectionBanner connected={isWsConnected} reconnectingLabel={reconnectLabel} />
       <AddressIncompleteBanner />
 
       <Toast
