@@ -5,7 +5,7 @@
   "packageManager": "pnpm@11.23.0",
   "scripts": {
     "preinstall": "echo pnpm",
-    "prepare": "node ./scripts/src/install-git-hooks.mjs",
+    "prepare": "node -e \"const{existsSync}=require('fs');if(!existsSync('./scripts/src/install-git-hooks.mjs')){console.warn('[prepare] skip: missing scripts/src/install-git-hooks.mjs');process.exit(0)}\" && node ./scripts/src/install-git-hooks.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "review:update": "pnpm --filter @workspace/scripts run review:update",
     "review:log": "node ./scripts/src/log-commit-to-review.mjs --head",
