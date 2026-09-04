@@ -48,6 +48,14 @@ function Get-SshBaseArgs {
   return $a
 }
 
+function Get-ScpBaseArgs {
+  $a = @("-P", "$Port", "-o", "StrictHostKeyChecking=accept-new")
+  if ($KeyPath -and (Test-Path -LiteralPath $KeyPath)) {
+    $a += @("-i", $KeyPath)
+  }
+  return $a
+}
+
 function Invoke-Remote {
   param([string]$Command)
   $sshArgs = @(Get-SshBaseArgs) + @("${User}@${VpsHost}", $Command)
@@ -66,13 +74,13 @@ if (-not (Test-Path -LiteralPath $Zip)) {
 }
 
 Write-Host "[deploy] uploading zip ($([math]::Round((Get-Item $Zip).Length / 1MB, 1)) MB) ..."
-$scpArgs = @(Get-SshBaseArgs) + @($Zip, "${User}@${VpsHost}:/root/fanni-vps-upload.zip")
+$scpArgs = @(Get-ScpBaseArgs) + @($Zip, "${User}@${VpsHost}:/root/fanni-vps-upload.zip")
 & scp.exe @scpArgs
 if ($LASTEXITCODE -ne 0) { throw "scp zip failed" }
 
 if (-not $SkipApk -and (Test-Path -LiteralPath $Apk)) {
   Write-Host "[deploy] uploading APK ($([math]::Round((Get-Item $Apk).Length / 1MB, 1)) MB) ..."
-  $scpApk = @(Get-SshBaseArgs) + @($Apk, "${User}@${VpsHost}:/root/fanni.apk")
+  $scpApk = @(Get-ScpBaseArgs) + @($Apk, "${User}@${VpsHost}:/root/fanni.apk")
   & scp.exe @scpApk
   if ($LASTEXITCODE -ne 0) { throw "scp apk failed" }
 } elseif (-not $SkipApk) {
@@ -85,7 +93,7 @@ if (-not (Test-Path -LiteralPath $RemoteScriptLocal)) {
 }
 
 Write-Host "[deploy] uploading remote install script ..."
-$scpSh = @(Get-SshBaseArgs) + @($RemoteScriptLocal, "${User}@${VpsHost}:/root/fanni-remote-install.sh")
+$scpSh = @(Get-ScpBaseArgs) + @($RemoteScriptLocal, "${User}@${VpsHost}:/root/fanni-remote-install.sh")
 & scp.exe @scpSh
 if ($LASTEXITCODE -ne 0) { throw "scp remote script failed" }
 
