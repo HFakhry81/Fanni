@@ -8,8 +8,15 @@ const workspaceRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
+// Watch only the mobile app + shared workspace libs — not the whole monorepo
+// node_modules tree (Metro FallbackWatcher crashes on corrupt NTFS entries under .pnpm).
 config.watchFolders = [
-  ...new Set([...(config.watchFolders ?? []), projectRoot, workspaceRoot]),
+  ...new Set([
+    ...(config.watchFolders ?? []),
+    projectRoot,
+    path.resolve(workspaceRoot, "lib/api-client-react"),
+    path.resolve(workspaceRoot, "lib/api-zod"),
+  ]),
 ];
 config.resolver.nodeModulesPaths = [
   ...new Set([
@@ -18,6 +25,21 @@ config.resolver.nodeModulesPaths = [
     path.resolve(workspaceRoot, "node_modules"),
   ]),
 ];
+
+// Skip dependency sourcemaps; they are not needed for bundling and some Windows
+// installs leave ghost .map files that make lstat fail with errno -4094.
+const mapBlock = /node_modules[/\\].*\.map$/;
+const existingBlockList = config.resolver.blockList;
+if (Array.isArray(existingBlockList)) {
+  config.resolver.blockList = [...existingBlockList, mapBlock];
+} else if (existingBlockList instanceof RegExp) {
+  config.resolver.blockList = [existingBlockList, mapBlock];
+} else if (typeof existingBlockList === "function") {
+  const prev = existingBlockList;
+  config.resolver.blockList = (filePath) => prev(filePath) || mapBlock.test(filePath);
+} else {
+  config.resolver.blockList = [mapBlock];
+}
 
 const ROUTER_CTX = path.resolve(projectRoot, "metro-router-ctx.js");
 
