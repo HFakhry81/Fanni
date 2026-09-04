@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Modal, Pressable, ActivityIndicator, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import VectorIcon from "@/components/VectorIcon";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useOrders, Order } from "@/context/OrderContext";
+import { useWallet } from "@/context/WalletContext";
 import FanniButton from "@/components/FanniButton";
 import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
@@ -16,13 +17,14 @@ import { shouldShowDailyPrompt, markDailyPromptShown } from "@/utils/dailyPrompt
 
 const ALEXANDRIA = { latitude: 31.2001, longitude: 29.9187 };
 const LOCATION_BANNER_KEY = "fanni.tech.map.location_banner";
-
+const DEFAULT_UNLOCK_COST = 20;
 
 export default function TechMapScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL, user, isOnline, setIsOnline, hasPendingToggle } = useApp();
   const { sessionToken } = useAuth();
+  const { summary, refreshWallet } = useWallet();
   const { allOrders, updateOrder, newPendingOrders, markOrderSeen } = useOrders();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -47,8 +49,8 @@ export default function TechMapScreen() {
   const [serverPendingOrders, setServerPendingOrders] = useState<Order[] | null>(null);
   const [isFetchingOrders, setIsFetchingOrders] = useState(false);
 
-  const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
-  const showCatBanner = catBannerHydrated && !!user && !catBannerDismissed && !hasCategories;
+  const hasProfession = !!user?.profession?.trim();
+  const showCatBanner = catBannerHydrated && !!user && !catBannerDismissed && !hasProfession;
 
   const govLabel = (isRTL ? user?.governorateNameAr : user?.governorateNameEn) ?? user?.governorate ?? null;
   const areaLabel = (isRTL ? user?.areaNameAr : user?.areaNameEn) ?? user?.area ?? null;
@@ -113,7 +115,7 @@ export default function TechMapScreen() {
       fetchServerPendingOrders();
     }, 30_000);
     return () => clearInterval(intervalId);
-  }, [isOnline, sessionToken, user?.governorate, user?.area, fetchServerPendingOrders]);
+  }, [isOnline, sessionToken, user?.governorate, user?.area, user?.profession, fetchServerPendingOrders]);
 
   const localPendingOrders = allOrders.filter((o) => o.status === "pending");
   const localFilteredOrders = hasServiceArea
@@ -174,23 +176,73 @@ export default function TechMapScreen() {
     fetchServerPendingOrders();
   }, [newPendingOrders, modalVisible, isOnline, hasServiceArea, user?.governorate, user?.area]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAccept = async () => {
-    if (!selectedOrder) return;
+  const unlockCostOf = (order: Order) =>
+    (order as Order & { unlockCost?: number }).unlockCost ?? DEFAULT_UNLOCK_COST;
+
+  const showInsufficientPoints = (required: number, balance: number) => {
+    Alert.alert(
+      isRTL ? "رصيدك الحالي مش كافي" : "Insufficient points",
+      isRTL
+        ? `محتاج ${required} نقطة، ورصيدك الحالي ${balance} نقاط.`
+        : `You need ${required} points. Current balance: ${balance}.`,
+      [
+        { text: isRTL ? "العودة" : "Back", style: "cancel" },
+        { text: isRTL ? "شحن الرصيد" : "Top up", onPress: () => router.push("/(tech)/wallet") },
+      ],
+    );
+  };
+
+  const handleAccept = async (orderArg?: Order | null) => {
+    const order = orderArg ?? selectedOrder;
+    if (!order) return;
+
+    const cost = unlockCostOf(order);
+    const latest = await refreshWallet();
+    const balance = latest?.pointsBalance ?? summary?.pointsBalance ?? 0;
+    if (balance < cost) {
+      showInsufficientPoints(cost, balance);
+      return;
+    }
+
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        isRTL ? "قبل ما نكمّل" : "Before we continue",
+        isRTL
+          ? `هيتم خصم ${cost} نقطة من رصيدك (المتاح ${balance}) لفتح بيانات العميل.`
+          : `${cost} points will be deducted from your balance (${balance} available) to unlock client details.`,
+        [
+          { text: isRTL ? "لا، مش دلوقتي" : "Not now", style: "cancel", onPress: () => resolve(false) },
+          { text: isRTL ? "موافق وكمل" : "Confirm", onPress: () => resolve(true) },
+        ],
+      );
+    });
+    if (!confirmed) return;
+
     setLoading(true);
+    setSelectedOrder(order);
     const techUpdate = {
       status: "accepted" as const,
-      technicianId: user?.id ?? "tech1",
-      technicianName: user?.name ?? "محمد علي",
-      technicianMobile: user?.mobile ?? "01098765432",
+      technicianId: user?.id ?? "",
+      technicianName: user?.name ?? "",
+      technicianMobile: user?.mobile ?? "",
       technicianAvatar: resolveMediaUrl(user?.avatar, { token: sessionToken }),
       technicianRating: 4.8,
     };
     let serverSynced = false;
     try {
+      // Fresh balance check right before charging.
+      const rechecked = await refreshWallet();
+      const liveBalance = rechecked?.pointsBalance ?? balance;
+      if (liveBalance < cost) {
+        showInsufficientPoints(cost, liveBalance);
+        setLoading(false);
+        return;
+      }
+
       const apiBase = getApiBase();
       if (apiBase && sessionToken) {
-        const res = await fetch(`${apiBase}/api/orders/${selectedOrder.id}/acknowledge`, {
-          method: "PATCH",
+        const res = await fetch(`${apiBase}/api/orders/${order.id}/accept`, {
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${sessionToken}`,
@@ -202,30 +254,68 @@ export default function TechMapScreen() {
             technicianRating: techUpdate.technicianRating,
           }),
         });
+        const json = await res.json().catch(() => ({})) as {
+          error?: string;
+          required?: number;
+          balance?: number;
+        };
         if (res.ok) {
           serverSynced = true;
+          await refreshWallet();
+        } else if (res.status === 402) {
+          showInsufficientPoints(json.required ?? cost, json.balance ?? liveBalance);
+          await refreshWallet();
+          setLoading(false);
+          return;
         } else {
-          console.warn(`[Fanni] Failed to acknowledge order on server: ${res.status}`);
+          console.warn(`[Fanni] Failed to accept order on server: ${res.status}`, json.error);
+          Alert.alert(
+            isRTL ? "تعذّر القبول" : "Accept failed",
+            json.error ?? (isRTL ? "حاول مرة أخرى." : "Please try again."),
+          );
+          setLoading(false);
+          return;
         }
       }
     } catch (err) {
-      console.warn("[Fanni] Network error acknowledging order:", err);
+      console.warn("[Fanni] Network error accepting order:", err);
+      Alert.alert(
+        isRTL ? "خطأ في الاتصال" : "Connection error",
+        isRTL ? "تحقق من الإنترنت وحاول مرة أخرى." : "Check your connection and try again.",
+      );
+      setLoading(false);
+      return;
     }
     if (serverSynced || !sessionToken) {
-      await updateOrder(selectedOrder.id, techUpdate);
+      await updateOrder(order.id, techUpdate);
     }
     setLoading(false);
     setModalVisible(false);
-    if (selectedOrder) markOrderSeen(selectedOrder.id);
+    markOrderSeen(order.id);
     setSelectedOrder(null);
     router.push("/(tech)/orders");
   };
 
-  const handleReject = () => {
-    if (selectedOrder) {
-      autoShownRef.current.add(selectedOrder.id);
-      markOrderSeen(selectedOrder.id);
+  const handleReject = async (orderArg?: Order | null) => {
+    const order = orderArg ?? selectedOrder;
+    if (!order) return;
+    autoShownRef.current.add(order.id);
+    markOrderSeen(order.id);
+    const apiBase = getApiBase();
+    if (apiBase && sessionToken) {
+      try {
+        await fetch(`${apiBase}/api/orders/${order.id}/decline`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`,
+          },
+        });
+      } catch {
+        /* hide locally even if decline fails */
+      }
     }
+    setServerPendingOrders((prev) => (prev ? prev.filter((o) => o.id !== order.id) : prev));
     setModalVisible(false);
     setSelectedOrder(null);
   };
@@ -349,21 +439,21 @@ export default function TechMapScreen() {
         </Pressable>
       )}
 
-      {/* No-categories nudge banner */}
+      {/* No-profession nudge banner */}
       {showCatBanner && (
         <Pressable
           style={[styles.catBanner, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA", flexDirection: isRTL ? "row-reverse" : "row" }]}
-          onPress={() => router.push("/(tech)/profile?openCategories=1")}
+          onPress={() => router.push("/(tech)/profile")}
         >
           <View style={[styles.serviceAreaIcon, { backgroundColor: "#FFEDD5" }]}>
-            <VectorIcon name="grid" size={14} color="#EA580C" />
+            <VectorIcon name="briefcase" size={14} color="#EA580C" />
           </View>
           <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
             <Text style={{ color: "#7C2D12", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-              {t("tech.noCategories")}
+              {t("tech.noProfession")}
             </Text>
             <Text style={{ color: "#C2410C", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
-              {t("tech.noCategoriesPrompt")}
+              {t("tech.noProfessionPrompt")}
             </Text>
           </View>
           <Pressable
@@ -467,14 +557,14 @@ export default function TechMapScreen() {
                   <View style={[styles.orderBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <TouchableOpacity
                       style={[styles.acceptBtn, { backgroundColor: colors.primary, borderRadius: 8, flex: 1 }]}
-                      onPress={() => { setSelectedOrder(item); handleAccept(); }}
+                      onPress={() => { void handleAccept(item); }}
                     >
                       <VectorIcon name="check" size={12} color="#FFF" />
                       <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 11, marginLeft: 4 }}>{t("tech.accept")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.rejectBtn, { borderColor: colors.border, borderRadius: 8, flex: 1 }]}
-                      onPress={() => {}}
+                      onPress={() => { void handleReject(item); }}
                     >
                       <VectorIcon name="x" size={12} color={colors.mutedForeground} />
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 4 }}>{t("tech.reject")}</Text>
@@ -527,8 +617,8 @@ export default function TechMapScreen() {
                   </View>
                 ))}
                 <View style={[styles.modalBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                  <FanniButton title={t("tech.reject")} onPress={handleReject} variant="outline" style={{ flex: 1 }} />
-                  <FanniButton title={t("tech.accept")} onPress={handleAccept} loading={loading} style={{ flex: 1 }} />
+                  <FanniButton title={t("tech.reject")} onPress={() => { void handleReject(); }} variant="outline" style={{ flex: 1 }} />
+                  <FanniButton title={t("tech.accept")} onPress={() => { void handleAccept(); }} loading={loading} style={{ flex: 1 }} />
                 </View>
               </>
             )}

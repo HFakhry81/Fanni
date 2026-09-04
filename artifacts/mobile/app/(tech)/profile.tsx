@@ -10,6 +10,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useTechWs } from "@/context/TechWsContext";
 import StarRating from "@/components/StarRating";
 import AppHeader from "@/components/AppHeader";
 import LocationPicker from "@/components/LocationPicker";
@@ -37,6 +38,7 @@ export default function TechProfileScreen() {
   const colors = useColors();
   const { t, isRTL, user, setUser, setLanguage, language, isOnline, setIsOnline } = useApp();
   const { logout, sessionToken, refreshUser } = useAuth();
+  const { refreshRoutingRegistration } = useTechWs();
   const { saveProfile } = useSaveProfile();
   const insets = useSafeAreaInsets();
   const botPad = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -370,8 +372,15 @@ export default function TechProfileScreen() {
       ...user,
       name: editName.trim(),
       mobile: verificationToken ? normalizedMobile : user.mobile,
+      email: editEmail.trim() || user.email,
+      profession: editProfession.trim() || user.profession,
+      specialty: editSpecialty.trim() || user.specialty,
       governorate: editGov,
+      governorateNameAr: editGovNameAr,
+      governorateNameEn: editGovNameEn,
       area: editArea,
+      areaNameAr: editAreaNameAr,
+      areaNameEn: editAreaNameEn,
       address: finalAddress,
       latitude: editLat,
       longitude: editLng,
@@ -379,6 +388,9 @@ export default function TechProfileScreen() {
       serviceStart: editServiceStart.trim(),
       serviceEnd: editServiceEnd.trim(),
     });
+
+  // Re-bind live order routing to the updated profession + service area.
+  refreshRoutingRegistration();
 
   setVerificationToken(undefined);
   setVerificationExpiresAt(0);
@@ -393,6 +405,7 @@ export default function TechProfileScreen() {
   const professionLabel = professionDomain ? (isRTL ? professionDomain.nameAr : professionDomain.nameEn) : (user?.profession ?? null);
   const specialtySpec = user?.specialty ? apiSpecs.find((s) => s.nameEn === user.specialty || s.id === user.specialty) : null;
   const specialtyLabel = specialtySpec ? (isRTL ? specialtySpec.nameAr : specialtySpec.nameEn) : (user?.specialty ?? null);
+  const hasProfession = !!user?.profession?.trim();
   const hasServiceArea = !!(user?.governorate && user?.area);
   const hasCategories = !!(user?.serviceCategories && user.serviceCategories.length > 0);
   const serviceAreaDisplay = hasServiceArea ? `${govText} — ${areaText}` : null;
@@ -787,8 +800,32 @@ export default function TechProfileScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Categories reminder banner */}
-        {!hasCategories && (
+        {/* Profession reminder banner */}
+        {!hasProfession && (
+          <TouchableOpacity
+            style={[styles.serviceAreaBanner, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA", flexDirection: isRTL ? "row-reverse" : "row" }]}
+            onPress={() => {
+              openEdit();
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.serviceAreaIcon, { backgroundColor: "#FFEDD5" }]}>
+              <VectorIcon name="briefcase" size={14} color="#EA580C" />
+            </View>
+            <View style={[styles.serviceAreaText, { alignItems: isRTL ? "flex-end" : "flex-start", flex: 1 }]}>
+              <Text style={{ color: "#7C2D12", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                {t("tech.noProfession")}
+              </Text>
+              <Text style={{ color: "#C2410C", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
+                {t("tech.noProfessionPrompt")}
+              </Text>
+            </View>
+            <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#EA580C" />
+          </TouchableOpacity>
+        )}
+
+        {/* Optional specialty categories reminder — not required for matching */}
+        {hasProfession && !hasCategories && (
           <TouchableOpacity
             style={[styles.serviceAreaBanner, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA", flexDirection: isRTL ? "row-reverse" : "row" }]}
             onPress={() => {
@@ -808,7 +845,7 @@ export default function TechProfileScreen() {
                 {t("tech.noCategories")}
               </Text>
               <Text style={{ color: "#C2410C", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 }}>
-                {t("tech.noCategoriesPrompt")}
+                {isRTL ? "اختياري — يساعد العملاء في وصف تخصصك" : "Optional — helps clients describe your specialty"}
               </Text>
             </View>
             <VectorIcon name={isRTL ? "chevron-left" : "chevron-right"} size={14} color="#EA580C" />

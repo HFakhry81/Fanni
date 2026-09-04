@@ -55,6 +55,7 @@ interface PendingOrder {
   createdAt: string;
   isUnlocked?: boolean;
   unlockCost?: number;
+  distanceM?: number | null;
 }
 
 export default function AvailableOrdersScreen() {
@@ -129,6 +130,7 @@ export default function AvailableOrdersScreen() {
       isFocusedRef.current = true;
       availableOrdersTabFocusedRef.current = true;
       setAvailablePendingCount(0);
+      void refreshWallet();
       fetchOrders();
       pollTimerRef.current = setInterval(() => {
         if (isFocusedRef.current) {
@@ -143,7 +145,7 @@ export default function AvailableOrdersScreen() {
           pollTimerRef.current = null;
         }
       };
-    }, [fetchOrders, availableOrdersTabFocusedRef, setAvailablePendingCount])
+    }, [fetchOrders, availableOrdersTabFocusedRef, setAvailablePendingCount, refreshWallet])
   );
 
   const silentFetchRef = useRef<() => void>(() => {});
@@ -210,12 +212,33 @@ export default function AvailableOrdersScreen() {
     });
   };
 
+  const showInsufficientPoints = (required: number, balance: number) => {
+    Alert.alert(
+      isRTL ? "رصيدك الحالي مش كافي" : "Insufficient points",
+      isRTL
+        ? `محتاج ${required} نقطة، ورصيدك الحالي ${balance} نقاط.`
+        : `You need ${required} points. Current balance: ${balance}.`,
+      [
+        { text: isRTL ? "العودة" : "Back", style: "cancel" },
+        { text: isRTL ? "شحن الرصيد" : "Top up", onPress: () => router.push("/(tech)/wallet") },
+      ],
+    );
+  };
+
   const doAccept = async (order: PendingOrder) => {
     setAcceptingId(order.id);
     acceptingIdRef.current = order.id;
     cancelledWhileAcceptingRef.current = false;
     setAcceptError(null);
     try {
+      // Re-check live balance immediately before charging points.
+      const latest = await refreshWallet();
+      const cost = order.unlockCost ?? 20;
+      const balance = latest?.pointsBalance ?? summary?.pointsBalance ?? 0;
+      if (balance < cost) {
+        showInsufficientPoints(cost, balance);
+        return;
+      }
       const apiBase = getApiBase();
       if (!apiBase || !sessionToken) return;
       const res = await fetch(`${apiBase}/api/orders/${order.id}/accept`, {
@@ -236,6 +259,7 @@ export default function AvailableOrdersScreen() {
         message?: string;
         required?: number;
         balance?: number;
+        newBalance?: number;
       };
       if (res.ok) {
         await refreshWallet();
@@ -257,18 +281,9 @@ export default function AvailableOrdersScreen() {
         return;
       }
       if (res.status === 402) {
-        const currentBalance = json.balance ?? summary?.pointsBalance ?? 0;
-        Alert.alert(
-          isRTL ? "رصيدك الحالي مش كافي" : "Insufficient points",
-          json.message
-            ?? (isRTL
-              ? `محتاج ${json.required ?? order.unlockCost ?? 20} نقطة، ورصيدك الحالي ${currentBalance} نقاط.`
-              : `You need ${json.required ?? order.unlockCost ?? 20} points. Current balance: ${currentBalance}.`),
-          [
-            { text: isRTL ? "العودة" : "Back", style: "cancel" },
-            { text: isRTL ? "شحن الرصيد" : "Top up", onPress: () => router.push("/(tech)/wallet") },
-          ],
-        );
+        const currentBalance = json.balance ?? latest?.pointsBalance ?? summary?.pointsBalance ?? 0;
+        showInsufficientPoints(json.required ?? cost, currentBalance);
+        await refreshWallet();
         return;
       }
       if (!cancelledWhileAcceptingRef.current) {
@@ -285,16 +300,41 @@ export default function AvailableOrdersScreen() {
     }
   };
 
-  const handleAccept = (order: PendingOrder) => {
+  const handleAccept = async (order: PendingOrder) => {
     const cost = order.unlockCost ?? 20;
+    // Always re-query wallet so accept uses the latest available balance.
+    const latest = await refreshWallet();
+    const balance = latest?.pointsBalance ?? summary?.pointsBalance ?? 0;
+    if (balance < cost) {
+      showInsufficientPoints(cost, balance);
+      return;
+    }
     Alert.alert(
       isRTL ? "قبل ما نكمّل" : "Before we continue",
       isRTL
-        ? `عشان نعرض لك بيانات العميل وطرق التواصل معاه، هيتم خصم ${cost} نقطة من رصيدك.\nالنقاط دي غير قابلة للاسترداد بعد عرض بيانات العميل.\nلو موافق، اضغط «موافق وكمل».`
-        : `${cost} points will be deducted to reveal the client's contact details. Points are not refundable after the data is shown.`,
+        ? `عشان نعرض لك بيانات العميل وطرق التواصل معاه، هيتم خصم ${cost} نقطة من رصيدك (رصيدك الحالي ${balance}).\nالنقاط دي غير قابلة للاسترداد بعد عرض بيانات العميل.\nلو موافق، اضغط «موافق وكمل».`
+        : `${cost} points will be deducted from your balance (${balance} pts available) to reveal the client's contact details. Points are not refundable after the data is shown.`,
       [
-        { text: isRTL ? "لا، مش دلوقتي" : "Not now", style: "cancel", onPress: () => { void doDecline(order); } },
+        // "Not now" only dismisses — it must NOT permanently decline the order.
+        { text: isRTL ? "لا، مش دلوقتي" : "Not now", style: "cancel" },
         { text: isRTL ? "موافق وكمل" : "Confirm", onPress: () => { void doAccept(order); } },
+      ],
+    );
+  };
+
+  const handleDecline = (order: PendingOrder) => {
+    Alert.alert(
+      isRTL ? "رفض الطلب؟" : "Decline this order?",
+      isRTL
+        ? "لن يظهر لك هذا الطلب مرة أخرى."
+        : "You won't see this order again.",
+      [
+        { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
+        {
+          text: isRTL ? "رفض" : "Decline",
+          style: "destructive",
+          onPress: () => { void doDecline(order); },
+        },
       ],
     );
   };
@@ -389,6 +429,29 @@ export default function AvailableOrdersScreen() {
             </View>
           ) : null}
 
+          {typeof item.distanceM === "number" ? (
+            <View style={[styles.metaRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <VectorIcon name="navigation" size={12} color={colors.secondary} />
+              <Text
+                style={{
+                  color: colors.mutedForeground,
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 12,
+                  marginLeft: isRTL ? 0 : 5,
+                  marginRight: isRTL ? 5 : 0,
+                }}
+              >
+                {item.distanceM < 1000
+                  ? isRTL
+                    ? `على بعد ${item.distanceM} م`
+                    : `${item.distanceM} m away`
+                  : isRTL
+                    ? `على بعد ${(item.distanceM / 1000).toFixed(1)} كم`
+                    : `${(item.distanceM / 1000).toFixed(1)} km away`}
+              </Text>
+            </View>
+          ) : null}
+
           <View
             style={[
               styles.lockedBanner,
@@ -416,13 +479,22 @@ export default function AvailableOrdersScreen() {
                 : `Client details unlock after confirmation · ${unlockCost} pts`}
             </Text>
           </View>
-          <FanniButton
-            title={isRTL ? `قبول الطلب · ${unlockCost} نقطة` : `Accept order · ${unlockCost} pts`}
-            onPress={() => handleAccept(item)}
-            loading={isAccepting}
-            style={{ marginTop: 10 }}
-            testID="accept-order-btn"
-          />
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginTop: 10 }}>
+            <FanniButton
+              title={isRTL ? "رفض" : "Decline"}
+              onPress={() => handleDecline(item)}
+              variant="outline"
+              style={{ flex: 1 }}
+              disabled={isAccepting}
+            />
+            <FanniButton
+              title={isRTL ? `قبول · ${unlockCost}` : `Accept · ${unlockCost}`}
+              onPress={() => { void handleAccept(item); }}
+              loading={isAccepting}
+              style={{ flex: 1 }}
+              testID="accept-order-btn"
+            />
+          </View>
         </View>
       </View>
     );
@@ -491,18 +563,22 @@ export default function AvailableOrdersScreen() {
                     {t("tech.noAvailableOrders")}
                   </Text>
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 6, textAlign: "center", paddingHorizontal: 16 }}>
-                    {t("tech.noAvailableOrdersHint")}
+                    {!user?.profession || !(user?.governorate && user?.area)
+                      ? t("tech.noAvailableOrdersSetupHint")
+                      : t("tech.noAvailableOrdersHint")}
                   </Text>
-                  <TouchableOpacity
-                    style={[styles.profileBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-                    onPress={() => router.push("/(tech)/profile")}
-                    activeOpacity={0.85}
-                  >
-                    <VectorIcon name="map-pin" size={16} color="#FFF" />
-                    <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
-                      {t("tech.setServiceArea")}
-                    </Text>
-                  </TouchableOpacity>
+                  {(!user?.profession || !(user?.governorate && user?.area)) ? (
+                    <TouchableOpacity
+                      style={[styles.profileBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+                      onPress={() => router.push("/(tech)/profile")}
+                      activeOpacity={0.85}
+                    >
+                      <VectorIcon name="user" size={16} color="#FFF" />
+                      <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
+                        {t("tech.completeProfile")}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                   <TouchableOpacity
                     style={[styles.retryBtn, { borderColor: colors.border, marginTop: 10 }]}
                     onPress={() => fetchOrders()}

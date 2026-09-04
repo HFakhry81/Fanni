@@ -87,7 +87,7 @@ function ClassicTechTabs({ notifUnreadCount }: { notifUnreadCount: number }) {
   const colors = useColors();
   const { t, isRTL, user } = useApp();
   const { availablePendingCount, unreadCompletedCount } = useOrders();
-  const profileSetupIncomplete = !user?.serviceCategories || user.serviceCategories.length === 0;
+  const profileSetupIncomplete = !user?.profession?.trim() || !user?.governorate || !user?.area;
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -275,7 +275,7 @@ function useDemoOrderBroadcast() {
     if (injectedRef.current) return;
     timerRef.current = setTimeout(() => {
       injectedRef.current = true;
-      injectNewOrder(buildSimulatedOrder(user?.serviceCategories ?? []));
+      injectNewOrder(buildSimulatedOrder(user?.profession ? [user.profession] : []));
     }, DEMO_ORDER_DELAY_MS);
     return () => {
       if (timerRef.current) {
@@ -283,7 +283,7 @@ function useDemoOrderBroadcast() {
         timerRef.current = null;
       }
     };
-  }, [isOnline, user?.serviceCategories, injectNewOrder]);
+  }, [isOnline, user?.profession, injectNewOrder]);
 }
 
 function usePendingCountSync() {
@@ -351,7 +351,7 @@ function useNotificationUnreadCount() {
 function TechLayoutInner() {
   const { availablePendingCount, unreadCompletedCount } = useOrders();
   const { language, user, hasPendingToggle } = useApp();
-  const profileSetupIncomplete = !user?.serviceCategories || user.serviceCategories.length === 0;
+  const profileSetupIncomplete = !user?.profession?.trim() || !user?.governorate || !user?.area;
   const notifUnreadCount = useNotificationUnreadCount();
   const [adminNotification, setAdminNotification] = useState<{ message: string; visible: boolean }>({
     message: "",

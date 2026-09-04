@@ -5,6 +5,7 @@ import { db, ordersTable, pool } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "./auth";
 import { locationsMatchSync, warmLocationCache } from "./locationNormalizer";
+import { canonicalCategory, resolveCanonicalCategory } from "./categoryMatch";
 import {
   hydrateTechnicianRoutingMeta,
   type ServiceLocationMode,
@@ -14,7 +15,8 @@ interface TechnicianMeta {
   registered: boolean;
   isAvailable: boolean;
   technicianId?: string;
-  categories?: string[];
+  /** Canonical profession key only (e.g. electricity) — not specialty / multi-categories. */
+  professionKey?: string;
   governorate?: string;
   area?: string;
   currentLat?: number;
@@ -52,42 +54,7 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
 }
 
 function hasRoutingConstraints(meta: TechnicianMeta): boolean {
-  return !!(
-    (meta.categories && meta.categories.length > 0) ||
-    meta.governorate ||
-    meta.area
-  );
-}
-
-function routingKey(value: unknown): string {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-}
-
-const CATEGORY_ALIASES: Record<string, string[]> = {
-  electricity: ["electricity", "electrician", "electric", "electrical", "كهرباء", "كهربائي"],
-  plumbing: ["plumbing", "plumber", "سباكة", "سباك"],
-  ac: ["ac", "airconditioning", "hvac", "تكييف", "مكيفات"],
-  carpentry: ["carpentry", "carpenter", "نجارة", "نجار"],
-  appliances: ["appliances", "appliance", "electronics", "أجهزة"],
-  painting: ["painting", "painter", "دهانات", "دهان"],
-  pest: ["pest", "pestcontrol", "حشرات", "مكافحة"],
-  flooring: ["flooring", "floor", "tiles", "أرضيات", "بلاط"],
-};
-
-function canonicalCategory(value: unknown): string {
-  const key = routingKey(value);
-  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
-    if (aliases.some((alias) => routingKey(alias) === key)) return canonical;
-  }
-  return key;
-}
-
-function categoryMatches(orderCategory: unknown, categories: string[] | undefined): boolean {
-  const orderKey = canonicalCategory(orderCategory);
-  return !!orderKey && !!categories?.some((category) => canonicalCategory(category) === orderKey);
+  return !!(meta.professionKey || meta.governorate || meta.area);
 }
 
 function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta): boolean {
@@ -99,9 +66,11 @@ function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta):
     return false;
   }
 
-  if (meta.categories && meta.categories.length > 0) {
+  // Profession (مهنة) only — specialty / serviceCategories are ignored for routing.
+  if (meta.professionKey) {
     const orderCategory = order.category ?? (order.data as Record<string, unknown> | undefined)?.category;
-    if (!categoryMatches(orderCategory, meta.categories)) {
+    const orderKey = canonicalCategory(orderCategory);
+    if (!orderKey || orderKey !== meta.professionKey) {
       return false;
     }
   }
@@ -235,10 +204,23 @@ wss.on("connection", (ws: WebSocket) => {
         if (!session || session.user.role !== "technician" || !meta?.technicianId) return;
         if (meta.technicianId !== session.user.id) return;
         await hydrateTechnicianRoutingMeta(meta.technicianId, meta);
+        try {
+          const { rows } = await pool.query<{ profession: string | null }>(
+            `SELECT profession FROM users WHERE id = $1 LIMIT 1`,
+            [meta.technicianId],
+          );
+          const dbProfession = rows[0]?.profession?.trim();
+          if (dbProfession) {
+            meta.professionKey = await resolveCanonicalCategory(dbProfession);
+          }
+        } catch {
+          /* keep existing professionKey */
+        }
         clients.set(ws, meta);
         logger.info(
           {
             technicianId: meta.technicianId,
+            professionKey: meta.professionKey,
             governorate: meta.governorate,
             area: meta.area,
             serviceLocationMode: meta.serviceLocationMode,
@@ -277,12 +259,12 @@ wss.on("connection", (ws: WebSocket) => {
         const isAvailable = msg.isAvailable !== false;
         const meta: TechnicianMeta = { registered: true, isAvailable, technicianId: session.user.id };
 
-        if (Array.isArray(msg.categories) && msg.categories.length > 0) {
-          meta.categories = (msg.categories as unknown[])
-            .filter((c): c is string => typeof c === "string" && c.trim() !== "")
-            .map((c) => c.trim().toLowerCase());
-        } else if (msg.category && typeof msg.category === "string" && msg.category.trim()) {
-          meta.categories = [msg.category.trim().toLowerCase()];
+        // Profession from client payload (optional); authoritative value loaded from DB below.
+        if (typeof msg.profession === "string" && msg.profession.trim()) {
+          meta.professionKey = await resolveCanonicalCategory(msg.profession.trim());
+        } else if (typeof msg.category === "string" && msg.category.trim()) {
+          // Legacy single-category field treated as profession
+          meta.professionKey = await resolveCanonicalCategory(msg.category.trim());
         }
 
         if (msg.governorate && typeof msg.governorate === "string" && msg.governorate.trim()) {
@@ -306,6 +288,20 @@ wss.on("connection", (ws: WebSocket) => {
 
         await hydrateTechnicianRoutingMeta(session.user.id, meta);
 
+        // Prefer DB profession over client categories / specialty lists.
+        try {
+          const { rows } = await pool.query<{ profession: string | null }>(
+            `SELECT profession FROM users WHERE id = $1 LIMIT 1`,
+            [session.user.id],
+          );
+          const dbProfession = rows[0]?.profession?.trim();
+          if (dbProfession) {
+            meta.professionKey = await resolveCanonicalCategory(dbProfession);
+          }
+        } catch (err) {
+          logger.warn({ err, techId: session.user.id }, "Failed to load technician profession for WS routing");
+        }
+
         clients.set(ws, meta);
 
         const techId = session.user.id;
@@ -316,7 +312,7 @@ wss.on("connection", (ws: WebSocket) => {
         const hasConstraints = hasRoutingConstraints(meta);
         logger.info(
           {
-            categories: meta.categories,
+            professionKey: meta.professionKey,
             governorate: meta.governorate,
             area: meta.area,
             hasConstraints,

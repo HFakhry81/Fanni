@@ -86,15 +86,13 @@ export async function categoryMatches(
   return false;
 }
 
-/** Eagerly resolve tech categories to canonical keys (for WS meta). */
-export async function resolveTechnicianCategoryKeys(
-  technicianCategories: string[] | null | undefined,
-): Promise<string[]> {
-  if (!technicianCategories?.length) return [];
-  const keys: string[] = [];
-  for (const category of technicianCategories) {
-    const key = await resolveCanonicalCategory(category);
-    if (key && !keys.includes(key)) keys.push(key);
-  }
-  return keys;
+/** Match an order category against a technician profession (nameEn / Arabic / key). */
+export async function professionMatchesOrder(
+  orderCategory: unknown,
+  profession: string | null | undefined,
+): Promise<boolean> {
+  const prof = String(profession ?? "").trim();
+  // Profession is required for matching — without it, do not surface orders.
+  if (!prof) return false;
+  return categoryMatches(orderCategory, [prof]);
 }

@@ -70,12 +70,12 @@ function buildRegisterMessage(
     payload.token = sessionToken;
   }
 
-  if (user?.serviceCategories && user.serviceCategories.length > 0) {
-    payload.categories = user.serviceCategories.map((c) => c.toLowerCase());
-  } else if (user?.profession) {
+  // Routing uses profession (مهنة) + geography only — not specialty / multi-categories.
+  if (user?.profession) {
+    payload.profession = user.profession;
     const category = professionToCategory(user.profession);
     if (category) {
-      payload.categories = [category];
+      payload.category = category;
     }
   }
 
@@ -275,7 +275,7 @@ export function TechWsProvider({ user, sessionToken, isOnline, children }: TechW
     });
     // Re-register on fields that affect routing — full `user` object identity churn
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [user?.id, user?.profession, user?.serviceCategories, user?.governorate, user?.area, isOnline]);
+  }, [user?.id, user?.profession, user?.governorate, user?.area, isOnline]);
 
   const subscribeNewOrder = useCallback((cb: NewOrderSubscriber) => {
     newOrderSubs.current.add(cb);

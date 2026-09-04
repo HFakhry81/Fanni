@@ -9,6 +9,7 @@ import { locationsMatch } from "../lib/locationNormalizer";
 import { queryFloat, queryInt, queryString } from "../lib/queryParams";
 import { broadcastAvailabilityChangedToTechnician } from "../lib/orderBroadcaster";
 import { DEFAULT_LEAD_COST, loadActiveLeadPricingRules, pickLeadCostFromRules } from "../lib/leadPricing";
+import { professionMatchesOrder } from "../lib/categoryMatch";
 import {
   loadTechnicianServiceLocation,
   needsDailyServiceLocationPrompt,
@@ -21,38 +22,6 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 
 const router: IRouter = Router();
-
-function routingKey(value: unknown): string {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-}
-
-const CATEGORY_ALIASES: Record<string, string[]> = {
-  electricity: ["electricity", "electrician", "electric", "electrical", "كهرباء", "كهربائي"],
-  plumbing: ["plumbing", "plumber", "سباكة", "سباك"],
-  ac: ["ac", "airconditioning", "hvac", "تكييف", "مكيفات"],
-  carpentry: ["carpentry", "carpenter", "نجارة", "نجار"],
-  appliances: ["appliances", "appliance", "electronics", "أجهزة"],
-  painting: ["painting", "painter", "دهانات", "دهان"],
-  pest: ["pest", "pestcontrol", "حشرات", "مكافحة"],
-  flooring: ["flooring", "floor", "tiles", "أرضيات", "بلاط"],
-};
-
-function canonicalCategory(value: unknown): string {
-  const key = routingKey(value);
-  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
-    if (aliases.some((alias) => routingKey(alias) === key)) return canonical;
-  }
-  return key;
-}
-
-function categoryMatches(orderCategory: unknown, technicianCategories: string[]): boolean {
-  const orderKey = canonicalCategory(orderCategory);
-  if (!orderKey) return false;
-  return technicianCategories.some((category) => canonicalCategory(category) === orderKey);
-}
 
 router.patch(
   "/technicians/:id/availability",
@@ -325,7 +294,7 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     // Fetch technician profile including their stored location coordinates.
     const client = await pool.connect();
     let techRow: {
-      serviceCategories: unknown;
+      profession: string | null;
       governorate: string | null;
       area: string | null;
       techLat: number | null;
@@ -334,13 +303,13 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     try {
       const serviceRow = await loadTechnicianServiceLocation(client, user.id);
       if (serviceRow) {
-        const { rows } = await client.query<{ service_categories: unknown }>(
-          `SELECT service_categories FROM users WHERE id = $1 LIMIT 1`,
+        const { rows } = await client.query<{ profession: string | null }>(
+          `SELECT profession FROM users WHERE id = $1 LIMIT 1`,
           [user.id],
         );
         const resolved = resolveTechnicianServiceLocation(serviceRow);
         techRow = {
-          serviceCategories: rows[0]?.service_categories,
+          profession: rows[0]?.profession ?? null,
           governorate: resolved.governorate,
           area: resolved.area,
           techLat: resolved.latitude,
@@ -374,7 +343,8 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
       .orderBy(ordersTable.createdAt))
       .filter((row) => !declinedSet.has(row.id));
 
-    const techCategories: string[] = (techRow.serviceCategories as string[] | null) ?? [];
+    // Routing filter: profession (مهنة) + geography only — not specialty / serviceCategories.
+    const techProfession = techRow.profession ?? null;
     const techGov = techRow.governorate ?? null;
     const techArea = techRow.area ?? null;
     const techLat = techRow.techLat;
@@ -382,10 +352,8 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
 
     const matchPromises = pendingRows.map(async (row) => {
       const data = row.data as Record<string, unknown>;
-      if (techCategories.length > 0) {
-        const orderCategory = row.category ?? data.category;
-        if (!categoryMatches(orderCategory, techCategories)) return null;
-      }
+      const orderCategory = row.category ?? data.category;
+      if (!(await professionMatchesOrder(orderCategory, techProfession))) return null;
       if (techGov) {
         const govMatch = await locationsMatch(row.governorate, techGov, "governorate");
         if (!govMatch) return null;
@@ -477,8 +445,7 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
         building: null,
         floor: null,
         landmark: null,
-        latitude: null,
-        longitude: null,
+        // Keep approximate coords for map distance/pins; exact address stays locked.
       };
     });
 

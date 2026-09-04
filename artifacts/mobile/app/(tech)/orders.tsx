@@ -635,18 +635,22 @@ export default function TechOrdersScreen() {
               {t("tech.noJobsYet")}
             </Text>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 6, textAlign: "center", paddingHorizontal: 32 }}>
-              {t("tech.noJobsHint")}
+              {!user?.profession?.trim() || !user?.governorate || !user?.area
+                ? t("tech.noJobsSetupHint")
+                : t("tech.noJobsHint")}
             </Text>
-            <TouchableOpacity
-              style={[styles.profileBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-              onPress={() => router.push("/(tech)/profile?openServiceArea=1")}
-              activeOpacity={0.85}
-            >
-              <VectorIcon name="user" size={16} color="#FFF" />
-              <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
-                {t("tech.completeProfile")}
-              </Text>
-            </TouchableOpacity>
+            {(!user?.profession?.trim() || !user?.governorate || !user?.area) ? (
+              <TouchableOpacity
+                style={[styles.profileBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+                onPress={() => router.push("/(tech)/profile?openServiceArea=1")}
+                activeOpacity={0.85}
+              >
+                <VectorIcon name="user" size={16} color="#FFF" />
+                <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15, marginLeft: 8 }}>
+                  {t("tech.completeProfile")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         }
         renderItem={renderCard}
