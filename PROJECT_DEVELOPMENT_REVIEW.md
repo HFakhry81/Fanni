@@ -51,7 +51,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | API Server | مكتمل جزئيًا | محفظة بأوعية، Lead ذري، جيوفنس، تسعير Lead، اتصال مقنّع، فواتير بلا OCR، تدقيق مالي، قيد مزدوج 020، CORS وحد معدّل |
 | تطبيق الهاتف | مكتمل جزئيًا | حوار القبول، تتبع نعم/لا، نتيجة الخدمة، Lead Pricing، شروط استخدام، اتصال مقنّع |
 | قاعدة البيانات | مكتمل جزئيًا | 017–020 اقتصاد وأوعية وأستاذ؛ `order_declines`؛ `masked_call_sessions`؛ `admin_audit_logs`؛ أعمدة OCR تاريخية |
-| الإدارة | مكتمل جزئيًا | 7 تبويبات؛ KPIs وخرائط OSM من API؛ عملاء/فنيين/كتالوج صور؛ مالية وتدقيق؛ ينقص طلبات الأدمن من API |
+| الإدارة | مكتمل جزئيًا | 7 تبويبات؛ KPIs وخرائط OSM؛ عملاء/فنيين/كتالوج؛ مالية وتدقيق؛ موافقة فني + بونص ترحيب بعد التأكيد؛ ينقص طلبات الأدمن من API |
 | التخزين | جزئي | رفع خاص محلي بلا makePublic؛ VPS الإنتاجي عند توفر البيانات |
 
 ---
@@ -94,14 +94,14 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 
 الجرد المحدَّث 27 أغسطس 2026: **migrate 023 + APK 1.0.8 + تخزين الصور على VPS مؤكَّدة**؛ تسجيل حساب جديد نجح على هاتف حقيقي. المتبقي الحي لـ Live-pass الكامل = إكمال مسار الطلب/Lead/أدمن على الجهاز + مؤجلات Twilio/OPay/GL.
 
-آخر دفع على `origin/main`: **`e4e12fd`** (29 أغسطس). **طُبّق migrate 023** على الإنتاج؛ **ينقص migrate 024** قبل رفع صور التخصصات.
+آخر دفع على `origin/main`: **`a9d3e6e`** (05 سبتمبر). migrate **023/024** مطبّقان تشغيليًا حسب التقارير؛ E2E محلي logic-suite أخضر؛ تقرير فجوات: `E2E_GAP_SOLUTIONS_REPORT.md` (تنفيذ سد الثغرات قيد التنفيذ).
 
 | # | الحالة | الوحدة | المهمة |
 |---|---|---|---|
 | 1 | [x] | M4 تشغيل | migrate 017–020 على بيئة التطوير (طُبّق 020 هنا) |
 | 2 | [x] | M1 | KYC: مسارات `id`/`carnehat`/`uploads` على VPS — **يستقبل الصور** (27 أغسطس) |
 | 3 | [x] | M3 | نزاع رقم خاطئ / عدم رد آلي + حد يومي **2** |
-| 4 | [~] | M3/M5 | e2e 360° كود 100%؛ **Live جزئي**: تسجيل جهاز + APK 1.0.8 + migrate 023 — باقي المسار على الجهاز |
+| 4 | [~] | M3/M5 | e2e: full-recorded + **logic-suite** (محفظة/طلبات/حواف) محليًا ناجح؛ حماية إنتاج؛ Live-pass جهاز ما زال جزئيًا |
 | 5 | [~] | M6 | شريحة قيد مزدوج أولى (ترحيل + ميزان + قيود). ينقص فترات/مراكز تكلفة/تسوية بوابة |
 | 6 | [~] | M7 | Twilio مؤجّل — لا يوقف الرفع |
 | 7 | [x] | M8 | تبويبات الأدمن + ملف شخصي + أدوات موقع موصولة |
@@ -118,8 +118,11 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 18 | [x] | UX ميداني | إصلاحات تجربة 29-08: كيبورد، طلب جديد، خريطة فني، طلبات API (`56c179a`) |
 | 19 | [x] | تسجيل فني | رفض التخطي بدون صور البطاقة + تنبيه وتمرير (`90a0455`) |
 | 20 | [x] | أدمن | لوحة تحكم API حقيقية، خرائط OSM (حية/مراقبة/تخصص)، عملاء/فنيين، كتالوج صور (`0c47a05`) |
-| 21 | [ ] | DB | migrate **024** (`specialization icon`) على الإنتاج — بعد نشر API |
+| 21 | [~] | DB | migrate **024** — مذكور مطبّق في تقارير التشغيل؛ تأكيد دوري على VPS عند كل نشر |
 | 22 | [ ] | UX متبقي | صورة العميل في شاشات الفني، ملف شخصي كامل، OPay، جدولة طلبات 15 دقيقة |
+| 23 | [~] | أمان/فجوات | تقرير حلول الثغرات مكتوب؛ P0 مفتوح: unique مرجع شحن، فلتر PII سيرفر، فرض mustChangePassword على API |
+| 24 | [x] | تشغيل ويندوز | UPDATE_ALL / إصلاح node_modules / Metro / سكربتات تشغيل موحّدة على مسار E: |
+| 25 | [x] | مطابقة فني | مهنة + محافظة/موقع يومي + رصيد حي قبل القبول؛ decline = إخفاء إشعار فقط |
 
 ---
 
@@ -335,10 +338,67 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 ---
 
+---
+
+## ملخص الجلسات 30 أغسطس → 05 سبتمبر 2026
+
+**HEAD الحالي:** `a9d3e6e` · **ملف فجوات:** [`E2E_GAP_SOLUTIONS_REPORT.md`](E2E_GAP_SOLUTIONS_REPORT.md).
+
+### أ) تشغيل محلي ويندوز + مسار المشروع (01–05 سبتمبر)
+
+- نقل/تثبيت على `E:\\UpNexa.com\\fanni`؛ تقسيم env محلي/إنتاج؛ سكربتات تشغيل ويندوز (`run-fanni`, `UPDATE_ALL`, safe-push).
+- إصلاحات متكررة لـ pnpm/junctions على ويندوز: `repair-node-modules`، إصلاح `@esbuild/win32-x64`، `expo-font`، `@sentry/core`، `chrome-launcher`.
+- Metro: تضييق `watchFolders` ومنع `.map` للتبعيات؛ بدء Expo offline عند التعليق.
+- توحيد مكدس API المحلي وإيقاف إطلاق سيرفرين مزدوجين؛ تقوية `dev.mjs` حتى لا يكسرها cwd من Desktop.
+- إزالة سكربتات بالية وفك تكرار حزم Expo من الجذر + overrides؛ typecheck موبايل يمر.
+
+### ب) منتج / مطابقة / محفظة / أدمن (31 أغسطس – 05 سبتمبر)
+
+- موقع خدمة يومي + بث WebSocket متوافق؛ مطابقة فني بالمهنة والجغرافيا؛ `categoryMatch` لـ UUID المجال → فئة الطلب.
+- قبول الطلب مشروط برصيد المحفظة الحي؛ رفض الطلب (`decline`) = إخفاء إشعار فقط مع بقاء الطلب pending لباقي الفنيين.
+- عنوان الطلب الجديد من ملف العميل؛ إصلاح بوابة محافظة المطابقة وإزالة شريط sync العالق.
+- موافقة أدمن على الويب بتأكيد؛ نقاط الترحيب **بعد** التأكيد فقط؛ تهنئة فني قابلة للإغلاق.
+- بونص Super Admin + توثيق رحلة الطلب E2E؛ تحديث رصيد المحفظة حيًا لشاشات الأدمن/الفني.
+- إصلاح رفع الصور (MIME)؛ محاذاة بوابة موافقة الفني مع قائمة pending الأدمن.
+- تعليق حساب بسبب إلزامي + تدقيق؛ إصلاح قوائم الأطراف SQL؛ خريطة أدمن `map-data` قبل catch-all.
+- دخول ويب عبر AsyncStorage؛ خروج آمن للمتصفح؛ تطبيع معرّفات الدخول لكل الأدوار.
+- نشر ويب/APK: مسار `app.upnexa-eg.com` + خدمة APK من `upnexa-eg.com`.
+
+### ج) E2E Playwright (31 أغسطس – 05 سبتمبر)
+
+| Commit | الموضوع |
+|---|---|
+| faabd86 — حزمة Playwright + LambdaTest + smoke إنتاج |
+| 823f913 — full-app مع لقطات وفيديو (`full-recorded`) |
+| bfacc5a — حراسة ضد كتابة بيانات وهمية على الإنتاج |
+| e624108 — مسار متصفح Playwright + قبول URL لوحة الأدمن |
+| 3c3dbb1 — **logic-suite**: محفظة / دورة طلب / استرداد |
+| 099bc68 — unwrap محفظة، كاش دخول، دوائر حافة |
+| 42172bc — تسجيل دخول UI افتراضيًا لالتقاط فيديو حقيقي |
+
+- مشاريع: `local-chrome`، `full-recorded`، `logic-suite`؛ متصفحات تحت `e2e/.playwright-browsers`.
+- تشغيل موصى به محليًا: `E2E_USE_LOCAL=1` + `scripts\\run-e2e-logic-suite.cmd` (آخر تشغيل معروف: ~22 ناجح / 1 skipped).
+- توثيق: `e2e/LOGIC_SCRIPTS.md`، `e2e/CLOUD_E2E.md`، `E2E_360_REPORT.md`.
+
+### د) تحليل الثغرات والحلول (05 سبتمبر مساءً)
+
+- مراجعة تقرير الفجوات (محفظة، جغرافيا، نزاعات، أمان) مقابل الكود.
+- تقرير الحلول: **`E2E_GAP_SOLUTIONS_REPORT.md`** — ما تم / جزئي / مفتوح + P0–P2.
+- **مُوافق عليه للتنفيذ (لم يُبرمج بعد في جولة التوثيق هذه):** unique لمرجع الشحن، فلتر PII على وصف الطلب، فرض `mustChangePassword` على APIs الأدمن المالية، إيصال إلزامي، سقف `BROADCAST_RADIUS_TIERS_KM`، اختبار سباق قبول متزامن.
+
+### المتبقي الحي بعد هذه الجولة
+
+1. تنفيذ حزمة سد ثغرات P0/P1 من تقرير الفجوات.
+2. Live-pass كامل على جهاز حقيقي (طلب→قبول→وصول→إكمال).
+3. OPay / Twilio بيئة / فترات GL المتقدمة.
+4. صورة العميل في شاشات الفني + ملف شخصي كامل + طلبات أدمن من API (بدل mock إن بقي).
+
+
 ## سجل التحديثات المختصر
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
+| 05 سبتمبر 2026 | E2E + تشغيل ويندوز + فجوات | logic-suite/full-recorded + حراسة إنتاج؛ مطابقة فني/decline/موافقة ترحيب؛ إصلاحات ويندوز/Metro؛ تقرير `E2E_GAP_SOLUTIONS_REPORT.md`؛ HEAD `a9d3e6e`؛ إعادة بناء قاموس Commits بعد تلف | تنفيذ P0 فجوات (مرجع شحن/PII/mustChangePassword)؛ Live-pass جهاز؛ OPay/Twilio/GL |
 | 30 أغسطس 2026 | تقرير تحديث مفصّل | `deploy/UPDATE-REPORT.md` (DB/API/Front/APK محلي+إنتاج)؛ مسار APK **`/var/www/upnexa-eg.com/fanni.apk`**؛ إصلاح `local-update` + `dev.mjs` | EAS APK → رفع المسار الصحيح؛ `deploy-vps.sh` |
 | 29 أغسطس 2026 | إطلاق 1.0.9 | رفع الإصدار `1.0.9`/`versionCode` 9؛ تصدير ويب `dist-web`؛ EAS APK؛ خطوات تحديث VPS كاملة في `deploy/VPS-STEPS.md` (migrate **024** + ويب + APK) | (استُبدِل بـ 1.0.10) |
 | 29 أغسطس 2026 | جلسة UX + أدمن | quality-loop؛ إصلاحات ميدان 29-08؛ رفض تخطي صور البطاقة؛ أدمن API/خرائط/كتالوج؛ سكربت extract-docx (`77a9574`→`e4e12fd`) | migrate **024**؛ APK جديد؛ صورة عميل؛ ملف شخصي؛ OPay؛ طلبات أدمن من API |
@@ -390,42 +450,92 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 ## قاموس الـ Commits
 
 سجل تلقائي بعد كل `git commit`. لا يُعاد كتابة الصفوف السابقة؛ يُضاف صف جديد لكل هاش فريد.
+(أُعيد بناء القاموس في 05 سبتمبر 2026 بعد تلف صفوف قديمة؛ الصفوف التالية من `git log` عبر `pnpm review:seed`.)
 
 | التاريخ | الهاش | الرسالة | أبرز الملفات |
 |---|---|---|---|
-| 22 أغسطس 2026 | `e06bf79` | Record the financial audit work in the project review. | PROJECT_DEVELOPMENT_REVIEW.md, SPEC_BASELINE.md |
-| 22 أغسطس 2026 | `3a77467` | Log admin money actions to the audit trail. | artifacts/api-server/src/lib/adminAudit.ts, wallet.ts, payments.ts, disputes.ts |
-| 22 أغسطس 2026 | `b1f0844` | Align approved point economy and close M0/M4 governance gaps. | migrations 017/018، CORS، رفع خاص، شروط، RBAC�س 2026 | `b3fe3f6` | Record missing OCR and masked-call commitقع |
-| 26 أ� dictionary. | PROJECT_DEVELOPMENT_REVIEW.md |
-�ح `react-nativ2026 | `17fc9ec` | Remove purchase-invoice OCR a�شلان `08c6esked calling. | .env.example, OCR_INVOICE_REVIEW APK `artifacts/ELOPMENT_REVIEW.md, artifacts/api-server/build.mِل — APK م٣غسطس 2026 | `e4343a1` | Record the review-l6 | APK v1.0.3 O project dictionary. | PROJECT_DEVELOPMENT_REVIE WebView؛ إزغسطس 2026 | `5fc03e6` | Add a living project شريط الع�log every commit into it. | .cursor/hooks.json,  webview الخ�ter-git-commit.mjs, PROJECT_DEVELOPMENT_REVIEW.mfig`)؛ إعاد+6 |
-| 22 أغسطس 2026 | `82a8474` | Assign � `bae7ee22`) | on accept and record incomplete service with op| فشل `89991fquests. | artifacts/api-server/src/lib/leadUnloc New Arch؛ بنapi-server/src/lib/orderLifecycle.ts, artifacts/ WinSCP → `/vaoutes/orders.ts, lib/db/migrations/011_lead_pricثبيت من اr.sql +1 |
-| 21 أغسطس 2026 | `0455095` | l 25 أغسطس 2OJECT_DEVELOPMENT_REVIEW.md, package.json, scripلاث محاو� scripts/src/update-project-review.mjs |
-| 20 ار `@react-navi `e6e167b` | Update replit configuration | .replentry؛ بناء�طس 2026 | `30168bd` | Update project reviews �ء `146287ef` �onality in mobile app | OCR_INVOICE_REVIEW.md, P�طس 2026 | APKNT_REVIEW.md, artifacts/mobile/app/(tech)/orderss من system32غسطس 2026 | `b3faea1` | OCR order | OCR_INVOIP | (استُك�OJECT_DEVELOPMENT_REVIEW.md |
-| 20 أغسطس 26 | نقل مح�| Implement accounting tab features | artifacts/e 20/20 على Pn)/(tabs)/accounting.tsx |
-| 20 أغسطس 2026hz` 200)؛ CI + mplement lead unlock functionality and add opera�سرار GitHubmigration | PROJECT_DEVELOPMENT_REVIEW.md, artifay؛ فترات src/lib/leadUnlock.ts, artifacts/api-server/src/ VPS | Twilio م, artifacts/api-server/src/routes/wallet.ts +2 |لسكربت يس 2026 | `e5d2beb` | Add technical wallet systemio | تشغيل nt | "attached_assets/\330\252\330\255\331\204\3سطس 2026 | ت331\206\330\270\330\247\331\205_\331\205\330\255pm --filter @wor\330\251_\330\247\331\204\331\201\331\206\331\21�ّقة مسبقdocx" |
-| 20 أغسطس 2026 | `56dbec7` | Upda�) | KYC VPS، euration and add points default file | .agents/me�ل GL (فترا.agents/memory/points-default-updates.md |
-| 206 | قيد مز� | `971c497` | Credit system | artifacts/mobile/�لى الشحنrIcon.tsx, artifacts/mobile/context/AppContext.tمصروف؛ مٳطس 2026 | `158c176` | Update point system def | e2e حي، Twate order processing logic | artifacts/api-serve26 | شريحة -seed-points-demo.ts, artifacts/api-server/src/iل: 020 + ترحts/api-server/src/routes/orders.ts, artifacts/apصروف) + ميtes/wallet.ts +3 |
-| 10 أغسطس 2026 | `94feرات الوح�sset file | attached_assets/Untitled_17864023614راكز تكل٣غسطس 2026 | `364786b` | Remove unnecessary � الرسوم،om replit file | .replit |
-| 20 أغسطس 202626 | استكم�rder Gvernance phase1 | .agents/memory/MEMORY.mdالبطاقة؛/migration-drift.md, artifacts/api-server/src/li� شاشة تد�er.ts, artifacts/api-server/src/routes/geo.ts +4�زدوج، Twil�س 2026 | `ad7c183` | Update invoice and disputطس 2026 | تج add documentation | artifacts/api-server/src/roحيّة + قا�, artifacts/api-server/src/routes/invoices.ts, "+ قاموس ا�\331\206\330\270\330\247\331\205_\330\247\331\20� 1 (migrate) ث0\330\247\330\252\331\212\330\261_\331\210\330\2ستئناف | �طس 2026 | `09aabc3` | Refactor order processin�هية؛ قائte agent memory documentation | .agents/memory/Mte ثم KYC | اs/memory/order-matching.md, artifacts/api-server�مالًا |
-|oadcaster.ts, artifacts/api-server/src/routes/au | جرد Module أغسطس 2026 | `6da7847` | Add final orders ن 24 بندًاtion | "attached_assets/\331\206\330\270\330\247IA الأدمن 7\331\204\330\267\331\204\330\250\330\247\330\25تسجيل admin04\331\206\330\263\330\256\330\251_\330\247\331\�النزاع و247\330\246\331\212\330\251_1787174 |
-| 20 أغ/audit-logs | KY0f81d7` | Regestration Goverance | .npmrc, artifالخاطئ ا�src/lib/leadPricing.ts, artifacts/api-server/src+ شروط | ف�ts, artifacts/api-server/src/lib/orderLifecycle.لترويجي أغسطس 2026 | `70c92da` | Project Context md �جيل؛ بطاONTEXT.md |
-| 09 أغسطس 2026 | `394b61b` | | Audit ماليbile/tsconfig.json |
-| 08 أغسطس 2026 | `7c� 2026 | M0+M4 �deprecation | artifacts/mobile/tsconfig.json |
-؛ تخزين خ2026 | `e620b5a` | انها ربط Sentry بال20…+100)؛ ت�acts/api-server/src/sentry.ts |
-| 26 يوليو يدوي/OPay |` | ربط backend ب sentry | artifacts/api-serS، e2e |
-| 22 rtifacts/api-server/package.json, artifacts/api-مج وحدات s, artifacts/api-server/src/sentry.ts +1 |
-| 24الممارسا | `3a1df85` | انهاء ربط Senty لل Fronترحيب وب�/mobile/app/(admin)/_layout.tsx, artifacts/mobil�لمحفظة |x |
-| 24 يوليو 2026 | `37d2e66` | Sentry P� موحّدة |nual | artifacts/mobile/app.json, artifacts/mobi�ارسات في artifacts/mobile/sentry-wizard-installation-errيد `requireAdm.log, pnpm-lock.yaml +1 |
-| 24 يوليو 2026 �ت/الهديةt all payment updates | artifacts/mobile/sentry-�غسطس 2026 |ion-error-1784842873168.log, lib/db/drizzle/0003فواتير ا�widow.sql, lib/db/drizzle/meta/0003_snapshot.jsooice مع إخفe/meta/_journal.json |
-| 23 يوليو 2026 | `�ة، تخزينone | artifacts/mobile/package.json, lib/db/drizسطس 2026 | و_the_fallen.sql, lib/db/drizzle/meta/0002_snapshبل ما نكمdrizzle/meta/_journal.json +2 |
-| 23 يوليوn_route` مع م` | Implement payment processing and admin profi�دمة | مصر | artifacts/api-server/src/index.ts, artifacts/� اختباراoutes/index.ts, artifacts/api-server/src/routes/�لتطور | ت, artifacts/api-server/src/routes/payments.ts +9�يل تلقائ�و 2026 | `59b86c1` | الدفع والتأكيكمال واجٷ | attached_assets/Pasted-Call-Stack-myRequests�جغرافي |ent-0-artifacts-mo_1784759990883.txt |
-| 22 ي�API | قبول Le7a6b86` | Add API server implementation and enhي الكود، et UI with transaction history | .agents/memory/ن/الجيوف�ts/memory/payment-request-flow.md, .replit, arti�بعة الآل/src/index.ts +10 |
-| 02 يوليو 2026 | `070 استخدام�spute resolution system and automated demo data غسطس 2026 | cts/api-server/migrations/009-seed-points-demo.t�ع مع إدخ�-server/src/index.ts, artifacts/mobile/app/(admiلفواتير �t.tsx, artifacts/mobile/app/(admin)/(tabs)/dispuظة والمح�يوليو 2026 | `eb9d4df` | Add a points syste�وفات ونزs to unlock leads | .agents/memory/MEMORY.md, .aزين الصو�ni-points-system.md, artifacts/api-server/src/ro تُعدّل إ, artifacts/api-server/src/routes/index.ts +11 |ل إغلاق ب� 2026 | `b266052` | Enable offline mode to prevيير في قيtartup failures | artifacts/mobile/scripts/dev-sotent.
-- لا �يوليو 2026 | `8cb61e9` | Saved progress at �ل مراجعةoop | .replit |
-| 30 يونيو 2026 | `b58eea8والمحاسب interface with a new tab structure and user man�ل في Secretsgents/memory/MEMORY.md, .agents/memory/admin-red�ذا الملفcts/mobile/app/(admin)/(tabs)/_layout.tsx, artifافة فقط (�(admin)/(tabs)/permissions.tsx +3 |
-| 23 يون المراحل)a4cd` | database backup | backup.sql, backup_newقائي بعد �نيو 2026 | `aaf6e50` | Good runing | artifacلصفوف ال�ckage.json |
-| 23 يونيو 2026 | `f7727a4` |ش فريد.
-
- | artifacts/mobile/constants/egyptLocations.ts, أبرز المconfig.ts, lib/db/drizzle/0001_minor_scourge.sql026 | `e06bf79` /meta/0001_snapshot.json +6 |
-| 22 يونيو 2 review. | PROJE| feat: tech approval flow, email/mobile edit fo22 أغسطس 20gents/memory/MEMORY.md, .agents/memory/admin-mobaudit trail. | ants/memory/tech-approval-gate.md, artifacts/api-t.ts, payments.ts/auth.ts +9 |
-| 21 يونيو 2026 | `d70d4f5`4` | Align approtechnician registration failure on Replit and los. | migrations xample, artifacts/mobile/.env.example, artifacts�س 2026 | `b3fedev-start.js, attached_assets/Screenshot_2026-06s in the projectf73b71075b1de7323614b647fe39_1782079402172.jpg +| 22 أغسطس      
+| 05 سبتمبر 2026 | `42172bc` | Enable UI login by default so logic E2E videos capture real screens. | e2e/LOGIC_SCRIPTS.md, e2e/tests/helpers/ui.ts, scripts/run-e2e-logic-suite.cmd |
+| 05 سبتمبر 2026 | `099bc68` | Harden logic E2E: wallet unwrap, login cache, and edge circles. | e2e/tests/helpers/apiClient.ts, e2e/tests/helpers/ui.ts, e2e/tests/logic/10-wallet-points.spec.ts, e2e/tests/logic/20-order-lifecycle.spec.ts +2 |
+| 05 سبتمبر 2026 | `3c3dbb1` | Add full business-logic E2E suite for wallet, orders, and refunds. | .gitignore, e2e/.env.example, e2e/LOGIC_SCRIPTS.md, e2e/package.json +11 |
+| 05 سبتمبر 2026 | `e624108` | Fix E2E runner browser path and accept admin dashboard URL. | .gitignore, e2e/tests/full-app/10-role-hubs.spec.ts, scripts/run-e2e-full-recorded.cmd |
+| 05 سبتمبر 2026 | `bfacc5a` | Guard scripts and E2E against writing junk data to production. | .github/workflows/e2e-playwright.yml, artifacts/api-server/scripts/sentry-test-events.mjs, artifacts/api-server/src/index.ts, e2e/.env.example +18 |
+| 05 سبتمبر 2026 | `823f913` | Enable full-app E2E with screenshots and video recording. | .github/workflows/e2e-playwright.yml, e2e/.env.example, e2e/CLOUD_E2E.md, e2e/package.json +9 |
+| 31 أغسطس 2026 | `faabd86` | Add Playwright E2E package with LambdaTest cloud and production smoke tests. | .env.example, .gitignore, e2e/.env.example, e2e/lambdatest.config.ts +7 |
+| 29 أغسطس 2026 | `56039ee` | Fix ESLint errors and hook ordering across mobile and API packages. | .eslintrc.cjs, artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/lib/settings/index.ts, artifacts/api-server/src/routes/admin-geo.ts +19 |
+| 29 أغسطس 2026 | `0c55284` | Log 29 Aug session summary in project development review. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 29 أغسطس 2026 | `8fc6e12` | Update project review log date after quality-loop commit. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 27 أغسطس 2026 | `5093342` | Clean workspace junk: drop attached_assets, dumps, and ignore build artifacts. | .gitignore, ".tmp-spec-extract/AsliTools-Website-\330\252\330\255\331\210\331\212\331\204-TXT-\330\245\331\204\331\211-Markdown (1).en.txt", ".tmp-spec-extract/AsliTools-Website-\330\252\330\255\331\210\331\212\331\204-T |
+| 27 أغسطس 2026 | `4f024aa` | Fix web image uploads: use Blob FormData and file picker on browser. | artifacts/mobile/app/register.tsx, artifacts/mobile/utils/appendImageToFormData.ts, artifacts/mobile/utils/pickPhoto.ts, artifacts/mobile/utils/uploadPhoto.ts +1 |
+| 05 سبتمبر 2026 | `a9d3e6e` | chore: local UPDATE_ALL refresh (2026-09-05 23:12) | E2E_GAP_SOLUTIONS_REPORT.md |
+| 05 سبتمبر 2026 | `af0e1ef` | E2E test configuration | .github/workflows/e2e-playwright.yml, artifacts/api-server/src/routes/technicians.ts, artifacts/mobile/app/(tech)/available-orders.tsx, artifacts/mobile/context/OrderContext.tsx +2 |
+| 05 سبتمبر 2026 | `4a709a0` | Keep declined pending orders visible for techs; treat decline as notification dismiss only. | artifacts/api-server/src/lib/orderLifecycle.ts, artifacts/api-server/src/routes/orders.ts, artifacts/api-server/src/routes/technicians.ts, artifacts/mobile/app/(tech)/available-orders.tsx +2 |
+| 05 سبتمبر 2026 | `500c3d5` | Unify local run scripts on one Fanni API stack and stop dual-server launchers. | deploy/LOCAL-AND-PROD-ENV.md, package.json, scripts/run-fanni.cmd, scripts/run-local-mobile.cmd +3 |
+| 05 سبتمبر 2026 | `8033820` | Fix tech order matching by governorate, default new-order address from profile, and remove stuck sync banner hairline. | artifacts/api-server/src/lib/categoryMatch.ts, artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/routes/orders.ts, artifacts/api-server/src/routes/technicians.ts +8 |
+| 05 سبتمبر 2026 | `55f1c93` | Fix admin approve flow: confirm on web, grant welcome points only after confirm, and dismissible tech congrats. | artifacts/api-server/src/index.ts, artifacts/api-server/src/lib/sms.ts, artifacts/api-server/src/routes/admin.ts, artifacts/mobile/app/(admin)/(tabs)/pending.tsx +1 |
+| 05 سبتمبر 2026 | `c774e7f` | chore: local UPDATE_ALL refresh (2026-09-05 13:44) | artifacts/mobile/app/(tech)/_layout.tsx |
+| 05 سبتمبر 2026 | `bca89d0` | Fix image upload MIME rejection and align tech approval gating with admin pending. | .gitignore, artifacts/api-server/src/lib/fileStorage.ts, artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/routes/upload.mime.test.ts +8 |
+| 05 سبتمبر 2026 | `4a09e47` | Update project development review log after recent local and API script changes. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 05 سبتمبر 2026 | `8953d65` | Harden local API start script so Desktop cwd cannot break pnpm. | scripts/run-local-server.cmd |
+| 05 سبتمبر 2026 | `2bb5368` | chore: local UPDATE_ALL refresh (2026-09-05 13:09) | scripts/fix-windows-deps.ps1 |
+| 04 سبتمبر 2026 | `45dd879` | Harden Metro on Windows by narrowing watchFolders and blocking dependency .map files. | artifacts/mobile/metro.config.js |
+| 04 سبتمبر 2026 | `62da84d` | Auto-repair incomplete chrome-launcher installs that break Expo on Windows. | scripts/fix-windows-deps.ps1 |
+| 04 سبتمبر 2026 | `99b17df` | Auto-repair incomplete @sentry/core installs on Windows after pnpm extract failures. | scripts/fix-windows-deps.ps1 |
+| 04 سبتمبر 2026 | `2a87373` | Wire tech order matching to profession and geo, and gate accept on live wallet balance. | artifacts/api-server/src/lib/categoryMatch.test.ts, artifacts/api-server/src/lib/categoryMatch.ts, artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/routes/technicians.ts +7 |
+| 04 سبتمبر 2026 | `4b310c1` | Add categoryMatch helper to resolve service-domain UUIDs to canonical order categories. | artifacts/api-server/src/lib/categoryMatch.ts |
+| 04 سبتمبر 2026 | `bfcae70` | Clarify E2E credential placeholders in e2e/.env.example for client, tech, and admin. | e2e/.env.example |
+| 04 سبتمبر 2026 | `5ce9e35` | Remove the stuck WebSocket ConnectionBanner strip from client and tech layouts. | artifacts/mobile/app/(client)/_layout.tsx, artifacts/mobile/app/(tech)/_layout.tsx |
+| 04 سبتمبر 2026 | `c813b3a` | set final before test | scripts/deploy-vps-from-local.ps1, scripts/remote-install-from-zip.sh |
+| 04 سبتمبر 2026 | `e8c7705` | Auto-repair corrupted expo-font and @sentry/react-native packages during Windows deps fix. | scripts/fix-windows-deps.ps1, scripts/repair-node-modules.ps1 |
+| 04 سبتمبر 2026 | `5eef28d` | Auto-repair broken @esbuild/win32-x64 junctions in fix-windows-deps after pnpm wipe. | scripts/fix-windows-deps.ps1 |
+| 04 سبتمبر 2026 | `a344c56` | Remove obsolete scripts, harden Windows pipeline helpers, and unblock mobile typecheck. | UPDATE_ALL.ps1, artifacts/mobile/sentry-react-native.d.ts, deploy/LOCAL-AND-PROD-ENV.md, scripts/deploy-vps-from-local.ps1 +13 |
+| 04 سبتمبر 2026 | `f14a99f` | Skip prepare git-hooks install when the hook script is missing so pnpm install can finish. | package.json |
+| 04 سبتمبر 2026 | `ae232d4` | Harden repair-node-modules so Full clean no longer wipes pnpm workspace sources via junctions. | scripts/repair-node-modules.ps1 |
+| 04 سبتمبر 2026 | `ffd1cd2` | Bump PROJECT_DEVELOPMENT_REVIEW last-reviewed date to 04 Sep 2026. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 04 سبتمبر 2026 | `076b09f` | Add repair-node-modules script for corrupted pnpm installs after interrupted deletes. | package.json, scripts/repair-node-modules.ps1 |
+| 04 سبتمبر 2026 | `329e26f` | Refresh pnpm-lock.yaml after removing root Expo duplicates. | pnpm-lock.yaml |
+| 04 سبتمبر 2026 | `a985806` | Deduplicate Expo native modules by removing root expo deps and pinning overrides. | .npmrc, artifacts/mobile/package.json, package.json, pnpm-workspace.yaml |
+| 04 سبتمبر 2026 | `49b6ba9` | Add UPDATE_ALL pipeline and fix apk-check PowerShell parse errors. | UPDATE_ALL.ps1, package.json, scripts/apk-check.ps1, update_all.bat |
+| 04 سبتمبر 2026 | `aa46daa` | Fix safe-push env tracking check under PowerShell Stop mode. | scripts/git-push-safe.ps1 |
+| 04 سبتمبر 2026 | `645d401` | Fix git-push-safe.ps1 PowerShell parsing on Windows. | scripts/git-push-safe.ps1 |
+| 04 سبتمبر 2026 | `6bb4184` | Harden gitignore and safe push after repo move; soften APK doctor preflight. | .gitignore, artifacts/mobile/.easignore, artifacts/mobile/.gitignore, package.json +3 |
+| 03 سبتمبر 2026 | `754c54f` | انتهاء النقل | PROJECT_DEVELOPMENT_REVIEW.md, package.json |
+| 03 سبتمبر 2026 | `95042c2` | fix: update pnpm-lock.yaml | pnpm-lock.yaml |
+| 02 سبتمبر 2026 | `2c7399a` | expo install | package.json, pnpm-lock.yaml |
+| 02 سبتمبر 2026 | `96eb521` | chore: add app.json and eas.json | app.json, eas.json |
+| 02 سبتمبر 2026 | `15f3b74` | Update project development review date to September 2026. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 02 سبتمبر 2026 | `7b16305` | Stage fanni.apk in web deploy so app.upnexa-eg.com serves the APK download. | artifacts/mobile/constants/appIdentity.ts, deploy/WEB-APP-UPNEXA.md, deploy/nginx-app.upnexa-eg.com.conf, scripts/deploy-vps.sh +5 |
+| 02 سبتمبر 2026 | `16043ba` | Simplify tech work-hours picker and fix web input focus scrolling. | artifacts/mobile/app/(tech)/profile.tsx, artifacts/mobile/app/register.tsx, artifacts/mobile/components/FanniInput.tsx, artifacts/mobile/components/KeyboardAwareScrollViewCompat.tsx +4 |
+| 02 سبتمبر 2026 | `a9c92d6` | Fix web deploy path so app.upnexa-eg.com assets publish correctly. | deploy/WEB-APP-UPNEXA.md, scripts/export-web.ps1, scripts/publish-fanni-web.sh, scripts/update_server.sh +1 |
+| 02 سبتمبر 2026 | `b6aa699` | Normalize login identifiers across auth flows for all user roles. | artifacts/api-server/src/lib/phone.test.ts, artifacts/api-server/src/lib/phone.ts, artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/routes/auth.ts +10 |
+| 01 سبتمبر 2026 | `ffd683d` | Create update_all.bat | update_all.bat |
+| 01 سبتمبر 2026 | `2fedb12` | Align WebSocket order broadcast with daily service location. | artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/lib/serviceLocation.ts, artifacts/mobile/components/ServiceLocationDailyModal.tsx, artifacts/mobile/context/TechWsContext.tsx |
+| 01 سبتمبر 2026 | `00556d0` | Fix tech approval refresh and add daily service location matching. | artifacts/api-server/src/lib/addressCompleteness.ts, artifacts/api-server/src/lib/serviceLocation.ts, artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/routes/auth.ts +23 |
+| 01 سبتمبر 2026 | `af396c6` | Update project development review date to September 2026. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 01 سبتمبر 2026 | `9d53849` | Remove conflicting --offline flag from Expo start args. | artifacts/mobile/scripts/dev-start.js |
+| 01 سبتمبر 2026 | `f7e31ae` | Fix Expo Metro hang on Windows by starting offline. | artifacts/mobile/scripts/dev-start.js, scripts/run-local-mobile.cmd, scripts/run-mobile-prod-api.cmd |
+| 01 سبتمبر 2026 | `cf639d3` | Fix Windows local dev: deps, Jest, and run scripts for E: path. | .npmrc, artifacts/api-server/package.json, artifacts/api-server/src/lib/bonusGrants.test.ts, artifacts/mobile/jest.config.js +11 |
+| 01 سبتمبر 2026 | `8edaf31` | Add local/prod env split and Windows run scripts for new project path. | .env.example, .env.local.example, .env.production.example, .gitignore +15 |
+| 31 أغسطس 2026 | `52eab60` | Add live wallet balance refresh for admin and technician screens. | artifacts/api-server/src/lib/walletSummary.test.ts, artifacts/api-server/src/lib/walletSummary.ts, artifacts/api-server/src/routes/wallet.ts, artifacts/mobile/app/(tech)/_layout.tsx +5 |
+| 31 أغسطس 2026 | `60cb9c0` | Fix missing bonus grant button by using correct permissions API. | artifacts/api-server/src/routes/wallet.ts, artifacts/mobile/components/admin/TechBonusGrantsPanel.tsx |
+| 31 أغسطس 2026 | `7f4340a` | Update project development review date after bonus grants release. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 31 أغسطس 2026 | `6781887` | Add Super Admin bonus grants, order journey E2E docs, and test hooks. | artifacts/api-server/src/lib/bonusGrants.test.ts, artifacts/api-server/src/lib/bonusGrants.ts, artifacts/api-server/src/routes/wallet.ts, artifacts/mobile/app/(admin)/(tabs)/users.tsx +19 |
+| 31 أغسطس 2026 | `bd76978` | Fix admin Sentry front test on web by relaying through API. | artifacts/api-server/src/lib/mobileSentryRelay.test.ts, artifacts/api-server/src/lib/mobileSentryRelay.ts, artifacts/api-server/src/lib/sentryConfig.test.ts, artifacts/api-server/src/lib/sentryConfig.ts +3 |
+| 31 أغسطس 2026 | `50b54cd` | Disable Playwright video capture in E2E runs to reduce artifact size. | e2e/playwright.config.ts |
+| 30 أغسطس 2026 | `3fd86cd` | Refresh E2E 360 report for v1.0.10, pending deploy, and Live-pass checklist. | E2E_360_REPORT.md |
+| 30 أغسطس 2026 | `3cfea2d` | Add account suspension with required reason, audit trail, and user notices. | artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/routes/auth.ts, artifacts/mobile/app/(admin)/(tabs)/users.tsx, artifacts/mobile/app/_layout.tsx +4 |
+| 30 أغسطس 2026 | `72bac74` | Fix admin parties lists by correcting GET /admin/users SQL and surfacing load errors. | artifacts/api-server/src/routes/admin.ts, artifacts/mobile/app/(admin)/(tabs)/users.tsx |
+| 30 أغسطس 2026 | `2b09844` | Clear ESLint noise: fix escapes, empty catches, any types, and safe hook deps. | artifacts/api-server/src/lib/locationNormalizer.ts, artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/lib/settings/index.ts, artifacts/api-server/src/routes/auth.ts +31 |
+| 30 أغسطس 2026 | `85d806e` | Fix web logout by replacing Alert.alert with a browser-safe confirm dialog. | artifacts/mobile/app/(admin)/(tabs)/profile.tsx, artifacts/mobile/app/(client)/profile.tsx, artifacts/mobile/app/(tech)/profile.tsx, artifacts/mobile/app/tech-pending.tsx +3 |
+| 30 أغسطس 2026 | `4ae6518` | Fix admin map-data 404 by mounting geo routes before the catch-all handler. | artifacts/api-server/src/index.ts, artifacts/api-server/src/routes/admin-geo.ts, artifacts/api-server/src/routes/index.ts, artifacts/mobile/constants/appIdentity.ts |
+| 30 أغسطس 2026 | `617e7c6` | Fix web login session storage by using AsyncStorage instead of SecureStore. | artifacts/mobile/app/(admin)/(tabs)/profile.tsx, artifacts/mobile/app/(admin)/add-admin.tsx, artifacts/mobile/app/login.tsx, artifacts/mobile/app/register.tsx +4 |
+| 30 أغسطس 2026 | `ad2352f` | Sentry_Plugin | .cursor/settings.json |
+| 30 أغسطس 2026 | `d24f5cd` | Document local/prod update steps and correct APK path to upnexa-eg.com. | PROJECT_DEVELOPMENT_REVIEW.md, deploy/UPDATE-REPORT.md, deploy/VPS-STEPS.md, deploy/WEB-APP-UPNEXA.md +1 |
+| 30 أغسطس 2026 | `82ba3af` | Fix Windows local API startup by replacing broken cross-env with a Node script. | artifacts/api-server/package.json, artifacts/api-server/scripts/dev.mjs, scripts/local-update.ps1 |
+| 30 أغسطس 2026 | `d32c9f1` | Add local deploy scripts and expand VPS guide for C:\Fanni workflow. | PROJECT_DEVELOPMENT_REVIEW.md, deploy/VPS-STEPS.md, deploy/WEB-APP-UPNEXA.md, package.json +4 |
+| 30 أغسطس 2026 | `2247438` | Document VPS rollout and Sentry checks for release 1.0.10. | PROJECT_DEVELOPMENT_REVIEW.md, deploy/SENTRY-MCP.md, deploy/VPS-STEPS.md, deploy/env.production.example |
+| 30 أغسطس 2026 | `5e16d0e` | Add Sentry test hooks and align monitoring to upnexa-hb for release 1.0.10. | PROJECT_DEVELOPMENT_REVIEW.md, artifacts/api-server/package.json, artifacts/api-server/scripts/sentry-test-events.mjs, artifacts/api-server/src/lib/sentryConfig.test.ts +9 |
+| 30 أغسطس 2026 | `ed655a0` | Centralize Sentry config and wire Cursor MCP for Fanni. | .cursor/mcp.json, artifacts/api-server/src/lib/sentryConfig.test.ts, artifacts/api-server/src/lib/sentryConfig.ts, artifacts/api-server/src/middlewares/authMiddleware.ts +8 |
+| 30 أغسطس 2026 | `dedc928` | Bump project review date after API log hardening commit. | PROJECT_DEVELOPMENT_REVIEW.md |
+| 30 أغسطس 2026 | `dfc2b56` | Reduce PM2 log noise and harden API public endpoints. | artifacts/api-server/src/app.ts, artifacts/api-server/src/index.ts, artifacts/api-server/src/lib/logNoise.test.ts, artifacts/api-server/src/lib/logNoise.ts +3 |
+| 29 أغسطس 2026 | `48aa25e` | Document full VPS rollout for app 1.0.9 and migrate 024. | PROJECT_DEVELOPMENT_REVIEW.md, deploy/VPS-STEPS.md |
+| 29 أغسطس 2026 | `427788c` | Bump mobile app to 1.0.9 (versionCode 9). | artifacts/mobile/app.json, artifacts/mobile/package.json |
