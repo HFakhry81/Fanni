@@ -26,11 +26,16 @@ This reads `.env.production`, redacts secrets, and writes `deploy/env.production
 
 ## Run locally
 
-Desktop shortcuts (also under `scripts\`):
+**One stack only** — do not start a second API (no UpNexa `:5000` / “API2”).
 
-1. `run-local-server.cmd` — API on port 3000 + local Postgres
-2. `run-local-mobile.cmd` — Expo → LAN API (edit `MY_IP` inside the script)
+Source of truth under `scripts\`:
+
+1. `run-local-server.cmd` — API on port **3000** (`pnpm run dev:api` from repo root)
+2. `run-local-mobile.cmd` — Expo → LAN API `:3000` (auto-detects `MY_IP`)
 3. `run-mobile-prod-api.cmd` — Expo Metro against **live** API (QA only)
+4. `run-fanni.cmd` — simple menu for the above
+
+Desktop shortcuts (`run-server.bat`, `run-mobile.bat`, …) are thin wrappers that call these scripts.
 
 Daily refresh (install + migrate + seed + typecheck + web zip + git):
 

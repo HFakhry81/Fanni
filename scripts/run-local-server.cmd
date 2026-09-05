@@ -1,21 +1,21 @@
 @echo off
 chcp 65001 >nul
 color 0B
-title FANNI API SERVER - LOCAL (E:\UpNexa.com\Fanni)
+title FANNI API - single local server (port 3000)
 
 cls
 echo ======================================================================
-echo   FANNI API :: LOCAL DEVELOPMENT
-echo   Root: E:\UpNexa.com\Fanni
+echo   FANNI API :: LOCAL (ONE SERVER ONLY - no API2)
 echo ======================================================================
 echo.
 
-set "ROOT=E:\UpNexa.com\Fanni"
+set "ROOT=%~dp0.."
+for %%I in ("%ROOT%") do set "ROOT=%%~fI"
 set "NODE_OPTIONS=--use-system-ca"
 
 cd /d "%ROOT%" 2>nul
 if errorlevel 1 (
-  echo [ERROR] Access denied or path missing: %ROOT%
+  echo [ERROR] Cannot cd to %ROOT%
   pause
   exit /b 1
 )
@@ -27,20 +27,20 @@ if not exist "%ROOT%\package.json" (
 )
 
 if not exist "%ROOT%\.env" (
-  echo [WARN] .env missing — copy .env.local.example to .env
+  echo [WARN] .env missing - copy .env.local.example to .env
   echo.
 )
 
-echo [INFO] CWD    : %CD%
-echo [INFO] Target : %ROOT%
-echo [INFO] Command: pnpm --filter @workspace/api-server run dev
+echo [INFO] Root    : %CD%
+echo [INFO] Command : pnpm run dev:api
+echo [INFO] Port    : 3000 (from .env PORT - do not start a second API)
 echo.
 echo ----------------------------------------------------------------------
-echo [ACTION] Starting API...
+echo [ACTION] Starting the ONLY local API...
 echo ----------------------------------------------------------------------
 echo.
 
-call pnpm --filter @workspace/api-server run dev
+call pnpm run dev:api
 set "EXITCODE=%ERRORLEVEL%"
 if not "%EXITCODE%"=="0" (
   echo.
