@@ -197,15 +197,42 @@ export async function listPackages(token: string): Promise<{
   return api("GET", "/api/wallet/packages", { token });
 }
 
+/** Minimal 1×1 PNG for payment receipt uploads in E2E. */
+export async function uploadReceiptImage(token: string): Promise<{ url: string; objectName?: string }> {
+  assertWritesAllowed("POST /api/upload");
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const form = new FormData();
+  form.append("purpose", "uploads");
+  form.append("file", new Blob([png], { type: "image/png" }), "e2e-receipt.png");
+  const res = await fetch(`${apiBase()}/api/upload`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    url?: string;
+    objectName?: string;
+    error?: string;
+  };
+  if (!res.ok || !data.url) {
+    throw new ApiError(data.error ?? `upload failed (${res.status})`, res.status, data);
+  }
+  return { url: data.url, objectName: data.objectName };
+}
+
 export async function requestTopUp(
   token: string,
   body: {
-    packageId?: string;
-    amountEgp: number;
-    pointsRequested: number;
+    packageId: string;
+    amountEgp?: number;
+    pointsRequested?: number;
     paymentMethod?: string;
     senderDetails?: Record<string, string>;
-    referenceNumber?: string;
+    referenceNumber: string;
+    proofImageUrl: string;
   },
 ): Promise<{ request: { id: string; status: string } }> {
   return api("POST", "/api/payments/request", { token, body });
@@ -478,13 +505,15 @@ export async function ensureTechPoints(
   const pkg = pkgs.packages?.[0];
   if (!pkg) throw new Error("No point packages available for top-up");
 
+  const proof = await uploadReceiptImage(techToken);
   const { request } = await requestTopUp(techToken, {
     packageId: pkg.id,
     amountEgp: Number(pkg.priceEgp) || 50,
     pointsRequested: pkg.pointsAmount || 60,
     paymentMethod: "instapay",
     senderDetails: { instapayId: "e2e-logic@instapay" },
-    referenceNumber: `LOGIC-${Date.now()}`,
+    referenceNumber: `LOGIC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    proofImageUrl: proof.url,
   });
   await adminConfirmPayment(adminToken, request.id);
   // Confirm can be slightly async in ledger paths — poll briefly

@@ -24,6 +24,7 @@ import {
   requestTopUp,
   requireAllRoles,
   requireWritableTarget,
+  uploadReceiptImage,
   writesBlockedReason,
 } from "../helpers/apiClient";
 import { film, markLt, softGoto, softUiLogin } from "../helpers/ui";
@@ -48,6 +49,7 @@ test.describe("Logic · wallet / welcome / admin points", () => {
     const pkg = pkgs.packages?.[0];
     expect(pkg, "active point package required").toBeTruthy();
 
+    const proof = await uploadReceiptImage(tech.token);
     const { request } = await requestTopUp(tech.token, {
       packageId: pkg!.id,
       amountEgp: Number(pkg!.priceEgp) || 50,
@@ -55,6 +57,7 @@ test.describe("Logic · wallet / welcome / admin points", () => {
       paymentMethod: "instapay",
       senderDetails: { instapayId: "logic-topup@instapay" },
       referenceNumber: `TOPUP-${Date.now()}`,
+      proofImageUrl: proof.url,
     });
 
     if (await softUiLogin(page, process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!, /admin|dashboard/)) { /* filmed */ }
@@ -85,6 +88,7 @@ test.describe("Logic · wallet / welcome / admin points", () => {
       paymentMethod: "bank_transfer",
       senderDetails: { accountNumber: "0000" },
       referenceNumber: `TOPUP-REJ-${Date.now()}`,
+      proofImageUrl: (await uploadReceiptImage(tech.token)).url,
     });
     await adminRejectPayment(admin.token, request.id, "Logic suite: expected reject");
     const after = await getWallet(tech.token);

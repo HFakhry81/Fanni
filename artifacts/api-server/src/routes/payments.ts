@@ -19,8 +19,20 @@ import { startGatewayCheckout } from "../lib/paymentGateway";
 import { creditPurchased } from "../lib/walletBuckets";
 import { logAdminAudit } from "../lib/adminAudit";
 import { postCashIn, resolveProviderFeeEgp } from "../lib/generalLedger";
+import {
+  extractProofObjectKey,
+  isValidPaymentReference,
+  normalizePaymentReference,
+  proofImageUrlFromKey,
+} from "../lib/paymentRequestValidation";
 
 const router: IRouter = Router();
+
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; cause?: { code?: string } };
+  return e.code === "23505" || e.cause?.code === "23505";
+}
 
 // ── GET /api/payment-config — public: show account details to clients ──────────
 router.get("/payment-config", authMiddleware, async (_req, res) => {
@@ -46,54 +58,93 @@ router.post("/payments/request", authMiddleware, requireAuth, async (req, res) =
   }
   const {
     packageId,
-    amountEgp,
-    pointsRequested,
     paymentMethod,
     senderDetails,
     referenceNumber,
     transferNote,
+    proofImageUrl,
   } = req.body as {
     packageId?: string;
-    amountEgp?: number;
-    pointsRequested?: number;
     paymentMethod?: string;
     senderDetails?: Record<string, string>;
     referenceNumber?: string;
     transferNote?: string;
+    proofImageUrl?: string;
   };
 
-  if (!amountEgp || !pointsRequested) {
-    res.status(400).json({ error: "amountEgp and pointsRequested are required" });
+  if (!packageId) {
+    res.status(400).json({ error: "packageId is required", code: "PACKAGE_REQUIRED" });
     return;
   }
-  let chargedAmount = amountEgp;
-  let chargedPoints = pointsRequested;
+
+  const normalizedRef = normalizePaymentReference(referenceNumber);
+  if (!isValidPaymentReference(normalizedRef)) {
+    res.status(400).json({
+      error: "A valid transfer reference number is required (min 4 characters)",
+      code: "REFERENCE_REQUIRED",
+    });
+    return;
+  }
+
+  const proofKey = extractProofObjectKey(proofImageUrl);
+  if (!proofKey || !proofKey.startsWith("uploads/")) {
+    res.status(400).json({
+      error: "Transfer receipt image is required (upload proof first)",
+      code: "PROOF_REQUIRED",
+    });
+    return;
+  }
+  // Receipt must belong to this technician
+  if (!proofKey.startsWith(`uploads/${user.id}/`)) {
+    res.status(400).json({
+      error: "Receipt image does not belong to this account",
+      code: "PROOF_OWNERSHIP",
+    });
+    return;
+  }
+
   const method = (["bank_transfer", "instapay", "e_wallet"].includes(paymentMethod ?? "")
     ? paymentMethod
     : "bank_transfer") as "bank_transfer" | "instapay" | "e_wallet";
 
   try {
-    if (packageId) {
-      const [pkg] = await db
-        .select()
-        .from(pointPackagesTable)
-        .where(and(eq(pointPackagesTable.id, packageId), eq(pointPackagesTable.isActive, true)));
-      if (!pkg) {
-        res.status(400).json({ error: "Package not found or inactive" });
-        return;
-      }
-      chargedAmount = Number(pkg.priceEgp);
-      chargedPoints = pkg.pointsAmount;
+    const [pkg] = await db
+      .select()
+      .from(pointPackagesTable)
+      .where(and(eq(pointPackagesTable.id, packageId), eq(pointPackagesTable.isActive, true)));
+    if (!pkg) {
+      res.status(400).json({ error: "Package not found or inactive" });
+      return;
     }
+    const chargedAmount = Number(pkg.priceEgp);
+    const chargedPoints = pkg.pointsAmount;
+
+    // Soft duplicate check before insert (unique index is the hard guarantee)
+    const [dup] = await db
+      .select({ id: paymentRequestsTable.id, status: paymentRequestsTable.status })
+      .from(paymentRequestsTable)
+      .where(sql`lower(btrim(reference_number)) = ${normalizedRef!.toLowerCase()}`)
+      .limit(1);
+    if (dup) {
+      res.status(409).json({
+        error: "This transfer reference was already used",
+        code: "REFERENCE_DUPLICATE",
+        existingRequestId: dup.id,
+        existingStatus: dup.status,
+      });
+      return;
+    }
+
     const [request] = await db
       .insert(paymentRequestsTable)
       .values({
         userId: user.id,
-        packageId: packageId ?? null,
+        packageId,
         amountEgp: String(chargedAmount),
         pointsRequested: chargedPoints,
         paymentMethod: method,
-        referenceNumber: referenceNumber ?? null,
+        referenceNumber: normalizedRef,
+        proofImageUrl: proofImageUrlFromKey(proofKey),
         transferNote: transferNote ?? null,
         senderDetails: senderDetails ?? null,
       })
@@ -139,13 +190,20 @@ router.post("/payments/request", authMiddleware, requireAuth, async (req, res) =
 
     const checkout = await startGatewayCheckout({
       technicianId: user.id,
-      packageId: packageId ?? "",
+      packageId,
       amountEgp: chargedAmount,
       pointsRequested: chargedPoints,
       intentId: request!.id,
     });
     res.json({ request, checkout });
   } catch (err) {
+    if (isUniqueViolation(err)) {
+      res.status(409).json({
+        error: "This transfer reference was already used",
+        code: "REFERENCE_DUPLICATE",
+      });
+      return;
+    }
     logger.error({ err }, "Failed to create payment request");
     res.status(500).json({ error: "Failed to create payment request" });
   }
@@ -184,6 +242,7 @@ router.get("/admin/payments", authMiddleware, requireAuth, requireAdmin, async (
         pr.points_requested,
         pr.payment_method,
         pr.reference_number,
+        pr.proof_image_url,
         pr.transfer_note,
         pr.sender_details,
         pr.status,

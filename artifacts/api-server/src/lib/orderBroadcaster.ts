@@ -10,6 +10,10 @@ import {
   hydrateTechnicianRoutingMeta,
   type ServiceLocationMode,
 } from "./serviceLocation";
+import {
+  parseBroadcastRadiusTiersKm,
+  resolveBroadcastMaxRadiusKm,
+} from "./broadcastRadius";
 
 interface TechnicianMeta {
   registered: boolean;
@@ -127,20 +131,10 @@ let pendingOrders: unknown[] = [];
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEARTBEAT_TIMEOUT_MS = 60_000;
 
-const BROADCAST_RADIUS_TIERS_KM: number[] = (() => {
-  const raw = process.env.BROADCAST_RADIUS_TIERS_KM ?? process.env.BROADCAST_RADIUS_KM ?? "";
-  if (raw.trim()) {
-    const parsed = raw
-      .split(",")
-      .map((s) => parseFloat(s.trim()))
-      .filter((n) => !isNaN(n) && n > 0);
-    if (parsed.length > 0) {
-      const unique = [...new Set(parsed)].sort((a, b) => a - b);
-      return unique;
-    }
-  }
-  return [15, 50, 100];
-})();
+const BROADCAST_RADIUS_TIERS_KM: number[] = parseBroadcastRadiusTiersKm(
+  process.env.BROADCAST_RADIUS_TIERS_KM ?? process.env.BROADCAST_RADIUS_KM,
+  resolveBroadcastMaxRadiusKm(),
+);
 
 setInterval(() => {
   const now = Date.now();

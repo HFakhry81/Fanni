@@ -2,13 +2,12 @@ import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import React, { useState } from "react";
+import React from "react";
 import {
   Platform,
   StyleSheet,
   View,
   Text,
-  TouchableOpacity,
   useColorScheme,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
@@ -166,9 +165,8 @@ function ClassicAdminTabs() {
 export default function AdminTabsLayout() {
   const { user } = useAuth();
   const { t, isRTL } = useApp();
-  const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  const showBanner = !bannerDismissed && user?.mustChangePassword === true;
+  const showBanner = user?.mustChangePassword === true;
 
   return (
     <View style={styles.root}>
@@ -193,12 +191,6 @@ export default function AdminTabsLayout() {
               {t("admin.defaultPasswordBanner")}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setBannerDismissed(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <VectorIcon name="x" size={16} color="#C8880A" />
-          </TouchableOpacity>
         </View>
       )}
 

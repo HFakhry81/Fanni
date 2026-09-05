@@ -11,6 +11,8 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Image,
+  Linking,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +23,7 @@ import AppHeader from "@/components/AppHeader";
 import { KeyboardAvoidingSheet } from "@/components/KeyboardAwareScrollViewCompat";
 import VectorIcon from "@/components/VectorIcon";
 import { getApiBase } from "@/utils/api";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 interface SenderDetails {
   accountNumber?: string;
@@ -36,6 +39,7 @@ interface PaymentRequest {
   points_requested: number;
   payment_method: "bank_transfer" | "instapay" | "e_wallet";
   reference_number: string | null;
+  proof_image_url: string | null;
   transfer_note: string | null;
   sender_details: SenderDetails | null;
   status: "pending" | "confirmed" | "rejected";
@@ -235,6 +239,25 @@ export default function AdminPaymentsScreen() {
               </Text>
             ) : null}
           </View>
+
+          {item.proof_image_url ? (
+            <TouchableOpacity
+              onPress={() => {
+                const uri = resolveMediaUrl(item.proof_image_url, { token: sessionToken });
+                if (uri) void Linking.openURL(uri);
+              }}
+              style={{ marginTop: 8 }}
+            >
+              <Image
+                source={{ uri: resolveMediaUrl(item.proof_image_url, { token: sessionToken }) }}
+                style={{ width: "100%", height: 120, borderRadius: 8, backgroundColor: colors.border }}
+                resizeMode="cover"
+              />
+              <Text style={[styles.detail, { color: colors.primary, marginTop: 4 }]}>
+                {isRTL ? "عرض إيصال التحويل" : "View transfer receipt"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Sender details (source account) */}
           {item.sender_details && Object.keys(item.sender_details).length > 0 && (

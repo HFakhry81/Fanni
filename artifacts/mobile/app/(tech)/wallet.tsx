@@ -11,6 +11,7 @@ import {
   Alert,
   RefreshControl,
   Clipboard,
+  Image,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
@@ -26,6 +27,8 @@ import { useWallet } from "@/context/WalletContext";
 import { getApiBase } from "@/utils/api";
 import { openTermsOfUse } from "@/utils/terms";
 import { WELCOME_BONUS_POINTS } from "@/constants/appIdentity";
+import { pickPhotoWithSourceChooser } from "@/utils/pickPhoto";
+import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PointPackage {
@@ -120,6 +123,10 @@ export default function WalletScreen() {
   const [payMethod, setPayMethod] = useState<"bank_transfer" | "instapay" | "e_wallet">("bank_transfer");
   const [senderAccount, setSenderAccount] = useState(""); // the tech's OWN account/id/number
   const [senderName, setSenderName] = useState("");        // optional sender name for bank
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [proofUri, setProofUri] = useState<string | null>(null);
+  const [proofMime, setProofMime] = useState("image/jpeg");
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
   // Notifications modal
@@ -244,7 +251,19 @@ export default function WalletScreen() {
     setPayMethod("bank_transfer");
     setSenderAccount("");
     setSenderName("");
+    setReferenceNumber("");
+    setProofUri(null);
+    setProofMime("image/jpeg");
+    setProofUrl(null);
     setModalVisible(true);
+  };
+
+  const pickReceipt = async () => {
+    const picked = await pickPhotoWithSourceChooser(isRTL);
+    if (!picked) return;
+    setProofUri(picked.uri);
+    setProofMime(picked.mimeType);
+    setProofUrl(null);
   };
 
   // ─── Submit payment request ────────────────────────────────────────────────
@@ -265,10 +284,37 @@ export default function WalletScreen() {
       );
       return;
     }
+    if (referenceNumber.trim().length < 4) {
+      Alert.alert(
+        isRTL ? "مطلوب" : "Required",
+        isRTL
+          ? "أدخل رقم مرجع التحويل (٤ أحرف على الأقل)"
+          : "Enter the transfer reference number (min 4 characters)",
+      );
+      return;
+    }
+    if (!proofUri && !proofUrl) {
+      Alert.alert(
+        isRTL ? "مطلوب" : "Required",
+        isRTL ? "أرفق صورة إيصال التحويل" : "Attach a transfer receipt photo",
+      );
+      return;
+    }
     const apiBase = getApiBase();
     if (!apiBase || !sessionToken) return;
     setSubmitLoading(true);
     try {
+      let uploadedProof = proofUrl;
+      if (!uploadedProof && proofUri) {
+        const uploaded = await uploadPhotoToServer(proofUri, sessionToken, proofMime, "uploads");
+        uploadedProof = uploaded.url;
+        setProofUrl(uploaded.url);
+      }
+      if (!uploadedProof) {
+        Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "فشل رفع الإيصال" : "Receipt upload failed");
+        return;
+      }
+
       const senderDetails: Record<string, string> = { [senderKey]: senderAccount.trim() };
       if (senderName.trim()) senderDetails.accountName = senderName.trim();
 
@@ -281,6 +327,8 @@ export default function WalletScreen() {
           pointsRequested: selectedPkg.pointsAmount,
           paymentMethod: payMethod,
           senderDetails,
+          referenceNumber: referenceNumber.trim(),
+          proofImageUrl: uploadedProof,
         }),
       });
       if (res.ok) {
@@ -293,8 +341,14 @@ export default function WalletScreen() {
             : `Your request for ${selectedPkg.pointsAmount} pts is under review. You'll be notified once confirmed.`,
         );
       } else {
-        const json = await res.json() as { error?: string };
-        Alert.alert(isRTL ? "خطأ" : "Error", json.error ?? "Failed");
+        const json = await res.json() as { error?: string; code?: string };
+        const dup = json.code === "REFERENCE_DUPLICATE";
+        Alert.alert(
+          isRTL ? "خطأ" : "Error",
+          dup
+            ? (isRTL ? "رقم المرجع مستخدم من قبل" : "This reference number was already used")
+            : (json.error ?? "Failed"),
+        );
       }
     } catch {
       Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "فشل الاتصال" : "Connection failed");
@@ -774,6 +828,49 @@ export default function WalletScreen() {
                     </View>
                   )}
 
+                  <View>
+                    <Text style={[styles.fieldLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                      {isRTL ? "رقم مرجع التحويل *" : "Transfer reference *"}
+                    </Text>
+                    <TextInput
+                      style={[styles.textInput, {
+                        color: colors.foreground,
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                        textAlign: isRTL ? "right" : "left",
+                      }]}
+                      placeholder={isRTL ? "كما يظهر في رسالة التحويل" : "As shown on the transfer confirmation"}
+                      placeholderTextColor={colors.mutedForeground}
+                      value={referenceNumber}
+                      onChangeText={setReferenceNumber}
+                      autoCapitalize="characters"
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={[styles.fieldLabel, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+                      {isRTL ? "صورة إيصال التحويل *" : "Transfer receipt photo *"}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={pickReceipt}
+                      style={[styles.textInput, {
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                        justifyContent: "center",
+                        minHeight: 48,
+                      }]}
+                    >
+                      <Text style={{ color: proofUri ? colors.foreground : colors.mutedForeground, textAlign: isRTL ? "right" : "left", fontFamily: "Inter_500Medium" }}>
+                        {proofUri
+                          ? (isRTL ? "✓ تم اختيار صورة — اضغط للتغيير" : "✓ Photo selected — tap to change")
+                          : (isRTL ? "📷 ارفع صورة الإيصال" : "📷 Upload receipt photo")}
+                      </Text>
+                    </TouchableOpacity>
+                    {proofUri ? (
+                      <Image source={{ uri: proofUri }} style={{ width: "100%", height: 140, borderRadius: 8, marginTop: 8 }} resizeMode="cover" />
+                    ) : null}
+                  </View>
+
                   <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginTop: 4 }}>
                     <TouchableOpacity
                       style={[styles.backBtn, { borderColor: colors.border }]}
@@ -788,6 +885,14 @@ export default function WalletScreen() {
                       onPress={() => {
                         if (!senderAccount.trim()) {
                           Alert.alert(isRTL ? "مطلوب" : "Required", isRTL ? "أدخل بيانات حسابك" : "Enter your account details");
+                          return;
+                        }
+                        if (referenceNumber.trim().length < 4) {
+                          Alert.alert(isRTL ? "مطلوب" : "Required", isRTL ? "أدخل رقم مرجع التحويل" : "Enter transfer reference");
+                          return;
+                        }
+                        if (!proofUri) {
+                          Alert.alert(isRTL ? "مطلوب" : "Required", isRTL ? "أرفق صورة الإيصال" : "Attach receipt photo");
                           return;
                         }
                         setModalStep("review");
@@ -812,6 +917,12 @@ export default function WalletScreen() {
                       isRTL={isRTL}
                       colors={colors}
                       highlight
+                    />
+                    <ReviewRow
+                      label={isRTL ? "المرجع" : "Reference"}
+                      value={referenceNumber}
+                      isRTL={isRTL}
+                      colors={colors}
                     />
                     {companyAccountValue() && (
                       <ReviewRow

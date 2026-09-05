@@ -9,6 +9,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { getSetting, SETTING_KEYS } from "../lib/settings";
 import { broadcastOrderStatusToClient } from "../lib/orderBroadcaster";
 import { sendExpoPushNotification } from "../lib/pushNotifications";
+import { haversineKm, isImplausibleGeoJump } from "../lib/geoJump";
 
 const router: IRouter = Router();
 
@@ -26,12 +27,59 @@ router.post("/geo/update", authMiddleware, requireAuth, async (req: Request, res
     res.status(400).json({ error: "Latitude and Longitude are required" });
     return;
   }
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    res.status(400).json({ error: "Invalid coordinates" });
+    return;
+  }
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    res.status(400).json({ error: "Coordinates out of range" });
+    return;
+  }
 
   const userId = req.user!.id;
   const now = new Date();
   const capturedDate = capturedAt ? new Date(capturedAt) : now;
 
   try {
+    // Reject physically implausible GPS jumps (spoofing / teleport)
+    const prevRows = await db.execute<{
+      lat: number | null;
+      lon: number | null;
+      captured_at: Date | null;
+    }>(sql`
+      SELECT
+        ST_Y(location::geometry) AS lat,
+        ST_X(location::geometry) AS lon,
+        location_captured_at AS captured_at
+      FROM users
+      WHERE id = ${userId}
+      LIMIT 1
+    `);
+    const prev = prevRows.rows[0];
+    if (
+      prev?.lat != null &&
+      prev?.lon != null &&
+      prev.captured_at &&
+      isImplausibleGeoJump({
+        fromLat: Number(prev.lat),
+        fromLon: Number(prev.lon),
+        toLat: latitude,
+        toLon: longitude,
+        elapsedMs: capturedDate.getTime() - new Date(prev.captured_at).getTime(),
+      })
+    ) {
+      const dist = haversineKm(Number(prev.lat), Number(prev.lon), latitude, longitude);
+      logger.warn(
+        { userId, distKm: dist, from: prev, to: { latitude, longitude } },
+        "Rejected implausible geo jump",
+      );
+      res.status(400).json({
+        error: "Location update rejected: implausible movement detected",
+        code: "GEO_JUMP_REJECTED",
+      });
+      return;
+    }
+
     // 1. Update User table (Current Location)
     await db.update(usersTable).set({
       location: sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`,

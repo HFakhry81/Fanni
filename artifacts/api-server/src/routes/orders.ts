@@ -8,7 +8,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../lib/locationNormalizer";
 import { queryString } from "../lib/queryParams";
 import { sendOrderStatusPushNotification } from "../lib/pushNotifications";
-import { sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
+import { orderTextContainsContactPii, sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
 import { InsufficientPointsError, maskSensitiveOrderFields, refundEligibleUnlocksForCancelledOrder, unlockLeadAtomically } from "../lib/leadUnlock";
 import { maskPhoneDisplay } from "../lib/phone";
 import { markTechnicianBusy, markTechnicianAvailable } from "../lib/orderLifecycle";
@@ -212,7 +212,18 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
   };
 
   try {
-    const safeOrder = sanitizeOrderForBroadcast(order as Record<string, unknown>);
+    const orderRecord = order as Record<string, unknown>;
+    if (orderTextContainsContactPii(orderRecord)) {
+      logger.warn({ orderId: order.id, clientId: user.id }, "Order rejected: contact PII in free-text fields");
+      res.status(400).json({
+        error:
+          "لا تكتب رقم الهاتف أو روابط واتساب في وصف المشكلة. بيانات التواصل تُفتح للفني بعد قبول الطلب فقط.",
+        code: "CONTACT_PII_IN_DESCRIPTION",
+      });
+      return;
+    }
+
+    const safeOrder = sanitizeOrderForBroadcast(orderRecord);
     const [inserted] = await db
       .insert(ordersTable)
       .values({

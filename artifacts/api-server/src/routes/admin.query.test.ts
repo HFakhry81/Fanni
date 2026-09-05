@@ -16,6 +16,7 @@ const ADMIN_RECORD = {
   isActive: true,
   isSuperAdmin: true,
   permissions: null,
+  mustChangePassword: false,
 };
 
 /**

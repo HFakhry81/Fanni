@@ -23,6 +23,8 @@ export const paymentRequestsTable = pgTable("payment_requests", {
   pointsRequested: integer("points_requested").notNull(),
   paymentMethod: paymentMethodTypeEnum("payment_method").notNull().default("bank_transfer"),
   referenceNumber: varchar("reference_number", { length: 255 }),
+  /** Private upload URL/key for transfer receipt (required for manual top-up). */
+  proofImageUrl: text("proof_image_url"),
   transferNote: text("transfer_note"),
   /** JSON: { accountNumber?, instapayId?, walletNumber?, accountName? } */
   senderDetails: json("sender_details").$type<Record<string, string>>(),

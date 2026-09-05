@@ -21,6 +21,7 @@ import {
   startOrder,
   techAssignedOrders,
   techPendingOrders,
+  uploadReceiptImage,
   writesBlockedReason,
 } from "../helpers/apiClient";
 import { film, markLt, softGoto, uiLogin } from "../helpers/ui";
@@ -61,6 +62,7 @@ test.describe("Full-app · wallet + order matrix (API + video)", () => {
       paymentMethod: "instapay",
       senderDetails: { instapayId: "e2e@instapay" },
       referenceNumber: `E2E-${Date.now()}`,
+      proofImageUrl: (await uploadReceiptImage(tech.token)).url,
     });
     expect(request.id).toBeTruthy();
 
@@ -92,6 +94,7 @@ test.describe("Full-app · wallet + order matrix (API + video)", () => {
       paymentMethod: "bank_transfer",
       senderDetails: { accountNumber: "000000" },
       referenceNumber: `E2E-REJ-${Date.now()}`,
+      proofImageUrl: (await uploadReceiptImage(tech.token)).url,
     });
     await adminRejectPayment(admin.token, request.id, "E2E reject path — expected");
     const list = await adminListPayments(admin.token, "rejected");

@@ -7,7 +7,14 @@ export interface AdminRecord {
   isActive: boolean;
   isSuperAdmin: boolean | null;
   permissions: string[] | null;
+  mustChangePassword: boolean;
 }
+
+/** Read-only endpoints allowed while mustChangePassword is still true. */
+const ALLOWED_WHILE_MUST_CHANGE_PASSWORD = new Set([
+  "/admin/my-permissions",
+  "/admin/dashboard/stats",
+]);
 
 declare global {
   namespace Express {
@@ -15,6 +22,13 @@ declare global {
       __adminRecord?: AdminRecord;
     }
   }
+}
+
+function adminRoutePath(req: Request): string {
+  // Prefer originalUrl path without query; fall back to req.path
+  const raw = (req.originalUrl || req.url || req.path || "").split("?")[0] ?? "";
+  const withoutApi = raw.replace(/^\/api/, "");
+  return withoutApi.startsWith("/") ? withoutApi : `/${withoutApi}`;
 }
 
 /** Admin session + live active row in `admins`. User-app sessions cannot pass. */
@@ -29,6 +43,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
       isActive: adminsTable.isActive,
       isSuperAdmin: adminsTable.isSuperAdmin,
       permissions: adminsTable.permissions,
+      mustChangePassword: adminsTable.mustChangePassword,
     })
     .from(adminsTable)
     .where(eq(adminsTable.id, req.user.id));
@@ -36,7 +51,22 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     res.status(403).json({ error: "Admin account not found or suspended" });
     return;
   }
-  req.__adminRecord = adminRecord;
+  req.__adminRecord = {
+    ...adminRecord,
+    mustChangePassword: adminRecord.mustChangePassword ?? false,
+  };
+
+  if (req.__adminRecord.mustChangePassword) {
+    const path = adminRoutePath(req);
+    if (!ALLOWED_WHILE_MUST_CHANGE_PASSWORD.has(path)) {
+      res.status(403).json({
+        error: "Password change required before using admin features",
+        code: "MUST_CHANGE_PASSWORD",
+      });
+      return;
+    }
+  }
+
   next();
 }
 
