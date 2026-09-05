@@ -1,6 +1,6 @@
 # Fanni — مراجعة تطور المشروع (مرجع مستمر)
 
-آخر مراجعة: 04 سبتمبر 2026
+آخر مراجعة: 05 سبتمبر 2026
 
 منصة طلبات صيانة منزلية في مصر: عميل ينشئ طلبًا، النظام يطابق فنيًا، الفني يدفع نقاطًا لكشف بيانات العميل، ثم تتبع جغرافي وتأكيد وصول ونتيجة خدمة. **محاسبة المنصة = عمولة Lead فقط** (لا فواتير صيانة/OCR).
 
@@ -395,48 +395,37 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 |---|---|---|---|
 | 22 أغسطس 2026 | `e06bf79` | Record the financial audit work in the project review. | PROJECT_DEVELOPMENT_REVIEW.md, SPEC_BASELINE.md |
 | 22 أغسطس 2026 | `3a77467` | Log admin money actions to the audit trail. | artifacts/api-server/src/lib/adminAudit.ts, wallet.ts, payments.ts, disputes.ts |
-| 22 أغسطس 2026 | `b1f0844` | Align approved point economy and close M0/M4 governance gaps. | migrations 017/018، CORS، رفع خاص، شروط، RBAC |
-| 22 أغسطس 2026 | `b3fe3f6` | Record missing OCR and masked-call commits in the project dictionary. | PROJECT_DEVELOPMENT_REVIEW.md |
-| 22 أغسطس 2026 | `17fc9ec` | Remove purchase-invoice OCR and add Twilio masked calling. | .env.example, OCR_INVOICE_REVIEW.md, PROJECT_DEVELOPMENT_REVIEW.md, artifacts/api-server/build.mjs +26 |
-| 22 أغسطس 2026 | `e4343a1` | Record the review-log commit in the project dictionary. | PROJECT_DEVELOPMENT_REVIEW.md |
-| 22 أغسطس 2026 | `5fc03e6` | Add a living project review and auto-log every commit into it. | .cursor/hooks.json, .cursor/hooks/after-git-commit.mjs, PROJECT_DEVELOPMENT_REVIEW.md, package.json +6 |
-| 22 أغسطس 2026 | `82a8474` | Assign leads atomically on accept and record incomplete service with optional refund requests. | artifacts/api-server/src/lib/leadUnlock.ts, artifacts/api-server/src/lib/orderLifecycle.ts, artifacts/api-server/src/routes/orders.ts, lib/db/migrations/011_lead_pricing_unlock_ledger.sql +1 |
-| 21 أغسطس 2026 | `0455095` | last22082026 | PROJECT_DEVELOPMENT_REVIEW.md, package.json, scripts/package.json, scripts/src/update-project-review.mjs |
-| 20 أغسطس 2026 | `e6e167b` | Update replit configuration | .replit |
-| 21 أغسطس 2026 | `30168bd` | Update project reviews and order functionality in mobile app | OCR_INVOICE_REVIEW.md, PROJECT_DEVELOPMENT_REVIEW.md, artifacts/mobile/app/(tech)/orders.tsx |
-| 20 أغسطس 2026 | `b3faea1` | OCR order | OCR_INVOICE_REVIEW.md, PROJECT_DEVELOPMENT_REVIEW.md |
-| 20 أغسطس 2026 | `14feb3e` | Implement accounting tab features | artifacts/mobile/app/(admin)/(tabs)/accounting.tsx |
-| 20 أغسطس 2026 | `d3856f0` | Implement lead unlock functionality and add operational expenses migration | PROJECT_DEVELOPMENT_REVIEW.md, artifacts/api-server/src/lib/leadUnlock.ts, artifacts/api-server/src/routes/orders.ts, artifacts/api-server/src/routes/wallet.ts +2 |
-| 20 أغسطس 2026 | `e5d2beb` | Add technical wallet system analysis document | "attached_assets/\330\252\330\255\331\204\331\212\331\204_\331\206\330\270\330\247\331\205_\331\205\330\255\331\201\330\270\330\251_\330\247\331\204\331\201\331\206\331\212_1787188145476.docx" |
-| 20 أغسطس 2026 | `56dbec7` | Update memory configuration and add points default file | .agents/memory/MEMORY.md, .agents/memory/points-default-updates.md |
-| 20 أغسطس 2026 | `971c497` | Credit system | artifacts/mobile/components/VectorIcon.tsx, artifacts/mobile/context/AppContext.tsx |
-| 20 أغسطس 2026 | `158c176` | Update point system defaults and integrate order processing logic | artifacts/api-server/migrations/009-seed-points-demo.ts, artifacts/api-server/src/index.ts, artifacts/api-server/src/routes/orders.ts, artifacts/api-server/src/routes/wallet.ts +3 |
-| 10 أغسطس 2026 | `94fe389` | Add new asset file | attached_assets/Untitled_1786402361472.txt |
-| 10 أغسطس 2026 | `364786b` | Remove unnecessary configuration from replit file | .replit |
-| 20 أغسطس 2026 | `034ae57` | Order Gvernance phase1 | .agents/memory/MEMORY.md, .agents/memory/migration-drift.md, artifacts/api-server/src/lib/contactSanitizer.ts, artifacts/api-server/src/routes/geo.ts +4 |
-| 20 أغسطس 2026 | `ad7c183` | Update invoice and dispute API routes and add documentation | artifacts/api-server/src/routes/disputes.ts, artifacts/api-server/src/routes/invoices.ts, "attached_assets/\331\206\330\270\330\247\331\205_\330\247\331\204\331\201\331\210\330\247\330\252\331\212\330\261_\331\210\330\24 |
-| 19 أغسطس 2026 | `09aabc3` | Refactor order processing logic and update agent memory documentation | .agents/memory/MEMORY.md, .agents/memory/order-matching.md, artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/routes/auth.ts +2 |
-| 19 أغسطس 2026 | `6da7847` | Add final orders system documentation | "attached_assets/\331\206\330\270\330\247\331\205_\330\247\331\204\330\267\331\204\330\250\330\247\330\252_\330\247\331\204\331\206\330\263\330\256\330\251_\330\247\331\204\331\207\330\247\330\246\331\212\330\251_1787174 |
-| 20 أغسطس 2026 | `f0f81d7` | Regestration Goverance | .npmrc, artifacts/api-server/src/lib/leadPricing.ts, artifacts/api-server/src/lib/leadUnlock.ts, artifacts/api-server/src/lib/orderLifecycle.ts +12 |
-| 09 أغسطس 2026 | `70c92da` | Project Context md file | PROJECT_CONTEXT.md |
-| 09 أغسطس 2026 | `394b61b` | 0 | artifacts/mobile/tsconfig.json |
-| 08 أغسطس 2026 | `7c783a3` | ignore deprecation | artifacts/mobile/tsconfig.json |
-| 26 يوليو 2026 | `e620b5a` | انها ربط Sentry بال Backend | artifacts/api-server/src/sentry.ts |
-| 26 يوليو 2026 | `5065c49` | ربط backend ب sentry | artifacts/api-server/build.mjs, artifacts/api-server/package.json, artifacts/api-server/src/app.ts, artifacts/api-server/src/sentry.ts +1 |
-| 24 يوليو 2026 | `3a1df85` | انهاء ربط Senty لل FrontEnd | artifacts/mobile/app/(admin)/_layout.tsx, artifacts/mobile/app/_layout.tsx |
-| 24 يوليو 2026 | `37d2e66` | Sentry Plugin Install Manual | artifacts/mobile/app.json, artifacts/mobile/package.json, artifacts/mobile/sentry-wizard-installation-error-1784843142257.log, pnpm-lock.yaml +1 |
-| 24 يوليو 2026 | `45bce5f` | set all payment updates | artifacts/mobile/sentry-wizard-installation-error-1784842873168.log, lib/db/drizzle/0003_thankful_black_widow.sql, lib/db/drizzle/meta/0003_snapshot.json, lib/db/drizzle/meta/_journal.json |
-| 23 يوليو 2026 | `d919a60` | last_one | artifacts/mobile/package.json, lib/db/drizzle/0002_dashing_the_fallen.sql, lib/db/drizzle/meta/0002_snapshot.json, lib/db/drizzle/meta/_journal.json +2 |
-| 23 يوليو 2026 | `0f20462` | Implement payment processing and admin profile functionality | artifacts/api-server/src/index.ts, artifacts/api-server/src/routes/index.ts, artifacts/api-server/src/routes/notifications.ts, artifacts/api-server/src/routes/payments.ts +9 |
-| 22 يوليو 2026 | `59b86c1` | الدفع والتأكيد والنقاط | attached_assets/Pasted-Call-Stack-myRequests-slice-map-argument-0-artifacts-mo_1784759990883.txt |
-| 22 يوليو 2026 | `e7a6b86` | Add API server implementation and enhance mobile wallet UI with transaction history | .agents/memory/MEMORY.md, .agents/memory/payment-request-flow.md, .replit, artifacts/api-server/src/index.ts +10 |
-| 02 يوليو 2026 | `0704432` | Add a dispute resolution system and automated demo data seeding | artifacts/api-server/migrations/009-seed-points-demo.ts, artifacts/api-server/src/index.ts, artifacts/mobile/app/(admin)/(tabs)/_layout.tsx, artifacts/mobile/app/(admin)/(tabs)/disputes.tsx |
-| 01 يوليو 2026 | `eb9d4df` | Add a points system for technicians to unlock leads | .agents/memory/MEMORY.md, .agents/memory/fanni-points-system.md, artifacts/api-server/src/routes/disputes.ts, artifacts/api-server/src/routes/index.ts +11 |
-| 01 يوليو 2026 | `b266052` | Enable offline mode to prevent mobile app startup failures | artifacts/mobile/scripts/dev-start.js |
-| 01 يوليو 2026 | `8cb61e9` | Saved progress at the end of the loop | .replit |
-| 30 يونيو 2026 | `b58eea8` | Update admin interface with a new tab structure and user management hub | .agents/memory/MEMORY.md, .agents/memory/admin-redesign.md, artifacts/mobile/app/(admin)/(tabs)/_layout.tsx, artifacts/mobile/app/(admin)/(tabs)/permissions.tsx +3 |
-| 23 يونيو 2026 | `64fa4cd` | database backup | backup.sql, backup_new.sql |
-| 23 يونيو 2026 | `aaf6e50` | Good runing | artifacts/api-server/package.json |
-| 23 يونيو 2026 | `f7727a4` | مش متاكد | artifacts/mobile/constants/egyptLocations.ts, lib/db/drizzle.config.ts, lib/db/drizzle/0001_minor_scourge.sql, lib/db/drizzle/meta/0001_snapshot.json +6 |
-| 22 يونيو 2026 | `5239e30` | feat: tech approval flow, email/mobile edit for all users | .agents/memory/MEMORY.md, .agents/memory/admin-mobile-otp.md, .agents/memory/tech-approval-gate.md, artifacts/api-server/src/routes/auth.ts +9 |
-| 21 يونيو 2026 | `d70d4f5` | fix: resolve technician registration failure on Replit and local dev | .env.example, artifacts/mobile/.env.example, artifacts/mobile/scripts/dev-start.js, attached_assets/Screenshot_2026-06-22-01-00-27-82_f73b71075b1de7323614b647fe39_1782079402172.jpg +1 |
+| 22 أغسطس 2026 | `b1f0844` | Align approved point economy and close M0/M4 governance gaps. | migrations 017/018، CORS، رفع خاص، شروط، RBAC�س 2026 | `b3fe3f6` | Record missing OCR and masked-call commitقع |
+| 26 أ� dictionary. | PROJECT_DEVELOPMENT_REVIEW.md |
+�ح `react-nativ2026 | `17fc9ec` | Remove purchase-invoice OCR a�شلان `08c6esked calling. | .env.example, OCR_INVOICE_REVIEW APK `artifacts/ELOPMENT_REVIEW.md, artifacts/api-server/build.mِل — APK م٣غسطس 2026 | `e4343a1` | Record the review-l6 | APK v1.0.3 O project dictionary. | PROJECT_DEVELOPMENT_REVIE WebView؛ إزغسطس 2026 | `5fc03e6` | Add a living project شريط الع�log every commit into it. | .cursor/hooks.json,  webview الخ�ter-git-commit.mjs, PROJECT_DEVELOPMENT_REVIEW.mfig`)؛ إعاد+6 |
+| 22 أغسطس 2026 | `82a8474` | Assign � `bae7ee22`) | on accept and record incomplete service with op| فشل `89991fquests. | artifacts/api-server/src/lib/leadUnloc New Arch؛ بنapi-server/src/lib/orderLifecycle.ts, artifacts/ WinSCP → `/vaoutes/orders.ts, lib/db/migrations/011_lead_pricثبيت من اr.sql +1 |
+| 21 أغسطس 2026 | `0455095` | l 25 أغسطس 2OJECT_DEVELOPMENT_REVIEW.md, package.json, scripلاث محاو� scripts/src/update-project-review.mjs |
+| 20 ار `@react-navi `e6e167b` | Update replit configuration | .replentry؛ بناء�طس 2026 | `30168bd` | Update project reviews �ء `146287ef` �onality in mobile app | OCR_INVOICE_REVIEW.md, P�طس 2026 | APKNT_REVIEW.md, artifacts/mobile/app/(tech)/orderss من system32غسطس 2026 | `b3faea1` | OCR order | OCR_INVOIP | (استُك�OJECT_DEVELOPMENT_REVIEW.md |
+| 20 أغسطس 26 | نقل مح�| Implement accounting tab features | artifacts/e 20/20 على Pn)/(tabs)/accounting.tsx |
+| 20 أغسطس 2026hz` 200)؛ CI + mplement lead unlock functionality and add opera�سرار GitHubmigration | PROJECT_DEVELOPMENT_REVIEW.md, artifay؛ فترات src/lib/leadUnlock.ts, artifacts/api-server/src/ VPS | Twilio م, artifacts/api-server/src/routes/wallet.ts +2 |لسكربت يس 2026 | `e5d2beb` | Add technical wallet systemio | تشغيل nt | "attached_assets/\330\252\330\255\331\204\3سطس 2026 | ت331\206\330\270\330\247\331\205_\331\205\330\255pm --filter @wor\330\251_\330\247\331\204\331\201\331\206\331\21�ّقة مسبقdocx" |
+| 20 أغسطس 2026 | `56dbec7` | Upda�) | KYC VPS، euration and add points default file | .agents/me�ل GL (فترا.agents/memory/points-default-updates.md |
+| 206 | قيد مز� | `971c497` | Credit system | artifacts/mobile/�لى الشحنrIcon.tsx, artifacts/mobile/context/AppContext.tمصروف؛ مٳطس 2026 | `158c176` | Update point system def | e2e حي، Twate order processing logic | artifacts/api-serve26 | شريحة -seed-points-demo.ts, artifacts/api-server/src/iل: 020 + ترحts/api-server/src/routes/orders.ts, artifacts/apصروف) + ميtes/wallet.ts +3 |
+| 10 أغسطس 2026 | `94feرات الوح�sset file | attached_assets/Untitled_17864023614راكز تكل٣غسطس 2026 | `364786b` | Remove unnecessary � الرسوم،om replit file | .replit |
+| 20 أغسطس 202626 | استكم�rder Gvernance phase1 | .agents/memory/MEMORY.mdالبطاقة؛/migration-drift.md, artifacts/api-server/src/li� شاشة تد�er.ts, artifacts/api-server/src/routes/geo.ts +4�زدوج، Twil�س 2026 | `ad7c183` | Update invoice and disputطس 2026 | تج add documentation | artifacts/api-server/src/roحيّة + قا�, artifacts/api-server/src/routes/invoices.ts, "+ قاموس ا�\331\206\330\270\330\247\331\205_\330\247\331\20� 1 (migrate) ث0\330\247\330\252\331\212\330\261_\331\210\330\2ستئناف | �طس 2026 | `09aabc3` | Refactor order processin�هية؛ قائte agent memory documentation | .agents/memory/Mte ثم KYC | اs/memory/order-matching.md, artifacts/api-server�مالًا |
+|oadcaster.ts, artifacts/api-server/src/routes/au | جرد Module أغسطس 2026 | `6da7847` | Add final orders ن 24 بندًاtion | "attached_assets/\331\206\330\270\330\247IA الأدمن 7\331\204\330\267\331\204\330\250\330\247\330\25تسجيل admin04\331\206\330\263\330\256\330\251_\330\247\331\�النزاع و247\330\246\331\212\330\251_1787174 |
+| 20 أغ/audit-logs | KY0f81d7` | Regestration Goverance | .npmrc, artifالخاطئ ا�src/lib/leadPricing.ts, artifacts/api-server/src+ شروط | ف�ts, artifacts/api-server/src/lib/orderLifecycle.لترويجي أغسطس 2026 | `70c92da` | Project Context md �جيل؛ بطاONTEXT.md |
+| 09 أغسطس 2026 | `394b61b` | | Audit ماليbile/tsconfig.json |
+| 08 أغسطس 2026 | `7c� 2026 | M0+M4 �deprecation | artifacts/mobile/tsconfig.json |
+؛ تخزين خ2026 | `e620b5a` | انها ربط Sentry بال20…+100)؛ ت�acts/api-server/src/sentry.ts |
+| 26 يوليو يدوي/OPay |` | ربط backend ب sentry | artifacts/api-serS، e2e |
+| 22 rtifacts/api-server/package.json, artifacts/api-مج وحدات s, artifacts/api-server/src/sentry.ts +1 |
+| 24الممارسا | `3a1df85` | انهاء ربط Senty لل Fronترحيب وب�/mobile/app/(admin)/_layout.tsx, artifacts/mobil�لمحفظة |x |
+| 24 يوليو 2026 | `37d2e66` | Sentry P� موحّدة |nual | artifacts/mobile/app.json, artifacts/mobi�ارسات في artifacts/mobile/sentry-wizard-installation-errيد `requireAdm.log, pnpm-lock.yaml +1 |
+| 24 يوليو 2026 �ت/الهديةt all payment updates | artifacts/mobile/sentry-�غسطس 2026 |ion-error-1784842873168.log, lib/db/drizzle/0003فواتير ا�widow.sql, lib/db/drizzle/meta/0003_snapshot.jsooice مع إخفe/meta/_journal.json |
+| 23 يوليو 2026 | `�ة، تخزينone | artifacts/mobile/package.json, lib/db/drizسطس 2026 | و_the_fallen.sql, lib/db/drizzle/meta/0002_snapshبل ما نكمdrizzle/meta/_journal.json +2 |
+| 23 يوليوn_route` مع م` | Implement payment processing and admin profi�دمة | مصر | artifacts/api-server/src/index.ts, artifacts/� اختباراoutes/index.ts, artifacts/api-server/src/routes/�لتطور | ت, artifacts/api-server/src/routes/payments.ts +9�يل تلقائ�و 2026 | `59b86c1` | الدفع والتأكيكمال واجٷ | attached_assets/Pasted-Call-Stack-myRequests�جغرافي |ent-0-artifacts-mo_1784759990883.txt |
+| 22 ي�API | قبول Le7a6b86` | Add API server implementation and enhي الكود، et UI with transaction history | .agents/memory/ن/الجيوف�ts/memory/payment-request-flow.md, .replit, arti�بعة الآل/src/index.ts +10 |
+| 02 يوليو 2026 | `070 استخدام�spute resolution system and automated demo data غسطس 2026 | cts/api-server/migrations/009-seed-points-demo.t�ع مع إدخ�-server/src/index.ts, artifacts/mobile/app/(admiلفواتير �t.tsx, artifacts/mobile/app/(admin)/(tabs)/dispuظة والمح�يوليو 2026 | `eb9d4df` | Add a points syste�وفات ونزs to unlock leads | .agents/memory/MEMORY.md, .aزين الصو�ni-points-system.md, artifacts/api-server/src/ro تُعدّل إ, artifacts/api-server/src/routes/index.ts +11 |ل إغلاق ب� 2026 | `b266052` | Enable offline mode to prevيير في قيtartup failures | artifacts/mobile/scripts/dev-sotent.
+- لا �يوليو 2026 | `8cb61e9` | Saved progress at �ل مراجعةoop | .replit |
+| 30 يونيو 2026 | `b58eea8والمحاسب interface with a new tab structure and user man�ل في Secretsgents/memory/MEMORY.md, .agents/memory/admin-red�ذا الملفcts/mobile/app/(admin)/(tabs)/_layout.tsx, artifافة فقط (�(admin)/(tabs)/permissions.tsx +3 |
+| 23 يون المراحل)a4cd` | database backup | backup.sql, backup_newقائي بعد �نيو 2026 | `aaf6e50` | Good runing | artifacلصفوف ال�ckage.json |
+| 23 يونيو 2026 | `f7727a4` |ش فريد.
+
+ | artifacts/mobile/constants/egyptLocations.ts, أبرز المconfig.ts, lib/db/drizzle/0001_minor_scourge.sql026 | `e06bf79` /meta/0001_snapshot.json +6 |
+| 22 يونيو 2 review. | PROJE| feat: tech approval flow, email/mobile edit fo22 أغسطس 20gents/memory/MEMORY.md, .agents/memory/admin-mobaudit trail. | ants/memory/tech-approval-gate.md, artifacts/api-t.ts, payments.ts/auth.ts +9 |
+| 21 يونيو 2026 | `d70d4f5`4` | Align approtechnician registration failure on Replit and los. | migrations xample, artifacts/mobile/.env.example, artifacts�س 2026 | `b3fedev-start.js, attached_assets/Screenshot_2026-06s in the projectf73b71075b1de7323614b647fe39_1782079402172.jpg +| 22 أغسطس      
