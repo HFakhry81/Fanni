@@ -6,6 +6,8 @@ import {
   pendingBonusGrants,
   requireAdminCreds,
   requireTechCreds,
+  requireWritableTarget,
+  writesBlockedReason,
 } from "../helpers/apiClient";
 import { film, markLt, softGoto, uiLogin } from "../helpers/ui";
 
@@ -15,6 +17,7 @@ test.describe("Full-app · bonus grant + register UI", () => {
   });
 
   test("admin sends bonus → tech acknowledges (when permitted)", async ({ page }, info) => {
+    test.skip(!requireWritableTarget(), writesBlockedReason() ?? "Writes blocked on production");
     test.skip(!requireAdminCreds() || !requireTechCreds(), "Need admin + tech");
     const admin = await login(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
     const tech = await login(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);

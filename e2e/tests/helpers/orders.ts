@@ -1,7 +1,9 @@
-const apiBase = process.env.E2E_API_URL ?? "https://api.upnexa-eg.com";
+import { assertWritesAllowed, resolveApiBaseUrl } from "./prodSafety";
+
+const apiBase = () => resolveApiBaseUrl();
 
 export async function getOrder(token: string, orderId: string): Promise<{ status?: string }> {
-  const res = await fetch(`${apiBase}/api/orders/${orderId}`, {
+  const res = await fetch(`${apiBase()}/api/orders/${orderId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
@@ -11,7 +13,8 @@ export async function getOrder(token: string, orderId: string): Promise<{ status
 }
 
 export async function cancelOrder(token: string, orderId: string): Promise<void> {
-  const res = await fetch(`${apiBase}/api/orders/${orderId}/cancel`, {
+  assertWritesAllowed(`PATCH /api/orders/${orderId}/cancel`);
+  const res = await fetch(`${apiBase()}/api/orders/${orderId}/cancel`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -25,7 +28,8 @@ export async function cancelOrder(token: string, orderId: string): Promise<void>
 }
 
 export async function declineOrder(token: string, orderId: string): Promise<void> {
-  const res = await fetch(`${apiBase}/api/orders/${orderId}/decline`, {
+  assertWritesAllowed(`POST /api/orders/${orderId}/decline`);
+  const res = await fetch(`${apiBase()}/api/orders/${orderId}/decline`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

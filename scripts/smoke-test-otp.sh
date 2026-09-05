@@ -6,7 +6,7 @@
 #
 # Examples:
 #   ./scripts/smoke-test-otp.sh                               # local dev server (http://localhost:8080)
-#   ./scripts/smoke-test-otp.sh https://api.upnexa-eg.com  # production API
+#   ./scripts/smoke-test-otp.sh https://api.upnexa-eg.com  # production (read-ish; needs ALLOW_PROD_SMOKE=1)
 #
 # What it checks:
 #   1. GET  /api/config        — server reports otpEnabled=true
@@ -25,6 +25,16 @@ set -euo pipefail
 BASE_URL="${1:-http://localhost:8080}"
 PASS=0
 FAIL=0
+
+case "$BASE_URL" in
+  *upnexa-eg.com*|*upnexa*)
+    if [ "${ALLOW_PROD_SMOKE:-0}" != "1" ]; then
+      echo "Refusing OTP smoke against production-like URL: $BASE_URL"
+      echo "Use local API, or set ALLOW_PROD_SMOKE=1 (register probe only — still prefer local)."
+      exit 1
+    fi
+    ;;
+esac
 
 green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 red()    { printf '\033[31m%s\033[0m\n' "$*"; }

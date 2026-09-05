@@ -1,4 +1,6 @@
-const apiBase = process.env.E2E_API_URL ?? "https://api.upnexa-eg.com";
+import { resolveApiBaseUrl } from "./prodSafety";
+
+const apiBase = () => resolveApiBaseUrl();
 
 function normalizeLoginIdentifierValue(raw: string): string {
   const trimmed = raw.trim();
@@ -17,7 +19,7 @@ export async function loginWithPassword(
   identifier: string,
   password: string,
 ): Promise<LoginResult> {
-  const res = await fetch(`${apiBase}/api/auth/login-with-password`, {
+  const res = await fetch(`${apiBase()}/api/auth/login-with-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ identifier: normalizeLoginIdentifierValue(identifier), password }),
@@ -40,3 +42,4 @@ export function hasTechCreds(): boolean {
 export function hasAdminCreds(): boolean {
   return Boolean(process.env.E2E_ADMIN_IDENTIFIER && process.env.E2E_ADMIN_PASSWORD);
 }
+

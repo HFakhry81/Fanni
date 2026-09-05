@@ -115,6 +115,11 @@ function verifyPassword(password: string, storedHash: string): boolean {
 }
 
 async function seedDefaultAdmin(): Promise<void> {
+  const isProd = process.env.NODE_ENV === "production";
+  const allowProdBootstrap =
+    process.env.FANNI_ALLOW_PROD_ADMIN_SEED === "1" ||
+    process.env.FANNI_ALLOW_PROD_ADMIN_SEED === "true";
+
   try {
     const [existing] = await db
       .select()
@@ -134,6 +139,13 @@ async function seedDefaultAdmin(): Promise<void> {
       } else {
         logger.info("Default admin already exists in admins table, skipping seed");
       }
+      return;
+    }
+
+    if (isProd && !allowProdBootstrap) {
+      logger.warn(
+        "Skipping default admin bootstrap in production (set FANNI_ALLOW_PROD_ADMIN_SEED=1 only for first install)",
+      );
       return;
     }
 
@@ -200,20 +212,29 @@ async function seedPointsDemo(): Promise<void> {
       `);
       logger.info("DB seed: default unlock cost (20 pts) seeded");
     }
-    // Ensure default payment account config exists
-    const configCheck = await pool.query(`SELECT id FROM payment_account_config LIMIT 1`);
-    if (configCheck.rows.length === 0) {
-      await pool.query(`
-        INSERT INTO payment_account_config (bank_name, account_name, account_number, instapay_id, notes)
-        VALUES (
-          'البنك الأهلي المصري',
-          'شركة أنظمة ذكية وحلول رقمية متكاملة — UpNexa',
-          '1234567890',
-          'fanni@instapay',
-          'يرجى كتابة رقم الهاتف المسجل في التطبيق كمرجع للتحويل'
-        ) ON CONFLICT DO NOTHING
-      `);
-      logger.info("DB seed: default payment account config seeded");
+    // Ensure default payment account config exists (dev/local placeholder only —
+    // never insert fake bank / InstaPay details into production).
+    const isProd = process.env.NODE_ENV === "production";
+    const allowProdPaymentSeed =
+      process.env.FANNI_ALLOW_PROD_PAYMENT_SEED === "1" ||
+      process.env.FANNI_ALLOW_PROD_PAYMENT_SEED === "true";
+    if (!isProd || allowProdPaymentSeed) {
+      const configCheck = await pool.query(`SELECT id FROM payment_account_config LIMIT 1`);
+      if (configCheck.rows.length === 0) {
+        await pool.query(`
+          INSERT INTO payment_account_config (bank_name, account_name, account_number, instapay_id, notes)
+          VALUES (
+            'البنك الأهلي المصري',
+            'شركة أنظمة ذكية وحلول رقمية متكاملة — UpNexa',
+            '1234567890',
+            'fanni@instapay',
+            'يرجى كتابة رقم الهاتف المسجل في التطبيق كمرجع للتحويل'
+          ) ON CONFLICT DO NOTHING
+        `);
+        logger.info("DB seed: default payment account config seeded");
+      }
+    } else {
+      logger.info("Skipping placeholder payment_account_config seed in production");
     }
     // Welcome bonus points are granted only after admin confirms technician approval
     // (see PATCH /admin/technicians/:id/approve) — do not seed them here.

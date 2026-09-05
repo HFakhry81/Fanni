@@ -34,15 +34,20 @@ on:
         required: false
         default: ""
       suite:
-        description: "Which tests to run"
+        description: "Which tests to run (on production prefer smoke — writes need allow_prod_writes)"
         required: true
-        default: all
+        default: smoke
         type: choice
         options:
           - all
           - smoke
           - order-journey
           - full-recorded
+      allow_prod_writes:
+        description: "Allow mutating E2E (orders/top-ups) against production — keep false"
+        required: true
+        default: false
+        type: boolean
       use_lambdatest:
         description: "Also run on LambdaTest (needs LT_* secrets; limited free mins)"
         required: true
@@ -92,6 +97,23 @@ jobs:
             echo "api_url=https://api.upnexa-eg.com" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Guard production writes
+        shell: bash
+        run: |
+          SUITE="${{ inputs.suite }}"
+          TARGET="${{ inputs.target }}"
+          ALLOW="${{ inputs.allow_prod_writes }}"
+          if [ "$TARGET" = "production" ] && [ "$ALLOW" != "true" ]; then
+            case "$SUITE" in
+              order-journey|full-recorded|all)
+                echo "::error::Suite '$SUITE' can create junk data on production."
+                echo "Re-run with suite=smoke, or set allow_prod_writes=true only if intentional,"
+                echo "or use target=custom pointing at a non-prod API."
+                exit 1
+                ;;
+            esac
+          fi
+
       - name: Run Playwright
         working-directory: e2e
         env:
@@ -109,6 +131,12 @@ jobs:
           CI: "true"
         shell: bash
         run: |
+          if [ "${{ inputs.allow_prod_writes }}" = "true" ]; then
+            export E2E_ALLOW_PROD_WRITES=1
+          else
+            export E2E_ALLOW_PROD_WRITES=0
+          fi
+
           PROJECT="local-chrome"
           if [ "${{ inputs.use_lambdatest }}" = "true" ]; then
             if [ -z "$LT_USERNAME" ] || [ -z "$LT_ACCESS_KEY" ]; then
@@ -166,6 +194,7 @@ jobs:
             echo "- **Suite:** \`${{ inputs.suite }}\`"
             echo "- **Target:** \`${{ inputs.target }}\` → \`${{ steps.env.outputs.base_url }}\`"
             echo "- **LambdaTest:** \`${{ inputs.use_lambdatest }}\`"
+            echo "- **Allow prod writes:** \`${{ inputs.allow_prod_writes }}\`"
             echo "- **Artifact:** \`playwright-report-${{ github.run_number }}\` (download → open index.html)"
             echo "- **Media:** \`playwright-media-${{ github.run_number }}\` (video.webm + screenshots)"
             if [ "${{ inputs.use_lambdatest }}" = "true" ]; then

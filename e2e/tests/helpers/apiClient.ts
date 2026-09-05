@@ -1,8 +1,22 @@
 /**
  * Shared API client for Fanni full-app E2E.
  * Prefer API for reliable state transitions; use UI for recorded evidence.
+ * Mutating calls are blocked against production unless E2E_ALLOW_PROD_WRITES=1.
  */
-const apiBase = () => process.env.E2E_API_URL ?? "https://api.upnexa-eg.com";
+import {
+  assertWritesAllowed,
+  resolveApiBaseUrl,
+} from "./prodSafety";
+
+const apiBase = () => resolveApiBaseUrl();
+
+export {
+  isProductionTarget,
+  prodWritesAllowed,
+  requireWritableTarget,
+  writesAllowed,
+  writesBlockedReason,
+} from "./prodSafety";
 
 export class ApiError extends Error {
   constructor(
@@ -14,11 +28,18 @@ export class ApiError extends Error {
   }
 }
 
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 async function api<T = unknown>(
   method: string,
   path: string,
-  opts?: { token?: string; body?: unknown },
+  opts?: { token?: string; body?: unknown; allowWrite?: boolean },
 ): Promise<T> {
+  const upper = method.toUpperCase();
+  const isLogin = upper === "POST" && path.includes("/auth/login");
+  if (WRITE_METHODS.has(upper) && !isLogin && opts?.allowWrite !== true) {
+    assertWritesAllowed(`${upper} ${path}`);
+  }
   const res = await fetch(`${apiBase()}${path}`, {
     method,
     headers: {

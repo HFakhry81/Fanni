@@ -7,6 +7,7 @@
     "test:local": "playwright test --project=local-chrome",
     "test:lt": "playwright test --project=lambdatest-chrome",
     "test:full": "playwright test --project=full-recorded",
+    "test:smoke-prod": "playwright test --project=local-chrome tests/smoke.spec.ts",
     "report": "playwright show-report",
     "report:open": "playwright show-report playwright-report"
   },

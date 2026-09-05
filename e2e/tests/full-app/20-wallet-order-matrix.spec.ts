@@ -17,19 +17,26 @@ import {
   requireAllRoles,
   requireClientCreds,
   requireTechCreds,
+  requireWritableTarget,
   startOrder,
   techAssignedOrders,
   techPendingOrders,
+  writesBlockedReason,
 } from "../helpers/apiClient";
 import { film, markLt, softGoto, uiLogin } from "../helpers/ui";
 
 /**
  * Matrix covering wallet top-up, order lifecycle branches, decline-stay,
  * accept→complete→rate, and fail-service. API drives state; UI films evidence.
+ * Blocked on production unless E2E_ALLOW_PROD_WRITES=1.
  */
 test.describe.configure({ mode: "serial" });
 
 test.describe("Full-app · wallet + order matrix (API + video)", () => {
+  test.beforeEach(() => {
+    test.skip(!requireWritableTarget(), writesBlockedReason() ?? "Writes blocked on production");
+  });
+
   test.afterEach(async ({ page }, info) => {
     await markLt(page, info);
   });

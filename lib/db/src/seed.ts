@@ -2,6 +2,8 @@
  * Combined idempotent seed: locations (if empty) then Nominatim aliases.
  *
  *   pnpm --filter @workspace/db run seed
+ *
+ * Production: refuse unless FANNI_SEED=1 (same flag as deploy-vps.sh).
  */
 
 import "./loadEnv";
@@ -15,6 +17,19 @@ const dbRoot = path.resolve(here, "..");
 
 if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL is not set");
+  process.exit(1);
+}
+
+const looksProd =
+  process.env.NODE_ENV === "production" ||
+  /upnexa|prod/i.test(process.env.DATABASE_URL);
+const seedAllowed =
+  process.env.FANNI_SEED === "1" || process.env.FANNI_SEED === "true";
+if (looksProd && !seedAllowed) {
+  console.error(
+    "[seed] Refusing to seed a production-like database.\n" +
+      "Set FANNI_SEED=1 only when you intentionally want location seed/aliases.",
+  );
   process.exit(1);
 }
 

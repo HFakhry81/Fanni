@@ -1,11 +1,12 @@
 @echo off
 chcp 65001 >nul
 color 0B
-title FANNI E2E FULL — screenshots + video
+title FANNI E2E FULL — screenshots + video (local-first)
 
 cls
 echo ======================================================================
-echo   FANNI E2E FULL-APP  (لقطات شاشة + فيديو لكل سيناريو)
+echo   FANNI E2E FULL-APP  (لقطات شاشة + فيديو)
+echo   Default: LOCAL API only — avoids junk data on production
 echo ======================================================================
 echo.
 
@@ -19,17 +20,27 @@ if errorlevel 1 (
 )
 
 if not exist "%ROOT%\e2e\.env" (
-  echo [WARN] e2e\.env missing — copy e2e\.env.example and fill E2E_* credentials
+  echo [WARN] e2e\.env missing — copy e2e\.env.example
+  echo        Fill E2E_LOCAL_* for write tests against local API.
   echo.
 )
+
+REM Prefer local stack so orders / top-ups / bonuses never hit live DB.
+if not defined E2E_USE_LOCAL set "E2E_USE_LOCAL=1"
+if not defined E2E_ALLOW_PROD_WRITES set "E2E_ALLOW_PROD_WRITES=0"
 
 set "E2E_RECORD=1"
 set "NODE_OPTIONS=--use-system-ca"
 
-echo [INFO] Root   : %CD%
-echo [INFO] Project: full-recorded
-echo [INFO] Video  : ON  ^|  Screenshots: ON  ^|  Trace: ON
-echo [INFO] Output : e2e\test-results\  and  e2e\playwright-report\
+echo [INFO] Root              : %CD%
+echo [INFO] Project           : full-recorded
+echo [INFO] E2E_USE_LOCAL     : %E2E_USE_LOCAL%
+echo [INFO] ALLOW_PROD_WRITES : %E2E_ALLOW_PROD_WRITES%
+echo [INFO] Video/shots/trace : ON
+echo [INFO] Output            : e2e\test-results\  ^&  e2e\playwright-report\
+echo.
+echo [HINT] Write journeys need local API + E2E_LOCAL_* in e2e\.env
+echo        Production writes require E2E_ALLOW_PROD_WRITES=1 ^(do not use casually^)
 echo.
 echo ----------------------------------------------------------------------
 echo [ACTION] Running full-app suite...

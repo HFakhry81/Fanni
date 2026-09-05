@@ -1,8 +1,23 @@
 /**
  * Fire manual Sentry test errors for API (node) and mobile (fanni) projects.
- * Usage: pnpm --filter @workspace/api-server run sentry:test
+ * Does NOT run against production noise by default.
+ *
+ * Usage:
+ *   SENTRY_ALLOW_TEST_EVENTS=1 pnpm --filter @workspace/api-server run sentry:test
  */
 import * as Sentry from "@sentry/node";
+
+const allowed =
+  process.env.SENTRY_ALLOW_TEST_EVENTS === "1" ||
+  process.env.SENTRY_ALLOW_TEST_EVENTS === "true";
+
+if (!allowed) {
+  console.error(
+    "[sentry:test] Refusing to send test events.\n" +
+      "Set SENTRY_ALLOW_TEST_EVENTS=1 to opt in (prefer a non-production DSN / environment).",
+  );
+  process.exit(1);
+}
 
 const API_DSN =
   process.env.SENTRY_DSN?.trim() ||
@@ -15,11 +30,11 @@ const MOBILE_DSN =
 async function sendTest(dsn, label, channel) {
   Sentry.init({
     dsn,
-    environment: process.env.SENTRY_ENVIRONMENT?.trim() || "production",
+    environment: process.env.SENTRY_ENVIRONMENT?.trim() || "script-test",
     tracesSampleRate: 0,
   });
   const stamp = new Date().toISOString();
-  const message = `[Fanni ${label} production test] Sentry monitoring check — ${stamp}`;
+  const message = `[Fanni ${label} script-test] Sentry monitoring check — ${stamp}`;
   const eventId = Sentry.captureException(new Error(message), {
     tags: { source: "sentry-test-script", channel },
   });

@@ -85,10 +85,15 @@ else
   PNPM=pnpm
 fi
 
-echo "[deploy] install + migrate + seed + build"
+echo "[deploy] install + migrate + build"
 "$PNPM" install --frozen-lockfile
 "$PNPM" --filter @workspace/db run migrate
-"$PNPM" --filter @workspace/db run seed
+if [ "${FANNI_SEED:-0}" = "1" ]; then
+  echo "[deploy] FANNI_SEED=1 — running location seed (idempotent)"
+  "$PNPM" --filter @workspace/db run seed
+else
+  echo "[deploy] skipping db seed (set FANNI_SEED=1 only when intentionally refreshing location data)"
+fi
 "$PNPM" --filter @workspace/api-server run build
 
 if command -v pm2 >/dev/null 2>&1; then

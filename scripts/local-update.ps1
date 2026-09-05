@@ -34,6 +34,7 @@ pnpm --filter @workspace/db run migrate
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if ($Seed) {
+    $env:FANNI_SEED = "1"
     pnpm --filter @workspace/db run seed
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
