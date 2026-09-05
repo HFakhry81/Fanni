@@ -307,6 +307,7 @@ export default function TechMapScreen() {
   const handleReject = async (orderArg?: Order | null) => {
     const order = orderArg ?? selectedOrder;
     if (!order) return;
+    // Dismiss popup/notification only — keep order on map & available lists.
     autoShownRef.current.add(order.id);
     markOrderSeen(order.id);
     const apiBase = getApiBase();
@@ -320,10 +321,9 @@ export default function TechMapScreen() {
           },
         });
       } catch {
-        /* hide locally even if decline fails */
+        /* best-effort notification dismiss */
       }
     }
-    setServerPendingOrders((prev) => (prev ? prev.filter((o) => o.id !== order.id) : prev));
     setModalVisible(false);
     setSelectedOrder(null);
   };

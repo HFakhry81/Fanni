@@ -368,21 +368,35 @@ router.post("/orders/:id/unlock", authMiddleware, requireAuth, async (req: Reque
   }
 });
 
+// Soft dismiss only: closes the tech's notification/modal. Order stays pending
+// and remains visible to this technician and all other matching technicians.
 router.post("/orders/:id/decline", authMiddleware, requireAuth, async (req: Request<{ id: string }>, res) => {
   const user = req.user!;
   if (user.role !== "technician") {
     res.status(403).json({ error: "Only technicians can decline orders" });
     return;
   }
+  const orderId = req.params.id;
   try {
+    const [order] = await db
+      .select({ id: ordersTable.id, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    // Optional audit row — never used to filter pending lists.
     await db.insert(orderDeclinesTable).values({
       technicianId: user.id,
-      orderId: req.params.id,
+      orderId,
     }).onConflictDoNothing();
-    res.json({ success: true });
+    req.log.info({ techId: user.id, orderId, status: order.status }, "Technician dismissed order notification");
+    res.json({ success: true, dismissed: true, orderStillPending: order.status === "pending" });
   } catch (err) {
-    logger.error({ err }, "Failed to decline order");
-    res.status(500).json({ error: "Failed to decline order" });
+    logger.error({ err }, "Failed to record order notification dismiss");
+    res.status(500).json({ error: "Failed to dismiss order notification" });
   }
 });
 

@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import { db, ordersTable, orderDeclinesTable, usersTable, availabilityAuditLogsTable } from "@workspace/db";
+import { db, ordersTable, usersTable, availabilityAuditLogsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { broadcastNewOrder, broadcastOrderStatusToClient } from "./orderBroadcaster";
 import { getSetting, SETTING_KEYS } from "./settings";
@@ -38,11 +38,6 @@ export async function dropTechnicianAndRematch(orderId: string, reason: string):
   };
 
   await db.transaction(async (tx) => {
-    await tx.insert(orderDeclinesTable).values({
-      technicianId: droppedTechId,
-      orderId,
-    }).onConflictDoNothing();
-
     await tx.update(ordersTable).set({
       status: "pending",
       technicianId: null,

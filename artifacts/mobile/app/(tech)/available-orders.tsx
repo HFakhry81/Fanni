@@ -190,27 +190,8 @@ export default function AvailableOrdersScreen() {
   useEffect(() => subscribeNewOrder(onNewOrderCallback), [subscribeNewOrder, onNewOrderCallback]);
   useEffect(() => subscribeOrderCancelled(onOrderCancelledCallback), [subscribeOrderCancelled, onOrderCancelledCallback]);
 
-  const doDecline = async (order: PendingOrder) => {
-    const apiBase = getApiBase();
-    if (!apiBase || !sessionToken) return;
-    try {
-      await fetch(`${apiBase}/api/orders/${order.id}/decline`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionToken}`,
-        },
-      });
-    } catch {
-      /* still hide locally so the tech is not pressured again */
-    }
-    setOrders((prev) => {
-      const next = prev.filter((o) => o.id !== order.id);
-      prevOrderCountRef.current = next.length;
-      setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
-      return next;
-    });
-  };
+  // Decline on this screen is unused: pending leads stay visible until accepted or cancelled.
+  // Notification dismiss lives on the map popup (closes alert only).
 
   const showInsufficientPoints = (required: number, balance: number) => {
     Alert.alert(
@@ -315,26 +296,9 @@ export default function AvailableOrdersScreen() {
         ? `عشان نعرض لك بيانات العميل وطرق التواصل معاه، هيتم خصم ${cost} نقطة من رصيدك (رصيدك الحالي ${balance}).\nالنقاط دي غير قابلة للاسترداد بعد عرض بيانات العميل.\nلو موافق، اضغط «موافق وكمل».`
         : `${cost} points will be deducted from your balance (${balance} pts available) to reveal the client's contact details. Points are not refundable after the data is shown.`,
       [
-        // "Not now" only dismisses — it must NOT permanently decline the order.
+        // "Not now" only dismisses the confirm dialog — order stays on the list.
         { text: isRTL ? "لا، مش دلوقتي" : "Not now", style: "cancel" },
         { text: isRTL ? "موافق وكمل" : "Confirm", onPress: () => { void doAccept(order); } },
-      ],
-    );
-  };
-
-  const handleDecline = (order: PendingOrder) => {
-    Alert.alert(
-      isRTL ? "رفض الطلب؟" : "Decline this order?",
-      isRTL
-        ? "لن يظهر لك هذا الطلب مرة أخرى."
-        : "You won't see this order again.",
-      [
-        { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
-        {
-          text: isRTL ? "رفض" : "Decline",
-          style: "destructive",
-          onPress: () => { void doDecline(order); },
-        },
       ],
     );
   };
@@ -480,13 +444,6 @@ export default function AvailableOrdersScreen() {
             </Text>
           </View>
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginTop: 10 }}>
-            <FanniButton
-              title={isRTL ? "رفض" : "Decline"}
-              onPress={() => handleDecline(item)}
-              variant="outline"
-              style={{ flex: 1 }}
-              disabled={isAccepting}
-            />
             <FanniButton
               title={isRTL ? `قبول · ${unlockCost}` : `Accept · ${unlockCost}`}
               onPress={() => { void handleAccept(item); }}

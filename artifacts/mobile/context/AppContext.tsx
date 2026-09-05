@@ -241,7 +241,7 @@ const translations: Record<string, Record<Language, string>> = {
   // Technician
   "tech.newOrder": { ar: "طلب جديد!", en: "New Order!" },
   "tech.accept": { ar: "قبول", en: "Accept" },
-  "tech.reject": { ar: "رفض", en: "Reject" },
+  "tech.reject": { ar: "لاحقاً", en: "Later" },
   "tech.online": { ar: "متاح", en: "Online" },
   "tech.offline": { ar: "غير متاح", en: "Offline" },
   "tech.syncing": { ar: "جارٍ المزامنة", en: "Syncing..." },

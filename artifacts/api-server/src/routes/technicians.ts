@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool, leadUnlocksTable, unlockCostsTable, orderDeclinesTable } from "@workspace/db";
+import { db, usersTable, ordersTable, availabilityAuditLogsTable, pool, leadUnlocksTable, unlockCostsTable } from "@workspace/db";
 import { and, eq, ne, sql, SQL, inArray } from "drizzle-orm";
 import { maskPhoneDisplay } from "../lib/phone";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -330,18 +330,12 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     const pageRaw = queryInt(req.query.page, 1);
     const page = pageRaw < 1 ? 1 : pageRaw;
 
-    const declinedRows = await db
-      .select({ orderId: orderDeclinesTable.orderId })
-      .from(orderDeclinesTable)
-      .where(eq(orderDeclinesTable.technicianId, user.id));
-    const declinedSet = new Set(declinedRows.map((row) => row.orderId));
-
-    const pendingRows = (await db
+    // Declines only dismiss push/modal notifications — they must NOT hide pending leads.
+    const pendingRows = await db
       .select()
       .from(ordersTable)
       .where(eq(ordersTable.status, "pending"))
-      .orderBy(ordersTable.createdAt))
-      .filter((row) => !declinedSet.has(row.id));
+      .orderBy(ordersTable.createdAt);
 
     // Routing filter: profession (مهنة) + geography only — not specialty / serviceCategories.
     const techProfession = techRow.profession ?? null;
