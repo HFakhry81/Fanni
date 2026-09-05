@@ -454,6 +454,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | الهاش | الرسالة | أبرز الملفات |
 |---|---|---|---|
+| 06 سبتمبر 2026 | `9d61d78` | Adapt conceptual E2E edge script to real Fanni API contracts. | e2e/LOGIC_SCRIPTS.md, e2e/SCRIPT_AUDIT_ANALYSIS.md, e2e/tests/logic/60-comprehensive-edge-adapted.spec.ts |
 | 05 سبتمبر 2026 | `53eea62` | Close wallet, geo, and admin security gaps with proof refs, PII reject, and password gate. | E2E_GAP_SOLUTIONS_REPORT.md, artifacts/api-server/src/lib/broadcastRadius.test.ts, artifacts/api-server/src/lib/broadcastRadius.ts, artifacts/api-server/src/lib/contactSanitizer.test.ts +20 |
 | 05 سبتمبر 2026 | `42172bc` | Enable UI login by default so logic E2E videos capture real screens. | e2e/LOGIC_SCRIPTS.md, e2e/tests/helpers/ui.ts, scripts/run-e2e-logic-suite.cmd |
 | 05 سبتمبر 2026 | `099bc68` | Harden logic E2E: wallet unwrap, login cache, and edge circles. | e2e/tests/helpers/apiClient.ts, e2e/tests/helpers/ui.ts, e2e/tests/logic/10-wallet-points.spec.ts, e2e/tests/logic/20-order-lifecycle.spec.ts +2 |
