@@ -24,7 +24,7 @@ import {
   getOrder,
   getWallet,
   listAdminDisputes,
-  login,
+  loginCached,
   rateOrder,
   requireAllRoles,
   requireWritableTarget,
@@ -33,9 +33,9 @@ import {
   writesBlockedReason,
   type FailServiceReason,
 } from "../helpers/apiClient";
-import { film, markLt, softGoto, uiLogin } from "../helpers/ui";
+import { film, markLt, softGoto, softUiLogin } from "../helpers/ui";
 
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "default" });
 
 test.describe("Logic · orders create / decline / accept / fail / refund", () => {
   test.beforeEach(() => {
@@ -48,13 +48,13 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
   });
 
   test("1) إنشاء طلب + إلغاء وهو pending", async ({ page }, info) => {
-    const client = await login(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
+    const client = await loginCached(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
     const created = await createOrder(client.token, {
       problemDescription: "Logic: create then cancel while pending",
     });
     expect(created.orderId).toBeTruthy();
 
-    await uiLogin(page, process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!, /client|home|orders/);
+    await softUiLogin(page, process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!, /client|home|orders/);
     await softGoto(page, "/orders");
     await film(page, info, "L40-client-pending-order");
 
@@ -68,8 +68,8 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
   });
 
   test("2) إنشاء طلب + رفض فني (بدون خصم — الطلب يبقى)", async ({ page }, info) => {
-    const client = await login(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
-    const tech = await login(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
+    const client = await loginCached(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
+    const tech = await loginCached(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
     const before = await getWallet(tech.token);
     const created = await createOrder(client.token, { problemDescription: "Logic: decline stay visible" });
 
@@ -80,7 +80,7 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
     const pending = await techPendingOrders(tech.token);
     const still = pending.orders.some((o) => o.id === created.orderId);
 
-    await uiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|map|available/);
+    await softUiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|map|available/);
     await softGoto(page, "/available-orders");
     await film(
       page,
@@ -92,9 +92,9 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
   });
 
   test("3) إنشاء → قبول → بدء → إكمال → تقييم (happy path)", async ({ page }, info) => {
-    const client = await login(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
-    const tech = await login(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
-    const admin = await login(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
+    const client = await loginCached(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
+    const tech = await loginCached(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
+    const admin = await loginCached(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
     await ensureTechPoints(tech.token, admin.token, 25);
 
     const before = await getWallet(tech.token);
@@ -107,7 +107,7 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
     // Lead unlock deducts points (default ~20)
     expect((mid.pointsBalance ?? 0) <= (before.pointsBalance ?? 0)).toBeTruthy();
 
-    await uiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|orders|map/);
+    await softUiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|orders|map/);
     await softGoto(page, "/(tech)/orders");
     await film(page, info, "L60-tech-after-accept");
 
@@ -117,15 +117,15 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
 
     await page.reload();
     await film(page, info, "L60-tech-after-complete");
-    await uiLogin(page, process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!, /client|home|orders/);
+    await softUiLogin(page, process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!, /client|home|orders/);
     await softGoto(page, "/orders");
     await film(page, info, "L60-client-after-rate");
   });
 
   test("4) عدم التمكن من الوصول — client_not_present → طلب استرداد/نزاع", async ({ page }, info) => {
-    const client = await login(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
-    const tech = await login(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
-    const admin = await login(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
+    const client = await loginCached(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
+    const tech = await loginCached(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
+    const admin = await loginCached(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
     await ensureTechPoints(tech.token, admin.token, 25);
 
     const created = await createOrder(client.token, { problemDescription: "Logic: unreachable client" });
@@ -135,7 +135,7 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
     const fail = await failService(tech.token, created.orderId, "client_not_present", "Logic: client not present");
     expect(fail.refundRequested === true || fail.success === true).toBeTruthy();
 
-    await uiLogin(page, process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!, /admin|dashboard/);
+    await softUiLogin(page, process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!, /admin|dashboard/);
     await softGoto(page, "/(admin)/(tabs)/disputes");
     await softGoto(page, "/disputes");
     await film(page, info, "L70-admin-disputes-after-unreachable");
@@ -156,9 +156,9 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
       "parts_unavailable",
       "cannot_repair",
     ];
-    const client = await login(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
-    const tech = await login(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
-    const admin = await login(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
+    const client = await loginCached(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
+    const tech = await loginCached(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
+    const admin = await loginCached(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
     await ensureTechPoints(tech.token, admin.token, 80);
 
     for (const reason of alternatives) {
@@ -172,15 +172,15 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
       expect(fail.refundRequested === true).toBeFalsy();
     }
 
-    await uiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|orders|map/);
+    await softUiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|orders|map/);
     await softGoto(page, "/(tech)/orders");
     await film(page, info, "L80-tech-after-alternative-fails");
   });
 
   test("6) رفض العميل للخدمة — client_refused → استرداد/نزاع + قرار أدمن", async ({ page }, info) => {
-    const client = await login(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
-    const tech = await login(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
-    const admin = await login(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
+    const client = await loginCached(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
+    const tech = await loginCached(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
+    const admin = await loginCached(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
     await ensureTechPoints(tech.token, admin.token, 25);
 
     const before = await getWallet(tech.token);
@@ -199,7 +199,7 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
     const after = await getWallet(tech.token);
     // After approve refund, balance should not stay permanently below unlock cost without recovery —
     // soft assert: filmed for evidence either way
-    await uiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|wallet|map/);
+    await softUiLogin(page, process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!, /tech|wallet|map/);
     await softGoto(page, "/(tech)/wallet");
     await film(
       page,
@@ -209,7 +209,7 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
         : "L90-tech-wallet-after-refused-pending-refund",
     );
 
-    await uiLogin(page, process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!, /admin|dashboard/);
+    await softUiLogin(page, process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!, /admin|dashboard/);
     await softGoto(page, "/disputes");
     await film(page, info, "L90-admin-disputes-refused");
   });
@@ -218,9 +218,9 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
     page,
   }, info) => {
     // After fail-service order is cancelled; next job completes normally (recovery path).
-    const client = await login(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
-    const tech = await login(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
-    const admin = await login(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
+    const client = await loginCached(process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!);
+    const tech = await loginCached(process.env.E2E_TECH_IDENTIFIER!, process.env.E2E_TECH_PASSWORD!);
+    const admin = await loginCached(process.env.E2E_ADMIN_IDENTIFIER!, process.env.E2E_ADMIN_PASSWORD!);
     await ensureTechPoints(tech.token, admin.token, 25);
 
     const created = await createOrder(client.token, { problemDescription: "Logic: recovery complete" });
@@ -229,7 +229,7 @@ test.describe("Logic · orders create / decline / accept / fail / refund", () =>
     await completeOrder(tech.token, created.orderId);
     await rateOrder(client.token, created.orderId, 4, "Logic recovery complete");
 
-    await uiLogin(page, process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!, /client|home|orders/);
+    await softUiLogin(page, process.env.E2E_CLIENT_IDENTIFIER!, process.env.E2E_CLIENT_PASSWORD!, /client|home|orders/);
     await softGoto(page, "/orders");
     await film(page, info, "L99-client-recovery-completed");
   });

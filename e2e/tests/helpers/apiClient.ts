@@ -3,6 +3,9 @@
  * Prefer API for reliable state transitions; use UI for recorded evidence.
  * Mutating calls are blocked against production unless E2E_ALLOW_PROD_WRITES=1.
  */
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   assertWritesAllowed,
   resolveApiBaseUrl,
@@ -85,12 +88,107 @@ export async function login(identifier: string, password: string): Promise<{
   });
 }
 
+type LoginResult = {
+  token: string;
+  user?: { id?: string; role?: string };
+  role?: string;
+};
+
+const loginCache = new Map<string, LoginResult>();
+const loginCacheFile = path.join(os.tmpdir(), "fanni-e2e-login-cache.json");
+
+function loadDiskCache(): void {
+  if (loginCache.size > 0) return;
+  try {
+    if (!fs.existsSync(loginCacheFile)) return;
+    const raw = JSON.parse(fs.readFileSync(loginCacheFile, "utf8")) as Record<string, LoginResult>;
+    for (const [k, v] of Object.entries(raw)) {
+      if (v?.token) loginCache.set(k, v);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function saveDiskCache(): void {
+  try {
+    const obj: Record<string, LoginResult> = {};
+    for (const [k, v] of loginCache.entries()) obj[k] = v;
+    fs.writeFileSync(loginCacheFile, JSON.stringify(obj));
+  } catch {
+    /* ignore */
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Cached login with backoff on rate-limit — reuse tokens across logic suite. */
+export async function loginCached(identifier: string, password: string): Promise<LoginResult> {
+  loadDiskCache();
+  const key = `${identifier.trim().toLowerCase()}::${password}`;
+  const hit = loginCache.get(key);
+  if (hit?.token) return hit;
+
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      const result = await login(identifier, password);
+      loginCache.set(key, result);
+      saveDiskCache();
+      return result;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const rateLimited =
+        (err instanceof ApiError && (err.status === 429 || err.status === 403)) ||
+        /too many login|rate.?limit|wait before trying/i.test(msg);
+      if (!rateLimited) throw err;
+      const waitMs = Math.min(60_000, 3_000 * 2 ** attempt);
+      await sleep(waitMs);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
+export function clearLoginCache(): void {
+  loginCache.clear();
+  try {
+    fs.unlinkSync(loginCacheFile);
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function getWallet(token: string): Promise<{
   pointsBalance?: number;
   promotionalBalance?: number;
   purchasedBalance?: number;
 }> {
-  return api("GET", "/api/wallet", { token });
+  const data = await api<{
+    wallet?: {
+      pointsBalance?: number;
+      promotionalBalance?: number;
+      purchasedBalance?: number;
+      points_balance?: number;
+      promotional_balance?: number;
+      purchased_balance?: number;
+    };
+    pointsBalance?: number;
+    promotionalBalance?: number;
+    purchasedBalance?: number;
+  }>("GET", "/api/wallet", { token });
+  const w = data.wallet ?? data;
+  return {
+    pointsBalance: Number(w.pointsBalance ?? w.points_balance ?? data.pointsBalance ?? 0),
+    promotionalBalance: Number(
+      w.promotionalBalance ?? w.promotional_balance ?? data.promotionalBalance ?? 0,
+    ),
+    purchasedBalance: Number(
+      w.purchasedBalance ?? w.purchased_balance ?? data.purchasedBalance ?? 0,
+    ),
+  };
 }
 
 export async function listPackages(token: string): Promise<{
@@ -226,7 +324,27 @@ export async function getOrder(
   token: string,
   orderId: string,
 ): Promise<{ id?: string; status?: string; orderNumber?: string; data?: Record<string, unknown> }> {
-  return api("GET", `/api/orders/${orderId}`, { token });
+  // Prefer dedicated GET when available; fall back to client list.
+  try {
+    return await api("GET", `/api/orders/${orderId}`, { token });
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 404) throw err;
+    const list = await api<{ orders?: Array<Record<string, unknown>> }>("GET", "/api/orders?limit=50", {
+      token,
+    });
+    const hit = (list.orders || []).find((o) => String(o.id) === orderId);
+    if (!hit) throw err;
+    return {
+      id: String(hit.id),
+      status: String(
+        hit.status ??
+          (hit.data as { status?: string } | undefined)?.status ??
+          "",
+      ),
+      orderNumber: hit.orderNumber ? String(hit.orderNumber) : undefined,
+      data: (hit.data as Record<string, unknown>) || undefined,
+    };
+  }
 }
 
 export async function completeOrder(token: string, orderId: string): Promise<unknown> {
@@ -369,8 +487,20 @@ export async function ensureTechPoints(
     referenceNumber: `LOGIC-${Date.now()}`,
   });
   await adminConfirmPayment(adminToken, request.id);
-  const after = await getWallet(techToken);
-  return after.pointsBalance ?? 0;
+  // Confirm can be slightly async in ledger paths — poll briefly
+  for (let i = 0; i < 8; i++) {
+    const after = await getWallet(techToken);
+    const bal = after.pointsBalance ?? 0;
+    if (bal >= minPoints) return bal;
+    await sleep(500);
+  }
+  const finalBal = (await getWallet(techToken)).pointsBalance ?? 0;
+  if (finalBal < minPoints) {
+    throw new Error(
+      `ensureTechPoints: after top-up+confirm balance=${finalBal} (wanted >= ${minPoints})`,
+    );
+  }
+  return finalBal;
 }
 
 /** Accept → start → complete helper for happy path. */

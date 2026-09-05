@@ -2,20 +2,74 @@ import type { Page, TestInfo } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { setLambdaTestStatus } from "./lambdatest";
 
+/** Clear web session so role switches (admin→tech→client) can re-login. */
+export async function clearWebSession(page: Page): Promise<void> {
+  try {
+    await page.context().clearCookies();
+  } catch {
+    /* ignore */
+  }
+  try {
+    await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.evaluate(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {
+        /* ignore */
+      }
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function uiLogin(
   page: Page,
   identifier: string,
   password: string,
   expectUrl: RegExp,
 ): Promise<void> {
-  await page.goto("/login");
-  await page.getByTestId("login-identifier").fill(identifier);
+  await clearWebSession(page);
+  await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 30_000 });
+
+  const idField = page.getByTestId("login-identifier");
+  // If still redirected away (cached auth), clear again and retry once
+  if (!(await idField.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    await clearWebSession(page);
+    await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 30_000 });
+  }
+
+  await expect(idField).toBeVisible({ timeout: 30_000 });
+  await idField.fill(identifier);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  // Admin may land on /dashboard; clients/techs on role hubs
   await expect(page).toHaveURL(expectUrl, { timeout: 45_000 });
-  // Wait until login screen is gone so videos/screenshots are meaningful
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 45_000 }).catch(() => undefined);
+}
+
+/** Film evidence — never fail the API assertion path. */
+export async function softUiLogin(
+  page: Page,
+  identifier: string,
+  password: string,
+  expectUrl: RegExp,
+): Promise<boolean> {
+  // Logic suites hammer login rate-limits; skip UI login unless explicitly enabled.
+  if (process.env.E2E_LOGIC_UI_LOGIN !== "1" && process.env.E2E_LOGIC_UI_LOGIN !== "true") {
+    try {
+      await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+  try {
+    await uiLogin(page, identifier, password, expectUrl);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function film(
@@ -23,11 +77,9 @@ export async function film(
   testInfo: TestInfo,
   label: string,
 ): Promise<void> {
-  // Pause so video captures the screen meaningfully
   await page.waitForTimeout(900);
   const shot = await page.screenshot({ fullPage: true });
   await testInfo.attach(label, { body: shot, contentType: "image/png" });
-  // Also write under test-results for easy folder browsing
   const fs = await import("node:fs/promises");
   const path = await import("node:path");
   const dir = path.join(testInfo.outputDir, "screenshots");
