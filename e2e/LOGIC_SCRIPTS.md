@@ -42,6 +42,7 @@
 | حلول بديلة | أسباب بدون `refundRequested` | `20-order-lifecycle` 5 |
 | رفض العميل للخدمة | `client_refused` → نزاع + قرار أدمن | `20-order-lifecycle` 6 |
 | استرداد/إكمال لاحق | طلب جديد يُكمَل بعد فشل سابق | `20-order-lifecycle` 7 |
+| **سكريبت شامل (مُكيَّف)** | PII رفض · 402 · إلغاء · استرداد · أدمن · قبول متزامن · complete بدون OCR | `60-comprehensive-edge-adapted` |
 
 ### أسباب `fail-service` (API)
 
