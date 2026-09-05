@@ -199,10 +199,48 @@ function Ensure-ChromeLauncher {
     -CanaryRelativePath "dist\index.js"
 }
 
+function Ensure-ReactDevtoolsCore {
+  # Windows NTFS damage can leave dist/backend.js present but garbled; Metro then fails Android bundle parse.
+  $folder = Get-ChildItem (Join-Path $Root "node_modules\.pnpm") -Directory -Filter "react-devtools-core@6.1.5*" |
+    Select-Object -First 1
+  if (-not $folder) { return }
+  $backend = Join-Path $folder.FullName "node_modules\react-devtools-core\dist\backend.js"
+  $needsRepair = $true
+  if (Test-Path -LiteralPath $backend) {
+    $sample = Get-Content -LiteralPath $backend -TotalCount 1200 -ErrorAction SilentlyContinue
+    $line = $sample | Select-Object -Skip 1154 -First 1
+    if ($line -and ($line -match '__source" !== propName') -and ($line -notmatch '!=rops')) {
+      $needsRepair = $false
+    }
+  }
+  if (-not $needsRepair) { return }
+
+  Write-Host "[fix-windows-deps] repairing corrupted react-devtools-core@6.1.5 ..." -ForegroundColor Yellow
+  $dest = Join-Path $folder.FullName "node_modules\react-devtools-core"
+  $tmp = Join-Path $env:TEMP ("rdc-" + [guid]::NewGuid().ToString("N"))
+  New-Item -ItemType Directory -Path $tmp | Out-Null
+  try {
+    Push-Location $tmp
+    npm pack "react-devtools-core@6.1.5" | Out-Null
+    $tg = Get-ChildItem *.tgz | Select-Object -First 1
+    tar -xzf $tg.Name
+    if (Test-Path -LiteralPath $dest) {
+      & node -e "const fs=require('fs'); fs.rmSync(process.argv[1],{recursive:true,force:true});" $dest
+    }
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    Copy-Item -Recurse -Force ".\package\*" $dest
+  } finally {
+    Pop-Location
+    Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+  }
+  Write-Host "[fix-windows-deps] react-devtools-core restored" -ForegroundColor Green
+}
+
 Ensure-SwcHelpers
 Ensure-EsbuildWin32
 Ensure-ExpoFont
 Ensure-SentryReactNative
 Ensure-SentryCore
 Ensure-ChromeLauncher
+Ensure-ReactDevtoolsCore
 Write-Host "[fix-windows-deps] ok" -ForegroundColor Green
