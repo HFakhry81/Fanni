@@ -5,7 +5,7 @@ import { captureMobileSentryException } from "../lib/mobileSentryRelay.js";
 import { db, pool, usersTable, adminsTable, loginLogsTable, serviceDomainsTable, serviceSpecializationsTable, invoicesTable, ordersTable, availabilityAuditLogsTable, sessionsTable, locationsTable, locationAliasesTable, locationMissLogTable, adminAuditLogsTable } from "@workspace/db";
 import { invalidateLocationCache } from "../lib/locationNormalizer";
 
-import { eq, desc, sql, and, or, ilike, gte, lte, asc, ne } from "drizzle-orm";
+import { eq, desc, sql, and, or, ilike, gte, lte, asc, ne, inArray } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin, requireSuperAdmin, requirePermission } from "../middlewares/requireAdmin";
@@ -187,7 +187,7 @@ router.get("/admin/users/counts", authMiddleware, requireAuth, requireAdmin, asy
       all: sql<number>`count(*)::int`,
       active: sql<number>`count(*) filter (where ${usersTable.isActive} = true)::int`,
       suspended: sql<number>`count(*) filter (where ${usersTable.isActive} = false)::int`,
-      pending: sql<number>`count(*) filter (where ${usersTable.approvalStatus} = 'pending_review' and ${usersTable.isActive} = true)::int`,
+      pending: sql<number>`count(*) filter (where ${usersTable.isApproved} = false and ${usersTable.isActive} = true and ${usersTable.role} = 'technician' and ${usersTable.approvalStatus} in ('pending_review', 'not_submitted', 'needs_correction'))::int`,
     })
     .from(usersTable)
     .where(whereClause);
@@ -208,6 +208,7 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
     const search = queryString(req.query.search)?.trim();
     const isActiveParam = queryString(req.query.isActive);
     const approvalStatusParam = queryString(req.query.approvalStatus);
+    const isApprovedParam = queryString(req.query.isApproved);
     const offset = (page - 1) * limit;
 
     // Admins are now in a separate table; only list clients and technicians here.
@@ -279,6 +280,13 @@ router.get("/admin/users", authMiddleware, requireAuth, requireAdmin, async (req
     if (approvalStatusParam === "pending_review") {
       conditions.push(eq(usersTable.approvalStatus, "pending_review"));
       conditions.push(eq(usersTable.isActive, true));
+    }
+    if (isApprovedParam === "true") {
+      conditions.push(eq(usersTable.isApproved, true));
+    } else if (isApprovedParam === "false") {
+      conditions.push(eq(usersTable.isApproved, false));
+      conditions.push(eq(usersTable.isActive, true));
+      conditions.push(inArray(usersTable.approvalStatus, ["pending_review", "not_submitted", "needs_correction"]));
     }
     if (search) {
       const pattern = `%${search}%`;
@@ -1382,8 +1390,17 @@ router.get(
            bio, years_of_experience, approval_status, created_at,
            (location IS NOT NULL) AS has_map_coords
          FROM users
-         WHERE role = 'technician' AND approval_status = 'pending_review' AND is_active = true
-         ORDER BY created_at DESC
+         WHERE role = 'technician'
+           AND is_active = true
+           AND is_approved = false
+           AND approval_status IN ('pending_review', 'not_submitted', 'needs_correction')
+         ORDER BY
+           CASE approval_status
+             WHEN 'pending_review' THEN 0
+             WHEN 'needs_correction' THEN 1
+             ELSE 2
+           END,
+           created_at DESC
          LIMIT $1 OFFSET $2`,
         [limit, offset],
       ).then((r) => r.rows.map((row) => ({
@@ -1407,7 +1424,12 @@ router.get(
     db
       .select({ total: sql<number>`COUNT(*)::int` })
       .from(usersTable)
-      .where(and(eq(usersTable.role, "technician"), eq(usersTable.approvalStatus, "pending_review"), eq(usersTable.isActive, true))),
+      .where(and(
+        eq(usersTable.role, "technician"),
+        eq(usersTable.isApproved, false),
+        eq(usersTable.isActive, true),
+        inArray(usersTable.approvalStatus, ["pending_review", "not_submitted", "needs_correction"]),
+      )),
   ]);
 
 

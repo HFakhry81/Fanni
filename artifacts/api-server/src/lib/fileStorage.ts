@@ -56,10 +56,17 @@ export function storageDriver(): "local" | "gcs" {
   if (explicit === "gcs") return "gcs";
   if (explicit === "local") return "local";
   const dir = process.env["PRIVATE_OBJECT_DIR"] ?? "";
-  if (!dir || dir.startsWith(".") || dir.startsWith("/") || /^[A-Za-z]:[\\/]/.test(dir)) {
+  // Prefer local for relative/absolute filesystem paths. Bare bucket-looking values
+  // without explicit STORAGE_DRIVER=gcs used to flip to GCS and break local uploads.
+  if (!dir || dir.startsWith(".") || dir.startsWith("/") || dir.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(dir)) {
     return "local";
   }
-  return "gcs";
+  if (dir.includes("/") || dir.includes("\\")) {
+    // GCS object prefix style: "bucket/path"
+    return "gcs";
+  }
+  // Ambiguous single segment (e.g. "fanni-uploads"): default local for safety.
+  return "local";
 }
 
 function extFor(mime: string): string {

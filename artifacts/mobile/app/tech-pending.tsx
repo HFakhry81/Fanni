@@ -46,6 +46,7 @@ export default function TechPendingScreen() {
 
   const handleRefresh = async () => {
     await refreshUser();
+    // Layout re-evaluates approval; map is allowed only when approved.
     router.replace("/(tech)/map");
   };
 

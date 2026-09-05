@@ -432,15 +432,24 @@ export default function TechLayout() {
   const { sessionToken } = useAuth();
   const segments = useSegments();
 
-  // Pending techs may open wallet (balance + review notice) and profile; other tabs stay blocked.
+  // Gate must match admin pending queue (approval_status), not bare isApproved —
+  // otherwise techs with not_submitted stay locked while admin sees an empty list.
   const leaf = segments[segments.length - 1];
   const allowedWhilePending = leaf === "wallet" || leaf === "profile";
-  if (
+  const approvalStatus = user?.approvalStatus;
+  const awaitingAdminReview =
     user?.type === "technician" &&
-    user?.isApproved === false &&
-    !allowedWhilePending
-  ) {
+    user?.isApproved !== true &&
+    (approvalStatus === "pending_review" || approvalStatus === "rejected");
+  const mustFinishRegistration =
+    user?.type === "technician" &&
+    user?.isApproved !== true &&
+    (approvalStatus === "not_submitted" || approvalStatus === "needs_correction");
+  if (awaitingAdminReview && !allowedWhilePending) {
     return <Redirect href="/tech-pending" />;
+  }
+  if (mustFinishRegistration && !allowedWhilePending && leaf !== "profile") {
+    return <Redirect href="/(tech)/profile" />;
   }
 
   return (

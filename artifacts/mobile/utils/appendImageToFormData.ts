@@ -1,5 +1,16 @@
 import { Platform } from "react-native";
 
+function normalizeMime(mimeType: string, fileUri: string): string {
+  const raw = (mimeType || "").trim().toLowerCase();
+  if (raw === "image/jpg" || raw === "image/pjpeg" || raw === "image/jpeg") return "image/jpeg";
+  if (raw === "image/png" || raw === "image/x-png") return "image/png";
+  if (raw === "image/webp") return "image/webp";
+  const uri = fileUri.toLowerCase();
+  if (uri.includes(".png") || uri.startsWith("data:image/png")) return "image/png";
+  if (uri.includes(".webp") || uri.startsWith("data:image/webp")) return "image/webp";
+  return "image/jpeg";
+}
+
 /**
  * Append an image to FormData in a way that works on native AND web.
  *
@@ -14,12 +25,9 @@ export async function appendImageToFormData(
   mimeType: string = "image/jpeg",
   fileName?: string,
 ): Promise<void> {
-  const ext =
-    mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+  const type = normalizeMime(mimeType, fileUri);
+  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
   const name = fileName ?? `photo.${ext}`;
-  const type =
-    mimeType ||
-    (ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg");
 
   if (Platform.OS === "web") {
     const res = await fetch(fileUri);
@@ -27,9 +35,10 @@ export async function appendImageToFormData(
       throw new Error(`Could not read selected image (${res.status})`);
     }
     const blob = await res.blob();
+    const resolvedType = normalizeMime(blob.type || type, fileUri);
     const file =
       typeof File !== "undefined"
-        ? new File([blob], name, { type: blob.type || type })
+        ? new File([blob], name, { type: resolvedType })
         : blob;
     formData.append(fieldName, file, name);
     return;

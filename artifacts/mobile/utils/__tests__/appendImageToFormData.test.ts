@@ -26,6 +26,22 @@ describe("appendImageToFormData", () => {
     );
   });
 
+  it("normalizes Android image/jpg to image/jpeg", async () => {
+    Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+    const formData = new FormData();
+    const appendSpy = jest.spyOn(formData, "append");
+
+    await appendImageToFormData(formData, "photo", "file:///tmp/a.jpg", "image/jpg");
+
+    expect(appendSpy).toHaveBeenCalledWith(
+      "photo",
+      expect.objectContaining({
+        type: "image/jpeg",
+        name: "photo.jpg",
+      }),
+    );
+  });
+
   it("fetches blob and appends a File on web", async () => {
     Object.defineProperty(Platform, "OS", { configurable: true, value: "web" });
     const blob = new Blob(["x"], { type: "image/png" });

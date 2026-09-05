@@ -433,7 +433,7 @@ function UserListView({
           role,
           limit: "50",
           ...(filter === "pending"
-            ? { approvalStatus: "pending_review" }
+            ? { isApproved: "false" }
             : filter !== "all"
               ? { isActive: filter === "active" ? "true" : "false" }
               : {}),

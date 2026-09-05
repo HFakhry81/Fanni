@@ -606,6 +606,9 @@ export default function RegisterScreen() {
                 if (uploadRes.ok) {
                   const uploadData = await uploadRes.json() as { url?: string };
                   if (uploadData.url) photoUpdates[field] = uploadData.url;
+                } else {
+                  const errBody = await uploadRes.json().catch(() => ({})) as { error?: string };
+                  throw new Error(errBody.error ?? `Upload failed (${uploadRes.status})`);
                 }
               };
 
