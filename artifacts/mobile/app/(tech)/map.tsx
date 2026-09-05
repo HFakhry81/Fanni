@@ -120,8 +120,12 @@ export default function TechMapScreen() {
   const localPendingOrders = allOrders.filter((o) => o.status === "pending");
   const localFilteredOrders = hasServiceArea
     ? localPendingOrders.filter((o) => {
-        if (o.governorate && user?.governorate && o.governorate !== user.governorate) return false;
-        if (o.area && user?.area && o.area !== user.area) return false;
+        // Governorate gate only — area is preference on the server, not a client hard filter.
+        if (o.governorate && user?.governorate && o.governorate !== user.governorate) {
+          const og = o.governorate.toLowerCase();
+          const ug = user.governorate.toLowerCase();
+          if (og !== ug && !og.includes(ug) && !ug.includes(og)) return false;
+        }
         return true;
       })
     : localPendingOrders;
@@ -132,9 +136,10 @@ export default function TechMapScreen() {
     const realtimeOnly = newPendingOrders
       .filter((o) => !serverIds.has(o.id))
       .filter((o) => {
-        if (hasServiceArea) {
-          if (o.governorate && user?.governorate && o.governorate !== user.governorate) return false;
-          if (o.area && user?.area && o.area !== user.area) return false;
+        if (hasServiceArea && o.governorate && user?.governorate) {
+          const og = o.governorate.toLowerCase();
+          const ug = user.governorate.toLowerCase();
+          if (og !== ug && !og.includes(ug) && !ug.includes(og)) return false;
         }
         return true;
       });
@@ -155,8 +160,11 @@ export default function TechMapScreen() {
     if (newPendingOrders.length === 0) return;
     const areaFiltered = hasServiceArea
       ? newPendingOrders.filter((o) => {
-          if (o.governorate && user?.governorate && o.governorate !== user.governorate) return false;
-          if (o.area && user?.area && o.area !== user.area) return false;
+          if (o.governorate && user?.governorate) {
+            const og = o.governorate.toLowerCase();
+            const ug = user.governorate.toLowerCase();
+            if (og !== ug && !og.includes(ug) && !ug.includes(og)) return false;
+          }
           return true;
         })
       : newPendingOrders;

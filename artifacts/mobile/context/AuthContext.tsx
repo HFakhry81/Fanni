@@ -27,6 +27,10 @@ export interface AuthUser {
   area: string | null;
   district: string | null;
   address: string | null;
+  street?: string | null;
+  buildingNo?: string | null;
+  floorNo?: string | null;
+  aptNo?: string | null;
   profession: string | null;
   specialty: string | null;
   serviceCategories?: string[] | null;

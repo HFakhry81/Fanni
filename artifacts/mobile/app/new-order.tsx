@@ -170,18 +170,19 @@ export default function NewOrderScreen() {
     return d;
   }, []);
 
-  // Default visit date/time/address from profile (once per new order flow).
+  // Default visit date/time/address from profile (re-apply when user hydrates on web).
   useEffect(() => {
-    if (defaultsApplied || draftRestoredRef.current || authLoading) return;
+    if (draftRestoredRef.current || authLoading) return;
     if (!isAuthenticated) return;
-    setVisitDate(formatDateYmd(new Date()));
-    setVisitTime(currentTimeHhMm());
-    if (user) {
-      setAddrVal((prev) => {
-        const hasAny = prev.governorateId || prev.areaId || prev.latitude != null;
-        return hasAny ? prev : defaultAddressFromUser(user, isRTL);
-      });
-    }
+    if (!user) return;
+
+    setVisitDate((prev) => prev || formatDateYmd(new Date()));
+    setVisitTime((prev) => prev || currentTimeHhMm());
+    setAddrVal((prev) => {
+      const hasAny = !!(prev.governorateId || prev.areaId || prev.street || prev.latitude != null);
+      if (hasAny && defaultsApplied) return prev;
+      return defaultAddressFromUser(user, isRTL);
+    });
     setDefaultsApplied(true);
   }, [authLoading, isAuthenticated, user, isRTL, defaultsApplied]);
 

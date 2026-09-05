@@ -1,5 +1,6 @@
 import type { User } from "@/context/AppContext";
 import type { AddressValue } from "@/components/AddressBlock";
+import { deserializeAddress } from "@/utils/addressHelpers";
 
 const EMPTY_ADDRESS: AddressValue = {
   governorateId: "",
@@ -35,7 +36,10 @@ export function timePeriodLabel(hhmm: string, isRTL: boolean): string {
 
 /** Build step-2 address defaults from the signed-in client profile. */
 export function defaultAddressFromUser(user: User | null, isRTL: boolean): AddressValue {
-  if (!user?.governorate && !user?.area) return { ...EMPTY_ADDRESS };
+  if (!user) return { ...EMPTY_ADDRESS };
+  if (!user.governorate && !user.area && !user.street && !user.address && user.latitude == null) {
+    return { ...EMPTY_ADDRESS };
+  }
 
   const govName = isRTL
     ? user.governorateNameAr ?? user.governorate ?? ""
@@ -44,25 +48,18 @@ export function defaultAddressFromUser(user: User | null, isRTL: boolean): Addre
     ? user.areaNameAr ?? user.area ?? ""
     : user.areaNameEn ?? user.area ?? "";
 
-  const extended = user as User & {
-    street?: string;
-    building?: string;
-    floor?: string;
-    apartment?: string;
-    latitude?: number | null;
-    longitude?: number | null;
-  };
+  const fromJoined = deserializeAddress(user.address ?? "");
 
   return {
     governorateId: user.governorate ?? "",
     governorateName: govName,
     areaId: user.area ?? "",
     areaName,
-    street: extended.street ?? user.address ?? "",
-    buildingNo: extended.building ?? "",
-    floorNo: extended.floor ?? "",
-    aptNo: extended.apartment ?? "",
-    latitude: extended.latitude ?? null,
-    longitude: extended.longitude ?? null,
+    street: user.street?.trim() || fromJoined.street || "",
+    buildingNo: user.buildingNo?.trim() || fromJoined.building || "",
+    floorNo: user.floorNo?.trim() || fromJoined.floor || "",
+    aptNo: user.aptNo?.trim() || fromJoined.apartment || "",
+    latitude: user.latitude ?? null,
+    longitude: user.longitude ?? null,
   };
 }

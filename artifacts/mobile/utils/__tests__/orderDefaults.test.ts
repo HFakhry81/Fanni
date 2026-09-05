@@ -34,12 +34,41 @@ describe("orderDefaults", () => {
         area: "montaza",
         areaNameAr: "المنتزه",
         areaNameEn: "Montaza",
-        address: "شارع 1",
+        street: "شارع واسع",
+        buildingNo: "10",
+        floorNo: "3",
+        aptNo: "5",
+        latitude: 31.2,
+        longitude: 29.9,
       },
       true,
     );
     expect(addr.governorateId).toBe("alexandria");
     expect(addr.areaName).toBe("المنتزه");
-    expect(addr.street).toBe("شارع 1");
+    expect(addr.street).toBe("شارع واسع");
+    expect(addr.buildingNo).toBe("10");
+    expect(addr.floorNo).toBe("3");
+    expect(addr.aptNo).toBe("5");
+    expect(addr.latitude).toBe(31.2);
+  });
+
+  it("falls back to joined address string fields", () => {
+    const addr = defaultAddressFromUser(
+      {
+        id: "c2",
+        type: "client",
+        name: "Sara",
+        mobile: "011",
+        email: "s@b.com",
+        governorate: "cairo",
+        area: "nasr_city",
+        address: "شارع 9, Bldg: 12, Flr: 4, Apt: 8",
+      },
+      false,
+    );
+    expect(addr.street).toBe("شارع 9");
+    expect(addr.buildingNo).toBe("12");
+    expect(addr.floorNo).toBe("4");
+    expect(addr.aptNo).toBe("8");
   });
 });

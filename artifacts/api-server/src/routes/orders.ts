@@ -258,7 +258,14 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
         }
       }
 
-      const fullOrder = { ...safeOrder, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial };
+      const fullOrder = {
+        ...safeOrder,
+        orderNumber: dbOrderNumber,
+        orderSerial: inserted.orderSerial,
+        category: order.category as string,
+        governorate: routingMeta.governorate,
+        area: routingMeta.area,
+      };
       void broadcastNewOrder(fullOrder);
       logger.info({ orderId: order.id, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial }, "Order saved to database");
       res.status(201).json({ success: true, orderId: order.id, orderNumber: dbOrderNumber });

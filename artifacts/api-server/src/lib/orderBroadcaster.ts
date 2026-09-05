@@ -57,6 +57,31 @@ function hasRoutingConstraints(meta: TechnicianMeta): boolean {
   return !!(meta.professionKey || meta.governorate || meta.area);
 }
 
+/** Pull governorate/area from top-level fields or nested order.data. */
+export function extractOrderGeo(order: Record<string, unknown>): {
+  governorate: string | null;
+  area: string | null;
+  category: unknown;
+} {
+  const data = (order.data as Record<string, unknown> | undefined) ?? undefined;
+  const pick = (...vals: unknown[]): string | null => {
+    for (const v of vals) {
+      const s = String(v ?? "").trim();
+      if (s) return s;
+    }
+    return null;
+  };
+  return {
+    governorate: pick(order.governorate, data?.governorate, data?.governorateName, data?.governorateId),
+    area: pick(order.area, data?.area, data?.areaName, data?.areaId),
+    category: order.category ?? data?.category,
+  };
+}
+
+/**
+ * Profession + governorate gate. Area is a soft preference (sort), not a hard filter —
+ * so Mandara techs still see other Alexandria AC pending leads in the same cycle.
+ */
 function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta): boolean {
   if (!meta.registered) {
     return false;
@@ -66,29 +91,23 @@ function orderMatchesTech(order: Record<string, unknown>, meta: TechnicianMeta):
     return false;
   }
 
+  const geo = extractOrderGeo(order);
+
   // Profession (مهنة) only — specialty / serviceCategories are ignored for routing.
   if (meta.professionKey) {
-    const orderCategory = order.category ?? (order.data as Record<string, unknown> | undefined)?.category;
-    const orderKey = canonicalCategory(orderCategory);
+    const orderKey = canonicalCategory(geo.category);
     if (!orderKey || orderKey !== meta.professionKey) {
       return false;
     }
   }
 
-  if (meta.governorate) {
-    const orderGovernorate = (order.governorate as string | undefined) ?? null;
-    if (!orderGovernorate || !locationsMatchSync(orderGovernorate, meta.governorate, "governorate")) {
+  if (meta.governorate && geo.governorate) {
+    if (!locationsMatchSync(geo.governorate, meta.governorate, "governorate")) {
       return false;
     }
   }
 
-  if (meta.area) {
-    const orderArea = (order.area as string | undefined) ?? null;
-    if (!orderArea || !locationsMatchSync(orderArea, meta.area, "area")) {
-      return false;
-    }
-  }
-
+  // Area mismatch within the same governorate does not exclude the order.
   return true;
 }
 
@@ -805,7 +824,19 @@ export async function recoverPendingOrders(): Promise<void> {
       return;
     }
 
-    pendingOrders = rows.map((row) => row.data);
+    pendingOrders = rows.map((row) => {
+      const data = (row.data && typeof row.data === "object" ? row.data : {}) as Record<string, unknown>;
+      return {
+        ...data,
+        id: row.id,
+        orderNumber: row.orderNumber,
+        orderSerial: row.orderSerial,
+        status: row.status,
+        category: row.category ?? data.category,
+        governorate: row.governorate ?? data.governorate ?? null,
+        area: row.area ?? data.area ?? null,
+      };
+    });
     logger.info({ count: pendingOrders.length }, "Recovered pending orders from database for rebroadcast");
 
     if (clients.size > 0) {

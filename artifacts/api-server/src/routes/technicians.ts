@@ -354,14 +354,28 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
       const data = row.data as Record<string, unknown>;
       const orderCategory = row.category ?? data.category;
       if (!(await professionMatchesOrder(orderCategory, techProfession))) return null;
-      if (techGov) {
-        const govMatch = await locationsMatch(row.governorate, techGov, "governorate");
+
+      // Governorate is the hard geography gate; area is preference-only (sort boost).
+      const orderGov =
+        row.governorate ??
+        (typeof data.governorate === "string" ? data.governorate : null) ??
+        (typeof data.governorateName === "string" ? data.governorateName : null);
+      const orderArea =
+        row.area ??
+        (typeof data.area === "string" ? data.area : null) ??
+        (typeof data.areaName === "string" ? data.areaName : null);
+
+      if (techGov && orderGov) {
+        const govMatch = await locationsMatch(orderGov, techGov, "governorate");
         if (!govMatch) return null;
       }
-      if (techArea) {
-        const areaMatch = await locationsMatch(row.area, techArea, "area");
-        if (!areaMatch) return null;
+
+      let areaBoost = 0;
+      if (techArea && orderArea) {
+        const areaMatch = await locationsMatch(orderArea, techArea, "area");
+        if (areaMatch) areaBoost = 1;
       }
+
       const orderLat = typeof data.latitude === "number" ? data.latitude : null;
       const orderLon = typeof data.longitude === "number" ? data.longitude : null;
 
@@ -377,8 +391,8 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
         status: row.status,
         category: row.category ?? data.category,
         subCategory: data.subCategory ?? null,
-        governorate: row.governorate ?? null,
-        area: row.area ?? null,
+        governorate: row.governorate ?? orderGov,
+        area: row.area ?? orderArea,
         street: data.street ?? null,
         floor: data.floor ?? null,
         building: data.building ?? null,
@@ -390,6 +404,7 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
         latitude: orderLat,
         longitude: orderLon,
         distanceM,
+        areaBoost,
         createdAt: row.createdAt,
       };
     });
@@ -397,8 +412,9 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     type MatchedOrder = Exclude<Awaited<(typeof matchPromises)[0]>, null>;
     const allMatched = (await Promise.all(matchPromises)).filter((o): o is MatchedOrder => o !== null);
 
-    // Sort by distance ascending; orders without distance fall to the end.
+    // Prefer same-area leads, then nearer distance.
     allMatched.sort((a, b) => {
+      if (a.areaBoost !== b.areaBoost) return b.areaBoost - a.areaBoost;
       if (a.distanceM === null && b.distanceM === null) return 0;
       if (a.distanceM === null) return 1;
       if (b.distanceM === null) return -1;
@@ -431,14 +447,15 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
     }
 
     const results = pageOrders.map((o) => {
+      const { areaBoost: _areaBoost, ...orderFields } = o;
       const isUnlocked = unlockedSet.has(o.id);
       const unlockCost = pickLeadCostFromRules(pricingRules, {
         category: typeof o.category === "string" ? o.category : null,
         specialty: typeof o.subCategory === "string" ? o.subCategory : null,
       }) ?? defaultCost;
-      if (isUnlocked) return { ...o, isUnlocked: true, unlockCost };
+      if (isUnlocked) return { ...orderFields, isUnlocked: true, unlockCost };
       return {
-        ...o,
+        ...orderFields,
         isUnlocked: false,
         unlockCost,
         street: null,

@@ -53,8 +53,8 @@ export default function ConnectionBanner({
     };
   }, [connected, showDelayMs, translateY, opacity]);
 
-  // Collapsed when hidden so Android cannot paint a 1px orange hairline
-  if (!shown && connected) {
+  // Collapsed when hidden — never leave an absolute orange frame in the status bar
+  if (!shown) {
     return <View style={styles.placeholder} pointerEvents="none" />;
   }
 
@@ -66,20 +66,15 @@ export default function ConnectionBanner({
           top: insets.top,
           transform: [{ translateY }],
           opacity,
-          // Transparent while hidden so any residual frame is invisible
-          backgroundColor: shown ? "#B45309" : "transparent",
+          backgroundColor: "#B45309",
         },
       ]}
       pointerEvents="none"
       accessibilityElementsHidden={!shown}
       importantForAccessibility={shown ? "yes" : "no-hide-descendants"}
     >
-      {shown ? (
-        <>
-          <VectorIcon name="wifi-off" size={14} color="#fff" style={{ marginRight: 6 }} />
-          <Text style={styles.text}>{reconnectingLabel}</Text>
-        </>
-      ) : null}
+      <VectorIcon name="wifi-off" size={14} color="#fff" style={{ marginRight: 6 }} />
+      <Text style={styles.text}>{reconnectingLabel}</Text>
     </Animated.View>
   );
 }

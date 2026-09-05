@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, ActivityIndicator, Text, StyleSheet, Platform } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, ActivityIndicator, Text, StyleSheet, Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface SyncingBannerProps {
@@ -8,34 +8,53 @@ interface SyncingBannerProps {
   topOffset?: number;
 }
 
+/**
+ * Availability sync banner. Fully unmounts when hidden so Android cannot leave
+ * an orange hairline in the status-bar safe area (translateY alone was leaking).
+ */
 export default function SyncingBanner({ visible, label = "Syncing…", topOffset = 0 }: SyncingBannerProps) {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(-60)).current;
-  const visibleRef = useRef(false);
+  const translateY = useRef(new Animated.Value(-80)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (visible && !visibleRef.current) {
-      visibleRef.current = true;
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        bounciness: 4,
-      }).start();
-    } else if (!visible && visibleRef.current) {
-      visibleRef.current = false;
-      Animated.timing(translateY, {
-        toValue: -60,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+    if (visible) {
+      setMounted(true);
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 2 }),
+        Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }),
+      ]).start();
+      return;
     }
-  }, [visible, translateY]);
+
+    if (!mounted) return;
+
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: -80, duration: 200, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) {
+        setMounted(false);
+        translateY.setValue(-80);
+        opacity.setValue(0);
+      }
+    });
+  }, [visible, mounted, translateY, opacity]);
+
+  if (!mounted) {
+    return <View style={styles.placeholder} pointerEvents="none" />;
+  }
 
   return (
     <Animated.View
       style={[
         styles.banner,
-        { top: insets.top + topOffset, transform: [{ translateY }] },
+        {
+          top: insets.top + topOffset,
+          transform: [{ translateY }],
+          opacity,
+        },
       ]}
       pointerEvents="none"
     >
@@ -46,6 +65,12 @@ export default function SyncingBanner({ visible, label = "Syncing…", topOffset
 }
 
 const styles = StyleSheet.create({
+  placeholder: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+    opacity: 0,
+  },
   banner: {
     position: "absolute",
     left: 0,
