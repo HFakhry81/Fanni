@@ -78,6 +78,23 @@ export const orderLocationEventsTable = pgTable(
   (table) => [index("idx_order_loc_events_order_id").on(table.orderId)],
 );
 
+/** Every status transition for client / tech / admin timelines. */
+export const orderStatusEventsTable = pgTable(
+  "order_status_events",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    orderId: varchar("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }),
+    fromStatus: varchar("from_status", { length: 32 }),
+    toStatus: varchar("to_status", { length: 32 }).notNull(),
+    actorUserId: varchar("actor_user_id", { length: 64 }),
+    actorRole: varchar("actor_role", { length: 32 }),
+    source: varchar("source", { length: 64 }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_order_status_events_order_id").on(table.orderId)],
+);
+
 export type InsertOrder = typeof ordersTable.$inferInsert;
 
 export type Order = typeof ordersTable.$inferSelect;

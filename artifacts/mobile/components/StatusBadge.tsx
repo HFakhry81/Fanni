@@ -8,6 +8,15 @@ interface StatusBadgeProps {
   size?: "sm" | "md";
 }
 
+/** Normalize DB statuses (en_route, in_progress, …) to mobile badge keys. */
+export function normalizeStatusForBadge(status: string): string {
+  const s = String(status || "pending");
+  if (s === "acknowledged" || s === "en_route" || s === "arrived" || s === "accepted") return "accepted";
+  if (s === "in_progress" || s === "inProgress") return "inProgress";
+  if (s === "completed" || s === "cancelled" || s === "pending") return s;
+  return "pending";
+}
+
 const STATUS_CONFIG: Record<string, { icon: IconName; bg: string; text: string; border: string }> = {
   pending:    { icon: "clock",        bg: "#FFF3DC", text: "#D4840A", border: "#F5A623" },
   accepted:   { icon: "check-circle", bg: "#E4F4FB", text: "#2B8FBB", border: "#4DADD9" },
@@ -26,8 +35,9 @@ const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
 
 export default function StatusBadge({ status, size = "sm" }: StatusBadgeProps) {
   const { isRTL } = useApp();
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG["pending"];
-  const labels = STATUS_LABELS[status] ?? { ar: status, en: status };
+  const key = normalizeStatusForBadge(status);
+  const cfg = STATUS_CONFIG[key] ?? STATUS_CONFIG.pending;
+  const labels = STATUS_LABELS[key] ?? { ar: status, en: status };
   const label = isRTL ? labels.ar : labels.en;
   const isSm = size === "sm";
 

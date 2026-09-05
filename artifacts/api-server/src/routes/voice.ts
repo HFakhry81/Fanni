@@ -32,9 +32,19 @@ router.post("/orders/:id/masked-call", authMiddleware, requireAuth, async (req: 
   }
 
   if (!isMaskedCallingConfigured()) {
-    res.status(503).json({
-      error: "Masked calling is not configured",
-      message: "الاتصال المقنّع مش متاح حالياً. الطلب والمسار يكمّلوا من غير مكالمة من المنصة.",
+    // Do not block the journey — mark contact intent and let WhatsApp / normal dial continue.
+    try {
+      await db.update(leadUnlocksTable).set({ clickedCall: true })
+        .where(and(eq(leadUnlocksTable.orderId, orderId), eq(leadUnlocksTable.technicianId, user.id)));
+    } catch {
+      /* ignore */
+    }
+    res.status(200).json({
+      success: true,
+      skipped: true,
+      code: "MASKED_CALL_UNAVAILABLE",
+      message:
+        "الاتصال المقنّع غير مفعّل على الخادم حالياً. كمّل عبر واتساب أو الاتصال العادي من التطبيق — الرحلة مستمرة.",
     });
     return;
   }

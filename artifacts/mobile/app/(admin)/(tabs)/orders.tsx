@@ -1,34 +1,82 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Image, Linking } from "react-native";
-import { useRouter } from "expo-router";
+import React, { useState, useCallback } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, RefreshControl } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
 import VectorIcon from "@/components/VectorIcon";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import AppHeader from "@/components/AppHeader";
-import SUB_IMAGE_MAP from "@/constants/subImageMap";
-import { useLocationLabels } from "@/hooks/useLocationLabels";
-import appIcon from "@/constants/appIcon";
+import { getApiBase } from "@/utils/api";
+import { formatVisitDateDisplay, formatCreatedAtDisplay } from "@/utils/dateDisplay";
 
-const DEFAULT_SERVICE_FEE_RATE = 15;
-const DEFAULT_VAT_RATE = 14;
+type AdminOrderRow = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  dbStatus?: string;
+  category?: string | null;
+  subCategory?: string | null;
+  clientName?: string | null;
+  technicianId?: string | null;
+  technicianName?: string | null;
+  visitDate?: string | null;
+  visitTime?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export default function AdminOrdersScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, isRTL } = useApp();
-  const { allOrders } = useOrders();
-  const { slugToName } = useLocationLabels();
+  const { sessionToken } = useAuth();
   const [filter, setFilter] = useState<string>("all");
-  const [expandedInvoices, setExpandedInvoices] = useState<Record<string, boolean>>({});
+  const [orders, setOrders] = useState<AdminOrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const statusFilters = ["all", "pending", "accepted", "completed", "cancelled"];
-  const filteredOrders = filter === "all" ? allOrders : allOrders.filter((o) => o.status === filter);
+  const fetchOrders = useCallback(async (isRefresh = false) => {
+    const apiBase = getApiBase();
+    if (!apiBase || !sessionToken) return;
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const qs = filter !== "all" ? `?status=${encodeURIComponent(filter)}&limit=100` : "?limit=100";
+      const res = await fetch(`${apiBase}/api/admin/orders${qs}`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) {
+        setError(isRTL ? "تعذر تحميل الطلبات من الخادم" : "Failed to load orders from server");
+        return;
+      }
+      const json = (await res.json()) as { orders?: AdminOrderRow[] };
+      setOrders(json.orders ?? []);
+    } catch {
+      setError(isRTL ? "خطأ في الاتصال" : "Connection error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [sessionToken, filter, isRTL]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchOrders();
+    }, [fetchOrders]),
+  );
+
+  const statusFilters = ["all", "pending", "accepted", "inProgress", "completed", "cancelled"];
 
   const filterColors: Record<string, string> = {
-    all: colors.dark, pending: colors.primary, accepted: colors.secondary,
-    completed: colors.success, cancelled: colors.destructive,
+    all: colors.dark,
+    pending: colors.primary,
+    accepted: colors.secondary,
+    inProgress: "#6C4FBB",
+    completed: colors.success,
+    cancelled: colors.destructive,
   };
 
   return (
@@ -36,17 +84,19 @@ export default function AdminOrdersScreen() {
       <AppHeader
         title={t("admin.orders")}
         subtitle={
-          filter === "all"
-            ? `${allOrders.length} ${isRTL ? "طلب" : "orders"}`
-            : isRTL
-              ? `${filteredOrders.length} من ${allOrders.length} طلب`
-              : `${filteredOrders.length} of ${allOrders.length} orders`
+          isRTL
+            ? `${orders.length} طلب (مباشر من الخادم)`
+            : `${orders.length} orders (live from server)`
         }
         showHome
         showLogout
+        rightElement={
+          <TouchableOpacity onPress={() => void fetchOrders(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <VectorIcon name="refresh-cw" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        }
       />
 
-      {/* Filter chips */}
       <View style={styles.filterRow}>
         <FlatList
           data={statusFilters}
@@ -78,294 +128,96 @@ export default function AdminOrdersScreen() {
         />
       </View>
 
-      <FlatList
-        data={[...filteredOrders].reverse()}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <VectorIcon name="inbox" size={48} color={colors.border} />
-            <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>{t("common.noData")}</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const inv3 = item.threePartyInvoice;
-          const invLegacy = item.invoice;
-          const hasInvoice = item.status === "completed" && (!!inv3 || !!invLegacy);
-          const invoiceExpanded = expandedInvoices[item.id] ?? false;
-
-          return (
+      {loading && !refreshing ? (
+        <View style={styles.empty}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={orders}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => void fetchOrders(true)} tintColor={colors.primary} />
+          }
+          contentContainerStyle={[styles.list, { paddingBottom: Platform.OS === "web" ? 100 : 90 }]}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <VectorIcon name="inbox" size={48} color={colors.border} />
+              <Text style={{ color: colors.mutedForeground, fontSize: 15, marginTop: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>
+                {error ?? t("common.noData")}
+              </Text>
+              {error ? (
+                <TouchableOpacity onPress={() => void fetchOrders(true)} style={{ marginTop: 12 }}>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>{isRTL ? "إعادة المحاولة" : "Retry"}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          }
+          renderItem={({ item }) => (
             <View style={[styles.card, { backgroundColor: colors.card, borderRadius: colors.radius, borderColor: colors.border }]}>
               <View style={[styles.accentBar, { backgroundColor: filterColors[item.status] ?? colors.secondary }]} />
               <View style={styles.cardBody}>
-                {/* Tappable header → navigates to order-details */}
                 <TouchableOpacity
                   onPress={() => router.push({ pathname: "/order-details", params: { orderId: item.id } })}
                   activeOpacity={0.85}
                 >
                   <View style={[styles.cardTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                    {item.subImageKey && SUB_IMAGE_MAP[item.subImageKey] && (
-                      <Image
-                        source={SUB_IMAGE_MAP[item.subImageKey]}
-                        style={[styles.subThumb, { borderRadius: colors.radius - 4, borderColor: colors.border }]}
-                        resizeMode="cover"
-                      />
-                    )}
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>{item.orderNumber}</Text>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+                        {item.orderNumber}
+                      </Text>
                       <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }}>
-                        {t(`cat.${item.category}`)} — {item.subCategory}
+                        {item.category ? t(`cat.${item.category}`) : ""}{item.subCategory ? ` — ${item.subCategory}` : ""}
                       </Text>
                     </View>
                     <StatusBadge status={item.status} />
                   </View>
                   <View style={[styles.cardMid, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                        {isRTL ? "👤 " : "👤 "}{item.clientName}
-                      </Text>
-                      {item.technicianName && (
+                      {item.clientName ? (
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
+                          {item.clientName}
+                        </Text>
+                      ) : null}
+                      {item.technicianName ? (
                         <Text style={{ color: colors.secondary, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                          🔧 {item.technicianName}
+                          {item.technicianName}
                         </Text>
-                      )}
+                      ) : item.status === "accepted" || item.status === "inProgress" ? (
+                        <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: isRTL ? "right" : "left" }}>
+                          {isRTL ? "فني معيَّن (بدون اسم محفوظ)" : "Technician assigned (name missing)"}
+                        </Text>
+                      ) : null}
                     </View>
-                    {(inv3 || invLegacy) && (
-                      <View style={[styles.totalChip, { backgroundColor: colors.accent, borderRadius: 10 }]}>
-                        <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                          {inv3 ? inv3.clientTotal.toFixed(0) : invLegacy!.total.toFixed(0)}
-                        </Text>
-                        <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 11 }}> {t("common.egp")}</Text>
-                      </View>
-                    )}
                   </View>
                   <View style={[styles.cardFoot, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <VectorIcon name="calendar" size={12} color={colors.mutedForeground} />
-                    <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 4 }}>{item.visitDate} {item.visitTime}</Text>
-                    {(item.area || item.governorate) && (
-                      <>
-                        <Text style={{ color: colors.border, marginHorizontal: 6 }}>·</Text>
-                        <VectorIcon name="map-pin" size={12} color={colors.mutedForeground} />
-                        <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 4 }} numberOfLines={1}>
-                          {[
-                            item.area ? slugToName(item.area, isRTL ? "ar" : "en") : null,
-                            item.governorate ? slugToName(item.governorate, isRTL ? "ar" : "en") : null,
-                          ].filter(Boolean).join(", ")}
-                        </Text>
-                      </>
-                    )}
+                    <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 4 }}>
+                      {formatVisitDateDisplay(item.visitDate, isRTL) || formatCreatedAtDisplay(item.createdAt, isRTL)}
+                      {item.visitTime ? ` ${item.visitTime}` : ""}
+                    </Text>
                   </View>
                 </TouchableOpacity>
-
-                {/* Technician contact row */}
-                {item.technicianMobile && (
-                  <View style={[styles.techContactRow, { borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                    <TouchableOpacity
-                      style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 5 }}
-                      onPress={() => Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {})}
-                      activeOpacity={0.7}
-                    >
-                      <VectorIcon name="phone" size={12} color={colors.mutedForeground} />
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: isRTL ? 0 : 2, marginRight: isRTL ? 2 : 0, direction: "ltr" }}>
-                        {item.technicianMobile}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.callBtn, { backgroundColor: colors.primary, borderRadius: 8 }]}
-                      onPress={() => Linking.openURL(`tel:${item.technicianMobile}`).catch(() => {})}
-                      activeOpacity={0.8}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <VectorIcon name="phone" size={13} color="#FFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.smsBtn, { backgroundColor: colors.secondary, borderRadius: 8, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }]}
-                      onPress={() => Linking.openURL(`sms:${item.technicianMobile}`).catch(() => {})}
-                      activeOpacity={0.8}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <VectorIcon name="message-circle" size={13} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* Expandable invoice section for completed orders */}
-                {hasInvoice && (
-                  <View style={[styles.invoiceBlock, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
-                    {/* Collapse/expand toggle */}
-                    <TouchableOpacity
-                      style={[styles.invoiceToggleRow, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: invoiceExpanded ? colors.border : "transparent" }]}
-                      onPress={() => setExpandedInvoices((prev) => ({ ...prev, [item.id]: !invoiceExpanded }))}
-                      activeOpacity={0.75}
-                    >
-                      <Image source={appIcon} style={styles.invoiceLogo} resizeMode="contain" />
-                      <View style={{ flex: 1, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
-                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-                          {inv3
-                            ? (isRTL ? "تفاصيل الفاتورة" : "Invoice Breakdown")
-                            : `${t("invoice.title")} #${invLegacy!.invoiceNumber}`}
-                        </Text>
-                        <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: isRTL ? "right" : "left" }}>
-                          {inv3
-                            ? `${isRTL ? "إجمالي العميل" : "Client Total"}: ${inv3.clientTotal.toFixed(2)} ${t("common.egp")}`
-                            : `${t("invoice.total")}: ${invLegacy!.total} ${t("common.egp")}`}
-                        </Text>
-                      </View>
-                      <VectorIcon name={invoiceExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
-                    </TouchableOpacity>
-
-                    {invoiceExpanded && (
-                      <>
-                        {inv3 ? (() => {
-                          const sfRate = inv3.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE;
-                          const vRate = inv3.vatRate ?? DEFAULT_VAT_RATE;
-                          return (
-                          <>
-                            {/* Technician Payout block */}
-                            <View style={[styles.invoiceSectionHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
-                              <View style={{ backgroundColor: colors.primary + "20", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 11 }}>{isRTL ? "الفني" : "Technician"}</Text>
-                              </View>
-                              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
-                                {isRTL ? "دفعة الفني" : "Technician Payout"}
-                              </Text>
-                            </View>
-                            {[
-                              [isRTL ? "تكلفة المواد" : "Materials Cost", inv3.materialsTotal],
-                              inv3.transportFee > 0 ? [isRTL ? "تكلفة النقل" : "Transport", inv3.transportFee] : null,
-                              [isRTL ? "أجر العمالة" : "Labour Fee", inv3.labourFee],
-                              [isRTL ? `خصم رسوم الخدمة (${sfRate}%)` : `Service Fee Deduction (${sfRate}%)`, -inv3.serviceFeeAmount],
-                            ].filter(Boolean).map((row) => {
-                              const [label, val] = row as [string, number];
-                              return (
-                                <View key={label} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label}</Text>
-                                  <Text style={{ color: val < 0 ? colors.destructive : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
-                                    {val < 0 ? `−${Math.abs(val).toFixed(2)}` : val.toFixed(2)} {t("common.egp")}
-                                  </Text>
-                                </View>
-                              );
-                            })}
-                            <View style={[styles.invoiceSubTotal, { backgroundColor: colors.accent, borderRadius: 8, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 12 }}>{isRTL ? "صافي استحقاق الفني" : "Technician Net"}</Text>
-                              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{inv3.techNetTotal.toFixed(2)} {t("common.egp")}</Text>
-                            </View>
-
-                            {/* Client Invoice block */}
-                            <View style={[styles.invoiceSectionHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border, marginTop: 10 }]}>
-                              <View style={{ backgroundColor: colors.success + "20", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                                <Text style={{ color: colors.success, fontFamily: "Inter_700Bold", fontSize: 11 }}>{isRTL ? "العميل" : "Client"}</Text>
-                              </View>
-                              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
-                                {isRTL ? "فاتورة العميل" : "Client Invoice"}
-                              </Text>
-                            </View>
-                            {[
-                              [isRTL ? "تكلفة المواد" : "Materials Cost", inv3.materialsTotal],
-                              inv3.transportFee > 0 ? [isRTL ? "تكلفة النقل" : "Transport", inv3.transportFee] : null,
-                              [isRTL ? "أجر العمالة" : "Labour Fee", inv3.labourFee],
-                              [isRTL ? `رسوم الخدمة (${sfRate}%)` : `Service Fee (${sfRate}%)`, inv3.serviceFeeAmount],
-                              [isRTL ? `ضريبة القيمة المضافة (${vRate}%)` : `VAT (${vRate}%)`, inv3.vatAmount],
-                            ].filter(Boolean).map((row) => {
-                              const [label, val] = row as [string, number];
-                              return (
-                                <View key={label} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label}</Text>
-                                  <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
-                                </View>
-                              );
-                            })}
-                            <View style={[styles.invoiceSubTotal, { backgroundColor: colors.accent, borderRadius: 8, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 12 }}>{isRTL ? "إجمالي العميل" : "Client Total"}</Text>
-                              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{inv3.clientTotal.toFixed(2)} {t("common.egp")}</Text>
-                            </View>
-
-                            {/* Platform Ledger block */}
-                            {inv3.adminTotal > 0 && (
-                              <>
-                                <View style={[styles.invoiceSectionHeader, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border, marginTop: 10 }]}>
-                                  <View style={{ backgroundColor: colors.secondary + "30", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                                    <Text style={{ color: colors.secondary, fontFamily: "Inter_700Bold", fontSize: 11 }}>{isRTL ? "المنصة" : "Platform"}</Text>
-                                  </View>
-                                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, marginLeft: isRTL ? 0 : 6, marginRight: isRTL ? 6 : 0 }}>
-                                    {isRTL ? "حساب المنصة" : "Platform Ledger"}
-                                  </Text>
-                                </View>
-                                {[
-                                  [isRTL ? `رسوم الخدمة من الفني (${sfRate}%)` : `Service Fee from Tech (${sfRate}%)`, inv3.serviceFeeAmount],
-                                  [isRTL ? `رسوم الخدمة من العميل (${sfRate}%)` : `Service Fee from Client (${sfRate}%)`, inv3.serviceFeeAmount],
-                                  [isRTL ? `ضريبة القيمة المضافة (${vRate}%)` : `VAT Collected (${vRate}%)`, inv3.vatAmount],
-                                ].map(([label, val]) => (
-                                  <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label as string}</Text>
-                                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{(val as number).toFixed(2)} {t("common.egp")}</Text>
-                                  </View>
-                                ))}
-                                <View style={[styles.invoiceSubTotal, { backgroundColor: colors.accent, borderRadius: 8, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 12 }}>{isRTL ? "إجمالي المنصة" : "Platform Total"}</Text>
-                                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{inv3.adminTotal.toFixed(2)} {t("common.egp")}</Text>
-                                </View>
-                              </>
-                            )}
-                          </>
-                          );
-                        })() : invLegacy ? (
-                          <>
-                            {/* Legacy invoice line items */}
-                            {[
-                              [t("invoice.materials"), invLegacy.materialsTotal],
-                              [t("invoice.materialsMark"), invLegacy.materialsMark],
-                              [t("invoice.labor"), invLegacy.laborFee],
-                              [t("invoice.tools"), invLegacy.toolRental],
-                              [t("invoice.tax"), invLegacy.tax],
-                              [t("invoice.vat"), invLegacy.vat],
-                            ].map(([label, val]) => (
-                              <View key={label as string} style={[styles.invoiceRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{label as string}</Text>
-                                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{val as number} {t("common.egp")}</Text>
-                              </View>
-                            ))}
-                            <View style={[styles.invoiceSubTotal, { backgroundColor: colors.accent, borderRadius: 8, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 12 }}>{t("invoice.total")}</Text>
-                              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 13 }}>{invLegacy.total} {t("common.egp")}</Text>
-                            </View>
-                          </>
-                        ) : null}
-                      </>
-                    )}
-                  </View>
-                )}
               </View>
             </View>
-          );
-        }}
-      />
+          )}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  filterRow: { paddingTop: 10 },
-  filterList: { paddingHorizontal: 16, paddingBottom: 10, gap: 8 },
-  chip: { paddingVertical: 7, paddingHorizontal: 14, borderWidth: 1.5 },
-  list: { paddingHorizontal: 16 },
-  card: { marginBottom: 10, borderWidth: 1.5, flexDirection: "row", overflow: "hidden" },
+  filterRow: { paddingVertical: 8 },
+  filterList: { paddingHorizontal: 12, gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, marginRight: 8 },
+  list: { padding: 12, gap: 10 },
+  empty: { alignItems: "center", paddingTop: 60, paddingHorizontal: 24 },
+  card: { borderWidth: 1, overflow: "hidden", flexDirection: "row", marginBottom: 10 },
   accentBar: { width: 4 },
   cardBody: { flex: 1, padding: 12 },
-  cardTop: { alignItems: "center", marginBottom: 8, gap: 8 },
-  subThumb: { width: 44, height: 44, borderWidth: 1 },
-  cardMid: { alignItems: "center", marginBottom: 6, gap: 8 },
-  cardFoot: { alignItems: "center", gap: 4 },
-  totalChip: { paddingVertical: 6, paddingHorizontal: 12 },
-  techContactRow: { alignItems: "center", marginTop: 8, borderTopWidth: 1, paddingTop: 8, gap: 0 },
-  callBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
-  smsBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
-  empty: { alignItems: "center", paddingTop: 80 },
-  invoiceBlock: { marginTop: 10, borderWidth: 1 },
-  invoiceToggleRow: { alignItems: "center", padding: 10, borderBottomWidth: 1, gap: 0 },
-  invoiceLogo: { width: 28, height: 28, borderRadius: 6 },
-  invoiceSectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1 },
-  invoiceRow: { paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between" },
-  invoiceSubTotal: { margin: 10, padding: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cardTop: { alignItems: "flex-start", gap: 8, marginBottom: 8 },
+  cardMid: { marginBottom: 6 },
+  cardFoot: { alignItems: "center", marginTop: 4 },
 });

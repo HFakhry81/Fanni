@@ -431,11 +431,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     setOrders((prev) => {
       const existing = prev.find((o) => o.id === id);
       prevStatus = existing?.status;
-      // If order is not in local cache yet (accepted from available-orders API list),
-      // keep previous list unchanged — do not wipe AsyncStorage with [].
       if (!existing) {
-        updated = prev;
-        return prev;
+        // Upsert: WS / API may deliver status before local cache has the order
+        const upserted: Order = { id, ...update } as Order;
+        updated = [...prev, upserted];
+        return updated;
       }
       updated = prev.map((o) => (o.id === id ? { ...o, ...update } : o));
       return updated;

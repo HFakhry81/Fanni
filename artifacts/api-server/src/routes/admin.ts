@@ -17,6 +17,7 @@ import { isValidEgyptMobile, normalizeEmailForStorage, normalizeEgyptMobileForSt
 import { createNotification } from "./notifications";
 import { sendTechnicianApprovalSms } from "../lib/sms";
 import { sendWelcomeEmail } from "../lib/email";
+import { mobileStatusToDbStatuses, toMobileStatus } from "../lib/orderStatus";
 
 const router: IRouter = Router();
 
@@ -507,8 +508,8 @@ router.get("/admin/dashboard/stats", authMiddleware, requireAuth, requireAdmin, 
       db.select({ count: sql<number>`count(*)::int` }).from(usersTable).where(eq(usersTable.role, "technician")),
       db
         .select({
-          pending: sql<number>`count(*) filter (where ${ordersTable.status} in ('pending', 'acknowledged'))::int`,
-          active: sql<number>`count(*) filter (where ${ordersTable.status} = 'in_progress')::int`,
+          pending: sql<number>`count(*) filter (where ${ordersTable.status} = 'pending')::int`,
+          active: sql<number>`count(*) filter (where ${ordersTable.status} in ('acknowledged', 'en_route', 'arrived', 'in_progress'))::int`,
           completed: sql<number>`count(*) filter (where ${ordersTable.status} = 'completed')::int`,
         })
         .from(ordersTable),
@@ -568,12 +569,20 @@ router.post(
 );
 
 router.get("/admin/orders", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const limit = Math.min(50, Math.max(1, queryInt(req.query.limit, 10)));
+  const limit = Math.min(100, Math.max(1, queryInt(req.query.limit, 50)));
   const status = queryString(req.query.status);
 
   const conditions = [];
   if (status && status !== "all") {
-    conditions.push(sql`${ordersTable.status} = ${status}`);
+    const dbStatuses = mobileStatusToDbStatuses(status);
+    if (dbStatuses.length === 1) {
+      conditions.push(eq(ordersTable.status, dbStatuses[0]!));
+    } else if (dbStatuses.length > 1) {
+      conditions.push(inArray(ordersTable.status, dbStatuses));
+    } else {
+      // Legacy: allow raw DB status filter
+      conditions.push(sql`${ordersTable.status} = ${status}`);
+    }
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -585,7 +594,14 @@ router.get("/admin/orders", authMiddleware, requireAuth, requireAdmin, async (re
       status: ordersTable.status,
       category: ordersTable.category,
       clientName: sql<string>`concat(${usersTable.firstName}, ' ', coalesce(${usersTable.lastName}, ''))`,
+      technicianId: ordersTable.technicianId,
+      technicianName: sql<string | null>`(
+        select concat(u.first_name, ' ', coalesce(u.last_name, ''))
+        from users u where u.id = ${ordersTable.technicianId}
+      )`,
       createdAt: ordersTable.createdAt,
+      updatedAt: ordersTable.updatedAt,
+      data: ordersTable.data,
     })
     .from(ordersTable)
     .leftJoin(usersTable, eq(ordersTable.clientId, usersTable.id))
@@ -593,7 +609,26 @@ router.get("/admin/orders", authMiddleware, requireAuth, requireAdmin, async (re
     .orderBy(desc(ordersTable.createdAt))
     .limit(limit);
 
-  res.json({ orders: rows });
+  res.json({
+    orders: rows.map((r) => {
+      const data = (r.data ?? {}) as Record<string, unknown>;
+      return {
+        id: r.id,
+        orderNumber: r.orderNumber,
+        status: toMobileStatus(r.status),
+        dbStatus: r.status,
+        category: r.category ?? data.category ?? null,
+        subCategory: data.subCategory ?? null,
+        clientName: r.clientName?.trim() || (data.clientName as string | undefined) || null,
+        technicianId: r.technicianId,
+        technicianName: r.technicianName?.trim() || (data.technicianName as string | undefined) || null,
+        visitDate: data.visitDate ?? null,
+        visitTime: data.visitTime ?? null,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      };
+    }),
+  });
 });
 
 router.get("/admin/ledger", authMiddleware, requireAuth, requireAdmin, async (req: Request, res: Response) => {

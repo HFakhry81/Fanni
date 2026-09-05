@@ -14,6 +14,7 @@ import {
   parseBroadcastRadiusTiersKm,
   resolveBroadcastMaxRadiusKm,
 } from "./broadcastRadius";
+import { notifyTechniciansNewOrder } from "./orderLifecycleNotify";
 
 interface TechnicianMeta {
   registered: boolean;
@@ -619,6 +620,13 @@ export async function broadcastNewOrder(order: unknown): Promise<void> {
             `Order routed to nearest technicians — radius tier ${tierKm} km succeeded`
           );
           spatialBroadcastSent = true;
+          const orderNumber = String(o["orderNumber"] ?? o["id"] ?? "");
+          void notifyTechniciansNewOrder({
+            technicianIds: [...notifiedTechIds],
+            orderId: String(o["id"] ?? ""),
+            orderNumber,
+            category: typeof o["category"] === "string" ? o["category"] : null,
+          });
           break;
         }
 

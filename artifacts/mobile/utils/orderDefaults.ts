@@ -1,6 +1,15 @@
 import type { User } from "@/context/AppContext";
 import type { AddressValue } from "@/components/AddressBlock";
 import { deserializeAddress } from "@/utils/addressHelpers";
+export {
+  formatDateYmd,
+  formatVisitDateDisplay,
+  formatCreatedAtDisplay,
+  isValidVisitDateYmd,
+  parseVisitDateYmd,
+  currentTimeHhMm,
+  timePeriodLabel,
+} from "@/utils/dateDisplay";
 
 const EMPTY_ADDRESS: AddressValue = {
   governorateId: "",
@@ -14,25 +23,6 @@ const EMPTY_ADDRESS: AddressValue = {
   latitude: null,
   longitude: null,
 };
-
-export function formatDateYmd(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-export function currentTimeHhMm(date = new Date()): string {
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
-}
-
-export function timePeriodLabel(hhmm: string, isRTL: boolean): string {
-  const hour = Number(hhmm.split(":")[0] || 0);
-  const isDay = hour >= 6 && hour < 18;
-  return isRTL ? (isDay ? "نهاراً" : "ليلاً") : isDay ? "Day" : "Night";
-}
 
 /** Build step-2 address defaults from the signed-in client profile. */
 export function defaultAddressFromUser(user: User | null, isRTL: boolean): AddressValue {

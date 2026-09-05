@@ -14,6 +14,7 @@ import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import OsmMapView from "@/components/OsmMapView";
 import { shouldShowDailyPrompt, markDailyPromptShown } from "@/utils/dailyPrompt";
+import { formatVisitDateDisplay } from "@/utils/dateDisplay";
 
 const ALEXANDRIA = { latitude: 31.2001, longitude: 29.9187 };
 const LOCATION_BANNER_KEY = "fanni.tech.map.location_banner";
@@ -340,23 +341,36 @@ export default function TechMapScreen() {
         subtitle={isRTL ? "منطقة الخدمة" : "Service Area"}
         showLangToggle
         rightElement={
-          <TouchableOpacity
-            style={[
-              styles.onlineBadge,
-              { backgroundColor: hasPendingToggle ? "#F59E0B" : isOnline ? "#22A36B" : "#EF4444" },
-            ]}
-            onPress={() => setIsOnline(!isOnline, sessionToken ?? undefined)}
-            activeOpacity={0.75}
-          >
-            {hasPendingToggle ? (
-              <ActivityIndicator size={10} color="#FFF" style={{ marginEnd: 4 }} />
-            ) : (
-              <View style={styles.onlineDot} />
-            )}
-            <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
-              {hasPendingToggle ? t("tech.syncing") : isOnline ? t("tech.online") : t("tech.offline")}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => void fetchServerPendingOrders()}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ padding: 4 }}
+            >
+              {isFetchingOrders ? (
+                <ActivityIndicator size={14} color={colors.primary} />
+              ) : (
+                <VectorIcon name="refresh-cw" size={18} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.onlineBadge,
+                { backgroundColor: hasPendingToggle ? "#F59E0B" : isOnline ? "#22A36B" : "#EF4444" },
+              ]}
+              onPress={() => setIsOnline(!isOnline, sessionToken ?? undefined)}
+              activeOpacity={0.75}
+            >
+              {hasPendingToggle ? (
+                <ActivityIndicator size={10} color="#FFF" style={{ marginEnd: 4 }} />
+              ) : (
+                <View style={styles.onlineDot} />
+              )}
+              <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                {hasPendingToggle ? t("tech.syncing") : isOnline ? t("tech.online") : t("tech.offline")}
+              </Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -559,7 +573,7 @@ export default function TechMapScreen() {
                   <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <VectorIcon name="calendar" size={11} color={colors.secondary} />
                     <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", marginLeft: 3 }}>
-                      {item.visitDate}
+                      {formatVisitDateDisplay(item.visitDate, isRTL)}
                     </Text>
                   </View>
                   <View style={[styles.orderBtns, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -616,7 +630,7 @@ export default function TechMapScreen() {
                 </View>
                 {[
                   [t("order.problemDesc"),     selectedOrder.problemDescription],
-                  [t("order.visitDate"),        `${selectedOrder.visitDate} ${selectedOrder.visitTime}`],
+                  [t("order.visitDate"),        `${formatVisitDateDisplay(selectedOrder.visitDate, isRTL)} ${selectedOrder.visitTime ?? ""}`],
                   [isRTL ? "العنوان" : "Address", `${selectedOrder.street}, ${t("order.floor")} ${selectedOrder.floor}`],
                 ].map(([label, value]) => (
                   <View key={label} style={[styles.modalRow, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>

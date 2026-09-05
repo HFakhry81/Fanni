@@ -13,6 +13,7 @@ import AppHeader from "@/components/AppHeader";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { startMaskedCall } from "@/utils/maskedCall";
+import { formatVisitDateDisplay, formatCreatedAtDisplay } from "@/utils/dateDisplay";
 
 
 export default function ClientOrdersScreen() {
@@ -227,14 +228,14 @@ export default function ClientOrdersScreen() {
         <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <VectorIcon name="calendar" size={13} color={colors.secondary} />
           <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
-            {item.visitDate} — {item.visitTime}
+            {formatVisitDateDisplay(item.visitDate, isRTL)} — {item.visitTime}
           </Text>
         </View>
         {item.createdAt && (
           <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <VectorIcon name="clock" size={13} color={colors.secondary} />
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginLeft: isRTL ? 0 : 5, marginRight: isRTL ? 5 : 0 }}>
-              {new Date(item.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
+              {formatCreatedAtDisplay(item.createdAt, isRTL)}
             </Text>
           </View>
         )}

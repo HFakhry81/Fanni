@@ -24,6 +24,7 @@ import Toast from "@/components/Toast";
 import { useRouter } from "expo-router";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+import { formatVisitDateDisplay } from "@/utils/dateDisplay";
 
 
 const CATEGORY_ICONS: Record<string, IconName> = {
@@ -394,7 +395,7 @@ export default function AvailableOrdersScreen() {
                   marginRight: isRTL ? 5 : 0,
                 }}
               >
-                {item.visitDate} {item.visitTime ?? ""}
+                {formatVisitDateDisplay(item.visitDate, isRTL)} {item.visitTime ?? ""}
               </Text>
             </View>
           ) : null}
@@ -475,6 +476,11 @@ export default function AvailableOrdersScreen() {
             : undefined
         }
         showLangToggle
+        rightElement={
+          <TouchableOpacity onPress={() => void fetchOrders(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <VectorIcon name="refresh-cw" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        }
       />
 
       {loading && !refreshing ? (

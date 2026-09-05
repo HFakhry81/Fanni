@@ -27,7 +27,7 @@ import { uploadPhotoToServer } from "@/utils/uploadPhoto";
 import { getApiBase } from "@/utils/api";
 import type { OrderPhoto } from "@/context/OrderContext";
 import * as FileSystem from "expo-file-system";
-import { formatDateYmd, currentTimeHhMm, defaultAddressFromUser } from "@/utils/orderDefaults";
+import { formatDateYmd, currentTimeHhMm, defaultAddressFromUser, isValidVisitDateYmd } from "@/utils/orderDefaults";
 import SUB_IMAGE_MAP from "@/constants/subImageMap";
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
@@ -522,6 +522,15 @@ export default function NewOrderScreen() {
         Alert.alert(
           isRTL ? "تاريخ الزيارة مطلوب" : "Visit date required",
           isRTL ? "يرجى اختيار تاريخ الزيارة." : "Please pick a visit date.",
+        );
+        return;
+      }
+      if (!isValidVisitDateYmd(visitDate)) {
+        Alert.alert(
+          isRTL ? "تاريخ غير صالح" : "Invalid date",
+          isRTL
+            ? "تاريخ الزيارة غير صحيح. اختر تاريخًا ميلاديًا من التقويم."
+            : "Visit date is invalid. Pick a Gregorian date from the calendar.",
         );
         return;
       }

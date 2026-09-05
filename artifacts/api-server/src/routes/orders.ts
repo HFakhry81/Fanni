@@ -9,6 +9,9 @@ import { normalizeToSlug, isSlug, validateAreaBelongsToGovernorate } from "../li
 import { queryString } from "../lib/queryParams";
 import { sendOrderStatusPushNotification } from "../lib/pushNotifications";
 import { orderTextContainsContactPii, sanitizeOrderForBroadcast } from "../lib/contactSanitizer";
+import { toMobileStatus, type DbOrderStatus } from "../lib/orderStatus";
+import { notifyOrderLifecycle } from "../lib/orderLifecycleNotify";
+import { isValidVisitDateYmd } from "../lib/visitDate";
 import { InsufficientPointsError, maskSensitiveOrderFields, refundEligibleUnlocksForCancelledOrder, unlockLeadAtomically } from "../lib/leadUnlock";
 import { maskPhoneDisplay } from "../lib/phone";
 import { markTechnicianBusy, markTechnicianAvailable } from "../lib/orderLifecycle";
@@ -20,14 +23,7 @@ function formatOrderNumber(serial: number): string {
   return `ORD-${String(serial).padStart(6, "0")}`;
 }
 
-type DbStatus = "pending" | "acknowledged" | "en_route" | "arrived" | "in_progress" | "completed" | "cancelled";
-type MobileStatus = "pending" | "accepted" | "inProgress" | "completed" | "cancelled";
-
-function toMobileStatus(dbStatus: DbStatus): MobileStatus {
-  if (dbStatus === "acknowledged" || dbStatus === "en_route" || dbStatus === "arrived") return "accepted";
-  if (dbStatus === "in_progress") return "inProgress";
-  return dbStatus as MobileStatus;
-}
+type DbStatus = DbOrderStatus;
 
 function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?: boolean; revealPhones?: boolean }) {
   const data = row.data as Record<string, unknown>;
@@ -80,6 +76,40 @@ function mapOrderRow(row: typeof ordersTable.$inferSelect, opts?: { maskClient?:
   return mapped;
 }
 
+/** Enrich technician display fields from users table when JSON is empty. */
+async function enrichTechnicianFields<T extends Record<string, unknown>>(mapped: T): Promise<T> {
+  const techId = mapped.technicianId as string | null | undefined;
+  if (!techId) return mapped;
+  const needsName = !mapped.technicianName;
+  const needsMobile = !mapped.technicianMobile;
+  const needsAvatar = !mapped.technicianAvatar;
+  if (!needsName && !needsMobile && !needsAvatar) return mapped;
+  try {
+    const [tech] = await db
+      .select({
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        mobile: usersTable.mobile,
+        avatarUrl: usersTable.profileImageUrl,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, techId))
+      .limit(1);
+    if (!tech) return mapped;
+    const name = [tech.firstName, tech.lastName].filter(Boolean).join(" ").trim();
+    return {
+      ...mapped,
+      technicianName: needsName ? (name || mapped.technicianName) : mapped.technicianName,
+      technicianMobile: needsMobile
+        ? (maskPhoneDisplay(tech.mobile) ?? mapped.technicianMobile)
+        : mapped.technicianMobile,
+      technicianAvatar: needsAvatar ? (tech.avatarUrl ?? mapped.technicianAvatar) : mapped.technicianAvatar,
+    };
+  } catch {
+    return mapped;
+  }
+}
+
 router.get("/orders/pending", authMiddleware, requireAuth, async (req, res) => {
   const user = req.user!;
 
@@ -129,7 +159,7 @@ router.get("/orders", authMiddleware, requireAuth, async (req, res) => {
       .where(eq(ordersTable.clientId, userId))
       .orderBy(desc(ordersTable.createdAt));
 
-    const orders = rows.map((row) => mapOrderRow(row));
+    const orders = await Promise.all(rows.map((row) => enrichTechnicianFields(mapOrderRow(row))));
 
     res.json({ orders });
   } catch (err) {
@@ -223,6 +253,15 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
       return;
     }
 
+    const visitDateRaw = order.visitDate ?? (orderRecord.visitDate as string | undefined);
+    if (visitDateRaw != null && String(visitDateRaw).trim() !== "" && !isValidVisitDateYmd(visitDateRaw)) {
+      res.status(400).json({
+        error: "تاريخ الزيارة غير صالح. استخدم تاريخًا ميلاديًا صحيحًا (YYYY-MM-DD).",
+        code: "INVALID_VISIT_DATE",
+      });
+      return;
+    }
+
     const safeOrder = sanitizeOrderForBroadcast(orderRecord);
     const [inserted] = await db
       .insert(ordersTable)
@@ -278,6 +317,17 @@ router.post("/orders", authMiddleware, requireAuth, async (req, res) => {
         area: routingMeta.area,
       };
       void broadcastNewOrder(fullOrder);
+      void notifyOrderLifecycle({
+        orderId: order.id,
+        orderNumber: dbOrderNumber,
+        fromStatus: null,
+        toStatus: "pending",
+        actorUserId: user.id,
+        actorRole: user.role,
+        source: "create",
+        clientId: user.id,
+        notifyAdmins: true,
+      });
       logger.info({ orderId: order.id, orderNumber: dbOrderNumber, orderSerial: inserted.orderSerial }, "Order saved to database");
       res.status(201).json({ success: true, orderId: order.id, orderNumber: dbOrderNumber });
     } else {
@@ -461,12 +511,27 @@ router.post("/orders/:id/accept", authMiddleware, requireAuth, async (req: Reque
     removeOrderFromPending(id);
     logger.info({ id, technicianId: user.id }, "Lead accepted after point confirmation");
     if (assigned?.clientId) {
+      const techName =
+        technicianName ||
+        [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+        "فني";
       notifyClientAccepted(id, assigned.clientId, {
         technicianId: user.id,
-        technicianName,
+        technicianName: techName,
         technicianMobile,
         technicianAvatar,
         technicianRating,
+      });
+      void notifyOrderLifecycle({
+        orderId: id,
+        orderNumber: order.orderNumber,
+        fromStatus: "pending",
+        toStatus: "en_route",
+        actorUserId: user.id,
+        actorRole: user.role,
+        source: "accept",
+        clientId: assigned.clientId,
+        technicianId: user.id,
       });
     }
     res.json({
@@ -711,6 +776,15 @@ router.patch("/orders/:id/start", authMiddleware, requireAuth, async (req: Reque
 
     if (updated?.clientId) {
       broadcastOrderStatusToClient(updated.clientId, { id, status: "inProgress" });
+      void notifyOrderLifecycle({
+        orderId: id,
+        toStatus: "in_progress",
+        actorUserId: user.id,
+        actorRole: user.role,
+        source: "start",
+        clientId: updated.clientId,
+        technicianId: user.id,
+      });
 
       void (async () => {
         try {
@@ -904,6 +978,16 @@ router.patch("/orders/:id/complete", authMiddleware, requireAuth, async (req: Re
         id,
         status: "completed",
       });
+      void notifyOrderLifecycle({
+        orderId: id,
+        orderNumber: finalOrderNumber,
+        toStatus: "completed",
+        actorUserId: user.id,
+        actorRole: user.role,
+        source: "complete",
+        clientId: finalClientId,
+        technicianId: finalTechnicianId,
+      });
 
       void (async () => {
         try {
@@ -1089,7 +1173,12 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Requ
 
     // Pre-flight read for clear error messages (not relied upon for security).
     const [order] = await db
-      .select({ clientId: ordersTable.clientId, status: ordersTable.status })
+      .select({
+        clientId: ordersTable.clientId,
+        status: ordersTable.status,
+        orderNumber: ordersTable.orderNumber,
+        technicianId: ordersTable.technicianId,
+      })
       .from(ordersTable)
       .where(eq(ordersTable.id, id));
 
@@ -1133,6 +1222,17 @@ router.patch("/orders/:id/cancel", authMiddleware, requireAuth, async (req: Requ
 
     removeOrderFromPending(id);
     broadcastOrderCancelledToTechnicians(id);
+    void notifyOrderLifecycle({
+      orderId: id,
+      orderNumber: order.orderNumber,
+      fromStatus: order.status,
+      toStatus: "cancelled",
+      actorUserId: user.id,
+      actorRole: user.role,
+      source: "cancel",
+      clientId: updated.clientId,
+      technicianId: order.technicianId,
+    });
     let refundedUnlocks = 0;
     if (user.role === "client") {
       try {

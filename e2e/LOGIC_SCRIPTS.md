@@ -43,6 +43,7 @@
 | رفض العميل للخدمة | `client_refused` → نزاع + قرار أدمن | `20-order-lifecycle` 6 |
 | استرداد/إكمال لاحق | طلب جديد يُكمَل بعد فشل سابق | `20-order-lifecycle` 7 |
 | **سكريبت شامل (مُكيَّف)** | PII رفض · 402 · إلغاء · استرداد · أدمن · قبول متزامن · complete بدون OCR | `60-comprehensive-edge-adapted` |
+| **انحدار QA يدوي** | أدمن status بعد قبول · رفض visitDate باطل · ظهور الفني للعميل | `70-manual-qa-regressions` |
 
 ### أسباب `fail-service` (API)
 

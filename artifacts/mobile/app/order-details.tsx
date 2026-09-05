@@ -390,8 +390,8 @@ export default function OrderDetailsScreen() {
           ))}
         </View>
 
-        {/* Technician info */}
-        {order.technicianName && (
+        {/* Technician info — show when assigned even if name missing */}
+        {(order.technicianName || order.technicianId || order.technicianMobile) && (
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
               {t("order.techInfo")}
@@ -401,12 +401,14 @@ export default function OrderDetailsScreen() {
                 <Image source={{ uri: resolveMediaUrl(order.technicianAvatar, { token: sessionToken })! }} style={styles.techAvatar} />
               ) : (
                 <View style={[styles.techAvatar, { backgroundColor: colors.primary }]}>
-                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 22 }}>{order.technicianName[0]}</Text>
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 22 }}>
+                    {(order.technicianName || (isRTL ? "ف" : "T"))[0]}
+                  </Text>
                 </View>
               )}
               <View style={{ flex: 1, marginLeft: isRTL ? 0 : 14, marginRight: isRTL ? 14 : 0 }}>
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
-                  {order.technicianName}
+                  {order.technicianName || (isRTL ? "فني معيَّن" : "Assigned technician")}
                 </Text>
                 {order.technicianRating && (
                   <View style={[styles.ratingRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
