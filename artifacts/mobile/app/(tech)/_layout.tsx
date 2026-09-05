@@ -434,7 +434,7 @@ export default function TechLayout() {
 
   // Gate must match admin pending queue (approval_status), not bare isApproved —
   // otherwise techs with not_submitted stay locked while admin sees an empty list.
-  const leaf = segments[segments.length - 1];
+  const leaf = String(segments[segments.length - 1] ?? "");
   const allowedWhilePending = leaf === "wallet" || leaf === "profile";
   const approvalStatus = user?.approvalStatus;
   const awaitingAdminReview =
@@ -448,7 +448,7 @@ export default function TechLayout() {
   if (awaitingAdminReview && !allowedWhilePending) {
     return <Redirect href="/tech-pending" />;
   }
-  if (mustFinishRegistration && !allowedWhilePending && leaf !== "profile") {
+  if (mustFinishRegistration && !allowedWhilePending) {
     return <Redirect href="/(tech)/profile" />;
   }
 
