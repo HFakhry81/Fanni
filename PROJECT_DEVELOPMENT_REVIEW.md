@@ -1,6 +1,6 @@
 # Fanni — مراجعة تطور المشروع (مرجع مستمر)
 
-آخر مراجعة: 05 سبتمبر 2026
+آخر مراجعة: 06 سبتمبر 2026
 
 منصة طلبات صيانة منزلية في مصر: عميل ينشئ طلبًا، النظام يطابق فنيًا، الفني يدفع نقاطًا لكشف بيانات العميل، ثم تتبع جغرافي وتأكيد وصول ونتيجة خدمة. **محاسبة المنصة = عمولة Lead فقط** (لا فواتير صيانة/OCR).
 
@@ -51,8 +51,9 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | API Server | مكتمل جزئيًا | محفظة بأوعية، Lead ذري، جيوفنس، تسعير Lead، اتصال مقنّع، فواتير بلا OCR، تدقيق مالي، قيد مزدوج 020، CORS وحد معدّل |
 | تطبيق الهاتف | مكتمل جزئيًا | حوار القبول، تتبع نعم/لا، نتيجة الخدمة، Lead Pricing، شروط استخدام، اتصال مقنّع |
 | قاعدة البيانات | مكتمل جزئيًا | 017–020 اقتصاد وأوعية وأستاذ؛ `order_declines`؛ `masked_call_sessions`؛ `admin_audit_logs`؛ أعمدة OCR تاريخية |
-| الإدارة | مكتمل جزئيًا | 7 تبويبات؛ KPIs وخرائط OSM؛ عملاء/فنيين/كتالوج؛ مالية وتدقيق؛ موافقة فني + بونص ترحيب بعد التأكيد؛ ينقص طلبات الأدمن من API |
+| الإدارة | مكتمل جزئيًا | 7 تبويبات؛ KPIs وخرائط OSM؛ عملاء/فنيين/كتالوج؛ مالية وتدقيق؛ موافقة فني + بونص ترحيب؛ **طلبات الأدمن من API حي** مع mapping حالات DB→موبايل |
 | التخزين | جزئي | رفع خاص محلي بلا makePublic؛ VPS الإنتاجي عند توفر البيانات |
+| E2E | مكتمل جزئيًا | logic-suite + full-recorded + حراسة إنتاج؛ مواصفات 10–70؛ انحدار QA يدوي؛ Live-pass جهاز ما زال جزئيًا |
 
 ---
 
@@ -92,18 +93,19 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 
 ## يحتاج استكمالًا (أولوية) — قائمة مهام للاستئناف
 
-الجرد المحدَّث 27 أغسطس 2026: **migrate 023 + APK 1.0.8 + تخزين الصور على VPS مؤكَّدة**؛ تسجيل حساب جديد نجح على هاتف حقيقي. المتبقي الحي لـ Live-pass الكامل = إكمال مسار الطلب/Lead/أدمن على الجهاز + مؤجلات Twilio/OPay/GL.
-
-آخر دفع على `origin/main`: **`a9d3e6e`** (05 سبتمبر). migrate **023/024** مطبّقان تشغيليًا حسب التقارير؛ E2E محلي logic-suite أخضر؛ تقرير فجوات: `E2E_GAP_SOLUTIONS_REPORT.md` (تنفيذ سد الثغرات قيد التنفيذ).
+الجرد المحدَّث **06 سبتمبر 2026**: سد فجوات أمنية P0 + مزامنة حالات الطلبات بعد QA يدوي + E2E انحدار.  
+آخر دفع على `origin/main`: **`65db4ff`** (06 سبتمبر).  
+Migrations جديدة في الكود: **028** (إيصال شحن + unique مرجع) و**029** (`order_status_events`) — يجب تشغيلها على كل بيئة بعد السحب.  
+تقارير: `E2E_GAP_SOLUTIONS_REPORT.md` · `e2e/SCRIPT_AUDIT_ANALYSIS.md` · `e2e/LOGIC_SCRIPTS.md`.
 
 | # | الحالة | الوحدة | المهمة |
 |---|---|---|---|
 | 1 | [x] | M4 تشغيل | migrate 017–020 على بيئة التطوير (طُبّق 020 هنا) |
 | 2 | [x] | M1 | KYC: مسارات `id`/`carnehat`/`uploads` على VPS — **يستقبل الصور** (27 أغسطس) |
 | 3 | [x] | M3 | نزاع رقم خاطئ / عدم رد آلي + حد يومي **2** |
-| 4 | [~] | M3/M5 | e2e: full-recorded + **logic-suite** (محفظة/طلبات/حواف) محليًا ناجح؛ حماية إنتاج؛ Live-pass جهاز ما زال جزئيًا |
+| 4 | [~] | M3/M5 | e2e: full-recorded + **logic-suite** (10–70) محليًا؛ حماية إنتاج؛ Live-pass جهاز ما زال جزئيًا |
 | 5 | [~] | M6 | شريحة قيد مزدوج أولى (ترحيل + ميزان + قيود). ينقص فترات/مراكز تكلفة/تسوية بوابة |
-| 6 | [~] | M7 | Twilio مؤجّل — لا يوقف الرفع |
+| 6 | [~] | M7 | Twilio اتصال مقنّع: الكود جاهز؛ بدون env يُتخطى ولا يوقف الرحلة — تفعيل حي مؤجّل |
 | 7 | [x] | M8 | تبويبات الأدمن + ملف شخصي + أدوات موقع موصولة |
 | 8 | [x] | M0 | شاشة تدقيق في الأدمن |
 | 9 | [ ] | M4 | ربط OPay عند وصول الـ API |
@@ -117,12 +119,46 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | 17 | [x] | جودة | strict TypeScript + ESLint + Jest + قاعدة quality-loop في Cursor (`77a9574`) |
 | 18 | [x] | UX ميداني | إصلاحات تجربة 29-08: كيبورد، طلب جديد، خريطة فني، طلبات API (`56c179a`) |
 | 19 | [x] | تسجيل فني | رفض التخطي بدون صور البطاقة + تنبيه وتمرير (`90a0455`) |
-| 20 | [x] | أدمن | لوحة تحكم API حقيقية، خرائط OSM (حية/مراقبة/تخصص)، عملاء/فنيين، كتالوج صور (`0c47a05`) |
-| 21 | [~] | DB | migrate **024** — مذكور مطبّق في تقارير التشغيل؛ تأكيد دوري على VPS عند كل نشر |
+| 20 | [x] | أدمن | لوحة تحكم API حقيقية، خرائط OSM، عملاء/فنيين، كتالوج صور (`0c47a05`) |
+| 21 | [~] | DB | migrate **024** مؤكَّد تشغيليًا؛ **028/029** في الكود — تشغيل على VPS/محلي عند النشر |
 | 22 | [ ] | UX متبقي | صورة العميل في شاشات الفني، ملف شخصي كامل، OPay، جدولة طلبات 15 دقيقة |
-| 23 | [~] | أمان/فجوات | تقرير حلول الثغرات مكتوب؛ P0 مفتوح: unique مرجع شحن، فلتر PII سيرفر، فرض mustChangePassword على API |
+| 23 | [x] | أمان/فجوات | P0 مغلق: unique مرجع شحن + إيصال؛ رفض PII في الوصف؛ `MUST_CHANGE_PASSWORD` على API؛ سقف بث + رفض قفزات GPS (`53eea62`) |
 | 24 | [x] | تشغيل ويندوز | UPDATE_ALL / إصلاح node_modules / Metro / سكربتات تشغيل موحّدة على مسار E: |
 | 25 | [x] | مطابقة فني | مهنة + محافظة/موقع يومي + رصيد حي قبل القبول؛ decline = إخفاء إشعار فقط |
+| 26 | [x] | مزامنة طلبات | أدمن من API؛ StatusBadge لـ `en_route`؛ ظهور الفني للعميل؛ سجل `order_status_events` + إشعارات دورة الحياة؛ refresh متاحة/خريطة (`5e34717`) |
+| 27 | [x] | E2E انحدار | `60-comprehensive-edge-adapted` + `70-manual-qa-regressions` (أدمن status / visitDate / فني عند العميل) |
+
+---
+
+## ملخص جلسة 05–06 سبتمبر 2026
+
+**الهدف:** إغلاق فجوات التقرير الهندسي + إصلاح أعطال QA اليدوي التي تجاوزها الاختبار التلقائي «الأخضر».
+
+### ما تم (مدفوع على `main`)
+
+| الهاش | الموضوع |
+|---|---|
+| `53eea62` | سد ثغرات: مرجع شحن فريد + إيصال؛ رفض PII؛ فرض تغيير كلمة أدمن؛ سقف بث؛ رفض GPS jump |
+| `9d61d78` | تكييف سكربت E2E المفاهيمي على عقود Fanni الحقيقية |
+| `5e34717` | مزامنة حالات الطلب؛ تواريخ زيارة ميلادية؛ ظهور الفني؛ إشعارات + `order_status_events`؛ رحلة اتصال مقنّع بلا توقف |
+| `65db4ff` | تسجيل الـ commit في قاموس المراجعة |
+
+### إصلاحات QA يدوي (جذور)
+
+- تاريخ زيارة غريب (`95-10-2026`): تحقق + عرض Gregorian إجباري.
+- عميل لا يرى الفني بعد القبول: بوابة UI على `technicianId` + enrich من `users` + upsert WebSocket.
+- أدمن «قيد الانتظار» بينما الفني قبل: تبويب طلبات من `/api/admin/orders` + `toMobileStatus`.
+- اتصال مقنّع يوقف الرحلة: `200 skipped` بدون Twilio + تتبع نية الاتصال.
+
+### المتبقي الحي
+
+| الموضوع | الحالة |
+|---|---|
+| migrate **028/029** على كل البيئات | مطلوب بعد السحب |
+| Twilio Voice حي (جسر أرقام) | مؤجّل — المسار لا يتوقف |
+| OPay | مؤجّل |
+| Live-pass كامل على جهاز | جزئي |
+| APK جديد بعد هذه الإصلاحات | موصى به |
 
 ---
 
@@ -168,7 +204,7 @@ pnpm review:update -- "ما تم" "المتبقي"  # صف في سجل المر�
 | تعديل الملف الشخصي الكامل (عميل/فني) | لم يُنفَّذ |
 | صورة العميل في كل شاشات الفني + ربط مرفقات | لم يُنفَّذ |
 | محفظة الفني — رسالة ترحيب بالنقاط (مرة واحدة) | جزئي |
-| شاشة طلبات الأدمن (`orders.tsx`) — ما زالت mock | لم يُنفَّذ |
+| شاشة طلبات الأدمن (`orders.tsx`) — من API حي | **تم** (`5e34717`) |
 | OPay / الدفع الحقيقي | مؤجّل |
 | جدولة الطلبات كل 15 دقيقة في الـ backend | لم يُنفَّذ |
 | تخصصات إضافية في الشاشة الرئيسية للعميل | لم يُنفَّذ |
@@ -398,6 +434,7 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | المرحلة | ما تم | المتبقي |
 |---|---|---|---|
+| 06 سبتمبر 2026 | تحديث المشروع | 06 سبتمبر: سد فجوات أمنية + مزامنة حالات الطلبات + E2E انحدار QA | migrate 028/029 على كل البيئات؛ Twilio اتصال مقنّع حي؛ OPay؛ Live-pass جهاز كامل |
 | 05 سبتمبر 2026 | E2E + تشغيل ويندوز + فجوات | logic-suite/full-recorded + حراسة إنتاج؛ مطابقة فني/decline/موافقة ترحيب؛ إصلاحات ويندوز/Metro؛ تقرير `E2E_GAP_SOLUTIONS_REPORT.md`؛ HEAD `a9d3e6e`؛ إعادة بناء قاموس Commits بعد تلف | تنفيذ P0 فجوات (مرجع شحن/PII/mustChangePassword)؛ Live-pass جهاز؛ OPay/Twilio/GL |
 | 30 أغسطس 2026 | تقرير تحديث مفصّل | `deploy/UPDATE-REPORT.md` (DB/API/Front/APK محلي+إنتاج)؛ مسار APK **`/var/www/upnexa-eg.com/fanni.apk`**؛ إصلاح `local-update` + `dev.mjs` | EAS APK → رفع المسار الصحيح؛ `deploy-vps.sh` |
 | 29 أغسطس 2026 | إطلاق 1.0.9 | رفع الإصدار `1.0.9`/`versionCode` 9؛ تصدير ويب `dist-web`؛ EAS APK؛ خطوات تحديث VPS كاملة في `deploy/VPS-STEPS.md` (migrate **024** + ويب + APK) | (استُبدِل بـ 1.0.10) |
@@ -454,9 +491,13 @@ adb logcat *:E | Select-String -Pattern "FATAL|ReactNative|Reanimated|keyboard-c
 
 | التاريخ | الهاش | الرسالة | أبرز الملفات |
 |---|---|---|---|
+| 06 سبتمبر 2026 | `65db4ff` | Record order-sync fix commit 5e34717 in the project development review log. | PROJECT_DEVELOPMENT_REVIEW.md |
 | 06 سبتمبر 2026 | `5e34717` | Fix order status sync, visit dates, tech visibility, and lifecycle notifies. | artifacts/api-server/src/lib/orderBroadcaster.ts, artifacts/api-server/src/lib/orderLifecycleNotify.ts, artifacts/api-server/src/lib/orderStatus.test.ts, artifacts/api-server/src/lib/orderStatus.ts +19 |
+| 06 سبتمبر 2026 | `f3e642d` | Record E2E script-adapt commit 9d61d78 in the project development review log. | PROJECT_DEVELOPMENT_REVIEW.md |
 | 06 سبتمبر 2026 | `9d61d78` | Adapt conceptual E2E edge script to real Fanni API contracts. | e2e/LOGIC_SCRIPTS.md, e2e/SCRIPT_AUDIT_ANALYSIS.md, e2e/tests/logic/60-comprehensive-edge-adapted.spec.ts |
+| 05 سبتمبر 2026 | `dc3bd41` | Record security-gap commit 53eea62 in the project development review log. | PROJECT_DEVELOPMENT_REVIEW.md |
 | 05 سبتمبر 2026 | `53eea62` | Close wallet, geo, and admin security gaps with proof refs, PII reject, and password gate. | E2E_GAP_SOLUTIONS_REPORT.md, artifacts/api-server/src/lib/broadcastRadius.test.ts, artifacts/api-server/src/lib/broadcastRadius.ts, artifacts/api-server/src/lib/contactSanitizer.test.ts +20 |
+| 05 سبتمبر 2026 | `320fce1` | Update project review for Aug 30-Sep 5 E2E, Windows ops, and gap analysis. | PROJECT_DEVELOPMENT_REVIEW.md |
 | 05 سبتمبر 2026 | `42172bc` | Enable UI login by default so logic E2E videos capture real screens. | e2e/LOGIC_SCRIPTS.md, e2e/tests/helpers/ui.ts, scripts/run-e2e-logic-suite.cmd |
 | 05 سبتمبر 2026 | `099bc68` | Harden logic E2E: wallet unwrap, login cache, and edge circles. | e2e/tests/helpers/apiClient.ts, e2e/tests/helpers/ui.ts, e2e/tests/logic/10-wallet-points.spec.ts, e2e/tests/logic/20-order-lifecycle.spec.ts +2 |
 | 05 سبتمبر 2026 | `3c3dbb1` | Add full business-logic E2E suite for wallet, orders, and refunds. | .gitignore, e2e/.env.example, e2e/LOGIC_SCRIPTS.md, e2e/package.json +11 |
