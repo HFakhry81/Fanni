@@ -12,8 +12,11 @@ import { requireAdmin, requireSuperAdmin, requirePermission } from "../middlewar
 import { verifyOtpToken } from "../lib/otp";
 import { queryInt, queryString } from "../lib/queryParams";
 import { backfillTechnicianLocations } from "../lib/backfillLocations";
-import { grantWelcomeBonusIfNeeded } from "../lib/welcomeBonus";
+import { grantWelcomeBonusIfNeeded, WELCOME_BONUS_POINTS } from "../lib/welcomeBonus";
 import { isValidEgyptMobile, normalizeEmailForStorage, normalizeEgyptMobileForStorage } from "../lib/phone";
+import { createNotification } from "./notifications";
+import { sendTechnicianApprovalSms } from "../lib/sms";
+import { sendWelcomeEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -1448,7 +1451,16 @@ router.patch(
     const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown");
 
     const [tech] = await db
-      .select({ id: usersTable.id, role: usersTable.role, approvalStatus: usersTable.approvalStatus })
+      .select({
+        id: usersTable.id,
+        role: usersTable.role,
+        approvalStatus: usersTable.approvalStatus,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        mobile: usersTable.mobile,
+        email: usersTable.email,
+        isApproved: usersTable.isApproved,
+      })
       .from(usersTable)
       .where(eq(usersTable.id, id))
       .limit(1);
@@ -1475,10 +1487,33 @@ router.patch(
       });
     });
 
-    await grantWelcomeBonusIfNeeded(id);
+    // Welcome points only after admin confirms approval (this endpoint).
+    const { granted } = await grantWelcomeBonusIfNeeded(id);
+    const pointsShown = granted > 0 ? granted : WELCOME_BONUS_POINTS;
+    const name = [tech.firstName, tech.lastName].filter(Boolean).join(" ") || tech.mobile || "فني";
 
-    req.log.info({ adminId: req.user?.id, techId: id }, "Technician approved");
-        res.json({ success: true, approved: true });
+    await createNotification({
+      userId: id,
+      type: "welcome_bonus",
+      titleAr: "مبروك! تمت الموافقة على حسابك",
+      titleEn: "Congratulations! Your account was approved",
+      bodyAr: `أُضيفت ${pointsShown} نقطة ترحيبية إلى رصيدك. اضغط حسناً في المحفظة لإخفاء الرسالة.`,
+      bodyEn: `${pointsShown} welcome points were added to your balance. Tap Got it on the wallet banner to dismiss.`,
+      payload: { points: pointsShown },
+    });
+
+    if (tech.mobile) {
+      sendTechnicianApprovalSms({ to: tech.mobile, name, points: pointsShown }).catch((err) =>
+        req.log.warn({ err, techId: id }, "Approval welcome SMS failed"),
+      );
+    } else if (tech.email) {
+      sendWelcomeEmail({ to: tech.email, name, role: "technician" }).catch((err) =>
+        req.log.warn({ err, techId: id }, "Approval welcome email failed"),
+      );
+    }
+
+    req.log.info({ adminId: req.user?.id, techId: id, welcomePointsGranted: granted }, "Technician approved");
+    res.json({ success: true, approved: true, welcomePointsGranted: granted });
   },
 );
 

@@ -203,9 +203,11 @@ export default function WalletScreen() {
     .filter((tx) => tx.type === "welcome_bonus")
     .reduce((sum, tx) => sum + (Number(tx.pointsAmount) || 0), 0);
   const welcomePtsDisplay = welcomeTxPts > 0 ? welcomeTxPts : WELCOME_BONUS_POINTS;
+  // Only after admin approval granted welcome points; disappears when tech taps «حسناً».
   const showCongrats =
     user?.type === "technician" &&
     user.isApproved === true &&
+    welcomeTxPts > 0 &&
     !congratsDismissed &&
     !isPendingApproval;
 

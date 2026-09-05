@@ -215,39 +215,8 @@ async function seedPointsDemo(): Promise<void> {
       `);
       logger.info("DB seed: default payment account config seeded");
     }
-    // Seed welcome bonus wallets for all technicians (idempotent)
-    const techs = await pool.query<{ id: string; first_name: string | null }>(
-      `SELECT id, first_name FROM users WHERE role = 'technician' LIMIT 30`
-    );
-    for (const tech of techs.rows) {
-      const walletRow = await pool.query<{ id: string; points_balance: number }>(
-        `SELECT id, points_balance FROM wallets WHERE user_id = $1`, [tech.id]
-      );
-      let walletId: string;
-      if (walletRow.rows[0]) {
-        walletId = walletRow.rows[0].id;
-      } else {
-        const created = await pool.query<{ id: string }>(
-          `INSERT INTO wallets (user_id, points_balance) VALUES ($1, 0)
-           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
-           RETURNING id`, [tech.id]
-        );
-        walletId = created.rows[0]!.id;
-      }
-      const alreadySeeded = await pool.query(
-        `SELECT id FROM wallet_transactions WHERE wallet_id = $1 AND type = 'welcome_bonus' LIMIT 1`, [walletId]
-      );
-      if (alreadySeeded.rows.length === 0) {
-        await pool.query(
-          `INSERT INTO wallet_transactions (wallet_id, points_amount, type, description) VALUES ($1, 60, 'welcome_bonus', 'مكافأة ترحيبية — Welcome bonus')`,
-          [walletId]
-        );
-        await pool.query(
-          `UPDATE wallets SET points_balance = points_balance + 60, promotional_balance = promotional_balance + 60, updated_at = NOW() WHERE id = $1`, [walletId]
-        );
-        logger.info({ techId: tech.id }, "DB seed: welcome bonus added to technician wallet");
-      }
-    }
+    // Welcome bonus points are granted only after admin confirms technician approval
+    // (see PATCH /admin/technicians/:id/approve) — do not seed them here.
   } catch (err) {
     logger.error({ err }, "Points demo seed failed (non-fatal)");
   }

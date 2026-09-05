@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, Modal, ScrollView, RefreshControl, ActivityIndicator, Alert,
+  Image, Modal, ScrollView, RefreshControl, ActivityIndicator, Alert, Platform,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +11,16 @@ import { useAuth } from "@/context/AuthContext";
 import VectorIcon from "@/components/VectorIcon";
 import { getApiBase } from "@/utils/api";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+import { confirmDialog } from "@/utils/confirmDialog";
+import { WELCOME_BONUS_POINTS } from "@/constants/appIdentity";
+
+function notifyAlert(title: string, message: string) {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    window.alert([title, message].filter(Boolean).join("\n\n"));
+    return;
+  }
+  Alert.alert(title, message);
+}
 
 interface PendingTech {
   id: string;
@@ -82,21 +92,23 @@ export default function PendingTechniciansScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const handleAction = async (tech: PendingTech, action: "approve" | "reject") => {
+  const handleAction = (tech: PendingTech, action: "approve" | "reject") => {
     if (!sessionToken) return;
 
-    const name = [tech.firstName, tech.lastName].filter(Boolean).join(" ") || tech.mobile || "هذا الفني";
+    const name = [tech.firstName, tech.lastName].filter(Boolean).join(" ") || tech.mobile || (isRTL ? "هذا الفني" : "this technician");
     const confirmMsg = action === "approve"
-      ? (isRTL ? `هل تريد قبول ${name}؟` : `Approve ${name}?`)
+      ? (isRTL
+        ? `هل تريد قبول ${name}؟\n\nبعد التأكيد سيتم إضافة ${WELCOME_BONUS_POINTS} نقطة ترحيبية وإرسال رسالة تهنئة للفني.`
+        : `Approve ${name}?\n\nAfter confirmation, ${WELCOME_BONUS_POINTS} welcome points will be added and a congratulations message will be sent.`)
       : (isRTL ? `هل تريد رفض ${name}؟ سيتم إلغاء تفعيل حسابه.` : `Reject ${name}? Their account will be deactivated.`);
 
-    Alert.alert(
+    confirmDialog(
       isRTL ? (action === "approve" ? "قبول الفني" : "رفض الفني") : (action === "approve" ? "Approve Technician" : "Reject Technician"),
       confirmMsg,
       [
         { text: isRTL ? "إلغاء" : "Cancel", style: "cancel" },
         {
-          text: isRTL ? (action === "approve" ? "قبول" : "رفض") : (action === "approve" ? "Approve" : "Reject"),
+          text: isRTL ? (action === "approve" ? "تأكيد القبول" : "رفض") : (action === "approve" ? "Confirm" : "Reject"),
           style: action === "reject" ? "destructive" : "default",
           onPress: async () => {
             setActionLoading(true);
@@ -104,8 +116,16 @@ export default function PendingTechniciansScreen() {
               await approveReject(sessionToken, tech.id, action, action === "reject" ? "Admin review" : undefined);
               setTechs((prev) => prev.filter((t) => t.id !== tech.id));
               if (selected?.id === tech.id) setSelected(null);
+              if (action === "approve") {
+                notifyAlert(
+                  isRTL ? "تم القبول" : "Approved",
+                  isRTL
+                    ? `تم قبول ${name}. أُضيفت نقاط الترحيب وأُرسلت رسالة التهنئة.`
+                    : `${name} approved. Welcome points added and congratulations message sent.`,
+                );
+              }
             } catch {
-              Alert.alert(isRTL ? "خطأ" : "Error", isRTL ? "تعذّر تنفيذ العملية" : "Operation failed");
+              notifyAlert(isRTL ? "خطأ" : "Error", isRTL ? "تعذّر تنفيذ العملية" : "Operation failed");
             } finally {
               setActionLoading(false);
             }
@@ -150,7 +170,10 @@ export default function PendingTechniciansScreen() {
         <View style={[styles.cardActions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.approveBtn]}
-            onPress={() => handleAction(item, "approve")}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              handleAction(item, "approve");
+            }}
             disabled={actionLoading}
           >
             <VectorIcon name="check" size={14} color="#fff" />
@@ -158,7 +181,10 @@ export default function PendingTechniciansScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, styles.rejectBtn, { borderColor: colors.destructive }]}
-            onPress={() => handleAction(item, "reject")}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              handleAction(item, "reject");
+            }}
             disabled={actionLoading}
           >
             <VectorIcon name="x" size={14} color={colors.destructive} />

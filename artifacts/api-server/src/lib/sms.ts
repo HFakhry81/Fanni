@@ -100,3 +100,19 @@ export async function sendWelcomeSms(opts: SendWelcomeSmsOptions): Promise<boole
 
   return sendSmsViaProvider(to, message);
 }
+
+/** Sent only after admin confirms technician approval — congratulates on welcome points. */
+export async function sendTechnicianApprovalSms(opts: {
+  to: string;
+  name: string;
+  points: number;
+}): Promise<boolean> {
+  const { to, name, points } = opts;
+  const firstName = name.trim().split(/\s+/)[0] ?? name.trim();
+  const message =
+    `مبروك ${firstName}! تمت الموافقة على حسابك كفني في فني.\n` +
+    `أُضيفت ${points} نقطة ترحيبية إلى رصيدك. فعّل تواجدك من الخريطة لبدء استقبال الطلبات.\n\n` +
+    `Congrats ${firstName}! Your Fanni technician account was approved. ` +
+    `${points} welcome points were added to your balance.`;
+  return sendSmsViaProvider(to, message);
+}
