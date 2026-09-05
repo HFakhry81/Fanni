@@ -431,10 +431,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     setOrders((prev) => {
       const existing = prev.find((o) => o.id === id);
       prevStatus = existing?.status;
+      // If order is not in local cache yet (accepted from available-orders API list),
+      // keep previous list unchanged — do not wipe AsyncStorage with [].
+      if (!existing) {
+        updated = prev;
+        return prev;
+      }
       updated = prev.map((o) => (o.id === id ? { ...o, ...update } : o));
       return updated;
     });
-    await saveOrders(updated);
+    if (updated.length > 0 || prevStatus !== undefined) {
+      await saveOrders(updated);
+    }
     if (update.status && update.status !== "pending") {
       setNewPendingOrders((prev) => prev.filter((o) => o.id !== id));
     }

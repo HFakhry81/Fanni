@@ -175,13 +175,16 @@ export default function AvailableOrdersScreen() {
     }
     setOrders((prev) => {
       const wasVisible = prev.some((o) => o.id === orderId);
-      if (wasVisible) {
-        setCancelledToast((p) => ({ visible: true, key: p.key + 1 }));
-      }
       const next = prev.filter((o) => o.id !== orderId);
       if (next.length !== prev.length) {
         prevOrderCountRef.current = next.length;
-        setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
+        // Defer provider updates — never call setState on another component inside an updater.
+        queueMicrotask(() => {
+          if (wasVisible) {
+            setCancelledToast((p) => ({ visible: true, key: p.key + 1 }));
+          }
+          setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
+        });
       }
       return next;
     });
@@ -252,12 +255,15 @@ export default function AvailableOrdersScreen() {
           technicianAvatar: resolveMediaUrl(user?.avatar, { token: sessionToken }),
           technicianRating: 4.8,
         });
+        // Remove accepted lead without nesting OrderProvider setState inside local setOrders.
+        let remaining = 0;
         setOrders((prev) => {
           const next = prev.filter((o) => o.id !== order.id);
-          prevOrderCountRef.current = next.length;
-          setAvailablePendingCount(isFocusedRef.current ? 0 : next.length);
+          remaining = next.length;
+          prevOrderCountRef.current = remaining;
           return next;
         });
+        setAvailablePendingCount(isFocusedRef.current ? 0 : remaining);
         router.push("/(tech)/orders");
         return;
       }

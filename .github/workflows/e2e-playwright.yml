@@ -1,0 +1,163 @@
+# Fanni — Playwright E2E on GitHub Actions (free CI)
+#
+# Runs the existing e2e/ suite against production (or any URL via inputs).
+# Reports: HTML artifact + job summary. No Cursor tokens used for the run.
+#
+# Setup (once):
+#   Repo → Settings → Secrets and variables → Actions
+#   Add: E2E_CLIENT_IDENTIFIER, E2E_CLIENT_PASSWORD,
+#        E2E_TECH_IDENTIFIER, E2E_TECH_PASSWORD,
+#        E2E_ADMIN_IDENTIFIER, E2E_ADMIN_PASSWORD
+# Optional LambdaTest video: LT_USERNAME, LT_ACCESS_KEY
+#
+# Trigger: Actions → "E2E Playwright" → Run workflow
+
+name: E2E Playwright
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Environment"
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - custom
+      base_url:
+        description: "Custom E2E_BASE_URL (only if target=custom)"
+        required: false
+        default: ""
+      api_url:
+        description: "Custom E2E_API_URL (only if target=custom)"
+        required: false
+        default: ""
+      suite:
+        description: "Which tests to run"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - smoke
+          - order-journey
+      use_lambdatest:
+        description: "Also run on LambdaTest (needs LT_* secrets; limited free mins)"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: Playwright ${{ inputs.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.23.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        if: ${{ inputs.use_lambdatest != true }}
+        run: pnpm --filter @workspace/e2e exec playwright install chromium --with-deps
+
+      - name: Resolve env
+        id: env
+        shell: bash
+        run: |
+          if [ "${{ inputs.target }}" = "custom" ] && [ -n "${{ inputs.base_url }}" ]; then
+            echo "base_url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
+            echo "api_url=${{ inputs.api_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base_url=https://app.upnexa-eg.com" >> "$GITHUB_OUTPUT"
+            echo "api_url=https://api.upnexa-eg.com" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Playwright
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: ${{ steps.env.outputs.base_url }}
+          E2E_API_URL: ${{ steps.env.outputs.api_url }}
+          E2E_CLIENT_IDENTIFIER: ${{ secrets.E2E_CLIENT_IDENTIFIER }}
+          E2E_CLIENT_PASSWORD: ${{ secrets.E2E_CLIENT_PASSWORD }}
+          E2E_TECH_IDENTIFIER: ${{ secrets.E2E_TECH_IDENTIFIER }}
+          E2E_TECH_PASSWORD: ${{ secrets.E2E_TECH_PASSWORD }}
+          E2E_ADMIN_IDENTIFIER: ${{ secrets.E2E_ADMIN_IDENTIFIER }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          LT_USERNAME: ${{ secrets.LT_USERNAME }}
+          LT_ACCESS_KEY: ${{ secrets.LT_ACCESS_KEY }}
+          LT_BUILD: "Fanni GH ${{ github.run_number }} ${{ github.sha }}"
+          CI: "true"
+        shell: bash
+        run: |
+          PROJECT="local-chrome"
+          if [ "${{ inputs.use_lambdatest }}" = "true" ]; then
+            if [ -z "$LT_USERNAME" ] || [ -z "$LT_ACCESS_KEY" ]; then
+              echo "::error::use_lambdatest=true but LT_USERNAME / LT_ACCESS_KEY secrets are missing"
+              exit 1
+            fi
+            PROJECT="lambdatest-chrome"
+          fi
+
+          ARGS=(--project="$PROJECT")
+          case "${{ inputs.suite }}" in
+            smoke) ARGS+=(tests/smoke.spec.ts) ;;
+            order-journey) ARGS+=(tests/order-journey) ;;
+            *) ;;
+          esac
+
+          echo "Running: pnpm exec playwright test ${ARGS[*]}"
+          echo "Base: $E2E_BASE_URL | API: $E2E_API_URL | Project: $PROJECT"
+          pnpm exec playwright test "${ARGS[@]}"
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: e2e/playwright-report
+          retention-days: 14
+
+      - name: Upload test traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ github.run_number }}
+          path: e2e/test-results
+          retention-days: 7
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Fanni E2E report"
+            echo ""
+            echo "- **Suite:** \`${{ inputs.suite }}\`"
+            echo "- **Target:** \`${{ inputs.target }}\` → \`${{ steps.env.outputs.base_url }}\`"
+            echo "- **LambdaTest:** \`${{ inputs.use_lambdatest }}\`"
+            echo "- **Artifact:** \`playwright-report-${{ github.run_number }}\` (download → open index.html)"
+            if [ "${{ inputs.use_lambdatest }}" = "true" ]; then
+              echo "- **LambdaTest dashboard:** https://automation.lambdatest.com/"
+            fi
+            echo ""
+            echo "Review UX/UI from screenshots in the HTML report (failures) and from LT session video when enabled."
+          } >> "$GITHUB_STEP_SUMMARY"

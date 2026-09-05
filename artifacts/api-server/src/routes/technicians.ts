@@ -468,14 +468,19 @@ router.get("/technician/pending-orders", authMiddleware, requireAuth, async (req
   }
 });
 
-type DbStatus = "pending" | "acknowledged" | "in_progress" | "completed" | "cancelled";
+type DbStatus = "pending" | "acknowledged" | "en_route" | "arrived" | "in_progress" | "completed" | "cancelled";
 type MobileStatus = "pending" | "accepted" | "inProgress" | "completed" | "cancelled";
 
 function toMobileStatus(dbStatus: DbStatus): MobileStatus {
   switch (dbStatus) {
-    case "acknowledged": return "accepted";
-    case "in_progress": return "inProgress";
-    default: return dbStatus as MobileStatus;
+    case "acknowledged":
+    case "en_route":
+    case "arrived":
+      return "accepted";
+    case "in_progress":
+      return "inProgress";
+    default:
+      return dbStatus as MobileStatus;
   }
 }
 
