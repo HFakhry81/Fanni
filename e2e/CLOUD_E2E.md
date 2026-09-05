@@ -48,7 +48,35 @@ GitHub → **Settings → Secrets and variables → Actions** → New repository
 cd /d E:\UpNexa.com\Fanni
 pnpm test:e2e          rem أو test:e2e:local
 pnpm test:e2e:lt       rem يحتاج LT_* في e2e/.env
+pnpm test:e2e:full     rem لقطات شاشة + فيديو (full-app)
 ```
+
+أو من سطح المكتب: `run-e2e-full-recorded.cmd` → `scripts\run-e2e-full-recorded.cmd`
+
+---
+
+## 2b) تسجيل لقطات شاشة + فيديو شاشة
+
+مشروع Playwright: **`full-recorded`** (`e2e/tests/full-app/*.spec.ts`)
+
+| الإعداد | القيمة |
+|---------|--------|
+| `video` | `on` → ملف `video.webm` لكل اختبار |
+| `screenshot` | `on` → لقطة عند كل خطوة + فشل |
+| `trace` | `on` → إعادة تشغيل التفاعل في التقرير |
+| `film()` | لقطات مُسمّاة في التقرير + `test-results/**/screenshots/*.png` |
+
+```bat
+pnpm test:e2e:full
+```
+
+بعد التشغيل افتح:
+
+- التقرير: `e2e\playwright-report\index.html`
+- الفيديوهات: `e2e\test-results\**\video.webm`
+- اللقطات: `e2e\test-results\**\screenshots\*.png`
+
+اختياري: `E2E_RECORD=1` يجعل كل المشاريع (بما فيها smoke) تسجّل فيديو/لقطات دائمًا.
 
 ---
 
@@ -72,6 +100,10 @@ pnpm test:e2e:lt       rem يحتاج LT_* في e2e/.env
 | ملف | المحور |
 |-----|--------|
 | `tests/smoke.spec.ts` | تحميل الويب + login UI + API health |
+| `full-app/00-…` | شاشات عامة (welcome/login/register) + فيديو |
+| `full-app/10-…` | دخول أدوار + hubs (عميل/فني/أدمن) |
+| `full-app/20-…` | شحن نقاط · طلب · إلغاء · decline · قبول→إكمال · fail-service |
+| `full-app/30-…` | بونص أدمن + شاشة تسجيل (بدون OTP حقيقي) |
 | `order-journey/01-…` | عميل: إنشاء / إلغاء |
 | `02-…` | فني: بيانات مقنّعة / decline |
 | `03-…` | قبول + تتبع |

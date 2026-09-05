@@ -6,7 +6,9 @@
     "test": "playwright test",
     "test:local": "playwright test --project=local-chrome",
     "test:lt": "playwright test --project=lambdatest-chrome",
-    "report": "playwright show-report"
+    "test:full": "playwright test --project=full-recorded",
+    "report": "playwright show-report",
+    "report:open": "playwright show-report playwright-report"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1",

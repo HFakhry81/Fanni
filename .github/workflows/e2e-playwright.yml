@@ -42,6 +42,7 @@ on:
           - all
           - smoke
           - order-journey
+          - full-recorded
       use_lambdatest:
         description: "Also run on LambdaTest (needs LT_* secrets; limited free mins)"
         required: true
@@ -115,12 +116,22 @@ jobs:
               exit 1
             fi
             PROJECT="lambdatest-chrome"
+          elif [ "${{ inputs.suite }}" = "full-recorded" ]; then
+            PROJECT="full-recorded"
+            export E2E_RECORD=1
           fi
 
           ARGS=(--project="$PROJECT")
           case "${{ inputs.suite }}" in
             smoke) ARGS+=(tests/smoke.spec.ts) ;;
             order-journey) ARGS+=(tests/order-journey) ;;
+            full-recorded)
+              if [ "$PROJECT" = "lambdatest-chrome" ]; then
+                ARGS=(--project=lambdatest-chrome tests/full-app)
+              else
+                ARGS=(--project=full-recorded)
+              fi
+              ;;
             *) ;;
           esac
 
@@ -136,13 +147,14 @@ jobs:
           path: e2e/playwright-report
           retention-days: 14
 
-      - name: Upload test traces
-        if: failure()
+      - name: Upload videos / screenshots / traces
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-traces-${{ github.run_number }}
+          name: playwright-media-${{ github.run_number }}
           path: e2e/test-results
-          retention-days: 7
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Job summary
         if: always()
@@ -155,9 +167,10 @@ jobs:
             echo "- **Target:** \`${{ inputs.target }}\` → \`${{ steps.env.outputs.base_url }}\`"
             echo "- **LambdaTest:** \`${{ inputs.use_lambdatest }}\`"
             echo "- **Artifact:** \`playwright-report-${{ github.run_number }}\` (download → open index.html)"
+            echo "- **Media:** \`playwright-media-${{ github.run_number }}\` (video.webm + screenshots)"
             if [ "${{ inputs.use_lambdatest }}" = "true" ]; then
               echo "- **LambdaTest dashboard:** https://automation.lambdatest.com/"
             fi
             echo ""
-            echo "Review UX/UI from screenshots in the HTML report (failures) and from LT session video when enabled."
+            echo "Review UX/UI from screenshots/videos in the HTML report and media artifact."
           } >> "$GITHUB_STEP_SUMMARY"

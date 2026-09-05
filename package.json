@@ -17,6 +17,7 @@
     "test:e2e": "pnpm --filter @workspace/e2e run test",
     "test:e2e:local": "pnpm --filter @workspace/e2e run test:local",
     "test:e2e:lt": "pnpm --filter @workspace/e2e run test:lt",
+    "test:e2e:full": "pnpm --filter @workspace/e2e run test:full",
     "dev:api": "pnpm --filter @workspace/api-server run dev",
     "dev:mobile": "pnpm --filter @workspace/mobile run dev",
     "run:api": "scripts\\run-local-server.cmd",
