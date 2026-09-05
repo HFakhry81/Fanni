@@ -12,7 +12,10 @@ export async function uiLogin(
   await page.getByTestId("login-identifier").fill(identifier);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
+  // Admin may land on /dashboard; clients/techs on role hubs
   await expect(page).toHaveURL(expectUrl, { timeout: 45_000 });
+  // Wait until login screen is gone so videos/screenshots are meaningful
+  await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 45_000 }).catch(() => undefined);
 }
 
 export async function film(

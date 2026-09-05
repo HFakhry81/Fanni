@@ -7,7 +7,12 @@
     "test:local": "playwright test --project=local-chrome",
     "test:lt": "playwright test --project=lambdatest-chrome",
     "test:full": "playwright test --project=full-recorded",
+    "test:logic": "playwright test --project=logic-suite",
     "test:smoke-prod": "playwright test --project=local-chrome tests/smoke.spec.ts",
+    "quality-loop": "node ./quality-loop.mjs",
+    "quality-loop:ui": "node ./quality-loop.mjs --suite ui-safe",
+    "quality-loop:logic": "node ./quality-loop.mjs --suite logic",
+    "quality-loop:full": "node ./quality-loop.mjs --suite full",
     "report": "playwright show-report",
     "report:open": "playwright show-report playwright-report"
   },

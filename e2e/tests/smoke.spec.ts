@@ -18,11 +18,10 @@ test.describe("Fanni smoke (production)", () => {
 
   test("login page renders", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByPlaceholder(/email|mobile|بريد|جوال/i).first()).toBeVisible({
-      timeout: 20_000,
-    });
+    const byTestId = page.getByTestId("login-identifier");
+    const byPlaceholder = page.getByPlaceholder(/email|mobile|بريد|جوال|هاتف/i).first();
+    await expect(byTestId.or(byPlaceholder)).toBeVisible({ timeout: 20_000 });
   });
-
   test("API healthz", async ({ request }) => {
     const res = await request.get(`${apiBase}/api/healthz`);
     expect(res.ok()).toBeTruthy();

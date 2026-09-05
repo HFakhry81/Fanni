@@ -38,6 +38,9 @@ export default defineConfig({
   reporter: [
     ["list"],
     ["html", { open: "never", outputFolder: "playwright-report" }],
+    ...(process.env.E2E_QUALITY_LOOP === "1"
+      ? ([["json", { outputFile: "quality-loop-out/results.json" }]] as const)
+      : []),
   ],
   outputDir: "test-results",
   use: {
@@ -55,6 +58,16 @@ export default defineConfig({
     {
       name: "full-recorded",
       testMatch: /full-app\/.*\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        screenshot: "on",
+        video: "on",
+        trace: "on",
+      },
+    },
+    {
+      name: "logic-suite",
+      testMatch: /logic\/.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         screenshot: "on",

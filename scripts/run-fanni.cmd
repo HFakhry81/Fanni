@@ -15,10 +15,12 @@ echo   [3] Mobile vs Prod API (QA — real prod data; confirm prompt)
 echo   [4] UPDATE_ALL         (install / migrate / typecheck / ...)
 echo   [5] E2E full recorded  (local-first; no prod junk writes)
 echo   [6] E2E smoke prod     (read-only)
+echo   [7] E2E logic suite    (شحن/طلبات/قبول/فشل/استرداد)
 echo   [0] Exit
 echo.
-choice /c 1234560 /n /m "Select: "
-if errorlevel 7 goto :eof
+choice /c 12345670 /n /m "Select: "
+if errorlevel 8 goto :eof
+if errorlevel 7 goto e2e_logic
 if errorlevel 6 goto e2e_smoke
 if errorlevel 5 goto e2e_full
 if errorlevel 4 goto update
@@ -50,4 +52,8 @@ goto :eof
 
 :e2e_smoke
 call "%~dp0run-e2e-smoke-prod.cmd"
+goto :eof
+
+:e2e_logic
+call "%~dp0run-e2e-logic-suite.cmd"
 goto :eof

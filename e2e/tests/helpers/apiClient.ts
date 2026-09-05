@@ -209,6 +209,26 @@ export async function startOrder(token: string, orderId: string): Promise<unknow
   return api("PATCH", `/api/orders/${orderId}/start`, { token, body: {} });
 }
 
+/** Client confirms tech arrival → in_progress (optional path vs tech /start). */
+export async function confirmArrival(
+  token: string,
+  orderId: string,
+  confirmed = true,
+  rejectionReason?: string,
+): Promise<unknown> {
+  return api("PATCH", `/api/orders/${orderId}/confirm-arrival`, {
+    token,
+    body: { confirmed, rejectionReason },
+  });
+}
+
+export async function getOrder(
+  token: string,
+  orderId: string,
+): Promise<{ id?: string; status?: string; orderNumber?: string; data?: Record<string, unknown> }> {
+  return api("GET", `/api/orders/${orderId}`, { token });
+}
+
 export async function completeOrder(token: string, orderId: string): Promise<unknown> {
   return api("PATCH", `/api/orders/${orderId}/complete`, {
     token,
@@ -216,14 +236,25 @@ export async function completeOrder(token: string, orderId: string): Promise<unk
   });
 }
 
+/** Fail-service reasons from API ALLOWED list. */
+export type FailServiceReason =
+  | "client_not_present"
+  | "client_refused"
+  | "different_problem"
+  | "parts_unavailable"
+  | "extra_time"
+  | "cannot_repair"
+  | "other";
+
 export async function failService(
   token: string,
   orderId: string,
-  reason = "client_not_present",
-): Promise<unknown> {
+  reason: FailServiceReason = "client_not_present",
+  details = "E2E fail-service path",
+): Promise<{ success?: boolean; refundRequested?: boolean }> {
   return api("PATCH", `/api/orders/${orderId}/fail-service`, {
     token,
-    body: { reason, details: "E2E fail-service path" },
+    body: { reason, details },
   });
 }
 
@@ -249,8 +280,28 @@ export async function techAssignedOrders(token: string): Promise<{
   return api("GET", "/api/technician/orders", { token });
 }
 
-export async function listAdminDisputes(token: string): Promise<{ disputes: unknown[] }> {
+export async function listAdminDisputes(token: string): Promise<{
+  disputes: Array<{
+    id: string;
+    status?: string;
+    orderId?: string;
+    reason?: string;
+    pointsRefunded?: boolean;
+  }>;
+}> {
   return api("GET", "/api/admin/disputes", { token });
+}
+
+export async function adminResolveDispute(
+  token: string,
+  disputeId: string,
+  action: "approve" | "reject",
+  adminNotes = "E2E dispute resolve",
+): Promise<unknown> {
+  return api("PATCH", `/api/admin/disputes/${disputeId}`, {
+    token,
+    body: { action, adminNotes },
+  });
 }
 
 export async function createDispute(
@@ -279,6 +330,61 @@ export async function pendingBonusGrants(token: string): Promise<{ grants: Array
 
 export async function acknowledgeBonus(token: string, grantId: string): Promise<unknown> {
   return api("POST", `/api/wallet/bonus-grants/${grantId}/acknowledge`, { token, body: {} });
+}
+
+/** Grant welcome points only via approve — do not invent points. */
+export async function adminApproveTechnician(
+  token: string,
+  technicianId: string,
+): Promise<{ success?: boolean; approved?: boolean; welcomePointsGranted?: boolean | number }> {
+  return api("PATCH", `/api/admin/technicians/${technicianId}/approve`, { token, body: {} });
+}
+
+export async function adminListPendingTechnicians(token: string): Promise<{
+  technicians?: Array<{ id: string; mobile?: string }>;
+}> {
+  return api("GET", "/api/admin/technicians/pending", { token });
+}
+
+/** Ensure tech has points via top-up + admin confirm (local / allow-prod-writes only). */
+export async function ensureTechPoints(
+  techToken: string,
+  adminToken: string,
+  minPoints = 25,
+): Promise<number> {
+  const before = await getWallet(techToken);
+  const bal = before.pointsBalance ?? 0;
+  if (bal >= minPoints) return bal;
+
+  const pkgs = await listPackages(techToken);
+  const pkg = pkgs.packages?.[0];
+  if (!pkg) throw new Error("No point packages available for top-up");
+
+  const { request } = await requestTopUp(techToken, {
+    packageId: pkg.id,
+    amountEgp: Number(pkg.priceEgp) || 50,
+    pointsRequested: pkg.pointsAmount || 60,
+    paymentMethod: "instapay",
+    senderDetails: { instapayId: "e2e-logic@instapay" },
+    referenceNumber: `LOGIC-${Date.now()}`,
+  });
+  await adminConfirmPayment(adminToken, request.id);
+  const after = await getWallet(techToken);
+  return after.pointsBalance ?? 0;
+}
+
+/** Accept → start → complete helper for happy path. */
+export async function runHappyJob(
+  clientToken: string,
+  techToken: string,
+  techMeta?: { name?: string; mobile?: string },
+): Promise<{ orderId: string }> {
+  const created = await createOrder(clientToken);
+  await acceptOrder(techToken, created.orderId, techMeta);
+  await startOrder(techToken, created.orderId);
+  await completeOrder(techToken, created.orderId);
+  await rateOrder(clientToken, created.orderId, 5, "E2E logic happy path");
+  return { orderId: created.orderId };
 }
 
 export function requireClientCreds(): boolean {
