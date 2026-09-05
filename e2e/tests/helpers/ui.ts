@@ -55,8 +55,10 @@ export async function softUiLogin(
   password: string,
   expectUrl: RegExp,
 ): Promise<boolean> {
-  // Logic suites hammer login rate-limits; skip UI login unless explicitly enabled.
-  if (process.env.E2E_LOGIC_UI_LOGIN !== "1" && process.env.E2E_LOGIC_UI_LOGIN !== "true") {
+  // Default ON when recording video; set E2E_LOGIC_UI_LOGIN=0 for API-only (blank videos).
+  const uiOff =
+    process.env.E2E_LOGIC_UI_LOGIN === "0" || process.env.E2E_LOGIC_UI_LOGIN === "false";
+  if (uiOff) {
     try {
       await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
     } catch {
@@ -66,6 +68,8 @@ export async function softUiLogin(
   }
   try {
     await uiLogin(page, identifier, password, expectUrl);
+    // Let Expo web paint before screenshot/video frame
+    await page.waitForTimeout(1200);
     return true;
   } catch {
     return false;

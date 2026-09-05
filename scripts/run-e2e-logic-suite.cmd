@@ -19,6 +19,8 @@ if not defined E2E_USE_LOCAL set "E2E_USE_LOCAL=1"
 if not defined E2E_ALLOW_PROD_WRITES set "E2E_ALLOW_PROD_WRITES=0"
 set "E2E_RECORD=1"
 set "E2E_QUALITY_LOOP=1"
+REM UI filming ON (videos show real screens). Set E2E_LOGIC_UI_LOGIN=0 for API-only.
+if not defined E2E_LOGIC_UI_LOGIN set "E2E_LOGIC_UI_LOGIN=1"
 set "NODE_OPTIONS=--use-system-ca"
 set "PLAYWRIGHT_BROWSERS_PATH=%ROOT%\e2e\.playwright-browsers"
 
@@ -30,12 +32,12 @@ if not exist "%PLAYWRIGHT_BROWSERS_PATH%\chromium_headless_shell-1234\chrome-hea
 )
 
 echo [INFO] E2E_USE_LOCAL=%E2E_USE_LOCAL%  ALLOW_PROD_WRITES=%E2E_ALLOW_PROD_WRITES%
+echo [INFO] E2E_LOGIC_UI_LOGIN=%E2E_LOGIC_UI_LOGIN%  (1 = real UI video; 0 = blank video / API-only)
 echo [INFO] Docs: e2e\LOGIC_SCRIPTS.md
 echo.
 echo [WARN] Needs local API+web OR intentional prod writes.
 echo        Fill E2E_LOCAL_* in e2e\.env for local.
 echo.
-
 pushd "%ROOT%\e2e"
 call pnpm exec playwright test --project=logic-suite
 set "EXITCODE=%ERRORLEVEL%"

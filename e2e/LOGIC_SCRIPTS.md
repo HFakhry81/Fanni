@@ -69,10 +69,14 @@
 ## 4) أوامر سريعة
 
 ```bat
-:: محلي (موصى به للكتابة)
+:: محلي (موصى به للكتابة) — فيديو واجهة حقيقي
 set E2E_USE_LOCAL=1
+set E2E_LOGIC_UI_LOGIN=1
 scripts\run-e2e-logic-suite.cmd
 
 :: أو
 pnpm test:e2e:logic
 ```
+
+اختياري: تشغيل **منطق API فقط** بدون واجهة (فيديو أبيض متوقع):
+`set E2E_LOGIC_UI_LOGIN=0`
