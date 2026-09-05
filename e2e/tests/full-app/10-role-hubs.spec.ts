@@ -52,7 +52,7 @@ test.describe("Full-app · role logins + hub screens (video)", () => {
       page,
       process.env.E2E_ADMIN_IDENTIFIER!,
       process.env.E2E_ADMIN_PASSWORD!,
-      /admin/,
+      /admin|dashboard/,
     );
     await film(page, info, "12-admin-entry");
     for (const path of [

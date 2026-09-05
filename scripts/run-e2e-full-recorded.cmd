@@ -31,9 +31,23 @@ if not defined E2E_ALLOW_PROD_WRITES set "E2E_ALLOW_PROD_WRITES=0"
 
 set "E2E_RECORD=1"
 set "NODE_OPTIONS=--use-system-ca"
+set "PLAYWRIGHT_BROWSERS_PATH=%ROOT%\e2e\.playwright-browsers"
+
+if not exist "%PLAYWRIGHT_BROWSERS_PATH%\chromium_headless_shell-1234\chrome-headless-shell-win64\chrome-headless-shell.exe" (
+  echo [SETUP] Installing Playwright Chromium ^(one-time, ~300MB^)...
+  pushd "%ROOT%\e2e"
+  call pnpm exec playwright install chromium
+  popd
+  if errorlevel 1 (
+    echo [ERROR] playwright install failed
+    pause
+    exit /b 1
+  )
+)
 
 echo [INFO] Root              : %CD%
 echo [INFO] Project           : full-recorded
+echo [INFO] Browsers          : %PLAYWRIGHT_BROWSERS_PATH%
 echo [INFO] E2E_USE_LOCAL     : %E2E_USE_LOCAL%
 echo [INFO] ALLOW_PROD_WRITES : %E2E_ALLOW_PROD_WRITES%
 echo [INFO] Video/shots/trace : ON
@@ -47,12 +61,14 @@ echo [ACTION] Running full-app suite...
 echo ----------------------------------------------------------------------
 echo.
 
-call pnpm --filter @workspace/e2e run test:full
+pushd "%ROOT%\e2e"
+call pnpm exec playwright test --project=full-recorded
 set "EXITCODE=%ERRORLEVEL%"
+popd
 
 echo.
 echo ======================================================================
-echo   RESULTS
+echo   RESULTS ^(local on this PC^)
 echo   - HTML report : e2e\playwright-report\index.html
 echo   - Videos      : e2e\test-results\**\video.webm
 echo   - Screenshots : e2e\test-results\**\screenshots\*.png
@@ -62,6 +78,9 @@ echo.
 if exist "%ROOT%\e2e\playwright-report\index.html" (
   echo Opening HTML report...
   start "" "%ROOT%\e2e\playwright-report\index.html"
+)
+if exist "%ROOT%\e2e\test-results" (
+  start "" explorer "%ROOT%\e2e\test-results"
 )
 
 pause
